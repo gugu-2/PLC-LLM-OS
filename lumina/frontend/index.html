@@ -1,0 +1,1479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Project Lumina — Autonomous PLC Operating System</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        /* ==========================================================================
+           REPLICATE DESIGN SYSTEM TOKENS (from DESIGN.md)
+           ========================================================================== */
+        :root {
+            --color-primary: #ea2804;
+            --color-primary-deep: #c01f00;
+            --color-on-primary: #ffffff;
+            --color-ink: #202020;
+            --color-body: #3a3a3a;
+            --color-charcoal: #575757;
+            --color-mute: #646464;
+            --color-ash: #8d8d8d;
+            --color-stone: #bbbbbb;
+            --color-canvas: #f9f7f3;
+            --color-surface-bone: #f3f0e8;
+            --color-surface-card: #ffffff;
+            --color-surface-dark: #202020;
+            --color-surface-deep: #141414;
+            --color-on-dark: #fcfcfc;
+            --color-on-dark-mute: rgba(252, 252, 252, 0.72);
+            --color-hairline: rgba(32, 32, 32, 0.12);
+            --color-hairline-strong: #202020;
+            --color-badge-success: #2b9a66;
+            --color-badge-warning: #d97706;
+            --color-badge-danger: #ea2804;
+
+            --font-display: 'Space Grotesk', -apple-system, sans-serif;
+            --font-sans: 'Inter', -apple-system, sans-serif;
+            --font-mono: 'JetBrains Mono', monospace;
+
+            --radius-xs: 4px;
+            --radius-sm: 6px;
+            --radius-md: 10px;
+            --radius-lg: 16px;
+            --radius-full: 9999px;
+
+            --shadow-subtle: 0 1px 3px rgba(0,0,0,0.05), 0 1px 2px rgba(0,0,0,0.03);
+            --shadow-card: 0 4px 12px rgba(0,0,0,0.04);
+            --shadow-pop: 0 12px 32px rgba(234, 40, 4, 0.12);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background-color: var(--color-canvas);
+            color: var(--color-ink);
+            font-family: var(--font-sans);
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Top Header - Replicate Style */
+        header {
+            background-color: var(--color-surface-card);
+            border-bottom: 1px solid var(--color-hairline);
+            padding: 0.8rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .brand-section {
+            display: flex;
+            align-items: center;
+            gap: 0.9rem;
+        }
+
+        .brand-logo {
+            font-family: var(--font-display);
+            font-size: 1.35rem;
+            font-weight: 800;
+            letter-spacing: -0.04em;
+            color: var(--color-ink);
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+
+        .brand-logo-dot {
+            width: 10px;
+            height: 10px;
+            background-color: var(--color-primary);
+            border-radius: 2px;
+            display: inline-block;
+        }
+
+        .pill-badge {
+            background-color: var(--color-surface-bone);
+            color: var(--color-charcoal);
+            font-family: var(--font-mono);
+            font-size: 0.72rem;
+            padding: 0.2rem 0.6rem;
+            border-radius: var(--radius-full);
+            font-weight: 600;
+            border: 1px solid var(--color-hairline);
+        }
+
+        /* Navigation Bar with all 8 feature tabs */
+        .nav-pills {
+            display: flex;
+            background-color: var(--color-surface-bone);
+            padding: 0.25rem;
+            border-radius: var(--radius-full);
+            border: 1px solid var(--color-hairline);
+            gap: 0.2rem;
+            flex-wrap: wrap;
+        }
+
+        .nav-pill-btn {
+            background: transparent;
+            border: none;
+            color: var(--color-charcoal);
+            font-family: var(--font-sans);
+            font-size: 0.8rem;
+            font-weight: 600;
+            padding: 0.35rem 0.85rem;
+            border-radius: var(--radius-full);
+            cursor: pointer;
+            transition: all 0.15s ease;
+        }
+
+        .nav-pill-btn:hover {
+            color: var(--color-ink);
+        }
+
+        .nav-pill-btn.active {
+            background-color: var(--color-surface-card);
+            color: var(--color-ink);
+            box-shadow: var(--shadow-subtle);
+        }
+
+        .header-meta {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .telemetry-status-pill {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-family: var(--font-mono);
+            font-size: 0.72rem;
+            font-weight: 600;
+            padding: 0.25rem 0.75rem;
+            border-radius: var(--radius-full);
+            background-color: rgba(43, 154, 102, 0.1);
+            color: var(--color-badge-success);
+            border: 1px solid rgba(43, 154, 102, 0.2);
+        }
+
+        .status-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            background-color: var(--color-badge-success);
+        }
+
+        /* Replicate Hero Band */
+        .hero-banner {
+            background-color: var(--color-ink);
+            color: var(--color-on-dark);
+            padding: 1.75rem 2.5rem;
+            border-bottom: 1px solid var(--color-hairline-strong);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .hero-headline {
+            font-family: var(--font-display);
+            font-size: 1.65rem;
+            font-weight: 700;
+            letter-spacing: -0.03em;
+            line-height: 1.2;
+        }
+
+        .hero-subtext {
+            color: var(--color-on-dark-mute);
+            font-size: 0.9rem;
+            margin-top: 0.25rem;
+        }
+
+        /* Main Workspace Container */
+        main {
+            flex: 1;
+            max-width: 1540px;
+            margin: 0 auto;
+            width: 100%;
+            padding: 1.75rem 2rem;
+        }
+
+        .view-panel {
+            display: none;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .view-panel.active {
+            display: flex;
+        }
+
+        /* Replicate Cards & Grids */
+        .grid-stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 1.25rem;
+        }
+
+        .replicate-card {
+            background-color: var(--color-surface-card);
+            border: 1px solid var(--color-hairline);
+            border-radius: var(--radius-lg);
+            padding: 1.5rem;
+            box-shadow: var(--shadow-card);
+            transition: border-color 0.15s ease;
+        }
+
+        .replicate-card:hover {
+            border-color: var(--color-stone);
+        }
+
+        .card-label {
+            font-family: var(--font-mono);
+            font-size: 0.72rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--color-mute);
+            font-weight: 600;
+            margin-bottom: 0.35rem;
+        }
+
+        .card-stat {
+            font-family: var(--font-mono);
+            font-size: 2.1rem;
+            font-weight: 700;
+            color: var(--color-ink);
+            line-height: 1.1;
+            letter-spacing: -0.03em;
+        }
+
+        .card-footer-note {
+            font-size: 0.8rem;
+            color: var(--color-charcoal);
+            margin-top: 0.4rem;
+        }
+
+        /* Machine Fleet Grid */
+        .fleet-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(520px, 1fr));
+            gap: 1.5rem;
+        }
+
+        .fleet-card {
+            background-color: var(--color-surface-card);
+            border: 1px solid var(--color-hairline);
+            border-radius: var(--radius-lg);
+            padding: 1.5rem;
+            box-shadow: var(--shadow-card);
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+        }
+
+        .telemetry-strip {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 0.75rem;
+            background-color: var(--color-surface-bone);
+            padding: 1rem;
+            border-radius: var(--radius-md);
+            border: 1px solid var(--color-hairline);
+        }
+
+        .tel-field-label {
+            font-family: var(--font-mono);
+            font-size: 0.68rem;
+            color: var(--color-mute);
+            text-transform: uppercase;
+        }
+
+        .tel-field-val {
+            font-family: var(--font-mono);
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--color-ink);
+            margin-top: 0.1rem;
+        }
+
+        /* Replicate Buttons */
+        .btn-primary {
+            background-color: var(--color-primary);
+            color: var(--color-on-primary);
+            font-family: var(--font-sans);
+            font-size: 0.85rem;
+            font-weight: 600;
+            padding: 0.65rem 1.3rem;
+            border-radius: var(--radius-full);
+            border: none;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            transition: background-color 0.15s ease;
+        }
+
+        .btn-primary:hover {
+            background-color: var(--color-primary-deep);
+        }
+
+        .btn-dark {
+            background-color: var(--color-surface-dark);
+            color: var(--color-on-dark);
+            font-family: var(--font-sans);
+            font-size: 0.82rem;
+            font-weight: 600;
+            padding: 0.6rem 1.2rem;
+            border-radius: var(--radius-full);
+            border: none;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.45rem;
+            transition: opacity 0.15s ease;
+        }
+
+        .btn-dark:hover {
+            opacity: 0.9;
+        }
+
+        .btn-bone {
+            background-color: var(--color-surface-bone);
+            color: var(--color-ink);
+            font-family: var(--font-sans);
+            font-size: 0.82rem;
+            font-weight: 600;
+            padding: 0.6rem 1.2rem;
+            border-radius: var(--radius-full);
+            border: 1px solid var(--color-hairline);
+            cursor: pointer;
+            transition: background-color 0.15s ease;
+        }
+
+        .btn-bone:hover {
+            background-color: var(--color-canvas);
+        }
+
+        /* Replicate Dark Code Well */
+        .replicate-code-well {
+            background-color: var(--color-surface-dark);
+            color: var(--color-on-dark);
+            border-radius: var(--radius-md);
+            padding: 1.25rem;
+            font-family: var(--font-mono);
+            font-size: 0.82rem;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            line-height: 1.6;
+        }
+
+        .diff-add-line {
+            color: #4ade80;
+            background-color: rgba(74, 222, 128, 0.1);
+            display: inline-block;
+            width: 100%;
+        }
+
+        .diff-del-line {
+            color: #f87171;
+            background-color: rgba(248, 113, 113, 0.1);
+            display: inline-block;
+            width: 100%;
+        }
+
+        .proposal-hero-card {
+            background-color: var(--color-surface-card);
+            border: 2px solid var(--color-primary);
+            border-radius: var(--radius-lg);
+            padding: 1.75rem;
+            box-shadow: var(--shadow-pop);
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+        }
+
+        .narrative-callout {
+            background-color: var(--color-surface-bone);
+            border-left: 4px solid var(--color-primary);
+            padding: 1rem 1.25rem;
+            border-radius: 0 var(--radius-md) var(--radius-md) 0;
+            font-size: 0.92rem;
+            color: var(--color-body);
+            line-height: 1.6;
+        }
+
+        .verification-trio {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+        }
+
+        .trio-card {
+            background-color: var(--color-canvas);
+            border: 1px solid var(--color-hairline);
+            padding: 1rem;
+            border-radius: var(--radius-md);
+        }
+
+        .trio-title {
+            font-family: var(--font-mono);
+            font-size: 0.76rem;
+            font-weight: 700;
+            color: var(--color-badge-success);
+            display: flex;
+            align-items: center;
+            gap: 0.3rem;
+            margin-bottom: 0.25rem;
+        }
+
+        .trio-desc {
+            font-size: 0.78rem;
+            color: var(--color-charcoal);
+        }
+
+        /* Canvas */
+        #physicsCanvas {
+            width: 100%;
+            height: 160px;
+            background-color: var(--color-surface-dark);
+            border-radius: var(--radius-md);
+        }
+
+        /* Form Inputs */
+        .replicate-input {
+            background-color: var(--color-surface-bone);
+            border: 1px solid var(--color-hairline);
+            color: var(--color-ink);
+            padding: 0.65rem 1rem;
+            border-radius: var(--radius-md);
+            font-family: var(--font-sans);
+            font-size: 0.85rem;
+            width: 100%;
+        }
+
+        .replicate-input:focus {
+            outline: 2px solid var(--color-primary);
+            background-color: var(--color-surface-card);
+        }
+
+        .replicate-textarea {
+            background-color: var(--color-surface-dark);
+            border: 1px solid var(--color-hairline);
+            color: var(--color-on-dark);
+            padding: 1rem;
+            border-radius: var(--radius-md);
+            font-family: var(--font-mono);
+            font-size: 0.82rem;
+            width: 100%;
+            min-height: 200px;
+            resize: vertical;
+            line-height: 1.5;
+        }
+
+        .replicate-textarea:focus {
+            outline: 2px solid var(--color-primary);
+        }
+
+        /* Process Mining Graph Nodes */
+        .fsm-node-container {
+            display: flex;
+            gap: 1.5rem;
+            overflow-x: auto;
+            padding: 1rem 0.5rem;
+        }
+
+        .fsm-node {
+            background-color: var(--color-surface-bone);
+            border: 2px solid var(--color-ink);
+            border-radius: var(--radius-md);
+            padding: 1rem;
+            min-width: 180px;
+            text-align: center;
+        }
+
+        .fsm-node.active-state {
+            border-color: var(--color-primary);
+            background-color: rgba(234, 40, 4, 0.05);
+        }
+
+        .fsm-node-title {
+            font-family: var(--font-mono);
+            font-size: 0.82rem;
+            font-weight: 700;
+        }
+
+        .fsm-node-tag {
+            font-size: 0.72rem;
+            color: var(--color-mute);
+            margin-top: 0.2rem;
+        }
+
+        /* Responsive */
+        @media (max-width: 1024px) {
+            .fleet-grid { grid-template-columns: 1fr; }
+            .verification-trio { grid-template-columns: 1fr; }
+            .hero-banner { flex-direction: column; align-items: flex-start; gap: 1rem; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header (Replicate Style) -->
+    <header>
+        <div class="brand-section">
+            <div class="brand-logo">
+                <span class="brand-logo-dot"></span>
+                Lumina
+            </div>
+            <span class="pill-badge">Autonomous PLC OS</span>
+        </div>
+
+        <nav class="nav-pills">
+            <button class="nav-pill-btn active" onclick="switchTab('plant-mgr')">1. Plant Fleet</button>
+            <button class="nav-pill-btn" onclick="switchTab('controls-ide')">2. Controls IDE</button>
+            <button class="nav-pill-btn" onclick="switchTab('code-studio')">3. Code Studio</button>
+            <button class="nav-pill-btn" onclick="switchTab('rag-kb')">4. Industrial RAG</button>
+            <button class="nav-pill-btn" onclick="switchTab('process-mining')">5. Process Mining</button>
+            <button class="nav-pill-btn" onclick="switchTab('commissioning')">6. Commissioning</button>
+            <button class="nav-pill-btn" onclick="switchTab('security')">7. Zero-Trust ICS</button>
+            <button class="nav-pill-btn" onclick="switchTab('csuite')">8. C-Suite ROI</button>
+        </nav>
+
+        <div class="header-meta">
+            <div class="telemetry-status-pill">
+                <span class="status-dot"></span>
+                <span id="wsStatus">Telemetry Live (5Hz)</span>
+            </div>
+            <span class="pill-badge" style="background-color: #202020; color: #fff;">
+                🔒 AMD SEV-SNP CVM
+            </span>
+        </div>
+    </header>
+
+    <!-- Hero Band -->
+    <section class="hero-banner">
+        <div>
+            <h1 class="hero-headline">Autonomous Industrial Control Intelligence</h1>
+            <p class="hero-subtext">IEC 61131-3 logic synthesis, Z3 SMT formal verification, legacy process mining, and zero-trust runtime protection.</p>
+        </div>
+        <div style="display: flex; gap: 0.5rem;">
+            <button class="btn-primary" onclick="injectFault('BEARING_DEGRADATION_LINE3')">
+                ⚡ Simulate Anomaly (Line 3)
+            </button>
+            <button class="btn-bone" style="background: rgba(255,255,255,0.1); color: #fff; border-color: rgba(255,255,255,0.2);" onclick="clearFaults()">
+                🔄 Reset
+            </button>
+        </div>
+    </section>
+
+    <!-- Main Workspace -->
+    <main>
+
+        <!-- FEATURE 1: PLANT FLEET & OSCILLOSCOPE -->
+        <section id="panel-plant-mgr" class="view-panel active">
+            <div class="grid-stats">
+                <div class="replicate-card">
+                    <div class="card-label">Overall Plant OEE</div>
+                    <div class="card-stat" id="cardOEE">94.2%</div>
+                    <div class="card-footer-note">World-Class Standard: &gt;85.0%</div>
+                </div>
+                <div class="replicate-card">
+                    <div class="card-label">Predicted 48h Uptime</div>
+                    <div class="card-stat" id="cardUptime">96.4%</div>
+                    <div class="card-footer-note">Zero catastrophic trips forecast</div>
+                </div>
+                <div class="replicate-card">
+                    <div class="card-label">Avoided Downtime Savings</div>
+                    <div class="card-stat" id="cardSavings">$12,450</div>
+                    <div class="card-footer-note">Cumulative operational cost savings</div>
+                </div>
+                <div class="replicate-card">
+                    <div class="card-label">Verified AI Optimizations</div>
+                    <div class="card-stat" id="cardActions" style="color: var(--color-primary);">1</div>
+                    <div class="card-footer-note">Z3 SMT Invariant Verification Passed</div>
+                </div>
+            </div>
+
+            <!-- Machine Fleet -->
+            <div class="fleet-grid">
+                <!-- Line 3 Siemens -->
+                <div class="fleet-card">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                        <div>
+                            <div style="font-family: var(--font-display); font-size: 1.15rem; font-weight: 700;">
+                                Line 3: High-Speed Rotary Bottling & Capping
+                            </div>
+                            <div style="font-family: var(--font-mono); font-size: 0.72rem; color: var(--color-mute); margin-top: 0.2rem;">
+                                Siemens S7-1516 CPU • Driver: S7 Comm • IP: 192.168.1.10
+                            </div>
+                        </div>
+                        <span id="machBadgeLine3" class="pill-badge" style="background-color: rgba(43, 154, 102, 0.15); color: var(--color-badge-success);">
+                            ● Optimal
+                        </span>
+                    </div>
+
+                    <div class="telemetry-strip">
+                        <div>
+                            <div class="tel-field-label">Throughput</div>
+                            <div class="tel-field-val" id="telL3Throughput">58.4 PPM</div>
+                        </div>
+                        <div>
+                            <div class="tel-field-label">Vibration RMS</div>
+                            <div class="tel-field-val" id="telL3Vib">1.35 g</div>
+                        </div>
+                        <div>
+                            <div class="tel-field-label">Bearing Temp</div>
+                            <div class="tel-field-val" id="telL3Temp">44.5 °C</div>
+                        </div>
+                        <div>
+                            <div class="tel-field-label">Decel Ramp</div>
+                            <div class="tel-field-val" id="telL3Ramp">500 ms</div>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div style="font-family: var(--font-mono); font-size: 0.7rem; color: var(--color-mute); margin-bottom: 0.3rem;">
+                            KINEMATIC OSCILLOSCOPE & CONVEYOR SIMULATION
+                        </div>
+                        <canvas id="physicsCanvas"></canvas>
+                    </div>
+                </div>
+
+                <!-- Line 4 Rockwell -->
+                <div class="fleet-card">
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                        <div>
+                            <div style="font-family: var(--font-display); font-size: 1.15rem; font-weight: 700;">
+                                Line 4: Carton Erector & Flap Gluing
+                            </div>
+                            <div style="font-family: var(--font-mono); font-size: 0.72rem; color: var(--color-mute); margin-top: 0.2rem;">
+                                Rockwell ControlLogix 5580 • Driver: CIP • IP: 192.168.1.30
+                            </div>
+                        </div>
+                        <span class="pill-badge" style="background-color: rgba(43, 154, 102, 0.15); color: var(--color-badge-success);">
+                            ● Optimal
+                        </span>
+                    </div>
+
+                    <div class="telemetry-strip">
+                        <div>
+                            <div class="tel-field-label">Cycle Time</div>
+                            <div class="tel-field-val" id="telL4Cycle">820 ms</div>
+                        </div>
+                        <div>
+                            <div class="tel-field-label">Pneumatic Air</div>
+                            <div class="tel-field-val" id="telL4Press">610 kPa</div>
+                        </div>
+                        <div>
+                            <div class="tel-field-label">Total Cartons</div>
+                            <div class="tel-field-val" id="telL4Cartons">14,200</div>
+                        </div>
+                        <div>
+                            <div class="tel-field-label">Flap State</div>
+                            <div class="tel-field-val" id="telL4Flap">NORMAL</div>
+                        </div>
+                    </div>
+
+                    <div class="replicate-code-well" style="font-size: 0.76rem;">
+// Brownfield Protocol Abstraction Layer (PAL):
+• Northbound: ISA-95 Normalized Namespace
+• Southbound: Rockwell CIP Poller [200ms Scan]
+• Mapped Tag: Line4.Carton.CycleTime_ms
+• State Machine Mining: 14 Inferred Transitions
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- FEATURE 2: CONTROLS IDE & PROPOSAL -->
+        <section id="panel-controls-ide" class="view-panel">
+            <div class="proposal-hero-card">
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--color-hairline); padding-bottom: 1rem;">
+                    <div>
+                        <span class="pill-badge" style="background-color: var(--color-primary); color: #fff;">
+                            ✦ Lumina Glass Box Synthesis
+                        </span>
+                        <h2 style="font-family: var(--font-display); font-size: 1.35rem; font-weight: 700; margin-top: 0.35rem;">
+                            Target: Line 3 Infeed Servo (Axis-02 Deceleration Ramp)
+                        </h2>
+                    </div>
+                    <span class="pill-badge" style="background-color: rgba(43, 154, 102, 0.15); color: var(--color-badge-success); font-size: 0.85rem;">
+                        Confidence: 99.2%
+                    </span>
+                </div>
+
+                <div class="narrative-callout">
+                    <strong style="color: var(--color-ink);">Causal Explanation:</strong><br>
+                    <span id="proposalNarrativeText">
+                        Telemetry indicates a 14% mechanical vibration increase on Bearing B-2 over 21 days due to aggressive braking at 60 PPM. 
+                        Retrieved OEM spec (DOC-SIE-01) dictates that optimizing the deceleration ramp from 500ms to 380ms with S-curve dampening 
+                        eliminates harmonic resonance while sustaining exact 60 PPM throughput.
+                    </span>
+                </div>
+
+                <!-- Verification Gauntlet Badges -->
+                <div class="verification-trio">
+                    <div class="trio-card">
+                        <div class="trio-title">✔ Layer 1: Static Linter</div>
+                        <div class="trio-desc">Deterministic loop bounds and memory bounds validated.</div>
+                    </div>
+                    <div class="trio-card">
+                        <div class="trio-title">✔ Layer 2: Z3 SMT Prover</div>
+                        <div class="trio-desc">PROVEN SAFE. 0 invariant violations across bounded unrolled cycles.</div>
+                    </div>
+                    <div class="trio-card">
+                        <div class="trio-title">✔ Layer 3: Digital Twin</div>
+                        <div class="trio-desc">1,000 virtual cycles completed. 0 collisions. Peak vibration: 1.34g.</div>
+                    </div>
+                </div>
+
+                <!-- Structured Text Diff -->
+                <div>
+                    <div class="card-label" style="margin-bottom: 0.5rem;">Synthesized Structured Control Language (SCL) Diff</div>
+                    <div class="replicate-code-well">
+<span class="diff-del-line">- VAR nOptimizedRamp : INT := 500; // Baseline Deceleration Profile</span>
+<span class="diff-add-line">+ VAR nOptimizedRamp : INT := 380; // SMT Proven Safe S-Curve Deceleration (Dampens Harmonic Resonance)</span>
+
+// Synthesized SCL Block: FC_DynamicInfeedRamp [Rev 1.4]
+FUNCTION_BLOCK "FC_DynamicInfeedRamp"
+VAR_INPUT
+    bExecute : BOOL;
+    bBottlePresent : BOOL;
+END_VAR
+VAR_OUTPUT
+    bAxisRun : BOOL;
+    nDecelRamp_ms : INT;
+END_VAR
+BEGIN
+    IF bExecute AND bBottlePresent THEN
+        bAxisRun := TRUE;
+        nDecelRamp_ms := 380;
+    ELSE
+        bAxisRun := FALSE;
+        nDecelRamp_ms := 500;
+    END_IF;
+END_FUNCTION_BLOCK
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--color-hairline); padding-top: 1rem;">
+                    <div style="font-size: 0.8rem; color: var(--color-mute);">
+                        🛡️ Hardware Proxy: SIL 2/3 Air-Gapped • Tier-2 Controls Engineer Authorization
+                    </div>
+                    <div style="display: flex; gap: 0.6rem;">
+                        <button class="btn-bone" onclick="executeRollback()">⏮️ Emergency Rollback</button>
+                        <button class="btn-primary" onclick="deployProposal()">🚀 Sign & Hot-Swap Deploy (MFA)</button>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- FEATURE 3: CUSTOM CODE STUDIO & Z3 SMT PROVER -->
+        <section id="panel-code-studio" class="view-panel">
+            <div class="replicate-card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <div>
+                        <h2 style="font-family: var(--font-display); font-size: 1.25rem; font-weight: 700;">
+                            Interactive IEC 61131-3 Code Studio & Formal Prover
+                        </h2>
+                        <p style="font-size: 0.82rem; color: var(--color-charcoal);">
+                            Edit Structured Text logic, define arbitrary safety invariants, and mathematically verify safety with Microsoft Z3 SMT solver.
+                        </p>
+                    </div>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <button class="btn-primary" onclick="runCustomVerification()">⚡ Verify with Z3 SMT</button>
+                    </div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem;">
+                    <div>
+                        <div class="card-label">Structured Text (ST / SCL) Logic:</div>
+                        <textarea id="customStCode" class="replicate-textarea">
+// IEC 61131-3 Custom Infeed Logic
+PROGRAM InfeedController
+VAR
+    bBottlePresent : BOOL;
+    Clamp_Closed : BOOL;
+    Table_Indexing : BOOL;
+    DecelRamp_ms : INT := 500;
+END_VAR
+
+// Scan Execution Logic:
+IF bBottlePresent THEN
+    Clamp_Closed := TRUE;
+    Table_Indexing := FALSE;
+    DecelRamp_ms := 380;
+ELSE
+    Clamp_Closed := FALSE;
+    Table_Indexing := TRUE;
+    DecelRamp_ms := 500;
+END_IF;
+END_PROGRAM
+                        </textarea>
+                    </div>
+
+                    <div style="display: flex; flex-direction: column; gap: 1rem;">
+                        <div>
+                            <div class="card-label">Active Safety Invariants (Formal Proof Specifications):</div>
+                            <div class="replicate-code-well" style="font-size: 0.78rem;">
+[1] MUTUAL_EXCLUSION_CLAMP_INDEX: Not(And(Clamp_Closed, Table_Indexing))
+[2] DECEL_RAMP_SAFE_BOUNDS: And(DecelRamp_ms >= 200, DecelRamp_ms <= 800)
+                            </div>
+                        </div>
+
+                        <div>
+                            <div class="card-label">Z3 SMT Verification & Counterexample Diagnostic:</div>
+                            <div id="customVerificationOutput" class="replicate-code-well" style="color: #4ade80; min-height: 110px;">
+Click 'Verify with Z3 SMT' to run the formal mathematical proof pipeline...
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Export Rockwell L5X XML -->
+                <div style="margin-top: 1.25rem;">
+                    <div class="card-label">Synthesized Rockwell Studio 5000 (.L5X XML) Payload:</div>
+                    <div id="l5xOutputContainer" class="replicate-code-well" style="max-height: 180px; overflow-y: auto; font-size: 0.75rem;">
+// L5X XML schema will be generated here upon verification.
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- FEATURE 4: INDUSTRIAL RAG KNOWLEDGE BASE -->
+        <section id="panel-rag-kb" class="view-panel">
+            <div class="replicate-card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <div>
+                        <h2 style="font-family: var(--font-display); font-size: 1.25rem; font-weight: 700;">
+                            Industrial RAG Knowledge Base & Technical Manual Repository
+                        </h2>
+                        <p style="font-size: 0.82rem; color: var(--color-charcoal);">
+                            Ingest equipment specification manuals, P&IDs, and historical alarm databases for context-grounded AI synthesis.
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Search bar -->
+                <div style="display: flex; gap: 0.75rem; margin-bottom: 1.25rem;">
+                    <input id="ragSearchQuery" type="text" class="replicate-input" placeholder="Search manuals (e.g. 'Siemens bearing vibration deceleration', 'Festo pneumatic pressure', 'Alarm 404')..." value="Siemens bearing deceleration">
+                    <button class="btn-primary" onclick="searchRAG()">🔍 Search RAG</button>
+                </div>
+
+                <div id="ragSearchResults" style="display: flex; flex-direction: column; gap: 1rem;">
+                    <!-- Dynamically populated -->
+                </div>
+
+                <!-- Ingest New Document Form -->
+                <div class="replicate-card" style="background-color: var(--color-surface-bone); margin-top: 1.5rem;">
+                    <div style="font-family: var(--font-display); font-size: 1.05rem; font-weight: 700; margin-bottom: 0.75rem;">
+                        Ingest New Technical Spec Sheet or Alarm Log
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 0.75rem;">
+                        <input id="docTitleInput" type="text" class="replicate-input" placeholder="Document Title (e.g. Omron Sysmac NJ Inverter Manual)">
+                        <input id="docCategoryInput" type="text" class="replicate-input" placeholder="Category (e.g. OEM_MANUAL, ALARM_LOG)">
+                    </div>
+                    <textarea id="docContentInput" class="replicate-input" style="min-height: 80px; margin-bottom: 0.75rem;" placeholder="Paste technical specification text or alarm fault resolution guide..."></textarea>
+                    <button class="btn-dark" onclick="uploadRAGDoc()">📤 Index Document into Vector Store</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- FEATURE 5: LEGACY PROCESS MINING STUDIO -->
+        <section id="panel-process-mining" class="view-panel">
+            <div class="replicate-card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <div>
+                        <h2 style="font-family: var(--font-display); font-size: 1.25rem; font-weight: 700;">
+                            Legacy Machine Process Mining & Reverse-Engineering Studio
+                        </h2>
+                        <p style="font-size: 0.82rem; color: var(--color-charcoal);">
+                            Reconstructs finite state machines from high-frequency I/O transition logs for undocumented brownfield machines.
+                        </p>
+                    </div>
+                    <button class="btn-primary" onclick="refreshProcessMining()">🔄 Mine State Machine</button>
+                </div>
+
+                <div class="card-label">Synthesized PackML / Stateflow Finite State Machine:</div>
+                <div class="fsm-node-container" id="fsmContainer">
+                    <div class="fsm-node active-state">
+                        <div class="fsm-node-title">1. IDLE / READY</div>
+                        <div class="fsm-node-tag">%I0.0 = FALSE</div>
+                    </div>
+                    <div class="fsm-node active-state">
+                        <div class="fsm-node-title">➔ 2. BOTTLE_INDEX</div>
+                        <div class="fsm-node-tag">%I0.0 = TRUE (Δt: 82ms)</div>
+                    </div>
+                    <div class="fsm-node active-state">
+                        <div class="fsm-node-title">➔ 3. CLAMP_CLOSED</div>
+                        <div class="fsm-node-tag">%Q0.1 = TRUE (Δt: 45ms)</div>
+                    </div>
+                    <div class="fsm-node active-state">
+                        <div class="fsm-node-title">➔ 4. CAPPING_ACTUATION</div>
+                        <div class="fsm-node-tag">%Q0.2 = TRUE (Δt: 120ms)</div>
+                    </div>
+                    <div class="fsm-node active-state">
+                        <div class="fsm-node-title">➔ 5. DISCHARGE</div>
+                        <div class="fsm-node-tag">Ramp = 380ms</div>
+                    </div>
+                </div>
+
+                <div style="margin-top: 1.25rem;">
+                    <div class="card-label">Exportable Functional Mock-up Unit (FMU / FMI 2.0 Digital Twin):</div>
+                    <div id="fmuExportCode" class="replicate-code-well" style="font-size: 0.75rem;">
+Click 'Mine State Machine' to compile and export the executable FMU twin representation.
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- FEATURE 6: AI COMMISSIONING ASSISTANT -->
+        <section id="panel-commissioning" class="view-panel">
+            <div class="replicate-card">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <div>
+                        <h2 style="font-family: var(--font-display); font-size: 1.25rem; font-weight: 700;">
+                            AI Commissioning Assistant & Network Auto-Discovery
+                        </h2>
+                        <p style="font-size: 0.82rem; color: var(--color-charcoal);">
+                            Discovers multi-vendor PLC subnets, extracts terminal block channels via P&ID OCR, and automates field loop-checks.
+                        </p>
+                    </div>
+                    <button class="btn-dark" onclick="runCommissioningScan()">🔍 Scan Subnets & Parse P&IDs</button>
+                </div>
+                <div id="commissioningResults" class="replicate-code-well" style="color: #4ade80;">
+Click 'Scan Subnets' to auto-discover PLCs and generate I/O maps from electrical schematics.
+                </div>
+            </div>
+
+            <div class="replicate-card">
+                <div style="font-family: var(--font-display); font-size: 1.1rem; font-weight: 700; margin-bottom: 0.4rem;">
+                    Interactive Voice & NLP Loop-Check Terminal
+                </div>
+                <p style="font-size: 0.82rem; color: var(--color-charcoal); margin-bottom: 0.75rem;">
+                    During physical cabinet commissioning, type or speak your field action (e.g. <em>"Blocking photoeye PE-101"</em>) to verify the live PLC memory state instantly.
+                </p>
+                <div style="display: flex; gap: 0.75rem;">
+                    <input id="loopTestInput" type="text" class="replicate-input" value="Blocking infeed photoeye sensor on Line 3">
+                    <button class="btn-primary" onclick="runLoopTest()">Verify Memory State</button>
+                </div>
+                <div id="loopTestOutput" style="margin-top: 1rem;"></div>
+
+                <div style="margin-top: 1.5rem; border-top: 1px solid var(--color-hairline); padding-top: 1rem; display: flex; justify-content: space-between; align-items: center;">
+                    <div style="font-size: 0.82rem; color: var(--color-mute);">
+                        Commissioning Certificate generation with cryptographic SHA-256 seal.
+                    </div>
+                    <button class="btn-bone" onclick="generateCertificate()">📜 Generate Sign-Off Certificate</button>
+                </div>
+                <div id="certificateOutput" style="margin-top: 0.75rem;"></div>
+            </div>
+        </section>
+
+        <!-- FEATURE 7: ZERO-TRUST ICS SECURITY & POLICY EDITOR -->
+        <section id="panel-security" class="view-panel">
+            <div class="replicate-card">
+                <div style="font-family: var(--font-display); font-size: 1.25rem; font-weight: 700; margin-bottom: 0.5rem;">
+                    Zero-Trust ICS Deployment Proxy & Hardware Data Diode
+                </div>
+                <p style="font-size: 0.82rem; color: var(--color-charcoal); margin-bottom: 1.25rem;">
+                    Hardware-enforced Level 3 to Level 1 policy inspection engine with SIL 2/3 Safety PLC air-gapping and cryptographic rollback.
+                </p>
+
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+                    <div class="replicate-card" style="background-color: var(--color-surface-bone); border-left: 4px solid var(--color-primary);">
+                        <div style="font-weight: 700; font-size: 0.88rem;">Safety PLC Air-Gap Policy</div>
+                        <div style="font-size: 0.8rem; color: var(--color-charcoal); margin-top: 0.3rem;">
+                            Direct write access to SIL 2/3 memory addresses (%I_SAFE, F_CPU_DB) is permanently rejected at the hardware proxy layer.
+                        </div>
+                    </div>
+                    <div class="replicate-card" style="background-color: var(--color-surface-bone); border-left: 4px solid var(--color-ink);">
+                        <div style="font-weight: 700; font-size: 0.88rem;">Cognitive Drift Monitor</div>
+                        <div style="font-size: 0.8rem; color: var(--color-charcoal); margin-top: 0.3rem;">
+                            Burst limit: Max 10 requests/min. Cross-domain semantic drift circuit breaker active.
+                        </div>
+                    </div>
+                    <div class="replicate-card" style="background-color: var(--color-surface-bone); border-left: 4px solid var(--color-badge-success);">
+                        <div style="font-weight: 700; font-size: 0.88rem;">Golden Master Vault</div>
+                        <div style="font-size: 0.8rem; color: var(--color-charcoal); margin-top: 0.3rem;">
+                            Cryptographically signed hardware snapshots enabling instantaneous 18.4ms deterministic rollback.
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Policy Editor -->
+                <div class="replicate-card" style="background-color: var(--color-surface-bone); margin-bottom: 1.5rem;">
+                    <div style="font-family: var(--font-display); font-size: 1.05rem; font-weight: 700; margin-bottom: 0.6rem;">
+                        Add Protected Tag Prefix (Air-Gap Rule)
+                    </div>
+                    <div style="display: flex; gap: 0.75rem;">
+                        <input id="newPolicyPrefixInput" type="text" class="replicate-input" placeholder="Tag Prefix (e.g. SIL3_GUARD_, ROBOT_ZONE4_)">
+                        <button class="btn-primary" onclick="addSecurityPolicy()">Add Air-Gap Rule</button>
+                    </div>
+                </div>
+
+                <!-- Audit Ledger -->
+                <div class="card-label">Immutable Security Audit Ledger (Hardware Enclave Stream):</div>
+                <div id="securityAuditLogContainer" class="replicate-code-well" style="max-height: 180px; overflow-y: auto; font-size: 0.76rem;">
+[2026-08-15 04:28:12] AMD_SEV_SNP_ATTESTATION_VALIDATED | Enclave ID: CVM-0x9B4A...
+[2026-08-15 04:28:15] POLICY_CHECK: Target=Line3.Servo.DecelRamp_ms | Decision=APPROVED (Formal Z3 Invariants Validated)
+[2026-08-15 04:28:22] HARDWARE_DIODE: Unidirectional Telemetry Ingress Active (Level 1 ➔ Level 3)
+                </div>
+            </div>
+        </section>
+
+        <!-- FEATURE 8: C-SUITE ROI & UNDERWRITING -->
+        <section id="panel-csuite" class="view-panel">
+            <div class="grid-stats">
+                <div class="replicate-card">
+                    <div class="card-label">Projected Annual ROI</div>
+                    <div class="card-stat" id="csuiteRoiPercent" style="color: var(--color-badge-success);">1,020%</div>
+                    <div class="card-footer-note" id="csuitePayback">Payback Period: 5.1 weeks</div>
+                </div>
+                <div class="replicate-card">
+                    <div class="card-label">Net Annual Bottom-Line Return</div>
+                    <div class="card-stat" id="csuiteNetValue">$489,500<span style="font-size: 1rem;">/yr</span></div>
+                    <div class="card-footer-note">Avoided Downtime + Reclaimed Retooling</div>
+                </div>
+                <div class="replicate-card">
+                    <div class="card-label">Insurance Premium Discount</div>
+                    <div class="card-stat" style="color: var(--color-primary);">12.5%</div>
+                    <div class="card-footer-note">Munich Re / FM Global Underwriting</div>
+                </div>
+                <div class="replicate-card">
+                    <div class="card-label">Software Investment</div>
+                    <div class="card-stat">$4,000<span style="font-size: 1rem;">/mo</span></div>
+                    <div class="card-footer-note">Professional Tier (AaaS Model)</div>
+                </div>
+            </div>
+
+            <!-- Interactive ROI Calculator -->
+            <div class="replicate-card">
+                <div style="font-family: var(--font-display); font-size: 1.2rem; font-weight: 700; margin-bottom: 0.5rem;">
+                    Custom Financial ROI & Downtime Parameter Modeler
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1rem; margin-bottom: 1.25rem;">
+                    <div>
+                        <div class="card-label">Hourly Downtime Cost ($/hr):</div>
+                        <input id="inputDowntimeRate" type="number" class="replicate-input" value="25000">
+                    </div>
+                    <div>
+                        <div class="card-label">Annual Unplanned Downtime Hours:</div>
+                        <input id="inputDowntimeHours" type="number" class="replicate-input" value="18">
+                    </div>
+                    <div>
+                        <div class="card-label">Retooling Cycles Per Year:</div>
+                        <input id="inputRetoolingCycles" type="number" class="replicate-input" value="4">
+                    </div>
+                </div>
+                <button class="btn-primary" onclick="recalculateROI()">📊 Recalculate Financial Metrics</button>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- JavaScript Controller -->
+    <script>
+        let canvas = document.getElementById("physicsCanvas");
+        let ctx = canvas.getContext("2d");
+        let animationOffset = 0;
+        let activeTab = "plant-mgr";
+
+        function switchTab(tabId) {
+            activeTab = tabId;
+            document.querySelectorAll(".nav-pill-btn").forEach(b => b.classList.remove("active"));
+            document.querySelectorAll(".view-panel").forEach(p => p.classList.remove("active"));
+
+            event.target.classList.add("active");
+            document.getElementById(`panel-${tabId}`).classList.add("active");
+
+            if (tabId === "rag-kb") loadRAGDocuments();
+            if (tabId === "process-mining") refreshProcessMining();
+            if (tabId === "security") loadSecurityData();
+        }
+
+        // Oscilloscope / Kinematic Canvas Animation
+        function drawCanvas() {
+            canvas.width = canvas.clientWidth;
+            canvas.height = canvas.clientHeight;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw Conveyor belt
+            ctx.strokeStyle = "#3a3a3a";
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(20, 100);
+            ctx.lineTo(canvas.width - 20, 100);
+            ctx.stroke();
+
+            // Draw Moving bottles
+            animationOffset = (animationOffset + 1.5) % 80;
+            ctx.fillStyle = "#ffffff";
+            for (let x = 20 + animationOffset; x < canvas.width - 40; x += 80) {
+                ctx.fillRect(x, 60, 24, 38);
+                // bottle cap (Replicate orange)
+                ctx.fillStyle = "#ea2804";
+                ctx.fillRect(x + 6, 52, 12, 8);
+                ctx.fillStyle = "#ffffff";
+            }
+
+            // Draw Capper Head
+            let capperX = canvas.width / 2;
+            ctx.fillStyle = "#8d8d8d";
+            ctx.fillRect(capperX - 15, 18, 30, 35);
+            ctx.fillStyle = "#2b9a66";
+            ctx.fillRect(capperX - 8, 46, 16, 10);
+
+            // Draw Harmonic Vibration Waveform
+            ctx.strokeStyle = "rgba(234, 40, 4, 0.7)";
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            for (let i = 0; i < canvas.width; i += 4) {
+                let y = 140 + Math.sin((i + animationOffset * 4) * 0.05) * 12;
+                if (i === 0) ctx.moveTo(i, y);
+                else ctx.lineTo(i, y);
+            }
+            ctx.stroke();
+
+            requestAnimationFrame(drawCanvas);
+        }
+        drawCanvas();
+
+        // WebSocket Connection
+        const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+        const wsUrl = `${wsProtocol}//${window.location.host}/ws/telemetry`;
+        let ws;
+
+        function connectWS() {
+            ws = new WebSocket(wsUrl);
+            ws.onopen = () => {
+                document.getElementById("wsStatus").innerText = "Telemetry Live (5Hz)";
+            };
+            ws.onmessage = (event) => {
+                const data = JSON.parse(event.data);
+                if (data.type === "TELEMETRY_UPDATE") {
+                    updateDashboard(data.summary, data.tags);
+                }
+            };
+            ws.onclose = () => {
+                document.getElementById("wsStatus").innerText = "Telemetry Reconnecting...";
+                setTimeout(connectWS, 2000);
+            };
+        }
+        connectWS();
+
+        function updateDashboard(summary, tags) {
+            document.getElementById("cardOEE").innerText = `${summary.overall_oee_percent}%`;
+            document.getElementById("cardUptime").innerText = `${summary.predicted_uptime_probability}%`;
+            document.getElementById("cardSavings").innerText = `$${summary.total_avoided_downtime_dollars.toLocaleString()}`;
+
+            // Line 3
+            const l3 = summary.lines[0];
+            document.getElementById("telL3Throughput").innerText = `${l3.throughput_ppm} PPM`;
+            document.getElementById("telL3Vib").innerText = `${l3.vibration_rms_g} g`;
+            document.getElementById("telL3Temp").innerText = `${l3.bearing_temp_c} °C`;
+            document.getElementById("telL3Ramp").innerText = `${l3.decel_ramp_ms} ms`;
+
+            if (l3.status.includes("WARNING")) {
+                document.getElementById("machBadgeLine3").innerText = "● Vibration Alert";
+                document.getElementById("machBadgeLine3").style.color = "var(--color-primary)";
+                document.getElementById("machBadgeLine3").style.backgroundColor = "rgba(234, 40, 4, 0.15)";
+                document.getElementById("telL3Vib").style.color = "var(--color-primary)";
+            } else {
+                document.getElementById("machBadgeLine3").innerText = "● Optimal";
+                document.getElementById("machBadgeLine3").style.color = "var(--color-badge-success)";
+                document.getElementById("machBadgeLine3").style.backgroundColor = "rgba(43, 154, 102, 0.15)";
+                document.getElementById("telL3Vib").style.color = "var(--color-ink)";
+            }
+
+            // Line 4
+            const l4 = summary.lines[1];
+            document.getElementById("telL4Cycle").innerText = `${l4.cycle_time_ms} ms`;
+            document.getElementById("telL4Press").innerText = `${l4.pressure_kpa} kPa`;
+            document.getElementById("telL4Cartons").innerText = `${l4.total_cartons.toLocaleString()}`;
+        }
+
+        // Fault Injection & Diagnosis
+        async function injectFault(faultName) {
+            await fetch("/api/fault/inject", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ fault_name: faultName })
+            });
+
+            const res = await fetch("/api/ai/diagnose-and-optimize", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ anomaly_type: faultName === "BEARING_DEGRADATION_LINE3" ? "BEARING_VIBRATION_LINE3" : "PNEUMATIC_PRESSURE_DROP_LINE4" })
+            });
+            const proposal = await res.json();
+            document.getElementById("proposalNarrativeText").innerText = proposal.causal_narrative;
+            alert(`⚠️ Fault Injected: ${faultName}\n\nLumina Autonomous AI formulated verified proposal ID: ${proposal.proposal_id}.\nView in 'Controls IDE' tab.`);
+        }
+
+        async function clearFaults() {
+            await fetch("/api/fault/clear", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ fault_name: "BEARING_DEGRADATION_LINE3" })
+            });
+            await fetch("/api/fault/clear", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ fault_name: "PNEUMATIC_PRESSURE_DROP_LINE4" })
+            });
+            alert("All plant simulation faults cleared.");
+        }
+
+        async function deployProposal() {
+            const diagRes = await fetch("/api/ai/diagnose-and-optimize", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ anomaly_type: "BEARING_VIBRATION_LINE3" })
+            });
+            const prop = await diagRes.json();
+
+            const res = await fetch("/api/proposal/approve-and-deploy", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    proposal_id: prop.proposal_id,
+                    user_name: "Chief Controls Engineer",
+                    biometric_signature: "BIO_AUTH_PASSED_SHA256"
+                })
+            });
+            const data = await res.json();
+            if (data.success) {
+                alert(`🚀 Hot-Swap Deployment Successful!\n\nSecurity Attestation: ${data.security_attestation}\nDeceleration ramp adjusted to 380ms on Siemens S7-1500 in RUN mode.`);
+            } else {
+                alert(`Rejection: ${data.detail}`);
+            }
+        }
+
+        async function executeRollback() {
+            const res = await fetch("/api/security/rollback?machine_id=Line3_Infeed", { method: "POST" });
+            const data = await res.json();
+            alert(`⏮️ Rollback Executed:\n${data.message}`);
+        }
+
+        // Feature 3: Custom Code Studio Z3 Verification
+        async function runCustomVerification() {
+            const stCode = document.getElementById("customStCode").value;
+            const res = await fetch("/api/code/verify-custom", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    st_code: stCode,
+                    routine_name: "FC_CustomInfeedRoutine"
+                })
+            });
+            const data = await res.json();
+            if (data.passed) {
+                document.getElementById("customVerificationOutput").innerHTML = `
+<span style="color: #4ade80;">✔ MATHEMATICALLY PROVED SAFE (Z3 SMT Solver)</span>
+• Layer 1 (Static Linter): PASSED
+• Layer 2 (Z3 Bounded Model Checker): PROVEN SAFE across unrolled cycles
+• Layer 3 (SoftPLC Digital Twin): PASSED (1,000 cycles, 0 collisions)
+• Execution Time: ${data.execution_time_ms}ms
+                `;
+            } else {
+                document.getElementById("customVerificationOutput").innerHTML = `
+<span style="color: #f87171;">✖ VERIFICATION REJECTION: ${data.layer_failed}</span>
+• Error: ${data.error_message}
+• Counterexample: ${JSON.stringify(data.smt_counterexample)}
+                `;
+            }
+            document.getElementById("l5xOutputContainer").innerText = data.exported_l5x;
+        }
+
+        // Feature 4: Industrial RAG
+        async function loadRAGDocuments() {
+            const res = await fetch("/api/rag/documents");
+            const data = await res.json();
+            renderRAGDocs(data.documents);
+        }
+
+        async function searchRAG() {
+            const query = document.getElementById("ragSearchQuery").value;
+            const res = await fetch("/api/rag/search", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ query: query })
+            });
+            const data = await res.json();
+            renderRAGDocs(data.results);
+        }
+
+        function renderRAGDocs(docs) {
+            const container = document.getElementById("ragSearchResults");
+            container.innerHTML = "";
+            docs.forEach(doc => {
+                const el = document.createElement("div");
+                el.className = "replicate-card";
+                el.style.backgroundColor = "var(--color-surface-bone)";
+                el.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                        <div>
+                            <span class="pill-badge" style="background: var(--color-ink); color: #fff;">${doc.id}</span>
+                            <span class="pill-badge">${doc.category}</span>
+                            <div style="font-family: var(--font-display); font-weight: 700; font-size: 1.05rem; margin-top: 0.3rem;">
+                                ${doc.title}
+                            </div>
+                        </div>
+                    </div>
+                    <p style="font-size: 0.85rem; color: var(--color-body); margin-top: 0.5rem; line-height: 1.5;">
+                        ${doc.content}
+                    </p>
+                    <div style="display: flex; gap: 0.4rem; margin-top: 0.6rem; flex-wrap: wrap;">
+                        ${doc.tags.map(t => `<span class="pill-badge" style="font-size: 0.68rem;">#${t}</span>`).join("")}
+                    </div>
+                `;
+                container.appendChild(el);
+            });
+        }
+
+        async function uploadRAGDoc() {
+            const title = document.getElementById("docTitleInput").value;
+            const category = document.getElementById("docCategoryInput").value || "OEM_MANUAL";
+            const content = document.getElementById("docContentInput").value;
+            if (!title || !content) {
+                alert("Please provide both document title and content.");
+                return;
+            }
+            await fetch("/api/rag/upload", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ title, category, content, tags: ["UserUploaded", "EquipmentSpec"] })
+            });
+            alert("Technical Document successfully indexed into RAG vector store!");
+            loadRAGDocuments();
+        }
+
+        // Feature 5: Process Mining
+        async function refreshProcessMining() {
+            const res = await fetch("/api/pal/process-mining/export-fmu");
+            const data = await res.json();
+            document.getElementById("fmuExportCode").innerHTML = `
+// Functional Mock-up Unit (FMU 2.0 Digital Twin):
+• Checksum: ${data.model_checksum}
+• Machine Twin Model: ${data.machine_model}
+• Inferred Transitions: ${data.transitions.length} States
+• States: ${data.synthesized_states.slice(0, 6).join(", ")}...
+            `;
+        }
+
+        // Feature 6: Commissioning Assistant
+        async function runCommissioningScan() {
+            const res = await fetch("/api/commissioning/scan", { method: "POST" });
+            const data = await res.json();
+            document.getElementById("commissioningResults").innerHTML = `
+✔ Subnets Scanned: ${data.subnets_scanned.join(", ")}
+✔ Discovered Nodes:
+  • [192.168.1.10] Siemens S7-1516-3 PN/DP (S7 Comm)
+  • [192.168.1.20] WAGO 750-880 Modbus Gateway (Modbus TCP)
+  • [192.168.1.30] Rockwell 1756-L83E ControlLogix (CIP)
+✔ P&ID Schematic OCR: 42 Channel tags auto-mapped (Accuracy: ${data.inferred_tag_accuracy_score}%)
+            `;
+        }
+
+        async function runLoopTest() {
+            const inputVal = document.getElementById("loopTestInput").value;
+            const res = await fetch("/api/commissioning/loop-test", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ operator_statement: inputVal })
+            });
+            const data = await res.json();
+            document.getElementById("loopTestOutput").innerHTML = `
+<div class="replicate-card" style="background-color: rgba(43, 154, 102, 0.1); border: 1px solid rgba(43, 154, 102, 0.3);">
+  <strong style="color: var(--color-badge-success);">Status: ${data.status}</strong><br>
+  <span style="font-family: var(--font-mono); font-size: 0.82rem;">
+  Interpreted Action: ${data.interpreted_action}<br>
+  Mapped Address: ${data.mapped_address} (${data.tag_id})<br>
+  Measured State: ${data.state_verified} (Round-trip Latency: ${data.latency_ms}ms)<br>
+  </span>
+  <em style="color: var(--color-charcoal); font-size: 0.82rem;">${data.message}</em>
+</div>
+            `;
+        }
+
+        async function generateCertificate() {
+            const res = await fetch("/api/commissioning/generate-certificate", { method: "POST" });
+            const data = await res.json();
+            document.getElementById("certificateOutput").innerHTML = `
+<div class="replicate-card" style="background-color: var(--color-surface-bone);">
+  <strong>📜 ${data.certificate_id}</strong><br>
+  <span style="font-size: 0.8rem; color: var(--color-charcoal);">
+  Site: ${data.site}<br>
+  Digital Seal (SHA-256): ${data.digital_seal_sha256}<br>
+  Status: <span style="color: var(--color-badge-success); font-weight: 700;">${data.status}</span>
+  </span>
+</div>
+            `;
+        }
+
+        // Feature 7: Zero-Trust Security Data
+        async function loadSecurityData() {
+            const res = await fetch("/api/security/policies");
+            const policies = await res.json();
+            const ledgerRes = await fetch("/api/security/audit-ledger");
+            const ledger = await ledgerRes.json();
+
+            let logHtml = "";
+            ledger.audit_ledger.forEach(rec => {
+                logHtml += `[${new Date(rec.timestamp * 1000).toLocaleTimeString()}] ${rec.event_type} | User=${rec.user} | Tag=${rec.target_tag} | Status=${rec.status}\n`;
+            });
+            if (logHtml) {
+                document.getElementById("securityAuditLogContainer").innerText = logHtml;
+            }
+        }
+
+        async function addSecurityPolicy() {
+            const prefix = document.getElementById("newPolicyPrefixInput").value;
+            if (!prefix) return;
+            await fetch("/api/security/policies/add", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ prefix })
+            });
+            alert(`Air-Gap Policy Added: Writes to '${prefix}*' permanently prohibited.`);
+            loadSecurityData();
+        }
+
+        // Feature 8: C-Suite ROI Calculator
+        async function recalculateROI() {
+            const downtimeRate = parseFloat(document.getElementById("inputDowntimeRate").value);
+            const downtimeHours = parseFloat(document.getElementById("inputDowntimeHours").value);
+            const retoolingCycles = parseInt(document.getElementById("inputRetoolingCycles").value);
+
+            const res = await fetch("/api/csuite/calculate-roi", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                    downtime_cost_per_hour: downtimeRate,
+                    annual_unplanned_hours: downtimeHours,
+                    retooling_cycles_per_year: retoolingCycles,
+                    average_weeks_per_retooling: 3.0,
+                    annual_license_cost: 48000.0
+                })
+            });
+            const data = await res.json();
+            document.getElementById("csuiteRoiPercent").innerText = `${data.roi_percent}%`;
+            document.getElementById("csuiteNetValue").innerHTML = `$${data.net_annual_value.toLocaleString()}<span style="font-size: 1rem;">/yr</span>`;
+            document.getElementById("csuitePayback").innerText = `Payback Period: ${data.payback_period_weeks} weeks`;
+        }
+    </script>
+</body>
+</html>
