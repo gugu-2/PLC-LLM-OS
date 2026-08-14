@@ -60,6 +60,27 @@ class IndustrialRAGKnowledgeBase:
                 "category": "ALARM_LOG",
                 "content": "Fault 404 on Line 3 Infeed is consistently caused by Photoeye PE-01 optical lens contamination leading to 15ms signal jitter. Software compensation: apply 25ms timer debounce on %I0.0 before setting State=INDEX_READY.",
                 "tags": ["Alarm404", "Line3", "Photoeye", "Debounce", "Infeed"]
+            },
+            {
+                "id": "DOC-ERR-SIE-80C4",
+                "title": "Siemens TIA Portal Communication Diagnostic Error 16#80C4",
+                "category": "ERROR_CODE_DB",
+                "content": "Error 16#80C4 indicates a temporary communication error. The connection could not be established because the remote partner is not responding or the maximum number of connections has been exceeded. Solution: Verify IP configuration, subnet mask, and ensure connection pool parameter is increased in S7-1500 CPU properties.",
+                "tags": ["Siemens", "TIA_Portal", "Error80C4", "S7_Comm", "Diagnostic"]
+            },
+            {
+                "id": "DOC-ERR-ROK-T01C60",
+                "title": "Rockwell Studio 5000 Major Non-Recoverable Fault Type 01 Code 60",
+                "category": "ERROR_CODE_DB",
+                "content": "Major Fault Type 01 Code 60: Controller task execution watchdog exceeded. Occurs when high-frequency cyclic tasks overrun allocated scan window. Solution: Optimize periodic task rate from 10ms to 25ms or distribute complex Structured Text loops across asynchronous event tasks.",
+                "tags": ["Rockwell", "Studio5000", "MajorFault", "Type01Code60", "Watchdog"]
+            },
+            {
+                "id": "DOC-ERR-BECK-0x704",
+                "title": "Beckhoff TwinCAT ADS Communication Error 0x704 (Port Disabled)",
+                "category": "ERROR_CODE_DB",
+                "content": "ADS Error 0x704 indicates the target runtime AMS Net ID port is not registered or in config mode. Solution: Issue TwinCAT router restart command or verify AMS Net ID routing table in TwinCAT System Service.",
+                "tags": ["Beckhoff", "TwinCAT", "ADS", "Error0x704", "AMSNetID"]
             }
         ]
 

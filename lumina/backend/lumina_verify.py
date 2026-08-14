@@ -86,7 +86,14 @@ class Layer1StaticLinter:
             if re.search(r"ARRAY\s*\[\s*\.\.", line, re.IGNORECASE):
                 violations.append(f"Line {i}: Undefined lower/upper bounds in ARRAY declaration.")
 
-        # 4. Check for nested recursion
+        # 4. Check for foreign language hallucinated syntax (Python, C++, Java, Bazel)
+        invalid_foreign_keywords = ['def _mk_pb2', 'bazel', 'import os', 'import sys', 'public class', 'namespace std']
+        lower_code = code_str.lower()
+        for kw in invalid_foreign_keywords:
+            if kw in lower_code:
+                violations.append(f"Foreign non-PLC syntax detected ('{kw}'). Hallucinated multi-language output prohibited.")
+
+        # 5. Check for nested recursion
         for i, line in enumerate(lines, start=1):
             if re.search(r"\bRECURSIVE\b", line, re.IGNORECASE):
                 violations.append(f"Line {i}: Recursive function call detected. Stack growth violates scan-cycle bounds.")
