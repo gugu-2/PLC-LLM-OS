@@ -36,10 +36,40 @@ def test_symbolic_reward_evaluator_rlsf_dpo():
     assert run_dpo_pipeline_check() is True
 
 
+def test_symbolic_reward_inversion_protection():
+    evaluator = SymbolicRewardEvaluator()
+    # If chosen and rejected have inverted rules where chosen is worse, ensure it returns None
+    invalid_pair = evaluator.generate_preference_pair(
+        prompt="Test inversion",
+        valid_code="VAR nRamp : INT := 100; END_VAR", # Bad
+        unsafe_code="VAR nRamp : INT := 380; END_VAR", # Good
+        variables={"DecelRamp_ms": "INT"},
+        rules_chosen=[{"target": "DecelRamp_ms", "type": "CLAMP_INT", "min": 0, "max": 1000, "condition": 100}],
+        rules_rejected=[{"target": "DecelRamp_ms", "type": "CLAMP_INT", "min": 200, "max": 800, "condition": 380}],
+        safety_invariants=["DECEL_RAMP_SAFE_BOUNDS"]
+    )
+    assert invalid_pair is None
+
+
 def test_edge_model_exporter_matrix():
-    exporter = EdgeModelExporter()
+    exporter = EdgeModelExporter(base_model="Qwen/Qwen2.5-Coder-7B-Instruct")
     matrix = exporter.plan_export_matrix()
     assert "GGUF_Q4_K_M" in matrix["export_formats"]
     assert matrix["export_formats"]["GGUF_Q4_K_M"]["vram_required_gb"] == 4.8
     cmd = exporter.generate_conversion_command()
     assert "convert_hf_to_gguf" in cmd
+
+
+def test_edge_model_exporter_14b_scaling_and_awq():
+    exporter_14b = EdgeModelExporter(base_model="Qwen/Qwen2.5-Coder-14B-Instruct")
+    matrix_14b = exporter_14b.plan_export_matrix()
+    assert matrix_14b["param_count_billions"] == 14.7
+    assert matrix_14b["export_formats"]["GGUF_Q4_K_M"]["vram_required_gb"] > 4.8
+    
+    # Test AWQ conversion command
+    awq_cmd = exporter_14b.generate_conversion_command("AWQ_4BIT_vLLM", output_path="./lumina_awq")
+    assert "python -m awq.entry" in awq_cmd
+    
+    # Test Merge script generation
+    merge_script = exporter_14b.generate_merge_script()
+    assert "merge_and_unload" in merge_script

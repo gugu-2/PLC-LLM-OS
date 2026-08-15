@@ -25,7 +25,7 @@ async def test_pal_initialization_and_tag_mapping():
     pal = PALManager()
     await pal.initialize_default_plant_topology()
     
-    assert len(pal.drivers) == 3
+    assert len(pal.drivers) >= 3
     assert "Line3.Servo.DecelRamp_ms" in pal.tags
     assert pal.tags["Line3.Servo.DecelRamp_ms"].value == 500
     

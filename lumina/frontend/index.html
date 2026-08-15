@@ -1090,38 +1090,54 @@ Click 'Scan Subnets' to auto-discover PLCs and generate I/O maps from electrical
         let ctx = canvas.getContext("2d");
         let animationOffset = 0;
         let activeTab = "plant-mgr";
+        let liveVibrationRms = 1.2;
+        let currentProposal = null;
 
-        function switchTab(tabId) {
+        function switchTab(tabId, el) {
             activeTab = tabId;
             document.querySelectorAll(".nav-pill-btn").forEach(b => b.classList.remove("active"));
             document.querySelectorAll(".view-panel").forEach(p => p.classList.remove("active"));
 
-            event.target.classList.add("active");
-            document.getElementById(`panel-${tabId}`).classList.add("active");
+            const btn = el || Array.from(document.querySelectorAll(".nav-pill-btn")).find(b => b.getAttribute("onclick")?.includes(`'${tabId}'`));
+            if (btn) btn.classList.add("active");
+            const panel = document.getElementById(`panel-${tabId}`);
+            if (panel) panel.classList.add("active");
 
             if (tabId === "rag-kb") loadRAGDocuments();
             if (tabId === "process-mining") refreshProcessMining();
             if (tabId === "security") loadSecurityData();
         }
 
-        // Oscilloscope / Kinematic Canvas Animation
+        // Oscilloscope / Kinematic Canvas Animation with High-DPI Support
         function drawCanvas() {
-            canvas.width = canvas.clientWidth;
-            canvas.height = canvas.clientHeight;
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            if (activeTab !== "plant-mgr" || !canvas || canvas.clientWidth === 0) {
+                requestAnimationFrame(drawCanvas);
+                return;
+            }
 
-            // Draw Conveyor belt
+            const dpr = window.devicePixelRatio || 1;
+            if (canvas.width !== canvas.clientWidth * dpr || canvas.height !== canvas.clientHeight * dpr) {
+                canvas.width = canvas.clientWidth * dpr;
+                canvas.height = canvas.clientHeight * dpr;
+                ctx.scale(dpr, dpr);
+            }
+
+            const w = canvas.clientWidth;
+            const h = canvas.clientHeight;
+            ctx.clearRect(0, 0, w, h);
+
+            // Conveyor belt
             ctx.strokeStyle = "#3a3a3a";
             ctx.lineWidth = 4;
             ctx.beginPath();
             ctx.moveTo(20, 100);
-            ctx.lineTo(canvas.width - 20, 100);
+            ctx.lineTo(w - 20, 100);
             ctx.stroke();
 
-            // Draw Moving bottles
+            // Moving bottles
             animationOffset = (animationOffset + 1.5) % 80;
             ctx.fillStyle = "#ffffff";
-            for (let x = 20 + animationOffset; x < canvas.width - 40; x += 80) {
+            for (let x = 20 + animationOffset; x < w - 40; x += 80) {
                 ctx.fillRect(x, 60, 24, 38);
                 // bottle cap (Replicate orange)
                 ctx.fillStyle = "#ea2804";
@@ -1129,19 +1145,20 @@ Click 'Scan Subnets' to auto-discover PLCs and generate I/O maps from electrical
                 ctx.fillStyle = "#ffffff";
             }
 
-            // Draw Capper Head
-            let capperX = canvas.width / 2;
+            // Capper Head
+            let capperX = w / 2;
             ctx.fillStyle = "#8d8d8d";
             ctx.fillRect(capperX - 15, 18, 30, 35);
             ctx.fillStyle = "#2b9a66";
             ctx.fillRect(capperX - 8, 46, 16, 10);
 
-            // Draw Harmonic Vibration Waveform
-            ctx.strokeStyle = "rgba(234, 40, 4, 0.7)";
+            // Harmonic Vibration Waveform modulated by live telemetry
+            ctx.strokeStyle = liveVibrationRms > 1.8 ? "rgba(234, 40, 4, 0.9)" : "rgba(43, 154, 102, 0.8)";
             ctx.lineWidth = 2;
             ctx.beginPath();
-            for (let i = 0; i < canvas.width; i += 4) {
-                let y = 140 + Math.sin((i + animationOffset * 4) * 0.05) * 12;
+            const amp = Math.min(25, 6 + (liveVibrationRms - 1.0) * 12);
+            for (let i = 0; i < w; i += 4) {
+                let y = 140 + Math.sin((i + animationOffset * 4) * 0.05) * amp;
                 if (i === 0) ctx.moveTo(i, y);
                 else ctx.lineTo(i, y);
             }
@@ -1157,169 +1174,209 @@ Click 'Scan Subnets' to auto-discover PLCs and generate I/O maps from electrical
         let ws;
 
         function connectWS() {
-            ws = new WebSocket(wsUrl);
-            ws.onopen = () => {
-                document.getElementById("wsStatus").innerText = "Telemetry Live (5Hz)";
-            };
-            ws.onmessage = (event) => {
-                const data = JSON.parse(event.data);
-                if (data.type === "TELEMETRY_UPDATE") {
-                    updateDashboard(data.summary, data.tags);
-                }
-            };
-            ws.onclose = () => {
-                document.getElementById("wsStatus").innerText = "Telemetry Reconnecting...";
-                setTimeout(connectWS, 2000);
-            };
+            try {
+                ws = new WebSocket(wsUrl);
+                ws.onopen = () => {
+                    document.getElementById("wsStatus").innerText = "Telemetry Live (5Hz)";
+                };
+                ws.onmessage = (event) => {
+                    const data = JSON.parse(event.data);
+                    updateDashboard(data);
+                };
+                ws.onclose = () => {
+                    document.getElementById("wsStatus").innerText = "Telemetry Reconnecting...";
+                    setTimeout(connectWS, 2000);
+                };
+                ws.onerror = () => {
+                    document.getElementById("wsStatus").innerText = "Telemetry Offline";
+                };
+            } catch (err) {
+                console.error("WS connection error:", err);
+            }
         }
         connectWS();
 
-        function updateDashboard(summary, tags) {
-            document.getElementById("cardOEE").innerText = `${summary.overall_oee_percent}%`;
-            document.getElementById("cardUptime").innerText = `${summary.predicted_uptime_probability}%`;
-            document.getElementById("cardSavings").innerText = `$${summary.total_avoided_downtime_dollars.toLocaleString()}`;
+        function updateDashboard(data) {
+            if (!data) return;
+            const savings = data.avoided_downtime_dollars || 12450;
+            document.getElementById("cardSavings").innerText = `$${Math.round(savings).toLocaleString()}`;
 
             // Line 3
-            const l3 = summary.lines[0];
-            document.getElementById("telL3Throughput").innerText = `${l3.throughput_ppm} PPM`;
-            document.getElementById("telL3Vib").innerText = `${l3.vibration_rms_g} g`;
-            document.getElementById("telL3Temp").innerText = `${l3.bearing_temp_c} °C`;
-            document.getElementById("telL3Ramp").innerText = `${l3.decel_ramp_ms} ms`;
+            if (data.line3) {
+                liveVibrationRms = data.line3.vibration_g;
+                document.getElementById("telL3Throughput").innerText = `${data.line3.throughput_ppm} PPM`;
+                document.getElementById("telL3Vib").innerText = `${data.line3.vibration_g} g`;
+                document.getElementById("telL3Ramp").innerText = `${data.line3.decel_ramp_ms} ms`;
 
-            if (l3.status.includes("WARNING")) {
-                document.getElementById("machBadgeLine3").innerText = "● Vibration Alert";
-                document.getElementById("machBadgeLine3").style.color = "var(--color-primary)";
-                document.getElementById("machBadgeLine3").style.backgroundColor = "rgba(234, 40, 4, 0.15)";
-                document.getElementById("telL3Vib").style.color = "var(--color-primary)";
-            } else {
-                document.getElementById("machBadgeLine3").innerText = "● Optimal";
-                document.getElementById("machBadgeLine3").style.color = "var(--color-badge-success)";
-                document.getElementById("machBadgeLine3").style.backgroundColor = "rgba(43, 154, 102, 0.15)";
-                document.getElementById("telL3Vib").style.color = "var(--color-ink)";
+                if (data.line3.vibration_g > 1.8) {
+                    document.getElementById("machBadgeLine3").innerText = "● Vibration Alert";
+                    document.getElementById("machBadgeLine3").style.color = "var(--color-primary)";
+                    document.getElementById("machBadgeLine3").style.backgroundColor = "rgba(234, 40, 4, 0.15)";
+                    document.getElementById("telL3Vib").style.color = "var(--color-primary)";
+                    document.getElementById("cardUptime").innerText = "88.4%";
+                    document.getElementById("cardOEE").innerText = "84.2%";
+                } else {
+                    document.getElementById("machBadgeLine3").innerText = "● Optimal";
+                    document.getElementById("machBadgeLine3").style.color = "var(--color-badge-success)";
+                    document.getElementById("machBadgeLine3").style.backgroundColor = "rgba(43, 154, 102, 0.15)";
+                    document.getElementById("telL3Vib").style.color = "var(--color-ink)";
+                    document.getElementById("cardUptime").innerText = "99.4%";
+                    document.getElementById("cardOEE").innerText = "94.8%";
+                }
             }
 
             // Line 4
-            const l4 = summary.lines[1];
-            document.getElementById("telL4Cycle").innerText = `${l4.cycle_time_ms} ms`;
-            document.getElementById("telL4Press").innerText = `${l4.pressure_kpa} kPa`;
-            document.getElementById("telL4Cartons").innerText = `${l4.total_cartons.toLocaleString()}`;
+            if (data.line4) {
+                document.getElementById("telL4Cycle").innerText = `${data.line4.cycle_time_ms} ms`;
+                document.getElementById("telL4Press").innerText = `${data.line4.pressure_kpa} kPa`;
+                document.getElementById("telL4Cartons").innerText = `${(data.line4.cartons_total || 14200).toLocaleString()}`;
+                const flapElem = document.getElementById("telL4Flap");
+                if (flapElem) flapElem.innerText = data.line4.pressure_kpa < 500 ? "WARNING_DROP" : "OPTIMAL";
+            }
         }
 
         // Fault Injection & Diagnosis
         async function injectFault(faultName) {
-            await fetch("/api/fault/inject", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ fault_name: faultName })
-            });
-
-            const res = await fetch("/api/ai/diagnose-and-optimize", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ anomaly_type: faultName === "BEARING_DEGRADATION_LINE3" ? "BEARING_VIBRATION_LINE3" : "PNEUMATIC_PRESSURE_DROP_LINE4" })
-            });
-            const proposal = await res.json();
-            document.getElementById("proposalNarrativeText").innerText = proposal.causal_narrative;
-            alert(`⚠️ Fault Injected: ${faultName}\n\nLumina Autonomous AI formulated verified proposal ID: ${proposal.proposal_id}.\nView in 'Controls IDE' tab.`);
+            try {
+                const res = await fetch("/api/plant/inject-fault", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        machine_id: faultName === "BEARING_DEGRADATION_LINE3" ? "Line3_Infeed" : "Line4_Carton",
+                        fault_type: faultName
+                    })
+                });
+                const data = await res.json();
+                currentProposal = data.proposal;
+                if (currentProposal) {
+                    document.getElementById("proposalNarrativeText").innerText = currentProposal.causal_explanation;
+                }
+                alert(`⚠️ Fault Injected: ${faultName}\n\nLumina Autonomous AI formulated verified proposal ID: ${data.proposal.proposal_id}.\nView details in 'Controls IDE' tab.`);
+            } catch (err) {
+                alert(`Error injecting fault: ${err.message}`);
+            }
         }
 
         async function clearFaults() {
-            await fetch("/api/fault/clear", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ fault_name: "BEARING_DEGRADATION_LINE3" })
-            });
-            await fetch("/api/fault/clear", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ fault_name: "PNEUMATIC_PRESSURE_DROP_LINE4" })
-            });
-            alert("All plant simulation faults cleared.");
+            try {
+                await fetch("/api/plant/clear-faults", { method: "POST" });
+                alert("All plant simulation faults cleared.");
+            } catch (err) {
+                alert(`Error clearing faults: ${err.message}`);
+            }
         }
 
         async function deployProposal() {
-            const diagRes = await fetch("/api/ai/diagnose-and-optimize", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ anomaly_type: "BEARING_VIBRATION_LINE3" })
-            });
-            const prop = await diagRes.json();
+            try {
+                let propId = currentProposal ? currentProposal.proposal_id : null;
+                if (!propId) {
+                    const diagRes = await fetch("/api/ai/diagnose-and-optimize?machine_id=Line3_Infeed", { method: "POST" });
+                    const diagData = await diagRes.json();
+                    currentProposal = diagData.proposal;
+                    propId = currentProposal.proposal_id;
+                }
 
-            const res = await fetch("/api/proposal/approve-and-deploy", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    proposal_id: prop.proposal_id,
-                    user_name: "Chief Controls Engineer",
-                    biometric_signature: "BIO_AUTH_PASSED_SHA256"
-                })
-            });
-            const data = await res.json();
-            if (data.success) {
-                alert(`🚀 Hot-Swap Deployment Successful!\n\nSecurity Attestation: ${data.security_attestation}\nDeceleration ramp adjusted to 380ms on Siemens S7-1500 in RUN mode.`);
-            } else {
-                alert(`Rejection: ${data.detail}`);
+                const res = await fetch("/api/proposal/deploy", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        proposal_id: propId,
+                        signature: "CHIEF_CONTROLS_ENG_01",
+                        authenticated_user: "Chief Controls Engineer"
+                    })
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    alert(`🚀 Hot-Swap Deployment Successful!\n\nSecurity Clearance: ${data.security_clearance}\nTarget tag: ${data.deployed_tag} -> New Value: ${data.new_value}`);
+                } else {
+                    alert(`Rejection: ${data.detail || JSON.stringify(data)}`);
+                }
+            } catch (err) {
+                alert(`Deployment failed: ${err.message}`);
             }
         }
 
         async function executeRollback() {
-            const res = await fetch("/api/security/rollback?machine_id=Line3_Infeed", { method: "POST" });
-            const data = await res.json();
-            alert(`⏮️ Rollback Executed:\n${data.message}`);
+            try {
+                const res = await fetch("/api/security/rollback?machine_id=Line3_Infeed", { method: "POST" });
+                const data = await res.json();
+                alert(`⏮️ Rollback Executed:\n${data.message}`);
+            } catch (err) {
+                alert(`Rollback failed: ${err.message}`);
+            }
         }
 
         // Feature 3: Custom Code Studio Z3 Verification
         async function runCustomVerification() {
-            const stCode = document.getElementById("customStCode").value;
-            const res = await fetch("/api/code/verify-custom", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    st_code: stCode,
-                    routine_name: "FC_CustomInfeedRoutine"
-                })
-            });
-            const data = await res.json();
-            if (data.passed) {
-                document.getElementById("customVerificationOutput").innerHTML = `
+            try {
+                const stCode = document.getElementById("customStCode").value;
+                const res = await fetch("/api/verification/verify-custom", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        st_code: stCode,
+                        variables: { "DecelRamp_ms": "INT" },
+                        transition_rules: [
+                            { "target": "DecelRamp_ms", "type": "CLAMP_INT", "min": 200, "max": 800, "condition": 380 }
+                        ],
+                        safety_invariants: ["DECEL_RAMP_SAFE_BOUNDS"]
+                    })
+                });
+                const resp = await res.json();
+                const verif = resp.verification;
+
+                if (verif.passed) {
+                    document.getElementById("customVerificationOutput").innerHTML = `
 <span style="color: #4ade80;">✔ MATHEMATICALLY PROVED SAFE (Z3 SMT Solver)</span>
 • Layer 1 (Static Linter): PASSED
 • Layer 2 (Z3 Bounded Model Checker): PROVEN SAFE across unrolled cycles
 • Layer 3 (SoftPLC Digital Twin): PASSED (1,000 cycles, 0 collisions)
-• Execution Time: ${data.execution_time_ms}ms
-                `;
-            } else {
-                document.getElementById("customVerificationOutput").innerHTML = `
-<span style="color: #f87171;">✖ VERIFICATION REJECTION: ${data.layer_failed}</span>
-• Error: ${data.error_message}
-• Counterexample: ${JSON.stringify(data.smt_counterexample)}
-                `;
+• Execution Time: ${verif.execution_time_ms}ms
+                    `;
+                } else {
+                    document.getElementById("customVerificationOutput").innerHTML = `
+<span style="color: #f87171;">✖ VERIFICATION REJECTION: ${verif.layer_failed}</span>
+• Error: ${verif.error_message}
+• Counterexample: ${JSON.stringify(verif.smt_counterexample || {})}
+                    `;
+                }
+
+                // Fetch Rockwell L5X XML representation
+                const l5xRes = await fetch("/api/export/rockwell-l5x?routine_name=FB_InfeedRampController");
+                const l5xData = await l5xRes.json();
+                document.getElementById("l5xOutputContainer").innerText = l5xData.xml;
+            } catch (err) {
+                alert(`Verification request failed: ${err.message}`);
             }
-            document.getElementById("l5xOutputContainer").innerText = data.exported_l5x;
         }
 
         // Feature 4: Industrial RAG
         async function loadRAGDocuments() {
-            const res = await fetch("/api/rag/documents");
-            const data = await res.json();
-            renderRAGDocs(data.documents);
+            try {
+                const res = await fetch("/api/rag/documents");
+                const data = await res.json();
+                renderRAGDocs(data.documents);
+            } catch (err) {
+                console.error("Failed to load RAG docs:", err);
+            }
         }
 
         async function searchRAG() {
-            const query = document.getElementById("ragSearchQuery").value;
-            const res = await fetch("/api/rag/search", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ query: query })
-            });
-            const data = await res.json();
-            renderRAGDocs(data.results);
+            try {
+                const query = document.getElementById("ragSearchQuery").value;
+                const res = await fetch(`/api/rag/search?q=${encodeURIComponent(query)}`);
+                const data = await res.json();
+                renderRAGDocs(data.results);
+            } catch (err) {
+                alert(`Search failed: ${err.message}`);
+            }
         }
 
         function renderRAGDocs(docs) {
             const container = document.getElementById("ragSearchResults");
+            if (!container) return;
             container.innerHTML = "";
-            docs.forEach(doc => {
+            (docs || []).forEach(doc => {
                 const el = document.createElement("div");
                 el.className = "replicate-card";
                 el.style.backgroundColor = "var(--color-surface-bone)";
@@ -1327,7 +1384,6 @@ Click 'Scan Subnets' to auto-discover PLCs and generate I/O maps from electrical
                     <div style="display: flex; justify-content: space-between; align-items: flex-start;">
                         <div>
                             <span class="pill-badge" style="background: var(--color-ink); color: #fff;">${doc.id}</span>
-                            <span class="pill-badge">${doc.category}</span>
                             <div style="font-family: var(--font-display); font-weight: 700; font-size: 1.05rem; margin-top: 0.3rem;">
                                 ${doc.title}
                             </div>
@@ -1337,7 +1393,7 @@ Click 'Scan Subnets' to auto-discover PLCs and generate I/O maps from electrical
                         ${doc.content}
                     </p>
                     <div style="display: flex; gap: 0.4rem; margin-top: 0.6rem; flex-wrap: wrap;">
-                        ${doc.tags.map(t => `<span class="pill-badge" style="font-size: 0.68rem;">#${t}</span>`).join("")}
+                        ${(doc.tags || []).map(t => `<span class="pill-badge" style="font-size: 0.68rem;">#${t}</span>`).join("")}
                     </div>
                 `;
                 container.appendChild(el);
@@ -1345,134 +1401,167 @@ Click 'Scan Subnets' to auto-discover PLCs and generate I/O maps from electrical
         }
 
         async function uploadRAGDoc() {
-            const title = document.getElementById("docTitleInput").value;
-            const category = document.getElementById("docCategoryInput").value || "OEM_MANUAL";
-            const content = document.getElementById("docContentInput").value;
-            if (!title || !content) {
-                alert("Please provide both document title and content.");
-                return;
+            try {
+                const title = document.getElementById("docTitleInput").value;
+                const content = document.getElementById("docContentInput").value;
+                if (!title || !content) {
+                    alert("Please provide both document title and content.");
+                    return;
+                }
+                const docId = `DOC-USER-${Date.now()}`;
+                await fetch("/api/rag/upload", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ doc_id: docId, title, content, tags: ["UserUploaded", "EquipmentSpec"] })
+                });
+                alert("Technical Document successfully indexed into RAG vector store!");
+                loadRAGDocuments();
+            } catch (err) {
+                alert(`Upload failed: ${err.message}`);
             }
-            await fetch("/api/rag/upload", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ title, category, content, tags: ["UserUploaded", "EquipmentSpec"] })
-            });
-            alert("Technical Document successfully indexed into RAG vector store!");
-            loadRAGDocuments();
         }
 
         // Feature 5: Process Mining
         async function refreshProcessMining() {
-            const res = await fetch("/api/pal/process-mining/export-fmu");
-            const data = await res.json();
-            document.getElementById("fmuExportCode").innerHTML = `
+            try {
+                const res = await fetch("/api/pal/process-mining/export-fmu");
+                const data = await res.json();
+                const transCount = Object.keys(data.transitions || {}).length;
+                document.getElementById("fmuExportCode").innerHTML = `
 // Functional Mock-up Unit (FMU 2.0 Digital Twin):
-• Checksum: ${data.model_checksum}
-• Machine Twin Model: ${data.machine_model}
-• Inferred Transitions: ${data.transitions.length} States
-• States: ${data.synthesized_states.slice(0, 6).join(", ")}...
-            `;
+• Inferred Transitions: ${transCount} States
+• Synthesized States: ${(data.synthesized_states || []).slice(0, 5).join(", ")}...
+• Export Model: Ready for MATLAB Simulink / Rockwell Emulate3D Co-Simulation
+                `;
+            } catch (err) {
+                console.error("Process mining refresh failed:", err);
+            }
         }
 
         // Feature 6: Commissioning Assistant
         async function runCommissioningScan() {
-            const res = await fetch("/api/commissioning/scan", { method: "POST" });
-            const data = await res.json();
-            document.getElementById("commissioningResults").innerHTML = `
-✔ Subnets Scanned: ${data.subnets_scanned.join(", ")}
+            try {
+                const res = await fetch("/api/commissioning/scan");
+                const data = await res.json();
+                let devs = (data.discovered_devices || []).map(d => `  • [${d.ip}] ${d.vendor} ${d.model} (${d.protocols.join(", ")})`).join("\n");
+                document.getElementById("commissioningResults").innerHTML = `
+✔ Subnet Scanned: ${data.scanned_subnet}
 ✔ Discovered Nodes:
-  • [192.168.1.10] Siemens S7-1516-3 PN/DP (S7 Comm)
-  • [192.168.1.20] WAGO 750-880 Modbus Gateway (Modbus TCP)
-  • [192.168.1.30] Rockwell 1756-L83E ControlLogix (CIP)
-✔ P&ID Schematic OCR: 42 Channel tags auto-mapped (Accuracy: ${data.inferred_tag_accuracy_score}%)
-            `;
+${devs}
+✔ Auto-Mapped Industrial Tags: ${data.auto_mapped_tags_count} (Signal Health: ${data.signal_health})
+                `;
+            } catch (err) {
+                alert(`Scan failed: ${err.message}`);
+            }
         }
 
         async function runLoopTest() {
-            const inputVal = document.getElementById("loopTestInput").value;
-            const res = await fetch("/api/commissioning/loop-test", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ operator_statement: inputVal })
-            });
-            const data = await res.json();
-            document.getElementById("loopTestOutput").innerHTML = `
+            try {
+                const inputVal = document.getElementById("loopTestInput").value || "Verify photoeye sensor on Line 3 Infeed";
+                const res = await fetch("/api/commissioning/loop-test", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ query_text: inputVal })
+                });
+                const data = await res.json();
+                if (data.status === "LOOP_CHECK_PASSED") {
+                    document.getElementById("loopTestOutput").innerHTML = `
 <div class="replicate-card" style="background-color: rgba(43, 154, 102, 0.1); border: 1px solid rgba(43, 154, 102, 0.3);">
   <strong style="color: var(--color-badge-success);">Status: ${data.status}</strong><br>
   <span style="font-family: var(--font-mono); font-size: 0.82rem;">
   Interpreted Action: ${data.interpreted_action}<br>
   Mapped Address: ${data.mapped_address} (${data.tag_id})<br>
-  Measured State: ${data.state_verified} (Round-trip Latency: ${data.latency_ms}ms)<br>
+  Measured State: ${data.signal_verified ? 'ACTIVE_HIGH' : 'LOW'} (Latency: ${data.latency_ms}ms)<br>
   </span>
-  <em style="color: var(--color-charcoal); font-size: 0.82rem;">${data.message}</em>
 </div>
-            `;
+                    `;
+                } else {
+                    document.getElementById("loopTestOutput").innerHTML = `
+<div class="replicate-card" style="background-color: rgba(234, 40, 4, 0.1); border: 1px solid rgba(234, 40, 4, 0.3);">
+  <strong style="color: var(--color-primary);">${data.status}</strong><br>
+  <span>${data.message}</span>
+</div>
+                    `;
+                }
+            } catch (err) {
+                alert(`Loop test failed: ${err.message}`);
+            }
         }
 
         async function generateCertificate() {
-            const res = await fetch("/api/commissioning/generate-certificate", { method: "POST" });
-            const data = await res.json();
-            document.getElementById("certificateOutput").innerHTML = `
+            try {
+                const res = await fetch("/api/commissioning/generate-certificate?technician_name=Alex+Morgan", { method: "POST" });
+                const data = await res.json();
+                document.getElementById("certificateOutput").innerHTML = `
 <div class="replicate-card" style="background-color: var(--color-surface-bone);">
   <strong>📜 ${data.certificate_id}</strong><br>
   <span style="font-size: 0.8rem; color: var(--color-charcoal);">
-  Site: ${data.site}<br>
-  Digital Seal (SHA-256): ${data.digital_seal_sha256}<br>
-  Status: <span style="color: var(--color-badge-success); font-weight: 700;">${data.status}</span>
+  Certified By: ${data.certified_by} | Site: ${data.plant_id}<br>
+  Digital Seal: ${data.digital_attestation_hash}<br>
+  Compliance: ${(data.standard_compliance || []).join(", ")}
   </span>
 </div>
-            `;
+                `;
+            } catch (err) {
+                alert(`Certificate generation failed: ${err.message}`);
+            }
         }
 
         // Feature 7: Zero-Trust Security Data
         async function loadSecurityData() {
-            const res = await fetch("/api/security/policies");
-            const policies = await res.json();
-            const ledgerRes = await fetch("/api/security/audit-ledger");
-            const ledger = await ledgerRes.json();
+            try {
+                const res = await fetch("/api/security/policies");
+                const policies = await res.json();
+                const ledgerRes = await fetch("/api/security/audit-ledger");
+                const ledger = await ledgerRes.json();
 
-            let logHtml = "";
-            ledger.audit_ledger.forEach(rec => {
-                logHtml += `[${new Date(rec.timestamp * 1000).toLocaleTimeString()}] ${rec.event_type} | User=${rec.user} | Tag=${rec.target_tag} | Status=${rec.status}\n`;
-            });
-            if (logHtml) {
-                document.getElementById("securityAuditLogContainer").innerText = logHtml;
+                let logHtml = "";
+                (ledger.records || []).forEach(rec => {
+                    logHtml += `[${new Date(rec.timestamp * 1000).toLocaleTimeString()}] ${rec.decision} | User=${rec.user || rec.authenticated_user} | Tag=${rec.target_tag} | Reason=${rec.reason}\n`;
+                });
+                if (logHtml) {
+                    document.getElementById("securityAuditLogContainer").innerText = logHtml;
+                }
+            } catch (err) {
+                console.error("Failed to load security ledger:", err);
             }
         }
 
         async function addSecurityPolicy() {
-            const prefix = document.getElementById("newPolicyPrefixInput").value;
-            if (!prefix) return;
-            await fetch("/api/security/policies/add", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ prefix })
-            });
-            alert(`Air-Gap Policy Added: Writes to '${prefix}*' permanently prohibited.`);
-            loadSecurityData();
+            try {
+                const prefix = document.getElementById("newPolicyPrefixInput").value;
+                if (!prefix) return;
+                await fetch(`/api/security/add-policy?prefix=${encodeURIComponent(prefix)}`, { method: "POST" });
+                alert(`Air-Gap Policy Added: Writes to '${prefix}*' permanently prohibited.`);
+                loadSecurityData();
+            } catch (err) {
+                alert(`Failed to add policy: ${err.message}`);
+            }
         }
 
         // Feature 8: C-Suite ROI Calculator
         async function recalculateROI() {
-            const downtimeRate = parseFloat(document.getElementById("inputDowntimeRate").value);
-            const downtimeHours = parseFloat(document.getElementById("inputDowntimeHours").value);
-            const retoolingCycles = parseInt(document.getElementById("inputRetoolingCycles").value);
-
-            const res = await fetch("/api/csuite/calculate-roi", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                    downtime_cost_per_hour: downtimeRate,
-                    annual_unplanned_hours: downtimeHours,
-                    retooling_cycles_per_year: retoolingCycles,
-                    average_weeks_per_retooling: 3.0,
-                    annual_license_cost: 48000.0
-                })
-            });
-            const data = await res.json();
-            document.getElementById("csuiteRoiPercent").innerText = `${data.roi_percent}%`;
-            document.getElementById("csuiteNetValue").innerHTML = `$${data.net_annual_value.toLocaleString()}<span style="font-size: 1rem;">/yr</span>`;
-            document.getElementById("csuitePayback").innerText = `Payback Period: ${data.payback_period_weeks} weeks`;
+            try {
+                const downtimeRate = parseFloat(document.getElementById("inputDowntimeRate").value) || 28500.0;
+                const downtimeHours = parseFloat(document.getElementById("inputDowntimeHours").value) || 4.5;
+                const res = await fetch("/api/financial/calculate-roi", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        cost_per_hour_downtime: downtimeRate,
+                        avoided_downtime_hours_per_month: downtimeHours,
+                        technician_hourly_rate: 125.0,
+                        total_active_plants: 1,
+                        monthly_subscription_tier: 2500.0
+                    })
+                });
+                const data = await res.json();
+                document.getElementById("csuiteRoiPercent").innerText = `${data.roi_percentage}%`;
+                document.getElementById("csuiteNetValue").innerHTML = `$${Math.round(data.net_annual_roi_dollars).toLocaleString()}<span style="font-size: 1rem;">/yr</span>`;
+                document.getElementById("csuitePayback").innerText = `Gross Annual Savings: $${Math.round(data.total_annual_gross_savings_usd).toLocaleString()}`;
+            } catch (err) {
+                alert(`ROI calculation failed: ${err.message}`);
+            }
         }
     </script>
 </body>

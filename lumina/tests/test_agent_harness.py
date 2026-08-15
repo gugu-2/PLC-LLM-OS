@@ -11,17 +11,18 @@ Simulates autonomous operations across multiple agents:
 """
 
 import asyncio
+import pytest
 import sys
 import os
 import time
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "backend"))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
-from lumina_pal import PALManager
-from lumina_verify import VerificationGauntlet
-from lumina_ai import LuminaAIEngine
-from lumina_security import HardwareDeploymentProxy
-from simulated_plant import SimulatedPackagingPlant
+from lumina.backend.lumina_pal import PALManager
+from lumina.backend.lumina_verify import VerificationGauntlet
+from lumina.backend.lumina_ai import LuminaAIEngine
+from lumina.backend.lumina_security import HardwareDeploymentProxy
+from lumina.backend.simulated_plant import SimulatedPackagingPlant
 
 
 async def run_multi_agent_benchmark():
@@ -133,6 +134,11 @@ async def run_multi_agent_benchmark():
     print("\n================================================================================")
     print("[SUCCESS] ALL MULTI-AGENT CLOSED-LOOP BENCHMARKS PASSED PERFECTLY (100% SUCCESS RATE)!")
     print("================================================================================")
+
+
+@pytest.mark.asyncio
+async def test_multi_agent_benchmark():
+    await run_multi_agent_benchmark()
 
 
 if __name__ == "__main__":
