@@ -129,3 +129,59 @@ def test_security_proxy_tag_prefix_rules(sec_proxy):
     )
     assert passed is False
     assert "POLICY_VIOLATION" in reason
+
+
+def test_endianness_transformer_and_crc32():
+    """Verify Siemens Big-Endian vs Rockwell Little-Endian conversions and CRC32 attestation."""
+    from lumina.backend.lumina_pal import EndiannessTransformer
+    
+    val = 55.5
+    s7_bytes = EndiannessTransformer.to_s7_real(val)
+    cip_bytes = EndiannessTransformer.to_cip_real(val)
+    
+    assert len(s7_bytes) == 4
+    assert len(cip_bytes) == 4
+    assert s7_bytes != cip_bytes # Big vs Little endian must differ in byte ordering
+    assert round(EndiannessTransformer.from_s7_real(s7_bytes), 1) == val
+    assert round(EndiannessTransformer.from_cip_real(cip_bytes), 1) == val
+
+    crc = EndiannessTransformer.compute_crc32("Line3.Infeed.DecelRamp_ms:380:1700000000")
+    assert crc != 0
+
+
+def test_cegar_predicate_abstractor():
+    """Verify CEGAR piecewise linear bounds construction."""
+    from lumina.backend.lumina_verify import CEGARPredicateAbstractor
+    bounds = CEGARPredicateAbstractor.linearize_bounds("DecelRamp_ms", 200, 800, bit_width=32)
+    assert "lower" in bounds
+    assert "upper" in bounds
+
+
+def test_domain_randomizer_physics():
+    """Verify Bayesian domain randomization stochastic boundaries."""
+    from lumina.backend.simulated_plant import DomainRandomizer
+    dr = DomainRandomizer(variance_pct=0.20)
+    
+    frictions = [dr.sample_friction(1.0) for _ in range(50)]
+    assert all(0.80 <= f <= 1.20 for f in frictions)
+    assert min(frictions) < 0.95
+    assert max(frictions) > 1.05
+
+
+def test_adaptive_burst_rate_limiter_changeover(sec_proxy):
+    """Verify state-aware rate limiter permits higher burst during changeover/maintenance."""
+    # Under changeover mode, user can perform more requests than standard production limit
+    changeover_user = "ENGINEER_MAINTENANCE_CHANGEOVER"
+    
+    success_count = 0
+    for i in range(15):
+        passed, _ = sec_proxy.inspect_and_filter(
+            target_machine="Line3_Infeed",
+            target_tag=f"Line3.Infeed.Param_{i}",
+            code_payload=f"Line3.Infeed.Param_{i} := {i};",
+            authenticated_user=changeover_user
+        )
+        if passed:
+            success_count += 1
+            
+    assert success_count >= 12

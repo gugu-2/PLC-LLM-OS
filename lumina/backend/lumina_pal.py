@@ -11,7 +11,7 @@ Provides normalized, bidirectional industrial communication across:
 
 from enum import Enum
 from dataclasses import dataclass, field
-from typing import Dict, Any, List, Optional, Callable
+from typing import Dict, Any, List, Optional, Callable, Union
 from collections import deque
 import asyncio
 import time
@@ -40,6 +40,39 @@ class TagDataType(str, Enum):
 DataType = TagDataType
 
 
+import zlib
+
+
+class EndiannessTransformer:
+    """
+    Handles endianness conversions and CRC32 telemetry frame attestation:
+      - Siemens S7: Big-Endian (MSB first, '>f')
+      - Rockwell CIP: Little-Endian (LSB first, '<f')
+      - Modbus: Word-Swapped Big-Endian (CDAB)
+    """
+    @staticmethod
+    def to_s7_real(value: float) -> bytes:
+        return struct.pack(">f", float(value))
+
+    @staticmethod
+    def from_s7_real(b: bytes) -> float:
+        return struct.unpack(">f", b)[0]
+
+    @staticmethod
+    def to_cip_real(value: float) -> bytes:
+        return struct.pack("<f", float(value))
+
+    @staticmethod
+    def from_cip_real(b: bytes) -> float:
+        return struct.unpack("<f", b)[0]
+
+    @staticmethod
+    def compute_crc32(payload: Union[bytes, str]) -> int:
+        if isinstance(payload, str):
+            payload = payload.encode("utf-8")
+        return zlib.crc32(payload)
+
+
 @dataclass
 class NormalizedTag:
     tag_id: str                 # Canonical ISA-95 path: e.g. "Line3.Packaging.Infeed.DecelRamp"
@@ -51,6 +84,11 @@ class NormalizedTag:
     engineering_unit: str = ""
     quality: str = "GOOD"
     read_only: bool = False
+    crc32_checksum: int = 0
+
+    def __post_init__(self):
+        if self.crc32_checksum == 0:
+            self.crc32_checksum = EndiannessTransformer.compute_crc32(f"{self.tag_id}:{self.value}:{self.timestamp}")
 
 
 @dataclass

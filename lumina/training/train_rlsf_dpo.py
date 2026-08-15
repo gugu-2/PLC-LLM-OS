@@ -35,12 +35,18 @@ class SymbolicRewardEvaluator:
         safety_invariants: List[str]
     ) -> float:
         """
-        Calculates strictly ordered symbolic reward score R(y):
-        +3.0: Passes all 3 Layers (Static Linter + Z3 SMT + Digital Twin)
+        Calculates Pareto Multi-Objective Symbolic Reward score R(y):
+        +3.0 to +4.0: Passes all 3 Layers with high OEE and low vibration
         -1.0: Fails Layer 3 Digital Twin (kinematic collision / scan overrun)
         -2.0: Fails Layer 1 Static Linter (syntax / unbounded loop)
+        -3.0: Trivial / No-Op / Empty Code Penalty (Anti-Reward Hacking)
         -5.0: Fails Layer 2 Z3 SMT Invariant Proof (safety invariant breach)
         """
+        # Anti-Reward Hacking / No-Op Penalty
+        clean_len = len(st_code.strip())
+        if clean_len < 15 or ":=" not in st_code:
+            return -3.0
+
         res = self.gauntlet.verify(st_code, variables, transition_rules, safety_invariants)
         
         if res.passed:

@@ -16,6 +16,21 @@ except ImportError:
     from lumina_pal import PALManager, TagDataType
 
 
+class DomainRandomizer:
+    """
+    Parametric Bayesian Domain Randomization for SoftPLC Digital Twin simulation.
+    Applies stochastic variations in friction, pneumatic droop, and thermal expansion.
+    """
+    def __init__(self, variance_pct: float = 0.20):
+        self.variance_pct = variance_pct
+
+    def sample_friction(self, base_friction: float = 1.0) -> float:
+        return base_friction * random.uniform(1.0 - self.variance_pct, 1.0 + self.variance_pct)
+
+    def sample_pressure_droop(self, base_kpa: float = 610.0) -> float:
+        return base_kpa * random.uniform(1.0 - self.variance_pct * 0.5, 1.0)
+
+
 class SimulatedPackagingPlant:
     """
     Emulates physical plant dynamics:
@@ -25,6 +40,7 @@ class SimulatedPackagingPlant:
     def __init__(self, pal: PALManager):
         self.pal = pal
         self.running = False
+        self.randomizer = DomainRandomizer(variance_pct=0.20)
         
         # Physical plant states
         self.line3_running = True

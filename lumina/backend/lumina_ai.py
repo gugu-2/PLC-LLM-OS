@@ -101,16 +101,24 @@ class IndustrialRAGKnowledgeBase:
             }
         ])
 
-    def query(self, query_text: str, top_k: int = 2) -> List[Dict[str, Any]]:
-        """BM25 term-weighted search with stop-word filtering and document length penalization."""
+    def query(self, query_text: str, top_k: int = 2, vendor_filter: Optional[str] = None) -> List[Dict[str, Any]]:
+        """BM25 term-weighted search with stop-word filtering, document length penalization, and vendor dialect isolation."""
         stop_words = {"what", "is", "the", "for", "and", "or", "in", "to", "a", "of", "how", "with", "on"}
         tokens = [t for t in re.findall(r"\b[A-Za-z0-9_#\-]+\b", query_text.lower()) if t not in stop_words]
-        if not tokens:
-            return self.documents[:top_k]
+        
+        candidates = self.documents
+        if vendor_filter:
+            v_upper = vendor_filter.upper()
+            candidates = [d for d in self.documents if v_upper in d.get("title", "").upper() or v_upper in " ".join(d.get("tags", [])).upper()]
+            if not candidates:
+                candidates = self.documents
 
-        avg_doc_len = sum(len(d["content"].split()) for d in self.documents) / max(1, len(self.documents))
+        if not tokens:
+            return candidates[:top_k]
+
+        avg_doc_len = sum(len(d["content"].split()) for d in candidates) / max(1, len(candidates))
         scored = []
-        for doc in self.documents:
+        for doc in candidates:
             doc_tokens = re.findall(r"\b[A-Za-z0-9_#\-]+\b", (doc["title"] + " " + doc["content"] + " " + " ".join(doc["tags"])).lower())
             doc_len = len(doc_tokens)
             score = 0.0
@@ -125,7 +133,8 @@ class IndustrialRAGKnowledgeBase:
 
     def add_document(self, title: str = "", category: str = "", content: str = "", tags: Optional[List[str]] = None, doc_id: Optional[str] = None, **kwargs) -> Dict[str, Any]:
         if doc_id is None:
-            doc_id = f"DOC-USR-{title.replace(' ', '_').upper()[:20]}"
+            clean_title = re.sub(r'[^A-Za-z0-9_]', '_', title).upper()[:15]
+            doc_id = f"DOC-USR-{clean_title}"
         doc = {
             "id": doc_id,
             "title": title,

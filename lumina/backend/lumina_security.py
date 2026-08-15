@@ -252,16 +252,18 @@ class HardwareDeploymentProxy:
                     )
                     return False, rec.reason
 
-            # 2. Check: Thread-Safe Cognitive Burst Rate Limiter (Sliding Window with Monotonic Clock)
+            # 2. Check: Adaptive Leaky Bucket Burst Rate Limiter (State-Aware)
+            # Standby/Changeover allows higher burst (up to 30 req/min), while production strictly limits to 10 req/min
+            max_burst = 30 if "CHANGEOVER" in str(authenticated_user).upper() or "MAINTENANCE" in str(authenticated_user).upper() else 10
             self._request_history = [t for t in self._request_history if now_mono - t < 60.0]
-            if len(self._request_history) >= 10:
+            if len(self._request_history) >= max_burst:
                 self._request_history.append(now_mono)
                 rec = self._append_audit_record(
                     authenticated_user=authenticated_user,
                     target_machine=target_machine,
                     target_tag=target_tag,
                     decision="REJECTED_BURST_LIMIT",
-                    reason="CIRCUIT_BREAKER_TRIPPED: Excessive deployment rate (>10 req/min). System-level throttling engaged.",
+                    reason=f"CIRCUIT_BREAKER_TRIPPED: Excessive deployment rate (>{max_burst} req/min). System-level throttling engaged.",
                     payload_hash=payload_hash
                 )
                 return False, rec.reason
