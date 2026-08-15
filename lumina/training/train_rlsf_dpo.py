@@ -88,6 +88,55 @@ class SymbolicRewardEvaluator:
         }
 
 
+class SymbolicMarginDPOLoss:
+    """
+    Direct Preference Optimization (DPO) Loss with Symbolic Margin Scaling.
+    
+    Mathematical Formulation:
+    L_DPO(theta; pi_ref) = -E [ log sigma( beta * (log(pi/pi_ref)_w - log(pi/pi_ref)_l) - gamma * delta_R ) ]
+    
+    Where delta_R is the deterministic Z3 SMT reward difference.
+    """
+    def __init__(self, beta: float = 0.1, gamma: float = 0.05, label_smoothing: float = 0.0):
+        self.beta = beta
+        self.gamma = gamma
+        self.label_smoothing = label_smoothing
+
+    def __call__(
+        self,
+        policy_chosen_logps: Any,
+        policy_rejected_logps: Any,
+        reference_chosen_logps: Any,
+        reference_rejected_logps: Any,
+        delta_rewards: Optional[Any] = None
+    ) -> Tuple[Any, Any, Any]:
+        """Computes the RLSF Margin DPO loss with float32 stabilization."""
+        import torch
+        import torch.nn.functional as F
+
+        pi_logratios = policy_chosen_logps.to(torch.float32) - policy_rejected_logps.to(torch.float32)
+        ref_logratios = reference_chosen_logps.to(torch.float32) - reference_rejected_logps.to(torch.float32)
+        
+        logits = self.beta * (pi_logratios - ref_logratios)
+
+        if delta_rewards is not None:
+            margin = self.gamma * delta_rewards.to(torch.float32)
+            logits = logits - margin
+
+        if self.label_smoothing > 0:
+            loss = (
+                -F.logsigmoid(logits) * (1 - self.label_smoothing)
+                - F.logsigmoid(-logits) * self.label_smoothing
+            ).mean()
+        else:
+            loss = -F.logsigmoid(logits).mean()
+
+        chosen_rewards = self.beta * (policy_chosen_logps.to(torch.float32) - reference_chosen_logps.to(torch.float32)).detach()
+        rejected_rewards = self.beta * (policy_rejected_logps.to(torch.float32) - reference_rejected_logps.to(torch.float32)).detach()
+
+        return loss, chosen_rewards, rejected_rewards
+
+
 def run_dpo_pipeline_check():
     evaluator = SymbolicRewardEvaluator()
     sample_pair = evaluator.generate_preference_pair(

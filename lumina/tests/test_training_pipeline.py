@@ -73,3 +73,35 @@ def test_edge_model_exporter_14b_scaling_and_awq():
     # Test Merge script generation
     merge_script = exporter_14b.generate_merge_script()
     assert "merge_and_unload" in merge_script
+
+
+def test_symbolic_margin_dpo_loss():
+    try:
+        import torch
+        from lumina.training.train_rlsf_dpo import SymbolicMarginDPOLoss
+
+        loss_fn = SymbolicMarginDPOLoss(beta=0.1, gamma=0.05, label_smoothing=0.1)
+
+        policy_chosen = torch.tensor([-1.2, -0.8], requires_grad=True)
+        policy_rejected = torch.tensor([-2.5, -2.1], requires_grad=True)
+        ref_chosen = torch.tensor([-1.5, -1.0])
+        ref_rejected = torch.tensor([-2.0, -1.8])
+        delta_r = torch.tensor([8.5, 4.2])
+
+        loss, chosen_r, rejected_r = loss_fn(
+            policy_chosen_logps=policy_chosen,
+            policy_rejected_logps=policy_rejected,
+            reference_chosen_logps=ref_chosen,
+            reference_rejected_logps=ref_rejected,
+            delta_rewards=delta_r
+        )
+
+        assert loss.item() > 0.0
+        assert chosen_r.shape == policy_chosen.shape
+        assert rejected_r.shape == policy_rejected.shape
+
+        loss.backward()
+        assert policy_chosen.grad is not None
+        assert policy_rejected.grad is not None
+    except ImportError:
+        pytest.skip("PyTorch not installed in this environment, skipping tensor test")
