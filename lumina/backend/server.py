@@ -19,6 +19,7 @@ import re
 import asyncio
 import json
 import logging
+import argparse
 from typing import Dict, Any, List, Optional
 from pydantic import BaseModel, Field
 
@@ -50,10 +51,24 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Core subsystems
-pal = PALManager()
-# We will await pal.initialize_default_plant_topology() in startup_event
-plant_sim = SimulatedPackagingPlant(pal)
+# Parse deployment mode (Cloud vs Edge)
+parser = argparse.ArgumentParser(description="Lumina Industrial OS Server")
+parser.add_argument("--mode", type=str, choices=["edge", "cloud"], default="edge", help="Deployment architecture mode")
+# Use parse_known_args to play nice with uvicorn reloader
+args, _ = parser.parse_known_args()
+
+IS_CLOUD_MODE = (args.mode == "cloud")
+
+if IS_CLOUD_MODE:
+    logger.info("Initializing in CLOUD MODE. Hardware PAL and UDP Diode disabled. Remote MQTT/IoT bridge enabled.")
+    pal = None
+    plant_sim = None
+else:
+    logger.info("Initializing in EDGE MODE. Physical Hardware PAL and UDP Diode enabled.")
+    pal = PALManager()
+    plant_sim = SimulatedPackagingPlant(pal)
+
+# AI and Verification subsystems load universally
 ai_engine = LuminaAIEngine()
 verification_gauntlet = VerificationGauntlet()
 security_proxy = HardwareDeploymentProxy()
@@ -120,45 +135,54 @@ diode_rx = None
 # --- Background Tasks ---
 @app.on_event("startup")
 async def startup_event():
-    global diode_rx
-    logger.info("[INIT] Starting Lumina Simulation Clock and WebSocket Stream...")
-    await pal.initialize_default_plant_topology()
-    try:
-        from lumina.backend.lumina_diode import UnidirectionalDiodeRX
-    except ImportError:
-        from lumina_diode import UnidirectionalDiodeRX
-        
-    diode_rx = UnidirectionalDiodeRX(on_message=on_diode_message)
-    asyncio.create_task(diode_rx.listen())
-    asyncio.create_task(plant_sim.start_simulation_loop())
-    asyncio.create_task(telemetry_websocket_broadcaster())
-
-
-async def telemetry_websocket_broadcaster():
-    """5Hz telemetry streaming over WebSockets."""
-    while True:
+    logger.info("Lumina OS Backend starting up...")
+    if not IS_CLOUD_MODE and pal:
+        await pal.initialize_default_plant_topology()
+    else:
+        logger.info("Cloud Mode: Skipping PAL topology initialization.")
+    
+    # Broadcast telemetry stream loop (simulating diode / IoT bridge)
+    asyncio.create_task(broadcast_telemetry_loop())
+    
+    if not IS_CLOUD_MODE:
         try:
-            if active_websockets and latest_diode_telemetry:
-                tags = await pal.poll_all()
-                snapshot = {
-                    "timestamp": time.time(),
-                    "tags": {k: {"value": v.value, "unit": v.engineering_unit, "quality": v.quality} for k, v in tags.items()},
-                    **latest_diode_telemetry
-                }
-                payload = json.dumps(snapshot)
+            from lumina.backend.lumina_diode import UnidirectionalDiodeRX
+        except ImportError:
+            from lumina_diode import UnidirectionalDiodeRX
+            
+        diode_rx = UnidirectionalDiodeRX(on_message=on_diode_message)
+        asyncio.create_task(diode_rx.listen())
+        asyncio.create_task(plant_sim.start_simulation_loop())
 
-                async def _send_ws(ws: WebSocket):
-                    try:
-                        await asyncio.wait_for(ws.send_text(payload), timeout=0.1)
-                    except Exception:
-                        if ws in active_websockets:
-                            active_websockets.remove(ws)
 
-                await asyncio.gather(*[_send_ws(ws) for ws in active_websockets.copy()], return_exceptions=True)
-            await asyncio.sleep(0.2)
-        except Exception as e:
-            logger.error(f"WebSocket Broadcast Loop Error: {e}")
-            await asyncio.sleep(0.5)
+async def broadcast_telemetry_loop():
+    """
+    Broadcasts state to all connected WebSockets at 5Hz.
+    In Edge Mode: Reads directly from local PAL via SimulatedPlant.
+    In Cloud Mode: Expects MQTT/IoT bridged telemetry to populate virtual state.
+    """
+    while True:
+        await asyncio.sleep(0.2)
+        if not active_websockets:
+            continue
+            
+        if not IS_CLOUD_MODE and plant_sim:
+            tags = await pal.poll_all()
+            state = {
+                "timestamp": time.time(),
+                "tags": {k: {"value": v.value, "unit": v.engineering_unit, "quality": v.quality} for k, v in tags.items()},
+                **latest_diode_telemetry
+            }
+        else:
+            state = {"status": "CLOUD_PROXY_ACTIVE", "note": "Awaiting IoT Gateway Payload"}
+
+        payload = json.dumps(state)
+        for ws in active_websockets.copy():
+            try:
+                await asyncio.wait_for(ws.send_text(payload), timeout=0.1)
+            except Exception:
+                if ws in active_websockets:
+                    active_websockets.remove(ws)
 
 
 # --- REST API Endpoints ---

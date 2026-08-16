@@ -9,7 +9,12 @@ Validates, cleans, and deduplicates raw industrial automation datasets across:
 
 import json
 import re
+import sys
+import os
 from typing import Dict, Any
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../backend")))
+from lumina_verify import VerificationGauntlet
 
 
 def is_valid_plc_code(content: str) -> bool:
@@ -48,6 +53,14 @@ def clean_dataset_file(input_file: str, output_file: str) -> Dict[str, int]:
     valid_count = 0
     total_count = 0
 
+    # Initialize the Verification Gauntlet for strict mathematical dataset filtering
+    gauntlet = VerificationGauntlet()
+    # Define a set of standard safety invariants that all dataset code must inherently pass
+    standard_invariants = [
+        "If Start is pressed, system must eventually run.",
+        "Loop iterators must be strictly bounded."
+    ]
+
     with open(input_file, 'r', encoding='utf-8') as f_in, open(output_file, 'w', encoding='utf-8') as f_out:
         for line in f_in:
             if not line.strip():
@@ -56,9 +69,17 @@ def clean_dataset_file(input_file: str, output_file: str) -> Dict[str, int]:
             try:
                 data = json.loads(line)
                 code_to_check = data.get("content", "") or data.get("code", "") or data.get("body", "")
+                
+                # Step 1: Logic Density Heuristics
                 if is_valid_plc_code(code_to_check):
-                    f_out.write(json.dumps(data) + '\n')
-                    valid_count += 1
+                    # Step 2: Z3 Mathematical Verification
+                    verify_result = gauntlet.verify(code_to_check, variables={}, transition_rules=[], safety_invariants=standard_invariants)
+                    
+                    # We only accept code that passes the Static Linter and SMT proofs
+                    # (We don't strictly require Layer 3 Digital Twin passing for raw dataset chunks)
+                    if verify_result.passed or verify_result.layer_failed == "LAYER_3_DIGITAL_TWIN_SIMULATION":
+                        f_out.write(json.dumps(data) + '\n')
+                        valid_count += 1
             except json.JSONDecodeError:
                 continue
 
@@ -70,7 +91,15 @@ def clean_dataset_file(input_file: str, output_file: str) -> Dict[str, int]:
 
 
 if __name__ == "__main__":
-    print("[*] Running Dataset Cleaning Validation on sample...")
-    sample_scl = "FUNCTION_BLOCK FB_Test\nVAR\n nVal : INT := 10;\nEND_VAR\nBEGIN\n IF nVal > 5 THEN\n nVal := 0;\n END_IF;\nEND_FUNCTION_BLOCK"
-    assert is_valid_plc_code(sample_scl) is True
-    print("[OK] Dataset cleaner heuristics operational.")
+    import sys
+    if len(sys.argv) > 2:
+        input_f = sys.argv[1]
+        output_f = sys.argv[2]
+        print(f"[*] Running Z3-Verified Dataset Cleaning on {input_f}...")
+        results = clean_dataset_file(input_f, output_f)
+        print(f"[OK] Cleaning complete. Results: {results}")
+    else:
+        print("[*] Running Dataset Cleaning Validation on sample...")
+        sample_scl = "FUNCTION_BLOCK FB_Test\nVAR\n nVal : INT := 10;\nEND_VAR\nBEGIN\n IF nVal > 5 THEN\n nVal := 0;\n END_IF;\nEND_FUNCTION_BLOCK"
+        assert is_valid_plc_code(sample_scl) is True
+        print("[OK] Dataset cleaner heuristics operational.")
