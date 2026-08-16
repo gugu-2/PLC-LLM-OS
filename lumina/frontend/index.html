@@ -61,21 +61,24 @@
             font-family: var(--font-sans);
             line-height: 1.5;
             -webkit-font-smoothing: antialiased;
-            min-height: 100vh;
+            height: 100vh;
             display: flex;
-            flex-direction: column;
+            flex-direction: row;
+            overflow: hidden;
         }
 
-        /* Top Header - Replicate Style */
-        header {
+        /* Left Sidebar Layout */
+        .sidebar {
+            width: 260px;
             background-color: var(--color-surface-card);
-            border-bottom: 1px solid var(--color-hairline);
-            padding: 0.8rem 2rem;
+            border-right: 1px solid var(--color-hairline);
+            padding: 1.25rem 1rem;
             display: flex;
-            justify-content: space-between;
-            align-items: center;
-            position: sticky;
-            top: 0;
+            flex-direction: column;
+            gap: 1.5rem;
+            height: 100vh;
+            overflow-y: auto;
+            flex-shrink: 0;
             z-index: 100;
         }
 
@@ -114,16 +117,11 @@
             font-weight: 600;
             border: 1px solid var(--color-hairline);
         }
-
-        /* Navigation Bar with all 8 feature tabs */
+        /* Navigation Bar with all feature tabs */
         .nav-pills {
             display: flex;
-            background-color: var(--color-surface-bone);
-            padding: 0.25rem;
-            border-radius: var(--radius-full);
-            border: 1px solid var(--color-hairline);
-            gap: 0.2rem;
-            flex-wrap: wrap;
+            flex-direction: column;
+            gap: 0.25rem;
         }
 
         .nav-pill-btn {
@@ -131,25 +129,35 @@
             border: none;
             color: var(--color-charcoal);
             font-family: var(--font-sans);
-            font-size: 0.8rem;
+            font-size: 0.85rem;
             font-weight: 600;
-            padding: 0.35rem 0.85rem;
-            border-radius: var(--radius-full);
+            padding: 0.6rem 1rem;
+            border-radius: var(--radius-md);
             cursor: pointer;
             transition: all 0.15s ease;
+            text-align: left;
+            display: flex;
+            align-items: center;
         }
 
         .nav-pill-btn:hover {
+            background-color: var(--color-surface-bone);
             color: var(--color-ink);
         }
 
         .nav-pill-btn.active {
-            background-color: var(--color-surface-card);
-            color: var(--color-ink);
-            box-shadow: var(--shadow-subtle);
+            background-color: var(--color-ink);
+            color: var(--color-on-dark);
         }
 
-        .header-meta {
+        .main-content {
+            flex: 1;
+            padding: 2rem;
+            max-width: 1400px;
+            margin: 0 auto;
+            height: 100vh;
+            overflow-y: auto;
+        } .header-meta {
             display: flex;
             align-items: center;
             gap: 0.75rem;
@@ -185,6 +193,8 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            border-radius: var(--radius-lg);
+            margin-bottom: 2rem;
         }
 
         .hero-headline {
@@ -199,15 +209,6 @@
             color: var(--color-on-dark-mute);
             font-size: 0.9rem;
             margin-top: 0.25rem;
-        }
-
-        /* Main Workspace Container */
-        main {
-            flex: 1;
-            max-width: 1540px;
-            margin: 0 auto;
-            width: 100%;
-            padding: 1.75rem 2rem;
         }
 
         .view-panel {
@@ -329,26 +330,6 @@
             background-color: var(--color-primary-deep);
         }
 
-        .btn-dark {
-            background-color: var(--color-surface-dark);
-            color: var(--color-on-dark);
-            font-family: var(--font-sans);
-            font-size: 0.82rem;
-            font-weight: 600;
-            padding: 0.6rem 1.2rem;
-            border-radius: var(--radius-full);
-            border: none;
-            cursor: pointer;
-            display: inline-flex;
-            align-items: center;
-            gap: 0.45rem;
-            transition: opacity 0.15s ease;
-        }
-
-        .btn-dark:hover {
-            opacity: 0.9;
-        }
-
         .btn-bone {
             background-color: var(--color-surface-bone);
             color: var(--color-ink);
@@ -451,112 +432,11 @@
             border-radius: var(--radius-md);
         }
 
-        /* Form Inputs */
-        .replicate-input {
-            background-color: var(--color-surface-bone);
-            border: 1px solid var(--color-hairline);
-            color: var(--color-ink);
-            padding: 0.65rem 1rem;
-            border-radius: var(--radius-md);
-            font-family: var(--font-sans);
-            font-size: 0.85rem;
-            width: 100%;
-        }
-
-        .replicate-input:focus {
-            outline: 2px solid var(--color-primary);
-            background-color: var(--color-surface-card);
-        }
-
-        .replicate-textarea {
-            background-color: var(--color-surface-dark);
-            border: 1px solid var(--color-hairline);
-            color: var(--color-on-dark);
-            padding: 1rem;
-            border-radius: var(--radius-md);
-            font-family: var(--font-mono);
-            font-size: 0.82rem;
-            width: 100%;
-            min-height: 200px;
-            resize: vertical;
-            line-height: 1.5;
-        }
-
-        .replicate-textarea:focus {
-            outline: 2px solid var(--color-primary);
-        }
-
-        /* Process Mining Graph Nodes */
-        .fsm-node-container {
-            display: flex;
-            gap: 1.5rem;
-            overflow-x: auto;
-            padding: 1rem 0.5rem;
-        }
-
-        .fsm-node {
-            background-color: var(--color-surface-bone);
-            border: 2px solid var(--color-ink);
-            border-radius: var(--radius-md);
-            padding: 1rem;
-            min-width: 180px;
-            text-align: center;
-        }
-
-        .fsm-node.active-state {
-            border-color: var(--color-primary);
-            background-color: rgba(234, 40, 4, 0.05);
-        }
-
-        .fsm-node-title {
-            font-family: var(--font-mono);
-            font-size: 0.82rem;
-            font-weight: 700;
-        }
-
-        .fsm-node-tag {
-            font-size: 0.72rem;
-            color: var(--color-mute);
-            margin-top: 0.2rem;
-        }
-
         /* Responsive */
         @media (max-width: 1024px) {
             .fleet-grid { grid-template-columns: 1fr; }
             .verification-trio { grid-template-columns: 1fr; }
             .hero-banner { flex-direction: column; align-items: flex-start; gap: 1rem; }
-        }
-        /* ==========================================
-           Mobile / Responsive Breakpoints 
-           ========================================== */
-        @media (max-width: 1024px) {
-            header {
-                flex-direction: column;
-                gap: 1rem;
-                padding: 1rem;
-            }
-            .nav-pills {
-                justify-content: center;
-            }
-            .grid-stats, .ide-grid, .rag-grid {
-                grid-template-columns: 1fr;
-            }
-        }
-        @media (max-width: 768px) {
-            .hero-banner {
-                flex-direction: column;
-                text-align: center;
-                gap: 1rem;
-                padding: 1.25rem 1rem;
-            }
-            main {
-                padding: 1rem;
-            }
-            .brand-section {
-                flex-direction: column;
-                align-items: center;
-                gap: 0.5rem;
-            }
         }
         
         /* AR Diagnostics specific CSS */
@@ -598,36 +478,47 @@
             backdrop-filter: blur(2px);
         }
     </style>
-</head>
-<body>
+</head><body>
 
-    <!-- Header (Replicate Style) -->
-    <header>
-        <div class="brand-section">
-            <div class="brand-logo">
-                <span class="brand-logo-dot"></span>
-                Lumina
+    <!-- Left Sidebar Navigation -->
+    <aside class="sidebar">
+        <div>
+            <div class="brand-section" style="margin-bottom: 1rem;">
+                <div class="brand-logo">
+                    <span class="brand-logo-dot"></span> Lumina
+                </div>
+                <span class="pill-badge">Autonomous PLC OS</span>
             </div>
-            <span class="pill-badge">Autonomous PLC OS</span>
+            
+            <div class="header-meta" style="margin-bottom: 2rem;">
+                <div class="telemetry-status-pill">
+                    <span class="status-dot"></span>
+                    <span id="wsStatus">Telemetry Live (5Hz)</span>
+                </div>
+            </div>
+
+            <nav class="nav-pills">
+                <button class="nav-pill-btn active" onclick="switchTab('plant-mgr')">1. Plant Fleet</button>
+                <button class="nav-pill-btn" onclick="switchTab('controls-ide')">2. Controls IDE</button>
+                <button class="nav-pill-btn" onclick="switchTab('code-studio')">3. Code Studio</button>
+                <button class="nav-pill-btn" onclick="switchTab('rag-kb')">4. Industrial RAG</button>
+                <button class="nav-pill-btn" onclick="switchTab('process-mining')">5. Process Mining</button>
+                <button class="nav-pill-btn" onclick="switchTab('commissioning')">6. Commissioning</button>
+                <button class="nav-pill-btn" onclick="switchTab('security')">7. Zero-Trust ICS</button>
+                <button class="nav-pill-btn" onclick="switchTab('csuite')">8. C-Suite ROI</button>
+                <button class="nav-pill-btn" onclick="switchTab('ar-diagnostics')">9. AR Diagnostics</button>
+                <button class="nav-pill-btn" onclick="switchTab('dataset-mining')">10. Dataset Mining</button>
+            </nav>
         </div>
+    </aside>
 
-        <nav class="nav-pills">
-            <button class="nav-pill-btn active" onclick="switchTab('plant-mgr')">1. Plant Fleet</button>
-            <button class="nav-pill-btn" onclick="switchTab('controls-ide')">2. Controls IDE</button>
-            <button class="nav-pill-btn" onclick="switchTab('code-studio')">3. Code Studio</button>
-            <button class="nav-pill-btn" onclick="switchTab('rag-kb')">4. Industrial RAG</button>
-            <button class="nav-pill-btn" onclick="switchTab('process-mining')">5. Process Mining</button>
-            <button class="nav-pill-btn" onclick="switchTab('commissioning')">6. Commissioning</button>
-            <button class="nav-pill-btn" onclick="switchTab('security')">7. Zero-Trust ICS</button>
-            <button class="nav-pill-btn" onclick="switchTab('csuite')">8. C-Suite ROI</button>
-            <button class="nav-pill-btn" onclick="switchTab('ar-diagnostics')">9. AR Diagnostics</button>
-        </nav>
-
+    <!-- Main Content Area -->
+    <main class="main-content">
+    <header style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem;">
+        <div>
+            <h1 class="hero-headline">Autonomous Industrial Control Intelligence</h1>
+        </div>
         <div class="header-meta">
-            <div class="telemetry-status-pill">
-                <span class="status-dot"></span>
-                <span id="wsStatus">Telemetry Live (5Hz)</span>
-            </div>
             <span class="pill-badge" style="background-color: #202020; color: #fff;">
                 🔒 AMD SEV-SNP CVM
             </span>
@@ -1154,6 +1045,93 @@ Click 'Scan Subnets' to auto-discover PLCs and generate I/O maps from electrical
             </div>
         </section>
 
+        <!-- TAB 9: AR DIAGNOSTICS -->
+        <section id="panel-ar-diagnostics" class="view-panel">
+            <div class="hero-banner" style="margin-bottom: 2rem;">
+                <div class="hero-banner-content">
+                    <h2 class="hero-title">Augmented Reality Diagnostics</h2>
+                    <p class="hero-desc">Real-time object detection and kinematic overlay via mobile camera.</p>
+                </div>
+            </div>
+            
+            <div class="ar-container">
+                <video id="arVideo" class="ar-video" autoplay playsinline></video>
+                <div class="ar-overlay" id="arOverlay">
+                    <div class="ar-bounding-box" style="display: none;" id="arBBox">
+                        <div><strong style="color: var(--color-primary);">[TARGET ACQUIRED]</strong> Line 3 Infeed</div>
+                        <div id="arTelVib">VIB: -- g</div>
+                        <div id="arTelPPM">PPM: --</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div style="margin-top: 1.5rem; text-align: center;">
+                <button class="btn-primary" onclick="startAR()">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+                    Initialize WebXR Camera
+                </button>
+            </div>
+        </section>
+
+        <!-- TAB 10: DATASET MINING -->
+        <section id="panel-dataset-mining" class="view-panel">
+            <div class="hero-banner">
+                <div class="hero-banner-content">
+                    <h2 class="hero-title">Dataset Mining & Z3 Verification</h2>
+                    <p class="hero-desc">Real-time status of multi-source data acquisition and mathematical formal verification (Gauntlet) for QLoRA training ingestion.</p>
+                </div>
+            </div>
+
+            <div class="fleet-grid">
+                <!-- Mining Stats (Pie Chart alternative) -->
+                <div class="proposal-hero-card">
+                    <h3 style="font-family: var(--font-display); font-size: 1.1rem; border-bottom: 1px solid var(--color-hairline); padding-bottom: 0.5rem; margin-bottom: 0.5rem;">Z3 Verification Gauntlet Stats</h3>
+                    <div class="verification-trio">
+                        <div class="trio-card" style="border-top: 4px solid var(--color-mute);">
+                            <div class="trio-title" style="color: var(--color-mute);">[ Total Scraped ]</div>
+                            <div class="tel-field-val" id="dsTotalScraped">0</div>
+                        </div>
+                        <div class="trio-card" style="border-top: 4px solid var(--color-badge-success);">
+                            <div class="trio-title" style="color: var(--color-badge-success);">[ Z3 Passed ]</div>
+                            <div class="tel-field-val" id="dsPassed">0</div>
+                        </div>
+                        <div class="trio-card" style="border-top: 4px solid var(--color-badge-danger);">
+                            <div class="trio-title" style="color: var(--color-badge-danger);">[ Z3 Failed (Trashed) ]</div>
+                            <div class="tel-field-val" id="dsFailed">0</div>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-top: 1rem;">
+                        <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 0.25rem;">
+                            <span style="font-weight: 600;">Download Progress (Open Source Repos)</span>
+                            <span id="dsDownloadPercent">0%</span>
+                        </div>
+                        <div style="width: 100%; height: 8px; background-color: var(--color-surface-bone); border-radius: var(--radius-full); overflow: hidden;">
+                            <div id="dsProgressBar" style="height: 100%; width: 0%; background-color: var(--color-primary); transition: width 0.3s ease;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Active Console Log -->
+                <div class="proposal-hero-card">
+                    <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--color-hairline); padding-bottom: 0.5rem; margin-bottom: 0.5rem;">
+                        <h3 style="font-family: var(--font-display); font-size: 1.1rem;">Live Pipeline Terminal</h3>
+                        <span class="badge" style="background-color: var(--color-primary); color: white;" id="dsStatusBadge">IDLE</span>
+                    </div>
+                    <pre class="replicate-code-well" id="dsTerminal" style="min-height: 250px; max-height: 250px; overflow-y: auto; background-color: #1a1a1a; margin: 0; display: flex; flex-direction: column-reverse;">
+Waiting for backend pipeline trigger...
+</pre>
+                </div>
+            </div>
+            
+            <div style="margin-top: 1.5rem; text-align: center;">
+                <button class="btn-primary" onclick="startDatasetPipeline()">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                    Trigger Dataset Mining Pipeline
+                </button>
+            </div>
+        </section>
+
     </main>
 
     <!-- JavaScript Controller -->
@@ -1257,7 +1235,11 @@ Click 'Scan Subnets' to auto-discover PLCs and generate I/O maps from electrical
                 };
                 ws.onmessage = (event) => {
                     const data = JSON.parse(event.data);
-                    updateDashboard(data);
+                    if (data.type === "dataset_progress") {
+                        updateDatasetMining(data);
+                    } else {
+                        updateDashboard(data);
+                    }
                 };
                 ws.onclose = () => {
                     document.getElementById("wsStatus").innerText = "Telemetry Reconnecting...";
@@ -1699,6 +1681,47 @@ ${devs}
                 overlay.style.display = "flex";
             } catch (err) {
                 alert(`WebXR/Camera Access Failed: ${err.message}. Ensure you are on HTTPS or localhost.`);
+            }
+        }
+        async function startDatasetPipeline() {
+            try {
+                const res = await fetch("/api/dataset/start", { method: "POST" });
+                if (res.ok) {
+                    document.getElementById("dsTerminal").innerHTML = "Pipeline Triggered. Establishing connection...\n";
+                    document.getElementById("dsStatusBadge").innerText = "MINING";
+                    document.getElementById("dsStatusBadge").style.backgroundColor = "var(--color-badge-warning)";
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        function updateDatasetMining(data) {
+            if (data.status) {
+                const badge = document.getElementById("dsStatusBadge");
+                badge.innerText = data.status;
+                if (data.status === "VERIFYING") badge.style.backgroundColor = "var(--color-primary)";
+                if (data.status === "DONE") badge.style.backgroundColor = "var(--color-badge-success)";
+            }
+            if (data.scraped !== undefined) document.getElementById("dsTotalScraped").innerText = data.scraped;
+            if (data.passed !== undefined) document.getElementById("dsPassed").innerText = data.passed;
+            if (data.failed !== undefined) document.getElementById("dsFailed").innerText = data.failed;
+            
+            if (data.progress !== undefined) {
+                const pct = Math.min(100, Math.max(0, data.progress));
+                document.getElementById("dsProgressBar").style.width = pct + "%";
+                document.getElementById("dsDownloadPercent").innerText = pct + "%";
+            }
+
+            if (data.log_line) {
+                const term = document.getElementById("dsTerminal");
+                // Prepend since we use column-reverse for auto-scroll to bottom
+                term.innerHTML = data.log_line + "\n" + term.innerHTML;
+                
+                // Truncate to save DOM memory
+                if (term.innerHTML.length > 5000) {
+                    term.innerHTML = term.innerHTML.substring(0, 5000);
+                }
             }
         }
     </script>

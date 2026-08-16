@@ -68,7 +68,16 @@ def clean_dataset_file(input_file: str, output_file: str) -> Dict[str, int]:
             total_count += 1
             try:
                 data = json.loads(line)
-                code_to_check = data.get("content", "") or data.get("code", "") or data.get("body", "")
+                
+                # Extract code based on the dataset schema (ChatML or Flat)
+                code_to_check = ""
+                if "messages" in data:
+                    for msg in data["messages"]:
+                        if msg.get("role") == "assistant":
+                            code_to_check = msg.get("content", "")
+                            break
+                else:
+                    code_to_check = data.get("content", "") or data.get("code", "") or data.get("body", "")
                 
                 # Step 1: Logic Density Heuristics
                 if is_valid_plc_code(code_to_check):
