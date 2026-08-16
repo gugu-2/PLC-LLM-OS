@@ -92,13 +92,20 @@ def export_to_rockwell_l5x(routine_name: str, structured_text: str, tags: Dict[s
     routines = ET.SubElement(prog, "Routines")
     routine = ET.SubElement(routines, "Routine", {"Name": routine_name, "Type": "ST"})
     
+    # Create an empty st_content to ensure <Routine> is not self-closing
     st_content = ET.SubElement(routine, "STContent")
-    lines = structured_text.strip().split("\n")
-    for i, line in enumerate(lines):
-        line_elem = ET.SubElement(st_content, "Line", {"Number": str(i)})
-        line_elem.text = line
-        
-    return ET.tostring(root, encoding="utf-8", xml_declaration=True).decode("utf-8")
+    
+    xml_str = ET.tostring(root, encoding="utf-8", xml_declaration=True).decode("utf-8")
+    
+    # Manually build the correct STContent block with CDATA
+    cdata_lines = []
+    for i, line in enumerate(structured_text.strip().split("\n")):
+        line = line.replace("]]>", "]]]]><![CDATA[>")
+        cdata_lines.append(f'  <Line Number="{i}"><![CDATA[{line}]]></Line>')
+    st_content_xml = "<STContent>\n" + "\n".join(cdata_lines) + "\n</STContent>"
+    
+    xml_str = xml_str.replace("<STContent />", st_content_xml)
+    return xml_str
 
 
 @dataclass
@@ -228,15 +235,17 @@ class Layer2SMTModelChecker:
                     elif vtype in ["INT", "DINT", "SINT"]:
                         solver.add(state_vars[0][vname] == z3.BitVecVal(int(val), self.bit_width))
 
-        # Assert Transition Relation across scan cycles t = 0 .. bound_steps
-        for t in range(bound_steps + 1):
+        # Assert Transition Relation across scan cycles t = 0 .. bound_steps-1
+        for t in range(bound_steps):
+            assigned_targets = set()
             for rule in transition_rules:
                 target = rule.get("target")
-                if target not in state_vars[t]:
+                if target not in state_vars[t+1]:
                     continue
                 condition = rule.get("condition")
-                target_var = state_vars[t][target]
+                target_var = state_vars[t+1][target]
                 rule_type = rule.get("type")
+                assigned_targets.add(target)
 
                 if rule_type == "ASSIGN_BOOL":
                     cond_expr = self._eval_bool_expr(condition, state_vars[t], step=t)
@@ -249,6 +258,15 @@ class Layer2SMTModelChecker:
                     max_bv = z3.BitVecVal(max_val, self.bit_width)
                     clamped = z3.If(val_expr > max_bv, max_bv, z3.If(val_expr < min_bv, min_bv, val_expr))
                     solver.add(target_var == clamped)
+            
+            # Frame axiom: variables not assigned keep their previous value
+            for vname in variables:
+                if vname not in assigned_targets:
+                    solver.add(state_vars[t+1][vname] == state_vars[t][vname])
+
+        # Assert Transition Relation is Satisfiable before asserting invariant
+        if solver.check() == z3.unsat:
+            return False, "Z3_SMT_LAYER", "Verification Failed: SMT transition model is inherently contradictory (z3.unsat). The generated code contains conflicting logic."
 
         # Assert violation of Safety Invariant at ANY cycle t in 0 .. bound_steps
         violation_clauses = []
@@ -335,6 +353,8 @@ class Layer2SMTModelChecker:
         if isinstance(expr, dict):
             op = expr.get("op", "").upper()
             left = self._eval_int_expr(expr.get("left"), vars_t, step)
+            if op in ["NOT", "~"]:
+                return ~left
             right = self._eval_int_expr(expr.get("right"), vars_t, step)
             if op in ["ADD", "+"]:
                 return left + right
@@ -350,6 +370,12 @@ class Layer2SMTModelChecker:
                 return left << right
             elif op == "SHR":
                 return left >> right
+            elif op in ["AND", "&"]:
+                return left & right
+            elif op in ["OR", "|"]:
+                return left | right
+            elif op in ["XOR", "^"]:
+                return left ^ right
         return z3.BitVecVal(0, self.bit_width)
 
     def _eval_invariant(self, inv: Union[str, Dict[str, Any]], vars_t: Dict[str, Any], step: int = 0) -> z3.BoolRef:
@@ -387,7 +413,7 @@ class Layer3DigitalTwinSandbox:
         start_t = time.perf_counter()
         
         # Regex search supporting declaration init or inline assignment
-        decel_match = re.search(r"(?:DecelRamp|nRamp|DecelRamp_ms)\s*(?::=|\:[\w\s]+\:=)\s*(\d+)", st_code, re.IGNORECASE)
+        decel_match = re.search(r"(?:DecelRamp|nRamp|DecelRamp_ms)\s*(?::=|\:[\w\s]+\:=)\s*(-?\d+)", st_code, re.IGNORECASE)
         decel_val = int(decel_match.group(1)) if decel_match else initial_state.get("DecelRamp_ms", 500)
 
         # Dynamic physical stall threshold (<150ms creates excessive peak jerk and mechanical collision)

@@ -37,12 +37,10 @@ def is_valid_plc_code(content: str) -> bool:
     has_invalid = any(kw in content for kw in invalid_keywords)
 
     if (has_struct or has_logic or has_stl or has_assign) and not has_invalid:
-        if len(content) > 500:
-            tokens = len(content.split())
-            logic_matches = len(re.findall(r'(?i)\b(if|then|else|elsif|case|for|while|repeat|until|end_if|xic|xio|ote|ton|mov|a|an|l|t)\b', content))
-            logic_density = logic_matches / max(1, tokens)
-            return logic_density >= 0.015
-        return True
+        tokens = len(content.split())
+        logic_matches = len(re.findall(r'(?i)\b(if|then|else|elsif|case|for|while|repeat|until|end_if|xic|xio|ote|ton|mov|a|an|l|t)\b', content))
+        logic_density = logic_matches / max(1, tokens)
+        return logic_density >= 0.015
     return False
 
 

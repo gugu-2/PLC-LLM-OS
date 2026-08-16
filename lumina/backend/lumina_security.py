@@ -144,7 +144,7 @@ class HardwareDeploymentProxy:
     def __init__(self):
         self.vault = GoldenMasterVault()
         self.audit_log: List[SecurityAuditRecord] = []
-        self._request_history: List[float] = []
+        self._request_history: Dict[str, List[float]] = {}
         self._lock = threading.RLock()
         self._genesis_hash = "0" * 64
         
@@ -173,6 +173,7 @@ class HardwareDeploymentProxy:
         """Strips zero-width spaces, decomposes homoglyphs via NFKC, strips comments."""
         normalized = unicodedata.normalize('NFKC', text)
         normalized = re.sub(r'[\u200B-\u200D\uFEFF]', '', normalized)
+        normalized = re.sub(r'\(\*[\s\S]*?\*\)', '', normalized)
         normalized = re.sub(r'//.*', '', normalized)
         normalized = re.sub(r'/\*.*?\*/', '', normalized, flags=re.DOTALL)
         return normalized
@@ -227,8 +228,8 @@ class HardwareDeploymentProxy:
 
             # 1. Check: Safety Instrumented System (SIS) Air-Gap Rule (SIL 2/3)
             for prefix in self.PROTECTED_SAFETY_PREFIXES:
-                pattern = rf"\b{re.escape(prefix)}"
-                if re.search(pattern, upper_tag) or re.search(pattern, upper_code) or prefix in upper_tag:
+                pattern = rf"(?:^|\W){re.escape(prefix)}"
+                if re.search(pattern, upper_tag) or re.search(pattern, upper_code):
                     rec = self._append_audit_record(
                         authenticated_user=authenticated_user,
                         target_machine=target_machine,
@@ -255,9 +256,12 @@ class HardwareDeploymentProxy:
             # 2. Check: Adaptive Leaky Bucket Burst Rate Limiter (State-Aware)
             # Standby/Changeover allows higher burst (up to 30 req/min), while production strictly limits to 10 req/min
             max_burst = 30 if "CHANGEOVER" in str(authenticated_user).upper() or "MAINTENANCE" in str(authenticated_user).upper() else 10
-            self._request_history = [t for t in self._request_history if now_mono - t < 60.0]
-            if len(self._request_history) >= max_burst:
-                self._request_history.append(now_mono)
+            user_history = self._request_history.setdefault(authenticated_user, [])
+            user_history = [t for t in user_history if now_mono - t < 60.0]
+            self._request_history[authenticated_user] = user_history
+
+            if len(user_history) >= max_burst:
+                user_history.append(now_mono)
                 rec = self._append_audit_record(
                     authenticated_user=authenticated_user,
                     target_machine=target_machine,
@@ -269,12 +273,12 @@ class HardwareDeploymentProxy:
                 return False, rec.reason
 
             # Register valid request timestamp
-            self._request_history.append(now_mono)
+            user_history.append(now_mono)
 
             # 3. Check: Formal Zone & Conduit Semantic Target Drift
             allowed_prefixes = self.ZONE_CONDUIT_MATRIX.get(target_machine)
             if allowed_prefixes:
-                matches_conduit = any(clean_tag.startswith(allowed) or allowed in clean_tag for allowed in allowed_prefixes)
+                matches_conduit = any(clean_tag.startswith(allowed) for allowed in allowed_prefixes)
                 if not matches_conduit:
                     rec = self._append_audit_record(
                         authenticated_user=authenticated_user,

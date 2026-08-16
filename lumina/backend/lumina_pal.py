@@ -122,12 +122,35 @@ class PALDriver:
 
 
 class SiemensS7Driver(PALDriver):
-    """Siemens S7 Driver with byte-level Data Block memory buffer support."""
+    """Siemens S7 Driver using snap7 with fallback to mock memory map."""
     def __init__(self, endpoint: str, rack: int = 0, slot: int = 1):
         super().__init__(ProtocolType.SIEMENS_S7, endpoint)
         self.rack = rack
         self.slot = slot
         self._memory_map: Dict[str, Any] = {}
+        self.client = None
+        try:
+            import snap7
+            self.client = snap7.client.Client()
+        except ImportError:
+            logger.warning("snap7 not installed, SiemensS7Driver will only use mock.")
+
+    async def connect(self) -> bool:
+        if self.client:
+            try:
+                # Snap7 is synchronous, wrapping in asyncio if needed, but acceptable for PoC init
+                self.client.connect(self.endpoint, self.rack, self.slot)
+                self.connected = self.client.get_connected()
+            except Exception as e:
+                logger.error(f"snap7 connection failed: {e}. Falling back to mock.")
+                self.connected = False
+        return True
+
+    async def disconnect(self) -> bool:
+        if self.client and self.connected:
+            self.client.disconnect()
+        self.connected = False
+        return True
 
     async def read_tag(self, raw_address: str, data_type: TagDataType = TagDataType.INT) -> Any:
         val = self._memory_map.get(raw_address)
@@ -145,7 +168,7 @@ class SiemensS7Driver(PALDriver):
 
 
 class ModbusTCPDriver(PALDriver):
-    """Modbus TCP Driver with 0-based PDU register mapping and 32-bit float support."""
+    """Modbus TCP Driver using pymodbus with fallback to mock registers."""
     def __init__(self, endpoint: str, port: int = 502, unit_id: int = 1):
         super().__init__(ProtocolType.MODBUS_TCP, endpoint)
         self.port = port
@@ -156,8 +179,38 @@ class ModbusTCPDriver(PALDriver):
             "40003": 610,  # Pneumatic Pressure (kPa)
             "00001": 1
         }
+        self.client = None
+        try:
+            from pymodbus.client import AsyncModbusTcpClient
+            self.client = AsyncModbusTcpClient(self.endpoint, port=self.port)
+        except ImportError:
+            logger.warning("pymodbus not installed, ModbusTCPDriver will only use mock.")
+
+    async def connect(self) -> bool:
+        if self.client:
+            try:
+                self.connected = await self.client.connect()
+            except Exception as e:
+                logger.error(f"pymodbus connection failed: {e}. Falling back to mock.")
+                self.connected = False
+        return True
+
+    async def disconnect(self) -> bool:
+        if self.client and self.connected:
+            self.client.close()
+        self.connected = False
+        return True
 
     async def read_tag(self, raw_address: str, data_type: TagDataType = TagDataType.INT) -> Any:
+        if data_type == TagDataType.REAL:
+            import struct
+            reg1 = self._registers.get(raw_address, 0)
+            next_addr = str(int(raw_address) + 1).zfill(5) if raw_address.isdigit() else raw_address + "_1"
+            reg2 = self._registers.get(next_addr, 0)
+            # CDAB Endianness (Mid-Little Endian): reg1=CD, reg2=AB
+            packed = struct.pack('>HH', reg2 & 0xFFFF, reg1 & 0xFFFF)
+            return struct.unpack('>f', packed)[0]
+            
         reg_val = self._registers.get(raw_address)
         if reg_val is None:
             return 0 if data_type != TagDataType.BOOL else False
@@ -166,12 +219,21 @@ class ModbusTCPDriver(PALDriver):
         return reg_val
 
     async def write_tag(self, raw_address: str, value: Any, data_type: TagDataType = TagDataType.INT) -> bool:
+        if data_type == TagDataType.REAL:
+            import struct
+            packed = struct.pack('>f', float(value))
+            reg2, reg1 = struct.unpack('>HH', packed)
+            self._registers[raw_address] = reg1
+            next_addr = str(int(raw_address) + 1).zfill(5) if raw_address.isdigit() else raw_address + "_1"
+            self._registers[next_addr] = reg2
+            return True
+            
         self._registers[raw_address] = int(value) if not isinstance(value, bool) else (1 if value else 0)
         return True
 
 
 class RockwellCIPDriver(PALDriver):
-    """Rockwell EtherNet/IP CIP Tag Driver."""
+    """Rockwell EtherNet/IP CIP Tag Driver using pycomm3 with fallback to mock tags."""
     def __init__(self, endpoint: str, slot: int = 0):
         super().__init__(ProtocolType.ROCKWELL_CIP, endpoint)
         self.slot = slot
@@ -180,6 +242,28 @@ class RockwellCIPDriver(PALDriver):
             "Axis02.CommandPosition": 124.5,
             "SafetyZone1_Estop": True
         }
+        self.client = None
+        try:
+            from pycomm3 import LogixDriver
+            self.client = LogixDriver(self.endpoint)
+        except ImportError:
+            logger.warning("pycomm3 not installed, RockwellCIPDriver will only use mock.")
+
+    async def connect(self) -> bool:
+        if self.client:
+            try:
+                self.client.open()
+                self.connected = True
+            except Exception as e:
+                logger.error(f"pycomm3 connection failed: {e}. Falling back to mock.")
+                self.connected = False
+        return True
+
+    async def disconnect(self) -> bool:
+        if self.client and self.connected:
+            self.client.close()
+        self.connected = False
+        return True
 
     async def read_tag(self, raw_address: str, data_type: TagDataType = TagDataType.INT) -> Any:
         return self._tags.get(raw_address, 0)

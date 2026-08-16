@@ -526,6 +526,77 @@
             .verification-trio { grid-template-columns: 1fr; }
             .hero-banner { flex-direction: column; align-items: flex-start; gap: 1rem; }
         }
+        /* ==========================================
+           Mobile / Responsive Breakpoints 
+           ========================================== */
+        @media (max-width: 1024px) {
+            header {
+                flex-direction: column;
+                gap: 1rem;
+                padding: 1rem;
+            }
+            .nav-pills {
+                justify-content: center;
+            }
+            .grid-stats, .ide-grid, .rag-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+        @media (max-width: 768px) {
+            .hero-banner {
+                flex-direction: column;
+                text-align: center;
+                gap: 1rem;
+                padding: 1.25rem 1rem;
+            }
+            main {
+                padding: 1rem;
+            }
+            .brand-section {
+                flex-direction: column;
+                align-items: center;
+                gap: 0.5rem;
+            }
+        }
+        
+        /* AR Diagnostics specific CSS */
+        .ar-container {
+            position: relative;
+            width: 100%;
+            height: 60vh;
+            background: #000;
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+        }
+        .ar-video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .ar-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .ar-bounding-box {
+            border: 2px solid var(--color-primary);
+            background: rgba(234, 40, 4, 0.1);
+            border-radius: var(--radius-sm);
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            color: #fff;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.8);
+            font-family: var(--font-mono);
+            backdrop-filter: blur(2px);
+        }
     </style>
 </head>
 <body>
@@ -549,6 +620,7 @@
             <button class="nav-pill-btn" onclick="switchTab('commissioning')">6. Commissioning</button>
             <button class="nav-pill-btn" onclick="switchTab('security')">7. Zero-Trust ICS</button>
             <button class="nav-pill-btn" onclick="switchTab('csuite')">8. C-Suite ROI</button>
+            <button class="nav-pill-btn" onclick="switchTab('ar-diagnostics')">9. AR Diagnostics</button>
         </nav>
 
         <div class="header-meta">
@@ -1164,9 +1236,11 @@ Click 'Scan Subnets' to auto-discover PLCs and generate I/O maps from electrical
             }
             ctx.stroke();
 
-            requestAnimationFrame(drawCanvas);
+            if (activeTab === "plant-mgr") {
+                animationFrameId = requestAnimationFrame(drawCanvas);
+            }
         }
-        drawCanvas();
+        animationFrameId = requestAnimationFrame(drawCanvas);
 
         // WebSocket Connection
         const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
@@ -1178,6 +1252,8 @@ Click 'Scan Subnets' to auto-discover PLCs and generate I/O maps from electrical
                 ws = new WebSocket(wsUrl);
                 ws.onopen = () => {
                     document.getElementById("wsStatus").innerText = "Telemetry Live (5Hz)";
+                    document.getElementById("wsStatus").parentElement.classList.remove("error", "warning");
+                    document.getElementById("wsStatus").parentElement.classList.add("success");
                 };
                 ws.onmessage = (event) => {
                     const data = JSON.parse(event.data);
@@ -1185,10 +1261,14 @@ Click 'Scan Subnets' to auto-discover PLCs and generate I/O maps from electrical
                 };
                 ws.onclose = () => {
                     document.getElementById("wsStatus").innerText = "Telemetry Reconnecting...";
+                    document.getElementById("wsStatus").parentElement.classList.remove("success", "error");
+                    document.getElementById("wsStatus").parentElement.classList.add("warning");
                     setTimeout(connectWS, 2000);
                 };
                 ws.onerror = () => {
                     document.getElementById("wsStatus").innerText = "Telemetry Offline";
+                    document.getElementById("wsStatus").parentElement.classList.remove("success", "warning");
+                    document.getElementById("wsStatus").parentElement.classList.add("error");
                 };
             } catch (err) {
                 console.error("WS connection error:", err);
@@ -1202,7 +1282,7 @@ Click 'Scan Subnets' to auto-discover PLCs and generate I/O maps from electrical
             document.getElementById("cardSavings").innerText = `$${Math.round(savings).toLocaleString()}`;
 
             // Line 3
-            if (data.line3) {
+            if (data && data.line3) {
                 liveVibrationRms = data.line3.vibration_g;
                 document.getElementById("telL3Throughput").innerText = `${data.line3.throughput_ppm} PPM`;
                 document.getElementById("telL3Vib").innerText = `${data.line3.vibration_g} g`;
@@ -1226,12 +1306,35 @@ Click 'Scan Subnets' to auto-discover PLCs and generate I/O maps from electrical
             }
 
             // Line 4
-            if (data.line4) {
+            if (data && data.line4) {
                 document.getElementById("telL4Cycle").innerText = `${data.line4.cycle_time_ms} ms`;
                 document.getElementById("telL4Press").innerText = `${data.line4.pressure_kpa} kPa`;
                 document.getElementById("telL4Cartons").innerText = `${(data.line4.cartons_total || 14200).toLocaleString()}`;
                 const flapElem = document.getElementById("telL4Flap");
                 if (flapElem) flapElem.innerText = data.line4.pressure_kpa < 500 ? "WARNING_DROP" : "OPTIMAL";
+            }
+
+            // AR Overlay Update
+            const arVibLabel = document.getElementById("arVibLabel");
+            if (arVibLabel && data && data.line3) {
+                arVibLabel.innerText = `VIB: ${data.line3.vibration_g.toFixed(3)} G (RMS)`;
+                const arWarning = document.getElementById("arResonanceWarning");
+                if (data.line3.vibration_g > 1.8) {
+                    arWarning.innerText = "BEARING RESONANCE DETECTED";
+                    arWarning.style.background = "var(--color-badge-danger)";
+                    document.getElementById("arBoundingBox").style.borderColor = "var(--color-badge-danger)";
+                    document.getElementById("arBoundingBox").style.background = "rgba(234, 40, 4, 0.2)";
+                } else {
+                    arWarning.innerText = "OPTIMAL";
+                    arWarning.style.background = "var(--color-badge-success)";
+                    document.getElementById("arBoundingBox").style.borderColor = "var(--color-badge-success)";
+                    document.getElementById("arBoundingBox").style.background = "rgba(43, 154, 102, 0.2)";
+                }
+                
+                // Simulate spatial tracking jitter for realism
+                const jitterX = Math.sin(Date.now() / 300) * 4;
+                const jitterY = Math.cos(Date.now() / 400) * 3;
+                document.getElementById("arBoundingBox").style.transform = `translate(${jitterX}px, ${jitterY}px)`;
             }
         }
 
@@ -1271,6 +1374,8 @@ Click 'Scan Subnets' to auto-discover PLCs and generate I/O maps from electrical
                 let propId = currentProposal ? currentProposal.proposal_id : null;
                 if (!propId) {
                     const diagRes = await fetch("/api/ai/diagnose-and-optimize?machine_id=Line3_Infeed", { method: "POST" });
+                if (!diagRes.ok) throw new Error(`HTTP error! status: ${diagRes.status}`);
+
                     const diagData = await diagRes.json();
                     currentProposal = diagData.proposal;
                     propId = currentProposal.proposal_id;
@@ -1299,8 +1404,10 @@ Click 'Scan Subnets' to auto-discover PLCs and generate I/O maps from electrical
         async function executeRollback() {
             try {
                 const res = await fetch("/api/security/rollback?machine_id=Line3_Infeed", { method: "POST" });
+                if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+
                 const data = await res.json();
-                alert(`⏮️ Rollback Executed:\n${data.message}`);
+                alert(`⏮️ Rollback Executed:\n${escapeHTML(data.message)}`);
             } catch (err) {
                 alert(`Rollback failed: ${err.message}`);
             }
@@ -1331,18 +1438,20 @@ Click 'Scan Subnets' to auto-discover PLCs and generate I/O maps from electrical
 • Layer 1 (Static Linter): PASSED
 • Layer 2 (Z3 Bounded Model Checker): PROVEN SAFE across unrolled cycles
 • Layer 3 (SoftPLC Digital Twin): PASSED (1,000 cycles, 0 collisions)
-• Execution Time: ${verif.execution_time_ms}ms
+• Execution Time: ${escapeHTML(String(verif.execution_time_ms))}ms
                     `;
                 } else {
                     document.getElementById("customVerificationOutput").innerHTML = `
-<span style="color: #f87171;">✖ VERIFICATION REJECTION: ${verif.layer_failed}</span>
-• Error: ${verif.error_message}
-• Counterexample: ${JSON.stringify(verif.smt_counterexample || {})}
+<span style="color: #f87171;">✖ VERIFICATION REJECTION: ${escapeHTML(verif.layer_failed)}</span>
+• Error: ${escapeHTML(verif.error_message)}
+• Counterexample: ${escapeHTML(JSON.stringify(verif.smt_counterexample || {}))}
                     `;
                 }
 
                 // Fetch Rockwell L5X XML representation
                 const l5xRes = await fetch("/api/export/rockwell-l5x?routine_name=FB_InfeedRampController");
+                if (!l5xRes.ok) throw new Error(`HTTP error! status: ${l5xRes.status}`);
+
                 const l5xData = await l5xRes.json();
                 document.getElementById("l5xOutputContainer").innerText = l5xData.xml;
             } catch (err) {
@@ -1354,6 +1463,8 @@ Click 'Scan Subnets' to auto-discover PLCs and generate I/O maps from electrical
         async function loadRAGDocuments() {
             try {
                 const res = await fetch("/api/rag/documents");
+                if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+
                 const data = await res.json();
                 renderRAGDocs(data.documents);
             } catch (err) {
@@ -1365,6 +1476,8 @@ Click 'Scan Subnets' to auto-discover PLCs and generate I/O maps from electrical
             try {
                 const query = document.getElementById("ragSearchQuery").value;
                 const res = await fetch(`/api/rag/search?q=${encodeURIComponent(query)}`);
+                if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+
                 const data = await res.json();
                 renderRAGDocs(data.results);
             } catch (err) {
@@ -1383,17 +1496,17 @@ Click 'Scan Subnets' to auto-discover PLCs and generate I/O maps from electrical
                 el.innerHTML = `
                     <div style="display: flex; justify-content: space-between; align-items: flex-start;">
                         <div>
-                            <span class="pill-badge" style="background: var(--color-ink); color: #fff;">${doc.id}</span>
+                            <span class="pill-badge" style="background: var(--color-ink); color: #fff;">${escapeHTML(doc.id)}</span>
                             <div style="font-family: var(--font-display); font-weight: 700; font-size: 1.05rem; margin-top: 0.3rem;">
-                                ${doc.title}
+                                ${escapeHTML(doc.title)}
                             </div>
                         </div>
                     </div>
                     <p style="font-size: 0.85rem; color: var(--color-body); margin-top: 0.5rem; line-height: 1.5;">
-                        ${doc.content}
+                        ${escapeHTML(doc.content)}
                     </p>
                     <div style="display: flex; gap: 0.4rem; margin-top: 0.6rem; flex-wrap: wrap;">
-                        ${(doc.tags || []).map(t => `<span class="pill-badge" style="font-size: 0.68rem;">#${t}</span>`).join("")}
+                        ${(doc.tags || []).map(t => `<span class="pill-badge" style="font-size: 0.68rem;">#${escapeHTML(t)}</span>`).join("")}
                     </div>
                 `;
                 container.appendChild(el);
@@ -1425,6 +1538,8 @@ Click 'Scan Subnets' to auto-discover PLCs and generate I/O maps from electrical
         async function refreshProcessMining() {
             try {
                 const res = await fetch("/api/pal/process-mining/export-fmu");
+                if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+
                 const data = await res.json();
                 const transCount = Object.keys(data.transitions || {}).length;
                 document.getElementById("fmuExportCode").innerHTML = `
@@ -1442,6 +1557,8 @@ Click 'Scan Subnets' to auto-discover PLCs and generate I/O maps from electrical
         async function runCommissioningScan() {
             try {
                 const res = await fetch("/api/commissioning/scan");
+                if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+
                 const data = await res.json();
                 let devs = (data.discovered_devices || []).map(d => `  • [${d.ip}] ${d.vendor} ${d.model} (${d.protocols.join(", ")})`).join("\n");
                 document.getElementById("commissioningResults").innerHTML = `
@@ -1467,19 +1584,19 @@ ${devs}
                 if (data.status === "LOOP_CHECK_PASSED") {
                     document.getElementById("loopTestOutput").innerHTML = `
 <div class="replicate-card" style="background-color: rgba(43, 154, 102, 0.1); border: 1px solid rgba(43, 154, 102, 0.3);">
-  <strong style="color: var(--color-badge-success);">Status: ${data.status}</strong><br>
+  <strong style="color: var(--color-badge-success);">Status: ${escapeHTML(data.status)}</strong><br>
   <span style="font-family: var(--font-mono); font-size: 0.82rem;">
-  Interpreted Action: ${data.interpreted_action}<br>
-  Mapped Address: ${data.mapped_address} (${data.tag_id})<br>
-  Measured State: ${data.signal_verified ? 'ACTIVE_HIGH' : 'LOW'} (Latency: ${data.latency_ms}ms)<br>
+  Interpreted Action: ${escapeHTML(data.interpreted_action)}<br>
+  Mapped Address: ${escapeHTML(data.mapped_address)} (${escapeHTML(data.tag_id)})<br>
+  Measured State: ${data.signal_verified ? 'ACTIVE_HIGH' : 'LOW'} (Latency: ${escapeHTML(String(data.latency_ms))}ms)<br>
   </span>
 </div>
                     `;
                 } else {
                     document.getElementById("loopTestOutput").innerHTML = `
 <div class="replicate-card" style="background-color: rgba(234, 40, 4, 0.1); border: 1px solid rgba(234, 40, 4, 0.3);">
-  <strong style="color: var(--color-primary);">${data.status}</strong><br>
-  <span>${data.message}</span>
+  <strong style="color: var(--color-primary);">${escapeHTML(data.status)}</strong><br>
+  <span>${escapeHTML(data.message)}</span>
 </div>
                     `;
                 }
@@ -1491,14 +1608,16 @@ ${devs}
         async function generateCertificate() {
             try {
                 const res = await fetch("/api/commissioning/generate-certificate?technician_name=Alex+Morgan", { method: "POST" });
+                if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+
                 const data = await res.json();
                 document.getElementById("certificateOutput").innerHTML = `
 <div class="replicate-card" style="background-color: var(--color-surface-bone);">
-  <strong>📜 ${data.certificate_id}</strong><br>
+  <strong>📜 ${escapeHTML(data.certificate_id)}</strong><br>
   <span style="font-size: 0.8rem; color: var(--color-charcoal);">
-  Certified By: ${data.certified_by} | Site: ${data.plant_id}<br>
-  Digital Seal: ${data.digital_attestation_hash}<br>
-  Compliance: ${(data.standard_compliance || []).join(", ")}
+  Certified By: ${escapeHTML(data.certified_by)} | Site: ${escapeHTML(data.plant_id)}<br>
+  Digital Seal: ${escapeHTML(data.digital_attestation_hash)}<br>
+  Compliance: ${escapeHTML((data.standard_compliance || []).join(", "))}
   </span>
 </div>
                 `;
@@ -1511,8 +1630,12 @@ ${devs}
         async function loadSecurityData() {
             try {
                 const res = await fetch("/api/security/policies");
+                if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+
                 const policies = await res.json();
                 const ledgerRes = await fetch("/api/security/audit-ledger");
+                if (!ledgerRes.ok) throw new Error(`HTTP error! status: ${ledgerRes.status}`);
+
                 const ledger = await ledgerRes.json();
 
                 let logHtml = "";
@@ -1561,6 +1684,21 @@ ${devs}
                 document.getElementById("csuitePayback").innerText = `Gross Annual Savings: $${Math.round(data.total_annual_gross_savings_usd).toLocaleString()}`;
             } catch (err) {
                 alert(`ROI calculation failed: ${err.message}`);
+            }
+        }
+        // Feature 9: AR Diagnostics Camera
+        async function initARCamera() {
+            const video = document.getElementById("arVideoFeed");
+            const overlay = document.getElementById("arOverlay");
+            if (!video) return;
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: "environment" }
+                });
+                video.srcObject = stream;
+                overlay.style.display = "flex";
+            } catch (err) {
+                alert(`WebXR/Camera Access Failed: ${err.message}. Ensure you are on HTTPS or localhost.`);
             }
         }
     </script>

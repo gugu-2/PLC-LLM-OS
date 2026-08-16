@@ -52,7 +52,7 @@ app.add_middleware(
 
 # Core subsystems
 pal = PALManager()
-pal.initialize_default_plant_topology()
+# We will await pal.initialize_default_plant_topology() in startup_event
 plant_sim = SimulatedPackagingPlant(pal)
 ai_engine = LuminaAIEngine()
 verification_gauntlet = VerificationGauntlet()
@@ -108,10 +108,28 @@ class ROIModelRequest(BaseModel):
     monthly_subscription_tier: float = 2500.0
 
 
+# --- Global State ---
+latest_diode_telemetry: Dict[str, Any] = {}
+
+def on_diode_message(msg: Dict[str, Any]):
+    global latest_diode_telemetry
+    latest_diode_telemetry = msg
+
+diode_rx = None
+
 # --- Background Tasks ---
 @app.on_event("startup")
 async def startup_event():
+    global diode_rx
     logger.info("[INIT] Starting Lumina Simulation Clock and WebSocket Stream...")
+    await pal.initialize_default_plant_topology()
+    try:
+        from lumina.backend.lumina_diode import UnidirectionalDiodeRX
+    except ImportError:
+        from lumina_diode import UnidirectionalDiodeRX
+        
+    diode_rx = UnidirectionalDiodeRX(on_message=on_diode_message)
+    asyncio.create_task(diode_rx.listen())
     asyncio.create_task(plant_sim.start_simulation_loop())
     asyncio.create_task(telemetry_websocket_broadcaster())
 
@@ -120,25 +138,12 @@ async def telemetry_websocket_broadcaster():
     """5Hz telemetry streaming over WebSockets."""
     while True:
         try:
-            if active_websockets:
+            if active_websockets and latest_diode_telemetry:
                 tags = await pal.poll_all()
                 snapshot = {
                     "timestamp": time.time(),
                     "tags": {k: {"value": v.value, "unit": v.engineering_unit, "quality": v.quality} for k, v in tags.items()},
-                    "active_faults": plant_sim.active_faults,
-                    "avoided_downtime_dollars": plant_sim.total_avoided_downtime_dollars,
-                    "line3": {
-                        "running": plant_sim.line3_running,
-                        "vibration_g": plant_sim.line3_vibration_g,
-                        "throughput_ppm": plant_sim.line3_bottle_rate_ppm,
-                        "decel_ramp_ms": plant_sim.line3_decel_ramp_ms
-                    },
-                    "line4": {
-                        "running": plant_sim.line4_running,
-                        "pressure_kpa": plant_sim.line4_pneumatic_pressure_kpa,
-                        "cycle_time_ms": plant_sim.line4_cycle_time_ms,
-                        "cartons_total": plant_sim.line4_cartons_total
-                    }
+                    **latest_diode_telemetry
                 }
                 payload = json.dumps(snapshot)
 
@@ -149,7 +154,7 @@ async def telemetry_websocket_broadcaster():
                         if ws in active_websockets:
                             active_websockets.remove(ws)
 
-                await asyncio.gather(*[_send_ws(ws) for ws in list(active_websockets)], return_exceptions=True)
+                await asyncio.gather(*[_send_ws(ws) for ws in active_websockets.copy()], return_exceptions=True)
             await asyncio.sleep(0.2)
         except Exception as e:
             logger.error(f"WebSocket Broadcast Loop Error: {e}")
@@ -168,8 +173,7 @@ async def get_telemetry_snapshot():
     return {
         "timestamp": time.time(),
         "tags": {k: {"value": v.value, "unit": v.engineering_unit, "quality": v.quality} for k, v in tags.items()},
-        "active_faults": plant_sim.active_faults,
-        "avoided_downtime_dollars": plant_sim.total_avoided_downtime_dollars
+        **latest_diode_telemetry
     }
 
 
@@ -177,7 +181,7 @@ async def get_telemetry_snapshot():
 async def inject_plant_fault(req: FaultInjectionRequest):
     plant_sim.inject_fault(req.fault_type)
     telemetry = {k: v.value for k, v in (await pal.poll_all()).items()}
-    proposal = ai_engine.diagnose_and_optimize(req.machine_id, telemetry)
+    proposal = ai_engine.generate_optimization_for_anomaly(req.machine_id, telemetry)
     current_proposals[proposal.proposal_id] = proposal
 
     # Run verification gauntlet
@@ -205,7 +209,7 @@ def clear_plant_faults():
 @app.post("/api/ai/diagnose-and-optimize")
 async def diagnose_and_optimize(machine_id: str = "Line3_Infeed"):
     telemetry = {k: v.value for k, v in (await pal.poll_all()).items()}
-    proposal = ai_engine.diagnose_and_optimize(machine_id, telemetry)
+    proposal = ai_engine.generate_optimization_for_anomaly(machine_id, telemetry)
     current_proposals[proposal.proposal_id] = proposal
 
     verif = verification_gauntlet.verify(
@@ -307,7 +311,7 @@ def search_rag(q: str):
 
 @app.post("/api/rag/upload")
 def upload_rag_document(req: RAGUploadRequest):
-    ai_engine.rag.add_document(req.doc_id, req.title, req.tags, req.content)
+    ai_engine.rag.add_document(doc_id=req.doc_id, title=req.title, tags=req.tags, content=req.content)
     return {"status": "DOCUMENT_INGESTED", "doc_id": req.doc_id, "total_docs": len(ai_engine.rag.documents)}
 
 
@@ -486,4 +490,4 @@ if os.path.exists(frontend_dir):
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("server:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run(app, host="0.0.0.0", port=8000)

@@ -22,6 +22,37 @@ DEFAULT_SYSTEM_PROMPT = (
     "Ensure all arrays are bounded, all memory addresses are typed, and safety invariants are strictly preserved."
 )
 
+def validate_st_dsl_schema(spec: str, st_code: str, interlock_rules: List[str]) -> bool:
+    """
+    Validates that the provided Structured Text / DSL adheres to the strict JSON schema required for RLVR fine-tuning.
+    Ensures safety interlocks are present and the syntax structure is compliant.
+    """
+    if not spec or not st_code:
+        return False
+    if not interlock_rules or not isinstance(interlock_rules, list):
+        return False
+    # Heuristic for ST logic density presence
+    if not any(kw in st_code for kw in ["IF ", "CASE ", "WHILE ", "FOR "]):
+        return False
+    return True
+
+def format_rlvr_instruction_record(
+    spec: str,
+    st_code: str,
+    interlock_rules: List[str],
+    system_prompt: Optional[str] = None
+) -> Optional[Dict[str, Any]]:
+    """
+    Formats and strictly validates an industrial prompt-response pair specifically for the RLVR DSL pipeline.
+    """
+    if not validate_st_dsl_schema(spec, st_code, interlock_rules):
+        return None
+        
+    formatted_prompt = f"SPECIFICATION:\n{spec.strip()}\n\nREQUIRED INTERLOCKS:\n"
+    for rule in interlock_rules:
+        formatted_prompt += f"- {rule}\n"
+        
+    return format_instruction_record(formatted_prompt, st_code, system_prompt)
 
 def format_instruction_record(
     user_prompt: str,

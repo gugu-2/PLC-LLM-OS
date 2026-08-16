@@ -46,7 +46,8 @@ def test_symbolic_reward_inversion_protection():
         variables={"DecelRamp_ms": "INT"},
         rules_chosen=[{"target": "DecelRamp_ms", "type": "CLAMP_INT", "min": 0, "max": 1000, "condition": 100}],
         rules_rejected=[{"target": "DecelRamp_ms", "type": "CLAMP_INT", "min": 200, "max": 800, "condition": 380}],
-        safety_invariants=["DECEL_RAMP_SAFE_BOUNDS"]
+        safety_invariants=["DECEL_RAMP_SAFE_BOUNDS"],
+        initial_state={"DecelRamp_ms": 500}
     )
     assert invalid_pair is None
 

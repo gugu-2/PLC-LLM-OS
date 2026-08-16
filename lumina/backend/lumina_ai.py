@@ -52,15 +52,27 @@ class OptimizationProposal:
 
 class IndustrialRAGKnowledgeBase:
     """
-    Industrial RAG Knowledge Base with BM25 term weighting, document length normalization,
-    and technical manual vector retrieval.
+    Industrial RAG Knowledge Base using ChromaDB and neural embeddings (sentence-transformers),
+    with fallback to BM25 term weighting.
     """
     def __init__(self):
         self.documents: List[Dict[str, Any]] = []
+        self.chroma_client = None
+        self.collection = None
+        self.embedding_model = None
+        try:
+            import chromadb
+            from sentence_transformers import SentenceTransformer
+            self.chroma_client = chromadb.Client()
+            self.collection = self.chroma_client.get_or_create_collection(name="industrial_rag")
+            self.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
+        except ImportError:
+            logger.warning("ChromaDB/SentenceTransformers not installed. Falling back to BM25.")
+            
         self._initialize_knowledge_base()
 
     def _initialize_knowledge_base(self):
-        self.documents.extend([
+        docs = [
             {
                 "id": "DOC-OEM-SIEMENS-S120-01",
                 "title": "Siemens Sinamics S120 Servo Drive Commissioning Manual",
@@ -99,10 +111,39 @@ class IndustrialRAGKnowledgeBase:
                     "Remedy: Check physical cable shielding, verify PROFINET device name in TIA Portal, and inspect switch port buffer overflows."
                 )
             }
-        ])
+        ]
+        for d in docs:
+            self.add_document(**d)
 
     def query(self, query_text: str, top_k: int = 2, vendor_filter: Optional[str] = None) -> List[Dict[str, Any]]:
-        """BM25 term-weighted search with stop-word filtering, document length penalization, and vendor dialect isolation."""
+        """Semantic vector search using ChromaDB, falling back to BM25 if not available."""
+        if self.collection and self.embedding_model:
+            # Neural Vector Search
+            query_embedding = self.embedding_model.encode([query_text])[0].tolist()
+            where_clause = None
+            if vendor_filter:
+                where_clause = {"title": {"$contains": vendor_filter}} # Simple filter
+                
+            try:
+                results = self.collection.query(
+                    query_embeddings=[query_embedding],
+                    n_results=top_k,
+                    where=where_clause
+                )
+                
+                res_docs = []
+                for i in range(len(results['ids'][0])):
+                    res_docs.append({
+                        "id": results['ids'][0][i],
+                        "title": results['metadatas'][0][i].get('title', ''),
+                        "tags": results['metadatas'][0][i].get('tags', '').split(','),
+                        "content": results['documents'][0][i]
+                    })
+                return res_docs
+            except Exception as e:
+                logger.error(f"ChromaDB query failed: {e}. Falling back.")
+                
+        # Fallback to BM25
         stop_words = {"what", "is", "the", "for", "and", "or", "in", "to", "a", "of", "how", "with", "on"}
         tokens = [t for t in re.findall(r"\b[A-Za-z0-9_#\-]+\b", query_text.lower()) if t not in stop_words]
         
@@ -116,7 +157,7 @@ class IndustrialRAGKnowledgeBase:
         if not tokens:
             return candidates[:top_k]
 
-        avg_doc_len = sum(len(d["content"].split()) for d in candidates) / max(1, len(candidates))
+        avg_doc_len = sum(len(re.findall(r"\b[A-Za-z0-9_#\-]+\b", (d.get("title", "") + " " + d.get("content", "") + " " + " ".join(d.get("tags", []))).lower())) for d in candidates) / max(1, len(candidates))
         scored = []
         for doc in candidates:
             doc_tokens = re.findall(r"\b[A-Za-z0-9_#\-]+\b", (doc["title"] + " " + doc["content"] + " " + " ".join(doc["tags"])).lower())
@@ -143,6 +184,17 @@ class IndustrialRAGKnowledgeBase:
             "content": content
         }
         self.documents.append(doc)
+        if self.collection and self.embedding_model:
+            try:
+                emb = self.embedding_model.encode([content])[0].tolist()
+                self.collection.add(
+                    documents=[content],
+                    metadatas=[{"title": title, "tags": ",".join(tags or [])}],
+                    ids=[doc_id],
+                    embeddings=[emb]
+                )
+            except Exception as e:
+                logger.error(f"ChromaDB add failed: {e}")
         return doc
 
 
@@ -253,19 +305,19 @@ END_FUNCTION_BLOCK"""
 
             scl_code = """FUNCTION_BLOCK FB_CartonTimingCompensator
 VAR_INPUT
-    nPneumaticPressure_kPa : INT;
+    SystemPressure_kPa : INT;
 END_VAR
 VAR_OUTPUT
-    nCycleTime_ms : INT;
-    bDebounceActive : BOOL;
+    CycleTime_ms : INT;
+    DumpValve_Open : BOOL;
 END_VAR
 BEGIN
-    IF nPneumaticPressure_kPa < 520 THEN
-        nCycleTime_ms := 860;
-        bDebounceActive := TRUE;
+    IF SystemPressure_kPa < 520 THEN
+        CycleTime_ms := 860;
+        DumpValve_Open := TRUE;
     ELSE
-        nCycleTime_ms := 820;
-        bDebounceActive := FALSE;
+        CycleTime_ms := 820;
+        DumpValve_Open := FALSE;
     END_IF;
 END_FUNCTION_BLOCK"""
 

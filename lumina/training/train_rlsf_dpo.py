@@ -27,27 +27,28 @@ class SymbolicRewardEvaluator:
     def __init__(self):
         self.gauntlet = VerificationGauntlet()
 
-    def score_candidate_code(
+    def score_candidate_code_rlvr(
         self,
         st_code: str,
         variables: Dict[str, str],
         transition_rules: List[Dict[str, Any]],
-        safety_invariants: List[str]
+        safety_invariants: List[str],
+        initial_state: Optional[Dict[str, Any]] = None
     ) -> float:
         """
-        Calculates Pareto Multi-Objective Symbolic Reward score R(y):
-        +3.0 to +4.0: Passes all 3 Layers with high OEE and low vibration
+        Calculates RLVR (Reinforcement Learning with Verifiable Rewards) score:
+        +3.0 to +4.0: Passes all 3 Verification Layers with high OEE and low vibration
         -1.0: Fails Layer 3 Digital Twin (kinematic collision / scan overrun)
         -2.0: Fails Layer 1 Static Linter (syntax / unbounded loop)
         -3.0: Trivial / No-Op / Empty Code Penalty (Anti-Reward Hacking)
-        -5.0: Fails Layer 2 Z3 SMT Invariant Proof (safety invariant breach)
+        -10.0: Fails Layer 2 Z3 SMT Invariant Proof (CRITICAL SAFETY BREACH)
         """
         # Anti-Reward Hacking / No-Op Penalty
         clean_len = len(st_code.strip())
         if clean_len < 15 or ":=" not in st_code:
             return -3.0
 
-        res = self.gauntlet.verify(st_code, variables, transition_rules, safety_invariants)
+        res = self.gauntlet.verify(st_code, variables, transition_rules, safety_invariants, initial_state=initial_state)
         
         if res.passed:
             throughput = res.simulation_metrics.get("projected_throughput_ppm", 55.0)
@@ -59,7 +60,7 @@ class SymbolicRewardEvaluator:
         elif res.layer_failed == "LAYER_1_STATIC_LINTER":
             return -2.0
         elif res.layer_failed == "LAYER_2_SMT_BOUNDED_MODEL_CHECKER":
-            return -5.0
+            return -10.0
         else:
             return -3.0
 
@@ -71,14 +72,15 @@ class SymbolicRewardEvaluator:
         variables: Dict[str, str],
         rules_chosen: List[Dict[str, Any]],
         rules_rejected: List[Dict[str, Any]],
-        safety_invariants: List[str]
+        safety_invariants: List[str],
+        initial_state: Optional[Dict[str, Any]] = None
     ) -> Optional[Dict[str, Any]]:
         """
         Generates validated DPO preference record with chosen vs rejected candidates.
         Ensures strict reward dominance (reward_chosen > reward_rejected).
         """
-        score_chosen = self.score_candidate_code(valid_code, variables, rules_chosen, safety_invariants)
-        score_rejected = self.score_candidate_code(unsafe_code, variables, rules_rejected, safety_invariants)
+        score_chosen = self.score_candidate_code_rlvr(valid_code, variables, rules_chosen, safety_invariants, initial_state)
+        score_rejected = self.score_candidate_code_rlvr(unsafe_code, variables, rules_rejected, safety_invariants, initial_state)
 
         if score_chosen <= score_rejected:
             logger.warning(f"Inverted reward preference detected: chosen ({score_chosen}) <= rejected ({score_rejected}). Discarding pair.")
@@ -126,7 +128,8 @@ class SymbolicMarginDPOLoss:
         logits = self.beta * (pi_logratios - ref_logratios)
 
         if delta_rewards is not None:
-            margin = self.gamma * delta_rewards.to(torch.float32)
+            clamped_delta = torch.clamp(delta_rewards.to(torch.float32), min=-2.0, max=2.0)
+            margin = self.gamma * clamped_delta
             logits = logits - margin
 
         if self.label_smoothing > 0:
@@ -152,7 +155,8 @@ def run_dpo_pipeline_check():
         variables={"DecelRamp_ms": "INT"},
         rules_chosen=[{"target": "DecelRamp_ms", "type": "CLAMP_INT", "min": 200, "max": 800, "condition": 380}],
         rules_rejected=[{"target": "DecelRamp_ms", "type": "CLAMP_INT", "min": 0, "max": 1000, "condition": 100}],
-        safety_invariants=["DECEL_RAMP_SAFE_BOUNDS"]
+        safety_invariants=["DECEL_RAMP_SAFE_BOUNDS"],
+        initial_state={"DecelRamp_ms": 500}
     )
     assert sample_pair is not None, "DPO Pair formation failed validation"
     assert sample_pair["reward_chosen"] > sample_pair["reward_rejected"]

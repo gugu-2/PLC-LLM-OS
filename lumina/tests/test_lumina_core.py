@@ -81,7 +81,9 @@ def test_layer2_z3_smt_bounded_model_checker_proven_safe():
     ]
 
     proved, counterexample, msg = smt.verify_safety_invariants(
-        variables, transition_rules, safety_invariants, bound_steps=10
+        variables, transition_rules, safety_invariants, 
+        initial_state={"Clamp_Closed": False, "Table_Indexing": False, "DecelRamp_ms": 500}, 
+        bound_steps=10
     )
     assert proved is True
     assert counterexample is None
@@ -136,7 +138,8 @@ def test_full_3layer_verification_gauntlet():
         st_code=proposal.generated_code,
         variables=proposal.variables,
         transition_rules=proposal.transition_rules,
-        safety_invariants=proposal.safety_invariants
+        safety_invariants=proposal.safety_invariants,
+        initial_state={"DecelRamp_ms": 500, "BearingVibration_g": 1.2}
     )
     assert res.passed is True
     assert res.smt_proved is True

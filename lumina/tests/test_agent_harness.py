@@ -111,7 +111,8 @@ async def run_multi_agent_benchmark():
         st_code=t1_prop.generated_code,
         variables=t1_prop.variables,
         transition_rules=t1_prop.transition_rules,
-        safety_invariants=t1_prop.safety_invariants
+        safety_invariants=t1_prop.safety_invariants,
+        initial_state={"CycleTime_ms": 820, "SystemPressure_kPa": 420, "DumpValve_Open": False}
     )
     if not t1_res.passed:
         print(f"FAILED LAYER: {t1_res.layer_failed} | ERROR: {t1_res.error_message} | LINTS: {t1_res.lint_violations} | COUNTEREXAMPLE: {t1_res.smt_counterexample}")

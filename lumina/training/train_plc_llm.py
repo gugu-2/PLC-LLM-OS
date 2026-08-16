@@ -16,12 +16,12 @@ from typing import Optional, List, Dict, Any, Union
 @dataclass
 class TrainingConfig:
     # Model & Tokenizer
-    model_name_or_path: str = "Qwen/Qwen2.5-Coder-7B-Instruct"  # Alternative: "Qwen/Qwen2.5-Coder-14B-Instruct", "meta-llama/Llama-3.1-8B-Instruct"
+    model_name_or_path: str = "Qwen/Qwen2.5-Coder-7B-Instruct"  # Explicitly targeting Qwen2.5-Coder for strong ST/IL priors
     output_dir: str = "./lumina_plc_model_lora"
     train_data_path: str = "lumina/training/data/train.jsonl"
     val_data_path: str = "lumina/training/data/val.jsonl"
     
-    # QLoRA Hyperparameters
+    # QLoRA Hyperparameters optimized for Code Generation (Rank 64 for single 24GB GPU limits)
     lora_r: int = 64
     lora_alpha: int = 128
     lora_dropout: float = 0.05
@@ -108,7 +108,9 @@ def get_bnb_config(cfg: TrainingConfig) -> Any:
             bnb_4bit_use_double_quant=cfg.bnb_4bit_use_double_quant,
             bnb_4bit_compute_dtype=compute_dtype
         )
-    except (ImportError, Exception):
+    except (ImportError, Exception) as e:
+        if cfg.use_4bit:
+            raise ImportError(f"bitsandbytes required for 4-bit quantization, but failed to import: {e}")
         return None
 
 

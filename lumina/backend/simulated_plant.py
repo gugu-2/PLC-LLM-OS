@@ -42,6 +42,13 @@ class SimulatedPackagingPlant:
         self.running = False
         self.randomizer = DomainRandomizer(variance_pct=0.20)
         
+        try:
+            from lumina.backend.lumina_diode import UnidirectionalDiodeTX
+        except ImportError:
+            from lumina_diode import UnidirectionalDiodeTX
+        
+        self.diode_tx = UnidirectionalDiodeTX()
+        
         # Physical plant states
         self.line3_running = True
         self.line3_decel_ramp_ms = 500
@@ -54,6 +61,7 @@ class SimulatedPackagingPlant:
         self.line4_cycle_time_ms = 820
         self.line4_pneumatic_pressure_kpa = 610
         self.line4_cartons_total = 14200
+        self.last_carton_time = time.time()
         
         # Injected faults & degradation parameters
         self.active_faults: List[str] = []
@@ -62,6 +70,7 @@ class SimulatedPackagingPlant:
     async def start_simulation_loop(self):
         """Runs the physics simulation clock at 5Hz (200ms ticks)."""
         self.running = True
+        await self.diode_tx.connect()
         while self.running:
             now = time.time()
             
@@ -93,12 +102,15 @@ class SimulatedPackagingPlant:
 
                 # Minor jitter on cycle time
                 cycle_jitter = int(self.line4_cycle_time_ms + random.randint(-4, 4))
-                self.line4_cartons_total += 1
+                if (now - self.last_carton_time) * 1000 >= self.line4_cycle_time_ms:
+                    self.line4_cartons_total += 1
+                    self.last_carton_time = now
                 
                 await self.pal.write_normalized_tag("Line4.Carton.PneumaticPressure_kPa", self.line4_pneumatic_pressure_kpa)
                 await self.pal.write_normalized_tag("Line4.Carton.CycleTime_ms", cycle_jitter)
                 await self.pal.write_normalized_tag("Line4.Carton.TotalCount", self.line4_cartons_total)
 
+            self.diode_tx.send_telemetry(self.get_plant_telemetry_summary())
             await asyncio.sleep(0.2)
 
     def inject_fault(self, fault_type: str):
@@ -114,14 +126,17 @@ class SimulatedPackagingPlant:
     def apply_ai_patch(self, tag_id: str, new_value: Any) -> bool:
         """Applies hot-swapped PLC parameter update from verified AI engine."""
         if "DecelRamp" in tag_id:
-            self.line3_decel_ramp_ms = int(new_value)
+            new_val_int = int(new_value)
+            if new_val_int <= 0:
+                return False
+            self.line3_decel_ramp_ms = new_val_int
             if "BEARING_DEGRADATION_LINE3" in self.active_faults and self.line3_decel_ramp_ms <= 380:
                 self.active_faults.remove("BEARING_DEGRADATION_LINE3")
                 self.total_avoided_downtime_dollars += 42500.0
             return True
         elif "CycleTime" in tag_id:
             self.line4_cycle_time_ms = int(new_value)
-            if "PNEUMATIC_PRESSURE_DROP_LINE4" in self.active_faults:
+            if "PNEUMATIC_PRESSURE_DROP_LINE4" in self.active_faults and self.line4_cycle_time_ms >= 850:
                 self.active_faults.remove("PNEUMATIC_PRESSURE_DROP_LINE4")
                 self.total_avoided_downtime_dollars += 18000.0
             return True
