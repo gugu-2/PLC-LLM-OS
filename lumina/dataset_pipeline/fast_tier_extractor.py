@@ -39,8 +39,9 @@ def worker_git_clones():
     """Tier 1: Clones full enterprise repos and parses them locally."""
     logger.info("Starting Git Worker (Tier 1)...")
     repos = {
-        "oscat_basic": "https://github.com/oscat/oscat-basic.git",
-        "openplc": "https://github.com/thiagoralves/OpenPLC_Runtime.git"
+        "oscat": "https://github.com/simsum/oscat.git",
+        "openplc": "https://github.com/thiagoralves/OpenPLC_v3.git",
+        "broscat": "https://github.com/tkucic/brOscatLib.git"
     }
     
     extracted = 0
