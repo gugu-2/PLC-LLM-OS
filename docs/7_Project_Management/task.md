@@ -1,0 +1,11 @@
+- `[x]` **1. Swarm Initialization**
+  - `[x]` Create `data/swarm_outputs/` directory to prevent file locking.
+  - `[x]` Spawn Subagent 1 (Seed 4: Siemens PID).
+  - `[x]` Spawn Subagent 2 (Seed 5: Beckhoff PID).
+  - `[x]` Spawn Subagent 3 (Seed 6: Allen-Bradley PID).
+  - `[x]` Spawn Subagent 4 (Seed 7: Siemens Safety).
+  - `[x]` Spawn Subagent 5 (Seed 8: Beckhoff Safety).
+- `[x]` **2. Generation Phase**
+  - `[x]` Wait for subagents to generate Base + 4 Mutations and save to their respective JSONL files.
+- `[x]` **3. Aggregation**
+  - `[x]` Merge all swarm outputs into `data/evol_instruct_dataset.jsonl`.

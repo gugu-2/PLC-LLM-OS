@@ -1,0 +1,4 @@
+*.jsonl filter=lfs diff=lfs merge=lfs -text
+data/** filter=lfs diff=lfs merge=lfs -text
+lumina/data/** filter=lfs diff=lfs merge=lfs -text
+Local_Ollama_Evol_Pipeline/data/** filter=lfs diff=lfs merge=lfs -text
