@@ -58,7 +58,7 @@ def setup_gemini():
         return None
     genai.configure(api_key=GEMINI_API_KEY)
     model = genai.GenerativeModel(
-        model_name="gemini-1.5-pro",
+        model_name="gemini-1.5-pro-latest",
         system_instruction=SYSTEM_PROMPT
     )
     return model

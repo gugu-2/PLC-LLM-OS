@@ -43,7 +43,7 @@ def get_gemini_model():
     }
     
     model = genai.GenerativeModel(
-        model_name="gemini-1.5-pro",
+        model_name="gemini-1.5-pro-latest",
         system_instruction=SYSTEM_INSTRUCTION,
         safety_settings=safety_settings
     )

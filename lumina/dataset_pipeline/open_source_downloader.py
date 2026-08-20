@@ -20,8 +20,8 @@ class DatasetDownloader:
         # Define the three distinct data sources
         self.datasets = {
             "oscat": {
-                "url": "https://github.com/oscat/oscat-basic.git", # OSCAT Basic Library mirror
-                "extensions": [".st", ".exp"],
+                "url": "https://github.com/mihaiginta/TcOscatBasic.git", # Working OSCAT Basic Library mirror (TwinCAT port)
+                "extensions": [".st", ".exp", ".scl", ".tcpou"],
                 "raw_output": self.base_dir / "oscat_raw.jsonl",
                 "verified_output": self.base_dir / "verified_oscat.jsonl"
             },
@@ -32,7 +32,7 @@ class DatasetDownloader:
                 "verified_output": self.base_dir / "verified_tcopen.jsonl"
             },
             "siemens_lgf": {
-                "url": "https://github.com/siemens/simatic-s7-webserver-api.git", # Proxy for Siemens libraries
+                "url": "https://github.com/OttoMeister/Siemens-Tia-Portal-PID-Controller.git", # Proxy for Siemens libraries
                 "extensions": [".scl", ".awl"],
                 "raw_output": self.base_dir / "siemens_lgf_raw.jsonl",
                 "verified_output": self.base_dir / "verified_siemens_lgf.jsonl"
@@ -67,7 +67,7 @@ class DatasetDownloader:
         with open(config["raw_output"], 'w', encoding='utf-8') as f_out:
             for root, _, files in os.walk(repo_dir):
                 for file in files:
-                    if any(file.endswith(ext) for ext in config["extensions"]):
+                    if any(file.lower().endswith(ext.lower()) for ext in config["extensions"]):
                         file_path = Path(root) / file
                         try:
                             with open(file_path, 'r', encoding='utf-8', errors='ignore') as f_in:

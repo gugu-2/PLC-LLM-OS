@@ -79,9 +79,31 @@ def clean_dataset_file(input_file: str, output_file: str) -> Dict[str, int]:
                 else:
                     code_to_check = data.get("content", "") or data.get("code", "") or data.get("body", "")
                 
-                # Step 1: Logic Density Heuristics
+                # Step 1: Strip XML Boilerplate (TwinCAT / Rockwell)
+                # If it's a TwinCAT TcPOU, extract only the Declaration and ST blocks
+                import re
+                if "<TcPlcObject" in code_to_check:
+                    declarations = re.findall(r'<Declaration><!\[CDATA\[(.*?)\]\]></Declaration>', code_to_check, re.DOTALL)
+                    implementations = re.findall(r'<ST><!\[CDATA\[(.*?)\]\]></ST>', code_to_check, re.DOTALL)
+                    extracted_code = ""
+                    if declarations:
+                        extracted_code += declarations[0].strip() + "\n"
+                    if implementations:
+                        extracted_code += implementations[0].strip() + "\n"
+                    
+                    if extracted_code:
+                        code_to_check = extracted_code
+                        # Update the JSON payload with the clean code
+                        if "messages" in data:
+                            for msg in data["messages"]:
+                                if msg.get("role") == "assistant":
+                                    msg["content"] = code_to_check
+                        else:
+                            data["content"] = code_to_check
+                
+                # Step 2: Logic Density Heuristics
                 if is_valid_plc_code(code_to_check):
-                    # Step 2: Z3 Mathematical Verification
+                    # Step 3: Z3 Mathematical Verification
                     verify_result = gauntlet.verify(code_to_check, variables={}, transition_rules=[], safety_invariants=standard_invariants)
                     
                     # We only accept code that passes the Static Linter and SMT proofs
