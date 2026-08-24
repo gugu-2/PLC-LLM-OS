@@ -28,8 +28,10 @@ class OllamaClient:
             "temperature": temperature,
             "stream": False,
             "options": {
-                "num_ctx": 4096, # Expanded context window for RAG seeds
-                "top_p": 0.95
+                "num_ctx": 32768,   # High context window for RAG seeds
+                "num_predict": 8192, # Allow generating long ST programs
+                "top_p": 0.90,
+                "repeat_penalty": 1.1
             }
         }
         
