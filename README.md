@@ -36,26 +36,29 @@
 PLC-LLM-OS/
 ├── AV2/                                    # Universal Master Research Papers (V2)
 │   ├── UNIVERSAL_RESEARCH_PAPER.md         # Master Research Synthesis
-│   ├── v2_research_aiml_architecture.md    # AI/ML & RAG Architecture
-│   ├── v2_research_business_strategy.md    # Business, Pricing & Liability Strategy
-│   ├── v2_research_industrial_automation.md# OT Integration & Protocol Abstraction
-│   ├── v2_research_product_ux.md           # Product UX & Glass Box Interface
-│   └── v2_research_systems_security.md     # Systems Architecture & ICS Security
-├── lumina/
-│   ├── backend/
-│   │   ├── lumina_pal.py                   # Protocol Abstraction Layer (S7, Modbus, CIP)
-│   │   ├── lumina_verify.py                # 3-Layer Verification Gauntlet (Z3 SMT + Linter)
-│   │   ├── lumina_ai.py                    # Industrial RAG, Causal Narratives, SCL Synthesizer
-│   │   ├── lumina_security.py              # Hardware Deployment Proxy & Golden Vault
-│   │   ├── simulated_plant.py              # Multi-machine continuous plant simulator
-│   │   └── server.py                       # FastAPI master server with 5Hz WebSockets
-│   ├── frontend/
-│   │   └── index.html                      # Replicate-styled Glass Box Web Dashboard
-│   ├── tests/
-│   │   ├── test_lumina_core.py             # Unit tests for PAL, Z3 model checking, linter
-│   │   ├── test_security_proxy.py          # Security tests for air-gap & burst limits
-│   │   └── test_agent_harness.py           # Multi-agent closed-loop benchmark runner
-│   └── WALKTHROUGH.md                      # Detailed system walkthrough
+│   └── v2_research_*.md                    # Modular Research Synthesis docs
+├── lumina/                                 # Project Lumina Web Dashboard App
+│   ├── backend/                            # FastAPI, PAL, and verification engines
+│   ├── frontend/                           # HTML5 dashboard interface
+│   └── tests/                              # Core system checks and benchmark harness
+├── Local_Ollama_Evol_Pipeline/             # Local GPU synthetic data evolution framework
+│   ├── scripts/
+│   │   ├── evol_orchestrator.py            # Local generator (dynamic domain invention + thread-safe merge)
+│   │   ├── linter.py                       # Upgraded IEC 61131-3 static parser (IF, CASE, FOR, Refusals)
+│   │   └── ollama_client.py                # Local Ollama LLM client wrapper
+│   └── seeds/                              # RAG seed files divided by quality tier
+├── pipeline/                               # Clean dataset management tools
+│   └── tools/
+│       ├── repair_dataset.py               # Corruption splitter, refusal filter, normalizer
+│       ├── audit_all_datasets.py           # Verification and quality tier analysis
+│       └── build_master_dataset.py         # Merges approved sources, splits train/val sets
+├── data/                                   # Database of synthetic & scraped PLC code
+│   ├── master/                             # Target training inputs for LLM fine-tuning
+│   │   ├── train.jsonl                     # Shuffled, cleaned ChatML training records
+│   │   └── validation.jsonl                # Shuffled, cleaned validation split records
+│   ├── DATA_CATALOG.md                     # Complete audit report of all datasets
+│   └── synthetic_generation_v3_enterprise_CLEAN.jsonl
+├── archive/                                # Consolidated repository of ~110 throwaway scripts
 ├── DESIGN.md                               # Replicate Design System Specification
 └── README.md
 ```

@@ -1,18 +1,309 @@
 import json
 
-data = {
-    "messages": [
-        {
-            "role": "user",
-            "content": "Evolve a basic array processing block into a complex Model Predictive Control (MPC) matrix calculation for an Oil & Gas fractional distillation column in IEC 61131-3 Structured Text. Include reflux ratio optimization, matrix operations for multivariable control, and strict safety interlocks such as high column pressure overrides and thermal overload protection."
-        },
-        {
-            "role": "assistant",
-            "content": "(* \n   =============================================================================\n   Lumina Elite Synthetic Data Architect - IEC 61131-3 Advanced MPC Module\n   =============================================================================\n   Module: FB_Distillation_MPC\n   Description: \n   Model Predictive Control (MPC) for an Oil & Gas fractional distillation \n   column. This block evaluates a prediction matrix over a finite horizon \n   to optimize the Reflux Ratio and Bottoms Flow, while respecting stringent \n   safety overrides (High Pressure, Thermal Overload, E-Stop).\n   \n   Hardware Abstraction Layer (HAL) inputs are utilized for sensor readings \n   and actuator commands. \n   =============================================================================\n*)\n\nTYPE UDT_MPC_Matrix :\n    STRUCT\n        A : ARRAY[1..3, 1..3] OF REAL; (* System Matrix *)\n        B : ARRAY[1..3, 1..2] OF REAL; (* Control Matrix *)\n        C : ARRAY[1..2, 1..3] OF REAL; (* Output Matrix *)\n    END_STRUCT\nEND_TYPE\n\nTYPE UDT_Sensor_HAL :\n    STRUCT\n        ColumnPressure      : REAL;  (* bar *)\n        TopTemperature      : REAL;  (* deg C *)\n        BottomTemperature   : REAL;  (* deg C *)\n        FeedFlowRate        : REAL;  (* m3/h *)\n        E_Stop_Active       : BOOL;  (* TRUE = E-Stop triggered *)\n        ThermalOverload     : BOOL;  (* TRUE = Reboiler tripped *)\n    END_STRUCT\nEND_TYPE\n\nTYPE UDT_Actuator_HAL :\n    STRUCT\n        RefluxValveCmd      : REAL;  (* 0-100% *)\n        BottomsValveCmd     : REAL;  (* 0-100% *)\n        ReboilerHeaterCmd   : REAL;  (* 0-100% *)\n        SafetyVentOpen      : BOOL;  (* TRUE = Vent Open *)\n    END_STRUCT\nEND_TYPE\n\nFUNCTION_BLOCK FB_Distillation_MPC\nVAR_INPUT\n    Sensors          : UDT_Sensor_HAL;\n    SetpointTopTemp  : REAL := 65.0;\n    SetpointBotTemp  : REAL := 150.0;\n    MaxPressure      : REAL := 5.0;   (* bar *)\n    MPC_Config       : UDT_MPC_Matrix;\n    EnableControl    : BOOL;\nEND_VAR\n\nVAR_OUTPUT\n    Actuators        : UDT_Actuator_HAL;\n    SystemFault      : BOOL;\n    State            : INT;           (* 0=Idle, 1=Running, 2=Fault, 3=Safe_State *)\n    CalcRefluxRatio  : REAL;\nEND_VAR\n\nVAR\n    StateVec         : ARRAY[1..3] OF REAL; (* x(k) *)\n    NextStateVec     : ARRAY[1..3] OF REAL; (* x(k+1) *)\n    ControlVec       : ARRAY[1..2] OF REAL; (* u(k) *)\n    OutputVec        : ARRAY[1..2] OF REAL; (* y(k) *)\n    \n    ErrorTop         : REAL;\n    ErrorBot         : REAL;\n    \n    i, j             : INT;\n    TempSum          : REAL;\n    \n    (* Safety State Machine *)\n    bHighPressureAlarm : BOOL;\n    bCriticalFault     : BOOL;\nEND_VAR\n\nBEGIN\n    (* ---------------------------------------------------------------------- *)\n    (* 1. Safety Interlocks & Hardware Overrides                              *)\n    (* ---------------------------------------------------------------------- *)\n    bHighPressureAlarm := Sensors.ColumnPressure > MaxPressure;\n    bCriticalFault := Sensors.E_Stop_Active OR Sensors.ThermalOverload OR bHighPressureAlarm;\n    \n    IF bCriticalFault THEN\n        SystemFault := TRUE;\n        State := 3; (* Safe State *)\n    ELSIF NOT EnableControl THEN\n        SystemFault := FALSE;\n        State := 0; (* Idle *)\n    ELSE\n        SystemFault := FALSE;\n        State := 1; (* Running *)\n    END_IF;\n    \n    (* ---------------------------------------------------------------------- *)\n    (* 2. State Machine Execution                                             *)\n    (* ---------------------------------------------------------------------- *)\n    CASE State OF\n        0: (* Idle State *)\n            Actuators.RefluxValveCmd := 0.0;\n            Actuators.BottomsValveCmd := 0.0;\n            Actuators.ReboilerHeaterCmd := 0.0;\n            Actuators.SafetyVentOpen := FALSE;\n            CalcRefluxRatio := 0.0;\n            \n        1: (* Running State - MPC Matrix Calculation *)\n            \n            (* Map sensors to state vector (Simplified Observer) *)\n            StateVec[1] := Sensors.TopTemperature;\n            StateVec[2] := Sensors.BottomTemperature;\n            StateVec[3] := Sensors.FeedFlowRate;\n            \n            ErrorTop := SetpointTopTemp - StateVec[1];\n            ErrorBot := SetpointBotTemp - StateVec[2];\n            \n            (* Calculate Control Vector u(k) = K * e(k) *)\n            ControlVec[1] := ErrorTop * 0.5 + ErrorBot * 0.1; (* Reflux influence *)\n            ControlVec[2] := ErrorTop * 0.1 + ErrorBot * 0.6; (* Bottoms influence *)\n            \n            (* Matrix Multiplication: x(k+1) = A*x(k) + B*u(k) *)\n            FOR i := 1 TO 3 DO\n                TempSum := 0.0;\n                (* A * x(k) *)\n                FOR j := 1 TO 3 DO\n                    TempSum := TempSum + (MPC_Config.A[i, j] * StateVec[j]);\n                END_FOR;\n                \n                (* B * u(k) *)\n                FOR j := 1 TO 2 DO\n                    TempSum := TempSum + (MPC_Config.B[i, j] * ControlVec[j]);\n                END_FOR;\n                \n                NextStateVec[i] := TempSum;\n            END_FOR;\n            \n            (* Calculate output y(k) = C * x(k) *)\n            FOR i := 1 TO 2 DO\n                TempSum := 0.0;\n                FOR j := 1 TO 3 DO\n                    TempSum := TempSum + (MPC_Config.C[i, j] * NextStateVec[j]);\n                END_FOR;\n                OutputVec[i] := TempSum;\n            END_FOR;\n            \n            (* Reflux Ratio Calculation (L/D) based on predicted outputs *)\n            IF OutputVec[2] > 0.1 THEN\n                CalcRefluxRatio := OutputVec[1] / OutputVec[2];\n            ELSE\n                CalcRefluxRatio := 10.0; (* Clamp to max logical ratio *)\n            END_IF;\n            \n            (* Map calculated control actions to Actuator HAL *)\n            Actuators.RefluxValveCmd := ControlVec[1];\n            Actuators.BottomsValveCmd := ControlVec[2];\n            \n            (* Basic Heater control based on Bottoms error *)\n            Actuators.ReboilerHeaterCmd := ErrorBot * 2.0;\n            \n            (* Clamp Outputs 0-100% *)\n            IF Actuators.RefluxValveCmd > 100.0 THEN Actuators.RefluxValveCmd := 100.0; END_IF;\n            IF Actuators.RefluxValveCmd < 0.0 THEN Actuators.RefluxValveCmd := 0.0; END_IF;\n            IF Actuators.BottomsValveCmd > 100.0 THEN Actuators.BottomsValveCmd := 100.0; END_IF;\n            IF Actuators.BottomsValveCmd < 0.0 THEN Actuators.BottomsValveCmd := 0.0; END_IF;\n            IF Actuators.ReboilerHeaterCmd > 100.0 THEN Actuators.ReboilerHeaterCmd := 100.0; END_IF;\n            IF Actuators.ReboilerHeaterCmd < 0.0 THEN Actuators.ReboilerHeaterCmd := 0.0; END_IF;\n            \n            Actuators.SafetyVentOpen := FALSE;\n            \n        3: (* Safe State - Critical Overrides Active *)\n            Actuators.RefluxValveCmd := 100.0;  (* Full reflux to cool column *)\n            Actuators.BottomsValveCmd := 100.0; (* Drain bottoms *)\n            Actuators.ReboilerHeaterCmd := 0.0; (* Kill heat source immediately *)\n            \n            (* If high pressure caused the trip, open the safety relief vent *)\n            IF bHighPressureAlarm THEN\n                Actuators.SafetyVentOpen := TRUE;\n            ELSE\n                Actuators.SafetyVentOpen := FALSE;\n            END_IF;\n            CalcRefluxRatio := 0.0;\n            \n    END_CASE;\nEND_FUNCTION_BLOCK"
-        }
-    ]
-}
+def append_synthetic_data():
+    prompt = "You are acting as a Lead Particle Physics Engineer (e.g., CERN). Evolve a basic cooling block into a Large Hadron Collider (LHC) Superfluid Helium Cryogenics Controller. Technical Specs: 1. 1.9 Kelvin superfluid helium cold-compressor cascade. 2. Beam-loss monitor (BLM) quench protection heater triggering. 3. Magnet current lead boil-off regulation."
+    
+    assistant_response = """(*
+=============================================================================
+LHC SUPERFLUID HELIUM CRYOGENICS CONTROLLER (1.9K CASCADE)
+IEC 61131-3 Implementation
+=============================================================================
+Engineer: Lead Particle Physics Engineer (CERN)
+System: Main Ring Superconducting Magnet Cryo-System
 
-target_file = r"C:\Users\majip\Downloads\LLM REASEARCH\Local_Ollama_Evol_Pipeline\data\evol_instruct_dataset.jsonl"
-with open(target_file, "a") as f:
-    f.write(json.dumps(data) + "\\n")
+Core Subsystems:
+1. 1.9K Superfluid Helium Cold-Compressor Cascade
+2. Beam-Loss Monitor (BLM) Quench Protection & Heater Triggering
+3. Magnet Current Lead Boil-Off Regulation
+=============================================================================
+*)
+
+TYPE E_CryoState :
+(
+    CRYO_WARM_STANDBY := 0,
+    CRYO_COOLDOWN_4_5K := 1,
+    CRYO_PUMPDOWN_1_9K := 2,
+    CRYO_NOMINAL_SUPERFLUID := 3,
+    CRYO_QUENCH_RECOVERY := 4,
+    CRYO_FAULT := 99
+);
+END_TYPE
+
+TYPE ST_ColdCompressor :
+STRUCT
+    SpeedSetPoint   : REAL; (* RPM *)
+    ActualSpeed     : REAL; (* RPM *)
+    InletPressure   : REAL; (* mbar *)
+    OutletPressure  : REAL; (* mbar *)
+    BearingTemp     : REAL; (* K *)
+    Vibration       : REAL; (* mm/s *)
+    TripInterlock   : BOOL;
+END_STRUCT
+END_TYPE
+
+TYPE ST_BLM_Sensor :
+STRUCT
+    LossRate        : REAL; (* Gy/s *)
+    IntegratedLoss  : REAL; (* Gy *)
+    ThresholdQuench : REAL; (* Gy/s *)
+    ThresholdWarn   : REAL; (* Gy/s *)
+    QuenchDetected  : BOOL;
+END_STRUCT
+END_TYPE
+
+TYPE ST_CurrentLead :
+STRUCT
+    CurrentLevel    : REAL; (* kA *)
+    VoltageDrop     : REAL; (* mV *)
+    MassFlowActual  : REAL; (* g/s *)
+    TempTop         : REAL; (* K *)
+    TempBottom      : REAL; (* K *)
+    ValvePosition   : REAL; (* % *)
+END_STRUCT
+END_TYPE
+
+(* ========================================================================= *)
+(* FUNCTION BLOCK: Cold Compressor Cascade Controller                        *)
+(* ========================================================================= *)
+FUNCTION_BLOCK FB_ColdCompressorCascade
+VAR_INPUT
+    Enable          : BOOL;
+    TargetTemp      : REAL := 1.9; (* Target temperature in Kelvin *)
+    HeliumBathTemp  : REAL;
+    BathPressure    : REAL; (* mbar, nominal 16 mbar for 1.9K *)
+END_VAR
+VAR_OUTPUT
+    CascadeActive   : BOOL;
+    Stable1_9K      : BOOL;
+    TotalPower      : REAL;
+    FaultDetected   : BOOL;
+END_VAR
+VAR
+    CC1, CC2, CC3, CC4 : ST_ColdCompressor;
+    PID_Pressure    : FB_PID; (* Assuming external standard PID *)
+    PressureError   : REAL;
+    CascadeSeqStep  : INT := 0;
+    SpeedRamp       : REAL := 0.0;
+END_VAR
+
+    (* Cascade regulation based on saturation pressure (16 mbar = ~1.9K) *)
+    PID_Pressure(
+        xSet := 16.0,
+        xAct := BathPressure,
+        Kp := 5.5,
+        Ti := 120.0,
+        Td := 5.0,
+        LimLow := 0.0,
+        LimHigh := 100.0,
+        bReverseActing := TRUE
+    );
+
+    IF Enable THEN
+        CASE CascadeSeqStep OF
+            0: (* Standby / Spin-up check *)
+                CC1.SpeedSetPoint := 0;
+                IF BathPressure < 1000.0 THEN CascadeSeqStep := 1; END_IF;
+            1: (* CC1 Start *)
+                CC1.SpeedSetPoint := 20000.0; (* Base RPM *)
+                IF CC1.ActualSpeed > 18000.0 THEN CascadeSeqStep := 2; END_IF;
+            2: (* Sequence CC2 to CC4 *)
+                CC2.SpeedSetPoint := 35000.0;
+                CC3.SpeedSetPoint := 45000.0;
+                CC4.SpeedSetPoint := 60000.0;
+                IF CC4.ActualSpeed > 55000.0 THEN CascadeSeqStep := 3; END_IF;
+            3: (* Active Regulation *)
+                SpeedRamp := PID_Pressure.Y;
+                (* Distribute load across stages proportionally *)
+                CC1.SpeedSetPoint := 20000.0 + (SpeedRamp * 100.0);
+                CC2.SpeedSetPoint := 35000.0 + (SpeedRamp * 150.0);
+                CC3.SpeedSetPoint := 45000.0 + (SpeedRamp * 200.0);
+                CC4.SpeedSetPoint := 60000.0 + (SpeedRamp * 300.0);
+                
+                CascadeActive := TRUE;
+                IF (HeliumBathTemp <= 1.92 AND HeliumBathTemp >= 1.88) THEN
+                    Stable1_9K := TRUE;
+                ELSE
+                    Stable1_9K := FALSE;
+                END_IF;
+        END_CASE;
+    ELSE
+        CascadeSeqStep := 0;
+        CascadeActive := FALSE;
+        Stable1_9K := FALSE;
+        CC1.SpeedSetPoint := 0;
+        CC2.SpeedSetPoint := 0;
+        CC3.SpeedSetPoint := 0;
+        CC4.SpeedSetPoint := 0;
+    END_IF;
+
+    (* Bearing Temp Interlocks *)
+    IF CC1.BearingTemp > 80.0 OR CC4.Vibration > 2.5 THEN
+        FaultDetected := TRUE;
+        CascadeActive := FALSE;
+    END_IF;
+END_FUNCTION_BLOCK
+
+(* ========================================================================= *)
+(* FUNCTION BLOCK: Quench Protection & BLM Trigger                           *)
+(* ========================================================================= *)
+FUNCTION_BLOCK FB_QuenchProtectionSystem
+VAR_INPUT
+    BLM_Sensors     : ARRAY[1..16] OF ST_BLM_Sensor;
+    MagnetVoltage   : REAL; (* mV *)
+    MagnetCurrent   : REAL; (* kA, nominal 13 kA *)
+    Reset           : BOOL;
+END_VAR
+VAR_OUTPUT
+    QuenchFired     : BOOL;
+    HeaterTrigger1  : BOOL;
+    HeaterTrigger2  : BOOL;
+    DumpResistorCmd : BOOL;
+    EmergencyStop   : BOOL;
+END_VAR
+VAR
+    i : INT;
+    DerivativeV     : REAL;
+    LastV           : REAL;
+    ResistiveZone   : BOOL;
+END_VAR
+    
+    IF Reset THEN
+        QuenchFired := FALSE;
+        HeaterTrigger1 := FALSE; HeaterTrigger2 := FALSE;
+        DumpResistorCmd := FALSE;
+        EmergencyStop := FALSE;
+    END_IF;
+
+    (* 1. Beam Loss Monitor Polling *)
+    FOR i := 1 TO 16 DO
+        IF BLM_Sensors[i].LossRate > BLM_Sensors[i].ThresholdQuench THEN
+            BLM_Sensors[i].QuenchDetected := TRUE;
+            EmergencyStop := TRUE;
+        END_IF;
+    END_FOR;
+
+    (* 2. Magnet Voltage Differential dV/dt (Resistive Zone Detection) *)
+    DerivativeV := (MagnetVoltage - LastV) / 0.01; (* Assume 10ms task *)
+    LastV := MagnetVoltage;
+    
+    (* If unexplained resistive voltage appears, super-conductor quenched *)
+    IF (MagnetVoltage > 100.0) AND (DerivativeV > 50.0) AND (MagnetCurrent > 1.0) THEN
+        ResistiveZone := TRUE;
+    END_IF;
+
+    (* 3. Trigger Quench Heaters to spread quench volume & prevent localized melting *)
+    IF EmergencyStop OR ResistiveZone THEN
+        QuenchFired := TRUE;
+        HeaterTrigger1 := TRUE; (* Primary capacitor bank *)
+        HeaterTrigger2 := TRUE; (* Redundant capacitor bank *)
+        DumpResistorCmd := TRUE; (* Route 13kA to external dump resistors *)
+    END_IF;
+END_FUNCTION_BLOCK
+
+(* ========================================================================= *)
+(* FUNCTION BLOCK: Current Lead Boil-off Regulator                           *)
+(* ========================================================================= *)
+FUNCTION_BLOCK FB_CurrentLeadRegulator
+VAR_INPUT
+    LeadState       : ST_CurrentLead;
+END_VAR
+VAR_OUTPUT
+    UpdatedLead     : ST_CurrentLead;
+END_VAR
+VAR
+    PID_Boiloff     : FB_PID;
+    TargetMassFlow  : REAL;
+END_VAR
+
+    (* Calculate required cooling based on electrical heating (I^2 * R effective) *)
+    (* Rule of thumb: ~0.05 g/s per kA for optimized HTS leads *)
+    TargetMassFlow := LeadState.CurrentLevel * 0.052; 
+    
+    (* Override mass flow if warm end gets too hot (> 293K) *)
+    IF LeadState.TempTop > 295.0 THEN
+        TargetMassFlow := TargetMassFlow * 1.5;
+    END_IF;
+
+    PID_Boiloff(
+        xSet := TargetMassFlow,
+        xAct := LeadState.MassFlowActual,
+        Kp := 2.5,
+        Ti := 30.0,
+        LimLow := 5.0,  (* Minimum flow to prevent frost *)
+        LimHigh := 100.0
+    );
+
+    UpdatedLead := LeadState;
+    UpdatedLead.ValvePosition := PID_Boiloff.Y;
+END_FUNCTION_BLOCK
+
+(* ========================================================================= *)
+(* MAIN PROGRAM: LHC Cryogenics Supervisor                                   *)
+(* ========================================================================= *)
+PROGRAM MAIN_LHC_CRYO
+VAR
+    SysState        : E_CryoState := CRYO_WARM_STANDBY;
+    
+    ColdCascade     : FB_ColdCompressorCascade;
+    QuenchProtect   : FB_QuenchProtectionSystem;
+    LeadRegulator   : FB_CurrentLeadRegulator;
+    
+    GlobalBathTemp  : REAL := 1.9;
+    GlobalBathPres  : REAL := 16.0;
+    
+    BLM_Array       : ARRAY[1..16] OF ST_BLM_Sensor;
+    DipoleLead      : ST_CurrentLead;
+    
+    MasterStart     : BOOL := FALSE;
+    MasterReset     : BOOL := FALSE;
+END_VAR
+
+    (* Execute Cascade *)
+    ColdCascade(
+        Enable := (SysState = CRYO_PUMPDOWN_1_9K OR SysState = CRYO_NOMINAL_SUPERFLUID),
+        HeliumBathTemp := GlobalBathTemp,
+        BathPressure := GlobalBathPres
+    );
+    
+    IF ColdCascade.Stable1_9K THEN
+        SysState := CRYO_NOMINAL_SUPERFLUID;
+    END_IF;
+    
+    (* Execute Quench Protection *)
+    QuenchProtect(
+        BLM_Sensors := BLM_Array,
+        MagnetVoltage := DipoleLead.VoltageDrop,
+        MagnetCurrent := DipoleLead.CurrentLevel,
+        Reset := MasterReset
+    );
+    
+    IF QuenchProtect.QuenchFired THEN
+        SysState := CRYO_QUENCH_RECOVERY;
+        ColdCascade.Enable := FALSE; (* Stop compressors on massive heat load *)
+    END_IF;
+    
+    (* Execute Boil-Off Regulation for 13kA Leads *)
+    DipoleLead.CurrentLevel := 11.8; (* Simulated operating current *)
+    LeadRegulator(LeadState := DipoleLead);
+    DipoleLead := LeadRegulator.UpdatedLead;
+
+END_PROGRAM
+"""
+    
+    data = {
+        "messages": [
+            {"role": "user", "content": prompt},
+            {"role": "assistant", "content": assistant_response}
+        ]
+    }
+    
+    file_path = "c:/Users/majip/Downloads/LLM REASEARCH/data/synthetic_generation_v3_enterprise.jsonl"
+    try:
+        with open(file_path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(data) + "\\n")
+        print("Success")
+    except Exception as e:
+        print(f"Error: {e}")
+
+if __name__ == "__main__":
+    append_synthetic_data()
