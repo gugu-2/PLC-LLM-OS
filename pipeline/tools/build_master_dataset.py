@@ -51,6 +51,12 @@ APPROVED_SOURCES = [
      "Verified OSCAT library code samples"),
 ]
 
+# Dynamically add all new isolated swarm files (Strategy A)
+SWARM_RAW_DIR = DATA_DIR / "swarm_raw"
+if SWARM_RAW_DIR.exists():
+    for f in SWARM_RAW_DIR.glob("*.json"):
+        APPROVED_SOURCES.append((f"swarm_raw/{f.name}", "Isolated cloud swarm raw payload"))
+
 # Quality gate params
 MIN_ASSISTANT_LENGTH = 1500  # chars
 REFUSAL_PHRASES = [
@@ -72,16 +78,25 @@ def load_and_filter(filepath: Path, source_name: str) -> list:
     skipped = 0
 
     with open(filepath, "r", encoding="utf-8", errors="replace") as f:
-        for line in f:
-            stripped = line.strip()
-            if not stripped:
-                continue
+        # If it's a single JSON object (from swarm_raw), parse the whole file
+        if filepath.suffix == '.json':
             try:
-                obj = json.loads(stripped)
+                raw_objs = [json.load(f)]
             except json.JSONDecodeError:
+                raw_objs = []
                 skipped += 1
-                continue
-
+        else:
+            raw_objs = []
+            for line in f:
+                stripped = line.strip()
+                if not stripped:
+                    continue
+                try:
+                    raw_objs.append(json.loads(stripped))
+                except json.JSONDecodeError:
+                    skipped += 1
+                    
+        for obj in raw_objs:
             messages = obj.get("messages", [])
             if len(messages) < 2:
                 skipped += 1
