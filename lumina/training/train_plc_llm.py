@@ -27,7 +27,7 @@ logger = logging.getLogger("LuminaTrainer")
 
 # === CONFIGURATION ===
 BASE_DIR = Path(os.path.abspath(os.path.join(os.path.dirname(__file__), "../../data")))
-DATASET_PATH = BASE_DIR / "final_verified_dataset.jsonl"
+DATASET_PATH = BASE_DIR / "master" / "train.jsonl"
 OUTPUT_DIR = BASE_DIR / "lumina_model_weights"
 HF_TOKEN = os.environ.get("HF_TOKEN") # Must be injected via GCP env vars
 
@@ -37,7 +37,7 @@ LORA_ALPHA = 32
 LORA_DROPOUT = 0.05
 BATCH_SIZE = 1
 GRADIENT_ACCUMULATION_STEPS = 4
-MAX_SEQ_LENGTH = 1024
+MAX_SEQ_LENGTH = 8192
 LEARNING_RATE = 2e-4
 EPOCHS = 3
 
@@ -78,7 +78,9 @@ def format_chatml(example):
     messages = example.get("messages", [])
     text = ""
     for msg in messages:
-        if msg["role"] == "user":
+        if msg["role"] == "system":
+            text += f"<|im_start|>system\n{msg['content']}<|im_end|>\n"
+        elif msg["role"] == "user":
             text += f"<|im_start|>user\n{msg['content']}<|im_end|>\n"
         elif msg["role"] == "assistant":
             text += f"<|im_start|>assistant\n{msg['content']}<|im_end|>\n"

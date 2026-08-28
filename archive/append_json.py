@@ -1,252 +1,252 @@
 import json
 import os
 
-prompt = '''You are acting as the Principal Atmospheric Physicist for a High-Altitude Observatory.
+file_path = r"c:\Users\majip\Downloads\LLM REASEARCH\Local_Ollama_Evol_Pipeline\seeds\tier1_enterprise_grade\synthetic_generation_v3_enterprise.jsonl"
 
-Your mission is to generate a master-tier, production-ready IEC 61131-3 Structured Text (ST) implementation for the "Transient Luminous Event (TLE) Sprite & Blue Jet High-Speed Photometry & Lidar Tracker" (`FB_TLE_AtmosphericTracker`).
+user_content = "You are acting as a Lead Structural Engineer. Evolve a basic motion block into a Taipei 101 Tuned Mass Damper (TMD) Active Control System. Technical Specs: 1. 700-ton steel pendulum active hydraulic dampening. 2. Seismic P-wave early warning network integration. 3. Typhoon sustained wind-load displacement matrices. Append to synthetic_generation_v3_enterprise.jsonl."
 
-### Technical Specifications & Engineering Rigor Required:
-1. **Triggered High-Speed Photometry**:
-   - Ultra-low latency ($< 10\ \mu\\text{s}$) triggering of a $100,000\\text{ fps}$ intensified camera array by detecting the Extremely Low Frequency (ELF) electromagnetic pulse from a positive cloud-to-ground (+CG) lightning strike.
-   - Capturing the fleeting, milliseconds-long plasma breakdown of mesospheric Red Sprites and stratospheric Blue Jets.
-2. **Mesospheric UV Lidar Ranging**:
-   - Immediate firing of a pulsed $355\\text{ nm}$ Nd:YAG laser to measure the transient ozone depletion and localized atmospheric density changes induced by the plasma channels (streamers) up to $90\\text{ km}$ altitude.
-3. **Code Quality**: Strict IEC 61131-3 ST, LREAL datatypes, comprehensive `VAR_INPUT`/`VAR_OUTPUT`, atmospheric optics matrices, PackML states.
-
-Output a complete, valid JSON object with {"messages": [{"role": "user", "content": "Mega-prompt description"}, {"role": "assistant", "content": "Full raw Structured Text code inside ```iec-st```"}]}.
-Append this JSON directly to `data/synthetic_generation_v3_enterprise.jsonl` using a safe append script.
-'''
-
-st_code = '''```iec-st
-FUNCTION_BLOCK FB_TLE_AtmosphericTracker
+assistant_content = """```iecst
 (*
-    =============================================================================
-    High-Altitude Observatory System: Transient Luminous Event (TLE) Tracker
-    =============================================================================
-    Component:      FB_TLE_AtmosphericTracker
-    Description:    Controls a 100,000 fps intensified camera array and a 355 nm
-                    Nd:YAG UV Lidar system for high-resolution tracking and 
-                    characterization of Red Sprites and Blue Jets.
-    Latency Req:    < 10 µs trigger response to ELF electromagnetic pulses.
-    Standard:       IEC 61131-3 Structured Text
-    =============================================================================
+================================================================================
+Taipei 101 Tuned Mass Damper (TMD) Active Control System
+Version: 3.0.0 (Enterprise-Grade Structural Control)
+Lead Structural Engineer / Control Systems Architect
+================================================================================
+
+Technical Specs Implemented:
+1. 700-ton steel pendulum active hydraulic dampening control.
+2. Seismic P-wave early warning network integration (high-priority interrupt).
+3. Typhoon sustained wind-load displacement matrices (active compensation).
+
+System Overview:
+This function block manages the active and semi-active damping of the 700-ton
+TMD. It incorporates early warning seismic data to precondition the hydraulic
+actuators, and utilizes wind-load displacement matrices for sustained typhoon
+buffeting compensation.
 *)
+
+TYPE
+    T_SeismicData : STRUCT
+        P_Wave_Detected : BOOL;
+        Estimated_Magnitude : REAL; (* Richter *)
+        Time_To_S_Wave : TIME;
+        Epicenter_Distance : REAL; (* km *)
+        Peak_Ground_Accel : REAL; (* g *)
+    END_STRUCT;
+
+    T_WindData : STRUCT
+        Sustained_Speed : REAL; (* m/s *)
+        Gust_Speed : REAL; (* m/s *)
+        Direction : REAL; (* Degrees 0-359 *)
+        Barometric_Pressure : REAL; (* hPa *)
+    END_STRUCT;
+
+    T_PendulumState : STRUCT
+        Disp_X : REAL; (* meters *)
+        Disp_Y : REAL; (* meters *)
+        Vel_X : REAL; (* m/s *)
+        Vel_Y : REAL; (* m/s *)
+        Phase_Angle : REAL; (* rad *)
+        Cable_Tension : ARRAY[1..8] OF REAL; (* kN *)
+    END_STRUCT;
+
+    T_HydraulicCommand : STRUCT
+        Actuator_Force_X : REAL; (* kN *)
+        Actuator_Force_Y : REAL; (* kN *)
+        Valve_Open_X : REAL; (* 0-100% *)
+        Valve_Open_Y : REAL; (* 0-100% *)
+        Lock_Engaged : BOOL;
+    END_STRUCT;
+END_TYPE
+
+FUNCTION_BLOCK FB_Taipei101_TMD_ActiveControl
 VAR_INPUT
-    // PackML State Machine Inputs
-    xExecute                : BOOL;             (* Command to start execution *)
-    xAbort                  : BOOL;             (* Command to abort operation *)
-    xHold                   : BOOL;             (* Command to hold operation *)
-    xReset                  : BOOL;             (* Command to reset faults *)
+    Enable : BOOL;
+    Emergency_Stop : BOOL;
     
-    // Environmental & Sensor Inputs
-    rELF_V_m                : LREAL;            (* Extremely Low Frequency Electric Field (V/m) *)
-    rMagneticField_pT       : LREAL;            (* Magnetic field perturbation (pT) for +CG lightning *)
-    rLidarReturnIntensity   : LREAL;            (* UV Lidar backscatter intensity *)
-    rAtmosphericPressure_Pa : LREAL;            (* Ambient atmospheric pressure at observatory level *)
-    rSkyBackgroundFlux      : LREAL;            (* Ambient background photon flux (photons/m²/s) *)
+    // Sensor Networks
+    Seismic_Network : T_SeismicData;
+    Anemometer_Array : T_WindData;
+    Pendulum_Sensors : T_PendulumState;
+    Bldg_Accel_X : REAL;
+    Bldg_Accel_Y : REAL;
     
-    // System Configuration
-    rTriggerThresholdELF    : LREAL := 5000.0;  (* Threshold for +CG flash ELF detection (V/m) *)
-    rLidarPulseEnergy_mJ    : LREAL := 150.0;   (* Setpoint for 355nm Nd:YAG pulse energy *)
-    rCameraExposure_us      : LREAL := 10.0;    (* Exposure time per frame in microseconds (100k fps) *)
+    // Hydraulic System Status
+    Hyd_Pressure : REAL; (* Bar *)
+    Oil_Temp : REAL; (* Celcius *)
 END_VAR
 
 VAR_OUTPUT
-    // PackML State Machine Outputs
-    iState                  : INT;              (* Current PackML State *)
-    xReady                  : BOOL;             (* System ready for operation *)
-    xError                  : BOOL;             (* System fault active *)
-    sErrorMsg               : STRING(255);      (* Detailed error message *)
-    
-    // Hardware Actuation & Control
-    xTriggerCameraArray     : BOOL;             (* High-speed trigger signal to intensified camera array *)
-    xFireNdYagLidar         : BOOL;             (* Trigger signal for 355nm UV Lidar pulse *)
-    
-    // Process Data
-    rCalculatedDistance_km  : LREAL;            (* Calculated range of plasma streamer (km) *)
-    rOzoneDepletionIndex    : LREAL;            (* Estimated local ozone depletion index based on Lidar return *)
-    xEventCaptured          : BOOL;             (* Flag indicating a valid TLE sequence was captured *)
+    Hyd_Command : T_HydraulicCommand;
+    System_Status : STRING[50];
+    Fault_Code : DWORD;
+    Ready_For_Seismic : BOOL;
+    Typhoon_Mode_Active : BOOL;
 END_VAR
 
 VAR
-    // PackML States (ISA-88/TR88.00.02)
-    STATE_IDLE              : INT := 1;
-    STATE_STARTING          : INT := 2;
-    STATE_EXECUTE           : INT := 3;
-    STATE_HOLDING           : INT := 4;
-    STATE_HELD              : INT := 5;
-    STATE_ABORTING          : INT := 6;
-    STATE_ABORTED           : INT := 7;
-    STATE_FAULT             : INT := 8;
-    STATE_RESETTING         : INT := 9;
-    STATE_COMPLETING        : INT := 10;
-    STATE_COMPLETE          : INT := 11;
-
-    // Internal State Variables
-    eCurrentState           : INT := STATE_IDLE;
-    rLidarTimeOfFlight_us   : LREAL := 0.0;
-    rCaptureSequenceTimer_us: LREAL := 0.0;
-    xTriggerArmed           : BOOL := FALSE;
-    xLidarActive            : BOOL := FALSE;
+    // Internal States
+    State : INT := 0; 
+    Filter_X, Filter_Y : LREAL;
     
-    // Physics Constants
-    C_LIGHT_SPEED_KM_US     : LREAL := 0.299792;(* Speed of light in vacuum (km/µs) *)
-    LIDAR_CALIB_FACTOR      : LREAL := 1.25E-4; (* Calibration constant for ozone absorption at 355nm *)
+    // PID/State-Space Controllers
+    Kp_Wind, Kd_Wind : REAL := 1500.0;
+    Kp_Seismic, Kd_Seismic : REAL := 4500.0;
     
-    // Fast Event Tracking Variables
-    tonLidarPulseWait       : TON;              (* Timer for Lidar pulse duration tracking *)
-    tonSequenceWindow       : TON;              (* Timer for overall capture sequence window *)
+    // Typhoon Wind-Load Displacement Matrices (Lookup)
+    // 10x10 matrix mapping wind speed and direction to expected steady-state displacement
+    Wind_Disp_Matrix_X : ARRAY[0..9, 0..9] OF REAL; 
+    Wind_Disp_Matrix_Y : ARRAY[0..9, 0..9] OF REAL;
+    
+    Target_Disp_X : REAL;
+    Target_Disp_Y : REAL;
+    
+    // Timers
+    S_Wave_Countdown : TON;
+    Lockout_Timer : TON;
+    
+    // Internal variables
+    Wind_Index_Speed : INT;
+    Wind_Index_Dir : INT;
+    Force_Demand_X : REAL;
+    Force_Demand_Y : REAL;
+    Max_Force : REAL := 8000.0; (* kN max hydraulic force *)
+    
+    Seismic_Precharge_Active : BOOL;
 END_VAR
 
-(*
-=============================================================================
-PackML State Machine Implementation
-=============================================================================
-*)
-
-IF xAbort THEN
-    eCurrentState := STATE_ABORTING;
-ELSIF xError AND eCurrentState <> STATE_FAULT AND eCurrentState <> STATE_ABORTING AND eCurrentState <> STATE_ABORTED THEN
-    eCurrentState := STATE_FAULT;
+// -----------------------------------------------------------------------------
+// Initialize Wind Displacement Matrices (Simplified for implementation)
+// -----------------------------------------------------------------------------
+IF State = 0 THEN
+    // [Matrix initialization logic omitted for brevity, assumes pre-loaded]
+    State := 1;
+    System_Status := 'INITIALIZING';
 END_IF;
 
-CASE eCurrentState OF
+// -----------------------------------------------------------------------------
+// Safety & Interlocks
+// -----------------------------------------------------------------------------
+IF Emergency_Stop OR Hyd_Pressure < 150.0 OR Oil_Temp > 75.0 THEN
+    Hyd_Command.Lock_Engaged := TRUE;
+    Hyd_Command.Valve_Open_X := 0.0;
+    Hyd_Command.Valve_Open_Y := 0.0;
+    Hyd_Command.Actuator_Force_X := 0.0;
+    Hyd_Command.Actuator_Force_Y := 0.0;
+    Fault_Code := 16#FF01;
+    System_Status := 'EMERGENCY_LOCKDOWN';
+    RETURN;
+END_IF;
 
-    STATE_IDLE:
-        xReady := TRUE;
-        xTriggerCameraArray := FALSE;
-        xFireNdYagLidar := FALSE;
-        xEventCaptured := FALSE;
-        xTriggerArmed := FALSE;
-        
-        IF xExecute THEN
-            xReady := FALSE;
-            eCurrentState := STATE_STARTING;
-        END_IF;
-        
-    STATE_STARTING:
-        // Initialization of tracking matrices and sensor offsets
-        rCalculatedDistance_km := 0.0;
-        rOzoneDepletionIndex := 0.0;
-        xTriggerArmed := TRUE;
-        eCurrentState := STATE_EXECUTE;
-        
-    STATE_EXECUTE:
-        IF xHold THEN
-            eCurrentState := STATE_HOLDING;
-        ELSE
-            (* 
-            =================================================================
-            1. Fast +CG Lightning Trigger Detection (Sub 10µs response)
-            =================================================================
-            Detecting the Extremely Low Frequency (ELF) electromagnetic pulse
-            indicative of a massive positive cloud-to-ground strike, which
-            precedes TLE phenomena like Sprites and Blue Jets.
-            *)
-            IF (rELF_V_m > rTriggerThresholdELF) AND xTriggerArmed THEN
-                
-                // Immediately trigger high-speed camera array
-                xTriggerCameraArray := TRUE;
-                
-                // Engage Lidar targeting sequence
-                xFireNdYagLidar := TRUE;
-                xLidarActive := TRUE;
-                xTriggerArmed := FALSE; // Prevent re-triggering during sequence
-                
-                tonSequenceWindow(IN := TRUE, PT := T#500ms); // 500ms capture window
-                
-            END_IF;
-            
-            (* 
-            =================================================================
-            2. Mesospheric UV Lidar Ranging & Data Processing
-            =================================================================
-            *)
-            IF xLidarActive THEN
-                // Simulated Lidar Time of Flight tracking (typically microsecond precision hardware timer required)
-                // For ST representation, we process the backscatter return immediately if valid.
-                IF rLidarReturnIntensity > 0.1 THEN
-                    // Pseudo calculation for time-of-flight based on atmospheric density scaling
-                    rLidarTimeOfFlight_us := 600.0; // Simulated TOF for ~90km
-                    
-                    // Range equation: Distance = (c * t) / 2
-                    rCalculatedDistance_km := (C_LIGHT_SPEED_KM_US * rLidarTimeOfFlight_us) / 2.0;
-                    
-                    // Ozone depletion index derived from differential absorption (simplified for ST)
-                    rOzoneDepletionIndex := EXP(-1.0 * rLidarReturnIntensity * LIDAR_CALIB_FACTOR * rCalculatedDistance_km);
-                    
-                    xLidarActive := FALSE;
-                    xFireNdYagLidar := FALSE;
-                END_IF;
-            END_IF;
-            
-            // Sequence Reset
-            tonSequenceWindow(IN := TRUE);
-            IF tonSequenceWindow.Q THEN
-                xTriggerCameraArray := FALSE;
-                tonSequenceWindow(IN := FALSE);
-                xEventCaptured := TRUE;
-                eCurrentState := STATE_COMPLETING;
-            END_IF;
-            
-        END_IF;
-        
-    STATE_HOLDING:
-        xTriggerCameraArray := FALSE;
-        xFireNdYagLidar := FALSE;
-        eCurrentState := STATE_HELD;
-        
-    STATE_HELD:
-        IF NOT xHold THEN
-            eCurrentState := STATE_EXECUTE;
-        END_IF;
-        
-    STATE_ABORTING:
-        xTriggerCameraArray := FALSE;
-        xFireNdYagLidar := FALSE;
-        xTriggerArmed := FALSE;
-        eCurrentState := STATE_ABORTED;
-        
-    STATE_ABORTED:
-        IF xReset THEN
-            eCurrentState := STATE_RESETTING;
-        END_IF;
-        
-    STATE_FAULT:
-        xTriggerCameraArray := FALSE;
-        xFireNdYagLidar := FALSE;
-        IF xReset THEN
-            xError := FALSE;
-            sErrorMsg := '';
-            eCurrentState := STATE_RESETTING;
-        END_IF;
-        
-    STATE_RESETTING:
-        eCurrentState := STATE_IDLE;
-        
-    STATE_COMPLETING:
-        eCurrentState := STATE_COMPLETE;
-        
-    STATE_COMPLETE:
-        IF NOT xExecute THEN
-            eCurrentState := STATE_IDLE;
-        END_IF;
+IF NOT Enable THEN
+    Hyd_Command.Lock_Engaged := FALSE; // Semi-active passive damping only
+    Hyd_Command.Valve_Open_X := 50.0; // Neutral damping
+    Hyd_Command.Valve_Open_Y := 50.0;
+    System_Status := 'PASSIVE_MODE';
+    RETURN;
+END_IF;
 
-END_CASE;
+// -----------------------------------------------------------------------------
+// 1. Seismic P-Wave Early Warning Network Integration
+// -----------------------------------------------------------------------------
+// The P-Wave arrives before the destructive S-Wave. We use this time to 
+// unlock the mass, pre-charge the hydraulics, and align the phase.
+Seismic_Precharge_Active := FALSE;
+Ready_For_Seismic := FALSE;
 
-// Update Output State
-iState := eCurrentState;
+IF Seismic_Network.P_Wave_Detected AND Seismic_Network.Estimated_Magnitude > 4.5 THEN
+    System_Status := 'SEISMIC_EARLY_WARNING_ACTIVE';
+    Seismic_Precharge_Active := TRUE;
+    
+    S_Wave_Countdown(IN := TRUE, PT := Seismic_Network.Time_To_S_Wave);
+    
+    // Pre-condition the TMD: ensure it is perfectly centered and ready to counteract
+    // the first S-wave displacement.
+    IF NOT S_Wave_Countdown.Q THEN
+        Target_Disp_X := 0.0;
+        Target_Disp_Y := 0.0;
+        // High gain to strictly hold center until impact
+        Force_Demand_X := (Target_Disp_X - Pendulum_Sensors.Disp_X) * (Kp_Seismic * 1.5) - (Pendulum_Sensors.Vel_X * Kd_Seismic);
+        Force_Demand_Y := (Target_Disp_Y - Pendulum_Sensors.Disp_Y) * (Kp_Seismic * 1.5) - (Pendulum_Sensors.Vel_Y * Kd_Seismic);
+        Ready_For_Seismic := TRUE;
+    ELSE
+        // S-Wave has arrived, transition to active seismic damping
+        Force_Demand_X := -(Bldg_Accel_X * 700000.0) - (Pendulum_Sensors.Vel_X * Kd_Seismic); // F = ma compensation
+        Force_Demand_Y := -(Bldg_Accel_Y * 700000.0) - (Pendulum_Sensors.Vel_Y * Kd_Seismic);
+    END_IF;
+    
+    Typhoon_Mode_Active := FALSE;
+
+// -----------------------------------------------------------------------------
+// 2. Typhoon Sustained Wind-Load Displacement Matrices
+// -----------------------------------------------------------------------------
+ELSIF Anemometer_Array.Sustained_Speed > 15.0 THEN
+    System_Status := 'TYPHOON_MODE_ACTIVE';
+    Typhoon_Mode_Active := TRUE;
+    S_Wave_Countdown(IN := FALSE); // Reset
+    
+    // Map wind speed (15 to 70 m/s) to index 0-9
+    Wind_Index_Speed := REAL_TO_INT((Anemometer_Array.Sustained_Speed - 15.0) / 5.5);
+    IF Wind_Index_Speed > 9 THEN Wind_Index_Speed := 9; END_IF;
+    IF Wind_Index_Speed < 0 THEN Wind_Index_Speed := 0; END_IF;
+    
+    // Map direction (0-359) to index 0-9
+    Wind_Index_Dir := REAL_TO_INT(Anemometer_Array.Direction / 36.0);
+    IF Wind_Index_Dir > 9 THEN Wind_Index_Dir := 9; END_IF;
+    IF Wind_Index_Dir < 0 THEN Wind_Index_Dir := 0; END_IF;
+    
+    // Lookup target steady-state offset (matrix defines structural tilt under sustained wind)
+    Target_Disp_X := Wind_Disp_Matrix_X[Wind_Index_Speed, Wind_Index_Dir];
+    Target_Disp_Y := Wind_Disp_Matrix_Y[Wind_Index_Speed, Wind_Index_Dir];
+    
+    // Active PD Control around the wind-induced offset
+    // This allows the 700-ton pendulum to counteract the harmonic vortex shedding
+    Force_Demand_X := (Target_Disp_X - Pendulum_Sensors.Disp_X) * Kp_Wind - (Pendulum_Sensors.Vel_X * Kd_Wind);
+    Force_Demand_Y := (Target_Disp_Y - Pendulum_Sensors.Disp_Y) * Kp_Wind - (Pendulum_Sensors.Vel_Y * Kd_Wind);
+
+// -----------------------------------------------------------------------------
+// 3. Normal Operation / Low Wind
+// -----------------------------------------------------------------------------
+ELSE
+    System_Status := 'NORMAL_ACTIVE_DAMPING';
+    Typhoon_Mode_Active := FALSE;
+    S_Wave_Countdown(IN := FALSE);
+    
+    // Standard viscous damping emulation
+    Force_Demand_X := -Pendulum_Sensors.Vel_X * (Kd_Wind * 0.5);
+    Force_Demand_Y := -Pendulum_Sensors.Vel_Y * (Kd_Wind * 0.5);
+END_IF;
+
+// -----------------------------------------------------------------------------
+// Hydraulic Actuator Output Mapping
+// -----------------------------------------------------------------------------
+// Limit forces to maximum hydraulic capacity
+IF Force_Demand_X > Max_Force THEN Force_Demand_X := Max_Force; END_IF;
+IF Force_Demand_X < -Max_Force THEN Force_Demand_X := -Max_Force; END_IF;
+IF Force_Demand_Y > Max_Force THEN Force_Demand_Y := Max_Force; END_IF;
+IF Force_Demand_Y < -Max_Force THEN Force_Demand_Y := -Max_Force; END_IF;
+
+Hyd_Command.Actuator_Force_X := Force_Demand_X;
+Hyd_Command.Actuator_Force_Y := Force_Demand_Y;
+
+// Map requested force to valve opening percentage (simplified linearized model)
+Hyd_Command.Valve_Open_X := ABS(Force_Demand_X) / Max_Force * 100.0;
+Hyd_Command.Valve_Open_Y := ABS(Force_Demand_Y) / Max_Force * 100.0;
+Hyd_Command.Lock_Engaged := FALSE;
+
+Fault_Code := 0;
 
 END_FUNCTION_BLOCK
-```'''
+```"""
 
-data = {
-    'messages': [
-        {'role': 'user', 'content': prompt},
-        {'role': 'assistant', 'content': st_code}
+payload = {
+    "messages": [
+        {"role": "user", "content": user_content},
+        {"role": "assistant", "content": assistant_content}
     ]
 }
 
-os.makedirs('data', exist_ok=True)
-with open('data/synthetic_generation_v3_enterprise.jsonl', 'a', encoding='utf-8') as f:
-    f.write(json.dumps(data) + '\\n')
+with open(file_path, "a", encoding="utf-8") as f:
+    f.write(json.dumps(payload) + "\n")
+
+print("Appended successfully.")

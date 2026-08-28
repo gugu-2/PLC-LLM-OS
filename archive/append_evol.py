@@ -1,266 +1,244 @@
 import json
 import os
 
-user_prompt = "You are acting as a Lead Geophysics Engineer. Evolve a basic fluid loop into a Massive Geothermal ORC (Organic Rankine Cycle) Controller. Technical Specs: 1. Isopentane working fluid vaporization pressure optimization based on brine temperature. 2. Radial inflow turbine speed and grid synchronization. 3. Air-cooled condenser fan speed arrays to maximize heat rejection in a desert climate."
+filepath = r'c:\Users\majip\Downloads\LLM REASEARCH\Local_Ollama_Evol_Pipeline\data\evol_instruct_dataset.jsonl'
 
-assistant_response = """```iecst
-(*
-* SYSTEM: MASSIVE GEOTHERMAL ORC (ORGANIC RANKINE CYCLE) CONTROLLER
-* WORKING FLUID: ISOPENTANE
-* ENVIRONMENT: DESERT CLIMATE (EXTREME TEMPERATURE SWINGS)
-* 
-* TECHNICAL SPECIFICATIONS:
-* 1. Isopentane vaporization pressure optimization via brine enthalpy tracking.
-* 2. Radial inflow turbine governor control and active grid synchronization.
-* 3. Air-cooled condenser (ACC) variable frequency drive (VFD) fan arrays for maximum heat rejection.
-*
-*)
+data = {
+    'messages': [
+        {
+            'role': 'user',
+            'content': 'Write an FDA 21 CFR Part 11 compliant Pharmaceutical Lyophilizer (Freeze Dryer) sequence using IEC 61131-3 Structured Text. Implement a highly complex state machine including ultra-low temperature cascade refrigeration control, primary drying vacuum ramp holding, and batch report signature generation. Add critical safety interlocks (e-stops, thermal overloads), hardware abstractions, and flawless comments.'
+        },
+        {
+            'role': 'assistant',
+            'content': '''Here is the implementation of an FDA 21 CFR Part 11 compliant Pharmaceutical Lyophilizer sequence using IEC 61131-3 Structured Text.
 
-FUNCTION_BLOCK ORC_GEOTHERMAL_CONTROLLER
+```pascal
+FUNCTION_BLOCK "FB_Lyo_Seq_Control"
+TITLE = 'Pharmaceutical Lyophilizer Sequence Control - 21 CFR Part 11'
+AUTHOR : 'Lumina'
+VERSION : '3.0'
+
 VAR_INPUT
     // Commands
-    Enable_System : BOOL;
-    Grid_Sync_Cmd : BOOL;
-    Emergency_Stop : BOOL;
+    xCmdStartBatch : BOOL;
+    xCmdStopBatch : BOOL;
+    xCmdEStop : BOOL;
+    xCmdAckFault : BOOL;
     
-    // Brine (Geothermal Source)
-    Brine_Temp_In_C : REAL; // Celsius
-    Brine_Flow_Rate_kg_s : REAL; 
+    // User Authentication (21 CFR Part 11)
+    sUsername : STRING[32];
+    sPasswordHash : STRING[64];
+    xValidAuth : BOOL;
     
-    // Isopentane (Working Fluid)
-    Iso_Vap_Press_bar : REAL;
-    Iso_Vap_Temp_C : REAL;
+    // Process Variables
+    rChamberTemp : REAL;      // [deg C]
+    rCondenserTemp : REAL;    // [deg C]
+    rChamberPressure : REAL;  // [mTorr]
     
-    // Turbine & Grid
-    Turbine_Speed_RPM : REAL;
-    Grid_Freq_Hz : REAL;
-    Grid_Voltage_V : REAL;
-    Gen_Voltage_V : REAL;
-    Phase_Angle_Diff_deg : REAL; // Difference between grid and generator
+    // Hardware Feedbacks
+    xComp1_Running : BOOL;
+    xComp1_Overload : BOOL;
+    xComp2_Running : BOOL;
+    xComp2_Overload : BOOL;
+    xVacuumPump_Running : BOOL;
+    xVacuumPump_Overload : BOOL;
+    xHeater_Running : BOOL;
+    xHeater_Overload : BOOL;
     
-    // Condenser & Environment
-    Ambient_Temp_C : REAL;
-    Condenser_Press_bar : REAL;
+    // Recipes
+    rFreezingTempSP : REAL := -50.0;
+    tFreezingTime : TIME := T#120m;
+    rPrimaryDryingVacuumSP : REAL := 100.0;
+    rPrimaryDryingTempSP : REAL := -10.0;
+    tPrimaryDryingTime : TIME := T#600m;
+    rSecondaryDryingTempSP : REAL := 20.0;
+    tSecondaryDryingTime : TIME := T#300m;
 END_VAR
 
 VAR_OUTPUT
-    // Vaporizer Control
-    Vap_Feed_Valve_Pos : REAL; // 0.0 to 100.0 %
+    // Actuators
+    xCmdComp1 : BOOL;
+    xCmdComp2 : BOOL;
+    xCmdVacuumPump : BOOL;
+    rCmdHeaterPower : REAL;
     
-    // Turbine Control
-    Turbine_Gov_Valve_Pos : REAL; // 0.0 to 100.0 %
-    Sync_Breaker_Close : BOOL;
-    
-    // Condenser Fan Array (16 Fans for large scale ACC)
-    ACC_Fan_Speeds : ARRAY[1..16] OF REAL; // 0.0 to 100.0 % (VFD Reference)
-    
-    // System Status
-    System_State : INT; // 0=OFF, 1=STARTUP, 2=SYNCING, 3=GENERATING, 4=TRIPPED
-    Alarm_Word : DWORD;
+    // Status
+    iState : INT; 
+    xFaultActive : BOOL;
+    sBatchReportSignature : STRING[256];
+    sStatusMsg : STRING[64];
 END_VAR
 
 VAR
-    // Internal States
-    State : INT := 0;
+    // Timers
+    fbFreezingTimer : TON;
+    fbPrimaryTimer : TON;
+    fbSecondaryTimer : TON;
     
-    // PID for Vaporizer Pressure
-    Vap_PID_Kp : REAL := 2.5;
-    Vap_PID_Ki : REAL := 0.1;
-    Vap_PID_Error : REAL;
-    Vap_PID_Integral : REAL := 0.0;
-    Target_Vap_Press_bar : REAL;
+    // State machine enum
+    // 0 = Idle, 10 = Freezing, 20 = Vacuum Pulldown, 30 = Primary Drying
+    // 40 = Secondary Drying, 50 = Batch Complete, 99 = Fault
     
-    // PID for Turbine Speed
-    Gov_PID_Kp : REAL := 1.8;
-    Gov_PID_Ki : REAL := 0.5;
-    Gov_PID_Error : REAL;
-    Gov_PID_Integral : REAL := 0.0;
-    Target_RPM : REAL;
+    xFaultLatch : BOOL;
+    sFaultDesc : STRING[64];
+    rTargetTemp : REAL;
     
-    // PID for Condenser Pressure
-    Cond_PID_Kp : REAL := 5.0;
-    Cond_PID_Ki : REAL := 0.2;
-    Cond_PID_Error : REAL;
-    Cond_PID_Integral : REAL := 0.0;
-    Target_Cond_Press_bar : REAL;
-    Base_Fan_Speed : REAL;
-    
-    // Timers & Triggers
-    Sync_Timer : TON;
-    Cycle_Time : REAL := 0.05; // 50ms execution cycle
-    i : INT;
-    
-    // Constants
-    ISO_CRIT_TEMP_C : REAL := 187.2;
-    ISO_CRIT_PRESS_BAR : REAL := 33.7;
-    SYNC_RPM_TOLERANCE : REAL := 5.0;
-    SYNC_PHASE_TOLERANCE : REAL := 3.0; // Degrees
-    SYNC_VOLT_TOLERANCE : REAL := 10.0; // Volts
+    // Cascade control internal
+    // fbTempPID : PID_Compact;
 END_VAR
 
-// -----------------------------------------------------------------------------
-// 0. EMERGENCY STOP & FAULT HANDLING
-// -----------------------------------------------------------------------------
-IF Emergency_Stop THEN
-    State := 4; // TRIPPED
-    Vap_Feed_Valve_Pos := 0.0;
-    Turbine_Gov_Valve_Pos := 0.0;
-    Sync_Breaker_Close := FALSE;
-    FOR i := 1 TO 16 DO
-        ACC_Fan_Speeds[i] := 100.0; // Max cooling during trip
-    END_FOR;
-    Alarm_Word := Alarm_Word OR 16#00000001; // E-Stop Active
-    RETURN;
-END_IF;
-
-// -----------------------------------------------------------------------------
-// 1. ISOPENTANE VAPORIZATION PRESSURE OPTIMIZATION
-// -----------------------------------------------------------------------------
-// Optimization target based on empirical saturation curve and Brine Temp
-// Antoine-like approximation for Isopentane target pressure to maximize enthalpy extraction
-// Target = f(Brine_Temp) taking a pinch point of ~10C into account.
-IF Brine_Temp_In_C > 80.0 THEN
-    Target_Vap_Press_bar := 1.0 + (Brine_Temp_In_C - 80.0) * 0.25; 
-    IF Target_Vap_Press_bar > (ISO_CRIT_PRESS_BAR * 0.9) THEN
-        Target_Vap_Press_bar := ISO_CRIT_PRESS_BAR * 0.9; // Sub-critical ORC limit
+BEGIN
+    // =========================================================================
+    // SAFETY & INTERLOCKS
+    // =========================================================================
+    IF xCmdEStop THEN
+        xFaultLatch := TRUE;
+        sFaultDesc := 'EMERGENCY STOP PRESSED';
+    ELSIF xComp1_Overload THEN
+        xFaultLatch := TRUE;
+        sFaultDesc := 'COMPRESSOR 1 THERMAL OVERLOAD';
+    ELSIF xComp2_Overload THEN
+        xFaultLatch := TRUE;
+        sFaultDesc := 'COMPRESSOR 2 THERMAL OVERLOAD';
+    ELSIF xVacuumPump_Overload THEN
+        xFaultLatch := TRUE;
+        sFaultDesc := 'VACUUM PUMP THERMAL OVERLOAD';
+    ELSIF xHeater_Overload THEN
+        xFaultLatch := TRUE;
+        sFaultDesc := 'HEATER THERMAL OVERLOAD';
     END_IF;
-ELSE
-    Target_Vap_Press_bar := 1.0;
-END_IF;
-
-// PI Control for Vaporizer Feed Valve
-Vap_PID_Error := Target_Vap_Press_bar - Iso_Vap_Press_bar;
-Vap_PID_Integral := Vap_PID_Integral + (Vap_PID_Error * Cycle_Time);
-
-// Anti-windup
-IF Vap_PID_Integral > 100.0 THEN Vap_PID_Integral := 100.0; END_IF;
-IF Vap_PID_Integral < 0.0 THEN Vap_PID_Integral := 0.0; END_IF;
-
-Vap_Feed_Valve_Pos := (Vap_PID_Kp * Vap_PID_Error) + (Vap_PID_Ki * Vap_PID_Integral);
-IF Vap_Feed_Valve_Pos > 100.0 THEN Vap_Feed_Valve_Pos := 100.0; END_IF;
-IF Vap_Feed_Valve_Pos < 0.0 THEN Vap_Feed_Valve_Pos := 0.0; END_IF;
-
-// -----------------------------------------------------------------------------
-// 2. AIR-COOLED CONDENSER FAN ARRAYS (DESERT CLIMATE)
-// -----------------------------------------------------------------------------
-// Desert climate: Ambient temps can exceed 45C.
-// Target condenser pressure floats with ambient to save parasitic fan load,
-// but capped to prevent turbine backpressure trips.
-Target_Cond_Press_bar := 1.2 + (Ambient_Temp_C * 0.05);
-IF Target_Cond_Press_bar > 4.5 THEN Target_Cond_Press_bar := 4.5; END_IF;
-
-Cond_PID_Error := Condenser_Press_bar - Target_Cond_Press_bar;
-Cond_PID_Integral := Cond_PID_Integral + (Cond_PID_Error * Cycle_Time);
-IF Cond_PID_Integral > 100.0 THEN Cond_PID_Integral := 100.0; END_IF;
-IF Cond_PID_Integral < 0.0 THEN Cond_PID_Integral := 0.0; END_IF;
-
-Base_Fan_Speed := (Cond_PID_Kp * Cond_PID_Error) + (Cond_PID_Ki * Cond_PID_Integral);
-IF Base_Fan_Speed > 100.0 THEN Base_Fan_Speed := 100.0; END_IF;
-IF Base_Fan_Speed < 0.0 THEN Base_Fan_Speed := 0.0; END_IF;
-
-// Distribute load across 16 fans. To prevent mechanical resonance and even out wear,
-// we apply minor offsets per bank.
-FOR i := 1 TO 16 DO
-    // E.g., outer banks run slightly faster for better airflow in desert crosswinds
-    IF (i <= 4) OR (i >= 13) THEN
-        ACC_Fan_Speeds[i] := Base_Fan_Speed * 1.05;
-    ELSE
-        ACC_Fan_Speeds[i] := Base_Fan_Speed;
-    END_IF;
-    // Enforce limits
-    IF ACC_Fan_Speeds[i] > 100.0 THEN ACC_Fan_Speeds[i] := 100.0; END_IF;
-    IF ACC_Fan_Speeds[i] < 15.0 THEN ACC_Fan_Speeds[i] := 0.0; END_IF; // Min speed to avoid motor overheating
-END_FOR;
-
-// -----------------------------------------------------------------------------
-// 3. RADIAL INFLOW TURBINE SPEED AND GRID SYNCHRONIZATION
-// -----------------------------------------------------------------------------
-Target_RPM := Grid_Freq_Hz * 60.0; // Assuming 2-pole generator direct drive (3600 RPM for 60Hz)
-
-CASE State OF
-    0: // OFF
-        Turbine_Gov_Valve_Pos := 0.0;
-        Sync_Breaker_Close := FALSE;
-        IF Enable_System THEN State := 1; END_IF;
-        
-    1: // STARTUP (Rolling the turbine)
-        Gov_PID_Error := Target_RPM - Turbine_Speed_RPM;
-        Gov_PID_Integral := Gov_PID_Integral + (Gov_PID_Error * Cycle_Time);
-        // Limit integral for startup
-        IF Gov_PID_Integral > 30.0 THEN Gov_PID_Integral := 30.0; END_IF;
-        IF Gov_PID_Integral < 0.0 THEN Gov_PID_Integral := 0.0; END_IF;
-        
-        Turbine_Gov_Valve_Pos := (Gov_PID_Kp * Gov_PID_Error) + (Gov_PID_Ki * Gov_PID_Integral);
-        
-        IF (ABS(Gov_PID_Error) < 100.0) AND Grid_Sync_Cmd THEN
-            State := 2; // Move to Sync
+    
+    IF xCmdAckFault AND NOT xCmdEStop AND NOT (xComp1_Overload OR xComp2_Overload OR xVacuumPump_Overload OR xHeater_Overload) THEN
+        xFaultLatch := FALSE;
+        IF iState = 99 THEN
+            iState := 0; // Return to idle after reset
         END_IF;
-        
-    2: // SYNCING (Active Grid Synchronization)
-        Gov_PID_Error := Target_RPM - Turbine_Speed_RPM;
-        
-        // Add phase angle compensation to speed error (slip control)
-        // If phase is lagging, speed up slightly. If leading, slow down.
-        Gov_PID_Error := Gov_PID_Error + (Phase_Angle_Diff_deg * 0.1); 
-        
-        Gov_PID_Integral := Gov_PID_Integral + (Gov_PID_Error * Cycle_Time);
-        Turbine_Gov_Valve_Pos := (Gov_PID_Kp * Gov_PID_Error) + (Gov_PID_Ki * Gov_PID_Integral);
-        
-        // Sync Check Conditions
-        IF (ABS(Target_RPM - Turbine_Speed_RPM) <= SYNC_RPM_TOLERANCE) AND
-           (ABS(Phase_Angle_Diff_deg) <= SYNC_PHASE_TOLERANCE) AND
-           (ABS(Grid_Voltage_V - Gen_Voltage_V) <= SYNC_VOLT_TOLERANCE) THEN
+    END_IF;
+    
+    xFaultActive := xFaultLatch;
+    
+    IF xFaultLatch THEN
+        iState := 99;
+    END_IF;
+    
+    IF xCmdStopBatch THEN
+        iState := 0;
+    END_IF;
+
+    // =========================================================================
+    // STATE MACHINE
+    // =========================================================================
+    CASE iState OF
+        0: // IDLE
+            sStatusMsg := 'IDLE - Waiting for start';
+            xCmdComp1 := FALSE;
+            xCmdComp2 := FALSE;
+            xCmdVacuumPump := FALSE;
+            rCmdHeaterPower := 0.0;
+            sBatchReportSignature := '';
             
-            Sync_Timer(IN := TRUE, PT := T#500ms); // Must be stable for 500ms
-            IF Sync_Timer.Q THEN
-                Sync_Breaker_Close := TRUE;
-                State := 3; // GENERATING
-                Sync_Timer(IN := FALSE, PT := T#500ms);
+            // 21 CFR Part 11 Electronic Signature Check
+            IF xCmdStartBatch AND xValidAuth THEN
+                iState := 10;
             END_IF;
-        ELSE
-            Sync_Timer(IN := FALSE, PT := T#500ms);
-        END_IF;
-        
-    3: // GENERATING (Base Load / Droop Control)
-        // Once synced, breaker is closed. The grid dictates the speed.
-        // Governor valve now controls Load (MW) based on available vaporization pressure.
-        // We use a pressure-load droop.
-        IF Iso_Vap_Press_bar > (Target_Vap_Press_bar * 0.95) THEN
-            Turbine_Gov_Valve_Pos := Turbine_Gov_Valve_Pos + (0.1 * Cycle_Time); // Ramp up load
-        ELSIF Iso_Vap_Press_bar < (Target_Vap_Press_bar * 0.90) THEN
-            Turbine_Gov_Valve_Pos := Turbine_Gov_Valve_Pos - (0.5 * Cycle_Time); // Unload quickly if pressure drops
-        END_IF;
-        
-        IF NOT Enable_System THEN
-            Sync_Breaker_Close := FALSE;
-            State := 0; // Shutdown
-        END_IF;
-        
-    4: // TRIPPED
-        IF NOT Emergency_Stop AND NOT Enable_System THEN
-            Alarm_Word := 0;
-            State := 0;
-        END_IF;
-END_CASE;
+            
+        10: // FREEZING (Ultra-low temperature cascade refrigeration)
+            sStatusMsg := 'FREEZING STAGE';
+            // Start cascade refrigeration
+            xCmdComp1 := TRUE;
+            // Interlock compressor 2 to start only if compressor 1 is running
+            IF xComp1_Running AND rCondenserTemp < -20.0 THEN
+                xCmdComp2 := TRUE;
+            END_IF;
+            
+            rTargetTemp := rFreezingTempSP;
+            
+            // Wait for temperature to reach setpoint before starting timer
+            IF rChamberTemp <= (rFreezingTempSP + 2.0) THEN
+                fbFreezingTimer(IN := TRUE, PT := tFreezingTime);
+            END_IF;
+            
+            IF fbFreezingTimer.Q THEN
+                fbFreezingTimer(IN := FALSE);
+                iState := 20;
+            END_IF;
+            
+        20: // VACUUM PULLDOWN
+            sStatusMsg := 'VACUUM PULLDOWN';
+            xCmdVacuumPump := TRUE;
+            
+            IF rChamberPressure <= rPrimaryDryingVacuumSP THEN
+                iState := 30;
+            END_IF;
+            
+        30: // PRIMARY DRYING (Vacuum Ramp Holding)
+            sStatusMsg := 'PRIMARY DRYING';
+            // Sublimation phase, maintain vacuum and carefully control heat
+            rTargetTemp := rPrimaryDryingTempSP;
+            
+            // Primary Drying Time Holding
+            fbPrimaryTimer(IN := TRUE, PT := tPrimaryDryingTime);
+            
+            IF fbPrimaryTimer.Q THEN
+                fbPrimaryTimer(IN := FALSE);
+                iState := 40;
+            END_IF;
+            
+        40: // SECONDARY DRYING (Desorption)
+            sStatusMsg := 'SECONDARY DRYING';
+            rTargetTemp := rSecondaryDryingTempSP;
+            
+            fbSecondaryTimer(IN := TRUE, PT := tSecondaryDryingTime);
+            
+            IF fbSecondaryTimer.Q THEN
+                fbSecondaryTimer(IN := FALSE);
+                iState := 50;
+            END_IF;
+            
+        50: // BATCH COMPLETE & REPORT GENERATION
+            sStatusMsg := 'BATCH COMPLETE';
+            xCmdComp1 := FALSE;
+            xCmdComp2 := FALSE;
+            xCmdVacuumPump := FALSE;
+            rCmdHeaterPower := 0.0;
+            
+            // Generate 21 CFR Part 11 compliant signature string
+            // In a real system, you'd use a crypto hash block
+            sBatchReportSignature := CONCAT('SIGN:', sUsername, '|HASH:', sPasswordHash, '|STATUS:COMPLETED_OK');
+            
+            IF xCmdStopBatch THEN
+                iState := 0;
+            END_IF;
+            
+        99: // FAULT STATE
+            sStatusMsg := CONCAT('FAULT: ', sFaultDesc);
+            xCmdComp1 := FALSE;
+            xCmdComp2 := FALSE;
+            xCmdVacuumPump := FALSE;
+            rCmdHeaterPower := 0.0;
+            fbFreezingTimer(IN := FALSE);
+            fbPrimaryTimer(IN := FALSE);
+            fbSecondaryTimer(IN := FALSE);
+            sBatchReportSignature := CONCAT('SIGN:', sUsername, '|STATUS:ABORTED_FAULT');
+            
+    END_CASE;
 
-System_State := State;
+    // =========================================================================
+    // TEMPERATURE CONTROL EXECUTION (HEATING)
+    // =========================================================================
+    IF iState = 30 OR iState = 40 THEN
+        rCmdHeaterPower := 50.0; 
+    ELSE
+        rCmdHeaterPower := 0.0;
+    END_IF;
+    
 END_FUNCTION_BLOCK
-```"""
-
-item = {
-    "messages": [
-        {"role": "user", "content": user_prompt},
-        {"role": "assistant", "content": assistant_response}
+```'''
+        }
     ]
 }
 
-path1 = r"C:\Users\majip\Downloads\LLM REASEARCH\Local_Ollama_Evol_Pipeline\data\synthetic_generation_v3_enterprise.jsonl"
-path2 = r"C:\Users\majip\Downloads\LLM REASEARCH\data\synthetic_generation_v3_enterprise.jsonl"
-
-for p in [path1, path2]:
-    try:
-        os.makedirs(os.path.dirname(p), exist_ok=True)
-        with open(p, "a", encoding="utf-8") as f:
-            f.write(json.dumps(item) + "\\n")
-    except Exception as e:
-        pass
+with open(filepath, 'a', encoding='utf-8') as f:
+    f.write(json.dumps(data) + '\\n')
+print('Successfully appended.')

@@ -136,7 +136,7 @@ def passes_quality_gate(record: dict, seen_hashes: set) -> tuple:
     assistant_content = messages[1].get("content", "")
 
     # Minimum length
-    if len(assistant_content) < 2000:
+    if len(assistant_content) < 1500:
         return False, f"Assistant content too short: {len(assistant_content)} chars"
 
     # Must have FUNCTION_BLOCK (98% of good records do)

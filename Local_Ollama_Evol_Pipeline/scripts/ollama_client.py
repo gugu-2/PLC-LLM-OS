@@ -36,7 +36,7 @@ class OllamaClient:
         }
         
         try:
-            response = requests.post(self.chat_url, json=payload, timeout=120)
+            response = requests.post(self.chat_url, json=payload, timeout=600)
             response.raise_for_status()
             data = response.json()
             return data.get("message", {}).get("content", "")

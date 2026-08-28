@@ -36,8 +36,10 @@ def load_seeds() -> list:
                                 if msg["role"] == "assistant":
                                     seeds.append(msg["content"])
                             tier_count += 1
-                        except:
-                            pass
+                        except json.JSONDecodeError as e:
+                            logger.warning(f"Corrupt JSON seed skipped in {jsonl_file}: {e}")
+                        except Exception as e:
+                            logger.error(f"Unexpected error loading seed: {e}")
         logger.info(f"Loaded {tier_count} records from {tier_dir.name}")
         
     logger.info(f"Total seeds loaded: {len(seeds)}")
@@ -127,9 +129,14 @@ def is_domain_safe(domain: dict) -> bool:
             return False
     return True
 
-def invent_new_domain(client: OllamaClient, used_domains: set) -> dict:
-    """Ask the local LLM to invent a fresh domain on the fly."""
-    messages = [{"role": "user", "content": DOMAIN_INVENTOR_PROMPT}]
+def invent_new_domain(client: OllamaClient, used_domains: set, failed_domains: list = None) -> dict:
+    """Ask the local LLM to invent a fresh domain on the fly, learning from failures."""
+    prompt = DOMAIN_INVENTOR_PROMPT
+    if failed_domains:
+        recent_failures = ", ".join(failed_domains[-10:])
+        prompt += f"\n\nCRITICAL FEEDBACK: Do NOT invent anything similar to these previously FAILED systems: {recent_failures}."
+        
+    messages = [{"role": "user", "content": prompt}]
     response = client.generate_chat(messages, temperature=0.9)
     try:
         # Strip code fences if the model included them
@@ -149,6 +156,11 @@ def invent_new_domain(client: OllamaClient, used_domains: set) -> dict:
 
 def run_evolution_loop(client: OllamaClient, linter: ST_Linter, seeds: list, iterations: int = 100):
     os.makedirs(VAULT_DIR, exist_ok=True)
+    os.makedirs(TEMP_DIR, exist_ok=True)
+    
+    # Check for and merge any orphaned temp files from a previously crashed run
+    logger.info("Checking for orphaned temp files from previous runs...")
+    merge_temp_files(TEMP_DIR, OUTPUT_FILE)
     
     # Enterprise V3 Dynamic Prompt Engine (Fallback lists)
     roles = [
@@ -181,13 +193,14 @@ def run_evolution_loop(client: OllamaClient, linter: ST_Linter, seeds: list, ite
     ]
     
     used_domains = set()
+    failed_domains = []
     successful_generations = 0
     
     for i in range(iterations):
         logger.info(f"--- Starting Enterprise Evolution Cycle {i+1}/{iterations} ---")
         
         # Try to invent a fresh domain first
-        domain = invent_new_domain(client, used_domains)
+        domain = invent_new_domain(client, used_domains, failed_domains)
         if domain:
             role = domain["role"]
             system = domain["system"]
@@ -204,7 +217,18 @@ def run_evolution_loop(client: OllamaClient, linter: ST_Linter, seeds: list, ite
 
         if seeds:
             selected_seeds = random.sample(seeds, min(2, len(seeds)))
-            seed_context = "\n\n=== VERIFIED EXAMPLE ===\n".join(selected_seeds)
+            
+            # Format seeds with fences (ARCH-004) and enforce limit (BUG-005)
+            formatted_seeds = []
+            for seed in selected_seeds:
+                s = seed.strip()
+                if not s.startswith("```"):
+                    s = f"```iec-st\n{s}\n```"
+                formatted_seeds.append(s)
+                
+            seed_context = "\n\n=== VERIFIED EXAMPLE ===\n".join(formatted_seeds)
+            if len(seed_context) > 10000:
+                seed_context = seed_context[:10000] + "\n...[TRUNCATED FOR LENGTH]...\n```"
         else:
             seed_context = "No seeds available. Relying on base weights."
             
@@ -216,7 +240,7 @@ def run_evolution_loop(client: OllamaClient, linter: ST_Linter, seeds: list, ite
             f"=== REFERENCE KNOWLEDGE ===\n{seed_context}\n\n"
             "=== INSTRUCTION ===\n"
             f"Write a complete FUNCTION_BLOCK named {fb_name}. Include complete VAR declarations, physical I/O mapping, and the operational logic. "
-            "OUTPUT ONLY THE RAW CODE. DO NOT OUTPUT MARKDOWN. DO NOT APOLOGIZE. DO NOT EXPLAIN."
+            "Output the code enclosed in a ```iec-st markdown code fence. DO NOT APOLOGIZE. DO NOT EXPLAIN."
         )
         
         messages = [{"role": "user", "content": system_prompt}]
@@ -245,11 +269,12 @@ def run_evolution_loop(client: OllamaClient, linter: ST_Linter, seeds: list, ite
                 }
                 
                 # Strategy A: Write to separate file
-                os.makedirs(TEMP_DIR, exist_ok=True)
-                temp_file = TEMP_DIR / f"gen_{int(time.time())}_{random.randint(1000, 9999)}.json"
+                # 4. Save to vault (Strategy A: Temp files)
+                import time, uuid
+                temp_file = TEMP_DIR / f"gen_{time.time_ns()}_{uuid.uuid4().hex[:6]}.json"
                 try:
-                    with open(temp_file, "w", encoding="utf-8") as tf:
-                        json.dump(record, tf, ensure_ascii=False)
+                    with open(temp_file, "w", encoding="utf-8") as f:
+                        json.dump(record, f, ensure_ascii=False)
                 except Exception as e:
                     logger.error(f"Failed to write temp file: {e}")
                 
@@ -266,6 +291,9 @@ def run_evolution_loop(client: OllamaClient, linter: ST_Linter, seeds: list, ite
         
         if not passed:
             logger.error("? Code failed all reflection attempts. Discarding garbage data.")
+            if domain and "system" in domain:
+                failed_domains.append(domain["system"])
+                logger.info(f"Added '{domain['system']}' to failed_domains blacklist for future feedback.")
         
         time.sleep(2) # Cooldown GPU
         
