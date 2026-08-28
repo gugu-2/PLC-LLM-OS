@@ -1,19 +1,345 @@
 import json
 import os
 
+user_prompt = """You are acting as a Lead Aerospace Engineer for a Supersonic Wind Tunnel. Evolve a basic pressure loop into a Blowdown Wind Tunnel Mach Number Controller. Technical Specs: 1. High-pressure air reservoir (3,000 PSI) blowdown regulating valve sequencing. 2. Variable convergent-divergent (de Laval) nozzle throat area adjustment. 3. Stagnation pressure and temperature closed-loop feedback to maintain Mach 4 flow for 30 seconds. Append to synthetic_generation_v3_enterprise.jsonl."""
+
+assistant_response = """I have engineered an enterprise-grade IEC 61131-3 Structured Text implementation for the Blowdown Wind Tunnel Mach Number Controller. 
+
+This architecture handles the transient thermodynamics of a 3000 PSI blowdown sequence while simultaneously orchestrating the variable convergent-divergent (de Laval) nozzle throat kinematics. It uses closed-loop Stagnation Pressure feedback with feedforward reservoir depletion compensation to maintain a stable Mach 4 flow for the 30-second test envelope.
+
+### IEC 61131-3 Structured Text
+
+```pascal
+// ==============================================================================
+// BLOWDOWN WIND TUNNEL MACH NUMBER CONTROLLER - AEROSPACE GRADE IMPLEMENTATION
+// ==============================================================================
+// Conforms to IEC 61131-3 Standard
+// Application: Supersonic Blowdown Wind Tunnel (Mach 4 Test Campaign)
+// Author: Lead Aerospace Engineer
+// ==============================================================================
+
+TYPE E_TunnelState :
+(
+    STATE_IDLE := 0,
+    STATE_PRE_PRESSURIZATION := 10,
+    STATE_BLOWDOWN_START := 20,
+    STATE_MACH_STABILIZATION := 30,
+    STATE_TEST_RUNNING := 40,
+    STATE_SHUTDOWN_NORMAL := 50,
+    STATE_ABORT_EMERGENCY := 99
+);
+END_TYPE
+
+TYPE ST_AerodynamicData :
+STRUCT
+    P0_Stagnation_psia    : LREAL; // Reservoir/Plenum stagnation pressure
+    T0_Stagnation_Rankine : LREAL; // Reservoir/Plenum stagnation temperature
+    P_TestSection_psia    : LREAL; // Test section static pressure
+    MachNumber_Target     : LREAL; // Target Mach number
+    MachNumber_Actual     : LREAL; // Computed actual Mach number
+    Gamma_Air             : LREAL := 1.4; // Ratio of specific heats
+    R_Gas_Air             : LREAL := 1716.0; // Specific gas constant ft-lb/slug-R
+END_STRUCT
+END_TYPE
+
+// ------------------------------------------------------------------------------
+// FUNCTION BLOCK: FB_IsentropicMachCalculation
+// Computes actual Mach number using Isentropic Flow relations
+// M = sqrt( (2 / (gamma - 1)) * ( (P0 / P)^((gamma-1)/gamma) - 1 ) )
+// ------------------------------------------------------------------------------
+FUNCTION_BLOCK FB_IsentropicMachCalculation
+VAR_INPUT
+    P0 : LREAL; // Stagnation Pressure
+    P  : LREAL; // Static Pressure
+    Gamma : LREAL;
+END_VAR
+VAR_OUTPUT
+    Mach_Out : LREAL;
+    Valid : BOOL;
+END_VAR
+VAR
+    PressureRatio : LREAL;
+    ExpFactor : LREAL;
+END_VAR
+
+IF (P > 0.0 AND P0 >= P AND Gamma > 1.0) THEN
+    PressureRatio := P0 / P;
+    ExpFactor := (Gamma - 1.0) / Gamma;
+    Mach_Out := SQRT( (2.0 / (Gamma - 1.0)) * (EXPT(PressureRatio, ExpFactor) - 1.0) );
+    Valid := TRUE;
+ELSE
+    Mach_Out := 0.0;
+    Valid := FALSE;
+END_IF
+END_FUNCTION_BLOCK
+
+// ------------------------------------------------------------------------------
+// FUNCTION BLOCK: FB_Nozzle_Kinematics
+// Adjusts the variable convergent-divergent nozzle throat area based on 
+// Area-Mach relation (A/A*).
+// ------------------------------------------------------------------------------
+FUNCTION_BLOCK FB_Nozzle_Kinematics
+VAR_INPUT
+    Enable : BOOL;
+    MachTarget : LREAL;
+    Gamma : LREAL;
+    AreaTestSection : LREAL; // Fixed area of the test section (sq in)
+    ActuatorFeedback : LREAL; // Current throat area from LVDT
+END_VAR
+VAR_OUTPUT
+    ThroatAreaCommand : LREAL; // Commanded throat area
+    ActuatorVelocityCmd : LREAL; // Rate of change command for hydraulic servovalve
+    IsPositioned : BOOL;
+END_VAR
+VAR
+    A_Star_Ratio : LREAL;
+    Term1 : LREAL;
+    Term2 : LREAL;
+    ExpVal : LREAL;
+    Kp_Nozzle : LREAL := 5.0;
+    Error : LREAL;
+END_VAR
+
+IF Enable AND MachTarget >= 1.0 THEN
+    // A/A* = (1/M) * [ (2 + (gamma-1)M^2) / (gamma+1) ] ^ ((gamma+1)/(2(gamma-1)))
+    Term1 := 1.0 / MachTarget;
+    Term2 := (2.0 + (Gamma - 1.0) * (MachTarget * MachTarget)) / (Gamma + 1.0);
+    ExpVal := (Gamma + 1.0) / (2.0 * (Gamma - 1.0));
+    
+    A_Star_Ratio := Term1 * EXPT(Term2, ExpVal);
+    ThroatAreaCommand := AreaTestSection / A_Star_Ratio;
+    
+    Error := ThroatAreaCommand - ActuatorFeedback;
+    ActuatorVelocityCmd := Error * Kp_Nozzle;
+    
+    IF ABS(Error) < 0.01 THEN
+        IsPositioned := TRUE;
+    ELSE
+        IsPositioned := FALSE;
+    END_IF
+ELSE
+    ThroatAreaCommand := 0.0;
+    ActuatorVelocityCmd := 0.0;
+    IsPositioned := FALSE;
+END_IF
+END_FUNCTION_BLOCK
+
+// ------------------------------------------------------------------------------
+// FUNCTION BLOCK: FB_Blowdown_Sequencer
+// High-pressure regulating valve control to maintain P0 based on mass flow depletion
+// ------------------------------------------------------------------------------
+FUNCTION_BLOCK FB_Blowdown_Sequencer
+VAR_INPUT
+    Enable : BOOL;
+    P_Reservoir_psia : LREAL; // Upstream 3000 PSI reservoir pressure
+    P0_Target_psia : LREAL; // Desired Stagnation pressure in settling chamber
+    P0_Actual_psia : LREAL; // Actual Stagnation pressure
+    EmergencyAbort : BOOL;
+END_VAR
+VAR_OUTPUT
+    RegValvePositionCmd : LREAL; // 0 to 100%
+    P0_Stable : BOOL;
+END_VAR
+VAR
+    Kp_Valve : LREAL := 2.5;
+    Ki_Valve : LREAL := 0.8;
+    Kd_Valve : LREAL := 0.1;
+    Error : LREAL;
+    PrevError : LREAL;
+    Integral : LREAL;
+    Derivative : LREAL;
+    PID_Out : LREAL;
+END_VAR
+
+IF EmergencyAbort OR NOT Enable THEN
+    RegValvePositionCmd := 0.0;
+    Integral := 0.0;
+    P0_Stable := FALSE;
+    RETURN;
+END_IF
+
+// Regulating valve PID
+Error := P0_Target_psia - P0_Actual_psia;
+Integral := Integral + Error * 0.01; // Assuming 10ms task
+// Anti-windup
+IF Integral > 100.0 THEN Integral := 100.0; END_IF;
+IF Integral < -100.0 THEN Integral := -100.0; END_IF;
+
+Derivative := (Error - PrevError) / 0.01;
+PrevError := Error;
+
+PID_Out := (Kp_Valve * Error) + (Ki_Valve * Integral) + (Kd_Valve * Derivative);
+
+// Feedforward compensation based on Reservoir depletion
+PID_Out := PID_Out + (3000.0 / (P_Reservoir_psia + 0.1)) * 10.0;
+
+IF PID_Out > 100.0 THEN
+    RegValvePositionCmd := 100.0;
+ELSIF PID_Out < 0.0 THEN
+    RegValvePositionCmd := 0.0;
+ELSE
+    RegValvePositionCmd := PID_Out;
+END_IF
+
+P0_Stable := ABS(Error) < (0.02 * P0_Target_psia);
+END_FUNCTION_BLOCK
+
+
+// ------------------------------------------------------------------------------
+// PROGRAM: PRG_WindTunnel_Main
+// Main orchestrator for the Blowdown Wind Tunnel 30s Mach 4 Test
+// ------------------------------------------------------------------------------
+PROGRAM PRG_WindTunnel_Main
+VAR
+    State : E_TunnelState := STATE_IDLE;
+    
+    // Physical IO
+    AI_ReservoirPressure : LREAL := 3000.0;
+    AI_StagnationPressure : LREAL;
+    AI_StagnationTemp : LREAL;
+    AI_TestSectionStaticPressure : LREAL;
+    AI_NozzleThroatFeedback : LREAL;
+    
+    AO_RegulatingValveCmd : LREAL;
+    AO_NozzleActuatorCmd : LREAL;
+    DO_SafetyVentingValve : BOOL := TRUE;
+    
+    // Functional Blocks
+    MachCalc : FB_IsentropicMachCalculation;
+    NozzleCtrl : FB_Nozzle_Kinematics;
+    BlowdownCtrl : FB_Blowdown_Sequencer;
+    
+    // Configuration
+    TargetMach : LREAL := 4.0;
+    TargetP0 : LREAL := 500.0; // Target settling chamber pressure (psia)
+    TestDuration : TIME := T#30S;
+    
+    // Internal Variables
+    AeroData : ST_AerodynamicData;
+    TestTimer : TON;
+    StabilizationTimer : TON;
+    EmergencyStop : BOOL := FALSE;
+END_VAR
+
+// 1. Data Acquisition and Scaling
+AeroData.P0_Stagnation_psia := AI_StagnationPressure;
+AeroData.T0_Stagnation_Rankine := AI_StagnationTemp;
+AeroData.P_TestSection_psia := AI_TestSectionStaticPressure;
+AeroData.MachNumber_Target := TargetMach;
+
+// 2. Mach Number Calculation Feedback
+MachCalc(
+    P0 := AeroData.P0_Stagnation_psia,
+    P := AeroData.P_TestSection_psia,
+    Gamma := AeroData.Gamma_Air,
+    Mach_Out => AeroData.MachNumber_Actual
+);
+
+// 3. State Machine Control
+CASE State OF
+    STATE_IDLE:
+        DO_SafetyVentingValve := TRUE;
+        AO_RegulatingValveCmd := 0.0;
+        AO_NozzleActuatorCmd := 0.0;
+        IF AI_ReservoirPressure >= 2900.0 AND NOT EmergencyStop THEN
+            State := STATE_PRE_PRESSURIZATION;
+        END_IF
+        
+    STATE_PRE_PRESSURIZATION:
+        DO_SafetyVentingValve := FALSE;
+        // Position Nozzle to Starting Throat Area before flow
+        NozzleCtrl(
+            Enable := TRUE,
+            MachTarget := TargetMach,
+            Gamma := AeroData.Gamma_Air,
+            AreaTestSection := 100.0,
+            ActuatorFeedback := AI_NozzleThroatFeedback
+        );
+        AO_NozzleActuatorCmd := NozzleCtrl.ActuatorVelocityCmd;
+        
+        IF NozzleCtrl.IsPositioned THEN
+            State := STATE_BLOWDOWN_START;
+        END_IF
+        
+    STATE_BLOWDOWN_START:
+        // Begin pressure regulation
+        BlowdownCtrl(
+            Enable := TRUE,
+            P_Reservoir_psia := AI_ReservoirPressure,
+            P0_Target_psia := TargetP0,
+            P0_Actual_psia := AeroData.P0_Stagnation_psia,
+            EmergencyAbort := EmergencyStop
+        );
+        AO_RegulatingValveCmd := BlowdownCtrl.RegValvePositionCmd;
+        
+        StabilizationTimer(IN:=BlowdownCtrl.P0_Stable, PT:=T#2S);
+        IF StabilizationTimer.Q THEN
+            State := STATE_MACH_STABILIZATION;
+        END_IF
+        
+    STATE_MACH_STABILIZATION:
+        // Fine tune nozzle throat area under load
+        NozzleCtrl(Enable := TRUE, MachTarget := TargetMach, Gamma := AeroData.Gamma_Air, AreaTestSection := 100.0, ActuatorFeedback := AI_NozzleThroatFeedback);
+        AO_NozzleActuatorCmd := NozzleCtrl.ActuatorVelocityCmd;
+        
+        BlowdownCtrl(Enable := TRUE, P_Reservoir_psia := AI_ReservoirPressure, P0_Target_psia := TargetP0, P0_Actual_psia := AeroData.P0_Stagnation_psia, EmergencyAbort := EmergencyStop);
+        AO_RegulatingValveCmd := BlowdownCtrl.RegValvePositionCmd;
+        
+        IF ABS(AeroData.MachNumber_Actual - TargetMach) < 0.05 THEN
+            State := STATE_TEST_RUNNING;
+        END_IF
+        
+    STATE_TEST_RUNNING:
+        TestTimer(IN:=TRUE, PT:=TestDuration);
+        
+        NozzleCtrl(Enable := TRUE, MachTarget := TargetMach, Gamma := AeroData.Gamma_Air, AreaTestSection := 100.0, ActuatorFeedback := AI_NozzleThroatFeedback);
+        AO_NozzleActuatorCmd := NozzleCtrl.ActuatorVelocityCmd;
+        
+        BlowdownCtrl(Enable := TRUE, P_Reservoir_psia := AI_ReservoirPressure, P0_Target_psia := TargetP0, P0_Actual_psia := AeroData.P0_Stagnation_psia, EmergencyAbort := EmergencyStop);
+        AO_RegulatingValveCmd := BlowdownCtrl.RegValvePositionCmd;
+        
+        IF TestTimer.Q THEN
+            State := STATE_SHUTDOWN_NORMAL;
+        END_IF
+        IF AI_ReservoirPressure < 600.0 THEN // Blowdown depletion limit
+            State := STATE_SHUTDOWN_NORMAL;
+        END_IF
+        
+    STATE_SHUTDOWN_NORMAL:
+        TestTimer(IN:=FALSE);
+        StabilizationTimer(IN:=FALSE);
+        BlowdownCtrl(Enable := FALSE, P_Reservoir_psia := AI_ReservoirPressure, P0_Target_psia := 0.0, P0_Actual_psia := AeroData.P0_Stagnation_psia, EmergencyAbort := EmergencyStop);
+        AO_RegulatingValveCmd := BlowdownCtrl.RegValvePositionCmd;
+        DO_SafetyVentingValve := TRUE; // Vent tunnel
+        
+        IF AeroData.P0_Stagnation_psia < 20.0 THEN
+            State := STATE_IDLE;
+        END_IF
+        
+    STATE_ABORT_EMERGENCY:
+        BlowdownCtrl(Enable := FALSE, P_Reservoir_psia := 0.0, P0_Target_psia := 0.0, P0_Actual_psia := 0.0, EmergencyAbort := TRUE);
+        AO_RegulatingValveCmd := 0.0;
+        AO_NozzleActuatorCmd := 0.0;
+        DO_SafetyVentingValve := TRUE;
+        
+END_CASE
+
+// Global Abort Check
+IF EmergencyStop OR AI_StagnationTemp > 2500.0 THEN // Thermal limit
+    State := STATE_ABORT_EMERGENCY;
+END_IF
+
+END_PROGRAM
+```
+"""
+
 data = {
     "messages": [
-        {
-            "role": "user",
-            "content": "You are acting as the Principal Directed Energy Systems Engineer for an Air Defense Base.\n\nYour mission is to generate a master-tier, production-ready IEC 61131-3 Structured Text (ST) implementation for the \"High-Power Microwave (HPM) Drone Swarm Defeat & EMP Target Tracking Controller\" (`FB_HPM_CounterSwarm`).\n\n### Technical Specifications & Engineering Rigor Required:\n1. **Active Electronically Scanned Array (AESA) Microwave Targeting**:\n   - Vircator (Virtual Cathode Oscillator) pulsing generating a $1\\text{ Gigawatt}$ L-band microwave burst.\n   - Electronic beam steering to widen the beam to $30^\\circ$ for sweeping a broad quadrant, or narrowing to a $2^\\circ$ pencil beam to fry the unshielded electronics of a specific incoming kamikaze drone.\n2. **Kinematic Tracking & Swarm Threat Evaluation**:\n   - Multi-target radar track fusion prioritizing targets based on Time-To-Impact (TTI).\n   - Dynamic calculation of the required microwave fluence (Joules/$cm^2$) needed at the target's specific slant range to achieve a hard-kill (silicon junction breakdown).\n3. **Code Quality**: Strict IEC 61131-3 ST, LREAL datatypes, comprehensive `VAR_INPUT`/`VAR_OUTPUT`, RF propagation matrices, PackML states.\n\nOutput the full raw Structured Text code inside ```iec-st```."
-        },
-        {
-            "role": "assistant",
-            "content": "```iec-st\nFUNCTION_BLOCK FB_HPM_CounterSwarm\n(*\n    ======================================================================================\n    High-Power Microwave (HPM) Drone Swarm Defeat & EMP Target Tracking Controller\n    Standard: IEC 61131-3 Structured Text (ST)\n    Author: Elite Synthetic Data Architect\n    Version: 2.1.0-Enterprise\n    \n    Description:\n    Active Electronically Scanned Array (AESA) controller for a Vircator-based HPM system.\n    Generates 1 Gigawatt L-Band microwave bursts. Supports dynamic beam steering (2° to 30°)\n    for hard-kill (silicon junction breakdown) of unshielded electronics.\n    Implements PackML (ISA-TR88.00.02) state machine.\n    ======================================================================================\n*)\nVAR_INPUT\n    bEnable                 : BOOL;                 // PackML Enable Command\n    bStart                  : BOOL;                 // PackML Start Command\n    bAbort                  : BOOL;                 // PackML Abort Command\n    bStop                   : BOOL;                 // PackML Stop Command\n    bFireInterlock          : BOOL;                 // Safety hardware interlock (SIL3)\n    \n    aRadarTracks            : ARRAY[1..MAX_TARGETS] OF ST_RadarTrack; // Sensor fusion tracks\n    nActiveTrackCount       : UINT;                 // Current number of valid tracks\n    \n    rAntennaAzimuth         : LREAL;                // Mechanical Base Azimuth [deg]\n    rAntennaElevation       : LREAL;                // Mechanical Base Elevation [deg]\n    \n    eTacticalMode           : E_TargetingMode;      // PENCIL_BEAM (2 deg) or SWEEP_BROAD (30 deg)\n    rBankEnergy_Joules      : LREAL;                // Real-time capacitor bank energy level [J]\n    bChargeComplete         : BOOL;                 // Capacitors at nominal voltage\n    \n    rTargetFluence_Jcm2     : LREAL := 45.0;        // Required fluence for target kill [J/cm^2]\nEND_VAR\n\nVAR_OUTPUT\n    eCurrentState           : E_PackML_State;       // Current ISA-88 State\n    bSystemReady            : BOOL;                 // True when in EXECUTE state\n    \n    bTriggerVircator        : BOOL;                 // Hardware trigger to Vircator cathode\n    bEnableCharging         : BOOL;                 // Command to Marx generator HVPS\n    \n    nEngagedTargetID        : UDINT;                // ID of highest-priority threat\n    rCalculatedTTI          : LREAL;                // Time-to-impact of primary threat [s]\n    rDeliveredFluence       : LREAL;                // Estimated fluence delivered [J/cm^2]\n    \n    rBeamWidthSetCmd        : LREAL;                // Commanded beamwidth [deg]\n    rElecSteerAzimuth       : LREAL;                // AESA Electronic Azimuth Steering [deg]\n    rElecSteerElevation     : LREAL;                // AESA Electronic Elevation Steering [deg]\n    \n    aDiagnosticWords        : ARRAY[1..4] OF DWORD; // System diagnostics and fault codes\nEND_VAR\n\nVAR\n    i                       : UINT;\n    rMinTTI                 : LREAL;\n    nPrimaryIdx             : UINT;\n    rSlantRange_m           : LREAL;\n    rTargetAzimuth          : LREAL;\n    rTargetElevation        : LREAL;\n    rDiffAzimuth            : LREAL;\n    rDiffElevation          : LREAL;\n    \n    rAntennaGain_Linear     : LREAL;\n    rBeamSolidAngle_sr      : LREAL;\n    rPulseWidth_s           : LREAL := 100.0E-9;    // 100 ns HPM pulse width\n    \n    bFaultActive            : BOOL;\nEND_VAR\n\nVAR CONSTANT\n    MAX_TARGETS             : UINT := 128;\n    C_PI                    : LREAL := 3.14159265358979323846;\n    C_LIGHT_SPEED           : LREAL := 299792458.0; // m/s\n    \n    // RF Parameters\n    C_PEAK_POWER_W          : LREAL := 1.0E9;       // 1 Gigawatt\n    C_FREQUENCY_HZ          : LREAL := 1.3E9;       // 1.3 GHz (L-band)\n    C_MAX_STEER_ANGLE       : LREAL := 45.0;        // Max electronic steering angle [deg]\n    C_MIN_ENERGY_J          : LREAL := 2.5E6;       // 2.5 Megajoules minimum fire threshold\nEND_VAR\n\n//=============================================================================\n// Safety & Fault Management\n//=============================================================================\nbFaultActive := NOT bFireInterlock OR (rBankEnergy_Joules > 10.0E6); // Over-voltage fault\n\nIF bAbort OR bFaultActive THEN\n    eCurrentState := E_PackML_State.ABORTING;\nEND_IF;\n\n//=============================================================================\n// PackML State Machine (ISA-TR88.00.02)\n//=============================================================================\nCASE eCurrentState OF\n\n    E_PackML_State.STOPPED:\n        bSystemReady := FALSE;\n        bTriggerVircator := FALSE;\n        bEnableCharging := FALSE;\n        IF bStart AND bFireInterlock THEN\n            eCurrentState := E_PackML_State.STARTING;\n        END_IF;\n\n    E_PackML_State.STARTING:\n        bEnableCharging := TRUE;\n        // Wait for Marx generator to reach nominal capacity\n        IF bChargeComplete AND (rBankEnergy_Joules >= C_MIN_ENERGY_J) THEN\n            eCurrentState := E_PackML_State.EXECUTE;\n        END_IF;\n        \n    E_PackML_State.EXECUTE:\n        bSystemReady := TRUE;\n        bEnableCharging := TRUE; // Maintain charge\n        \n        //---------------------------------------------------------------------\n        // Kinematic Tracking & Threat Evaluation\n        //---------------------------------------------------------------------\n        rMinTTI := 999999.0;\n        nPrimaryIdx := 0;\n        \n        FOR i := 1 TO nActiveTrackCount DO\n            IF aRadarTracks[i].bValid AND (aRadarTracks[i].rTimeToImpact < rMinTTI) THEN\n                // Apply threat weighting (drone swarm logic: prioritize closest TTI)\n                IF aRadarTracks[i].rSlantRange < 15000.0 THEN // Within 15km engagement envelope\n                    rMinTTI := aRadarTracks[i].rTimeToImpact;\n                    nPrimaryIdx := i;\n                END_IF;\n            END_IF;\n        END_FOR;\n        \n        //---------------------------------------------------------------------\n        // Engagement Processing\n        //---------------------------------------------------------------------\n        IF nPrimaryIdx > 0 THEN\n            nEngagedTargetID := aRadarTracks[nPrimaryIdx].nTrackID;\n            rCalculatedTTI := aRadarTracks[nPrimaryIdx].rTimeToImpact;\n            rSlantRange_m := aRadarTracks[nPrimaryIdx].rSlantRange;\n            rTargetAzimuth := aRadarTracks[nPrimaryIdx].rAzimuth;\n            rTargetElevation := aRadarTracks[nPrimaryIdx].rElevation;\n            \n            // Calculate necessary electronic steering (Offset from mechanical base)\n            rDiffAzimuth := rTargetAzimuth - rAntennaAzimuth;\n            rDiffElevation := rTargetElevation - rAntennaElevation;\n            \n            // Clamp to maximum electronic steering capabilities\n            rElecSteerAzimuth := LIMIT(-C_MAX_STEER_ANGLE, rDiffAzimuth, C_MAX_STEER_ANGLE);\n            rElecSteerElevation := LIMIT(-C_MAX_STEER_ANGLE, rDiffElevation, C_MAX_STEER_ANGLE);\n            \n            // Set tactical beam width based on swarm density vs single target\n            IF eTacticalMode = E_TargetingMode.PENCIL_BEAM THEN\n                rBeamWidthSetCmd := 2.0;\n            ELSE\n                rBeamWidthSetCmd := 30.0;\n            END_IF;\n            \n            //-----------------------------------------------------------------\n            // RF Propagation & Fluence Math\n            //-----------------------------------------------------------------\n            // Solid angle Omega = 2 * PI * (1 - cos(theta/2))\n            rBeamSolidAngle_sr := 2.0 * C_PI * (1.0 - COS((rBeamWidthSetCmd / 2.0) * C_PI / 180.0));\n            rAntennaGain_Linear := (4.0 * C_PI) / rBeamSolidAngle_sr;\n            \n            // Energy density at target distance [Joules/m^2] -> convert to J/cm^2\n            // Fluence = (P_peak * PulseWidth * Gain) / (4 * PI * R^2)\n            rDeliveredFluence := (C_PEAK_POWER_W * rPulseWidth_s * rAntennaGain_Linear) / \n                                 (4.0 * C_PI * (rSlantRange_m * rSlantRange_m));\n            rDeliveredFluence := rDeliveredFluence * 0.0001; // Convert m^2 to cm^2\n            \n            //-----------------------------------------------------------------\n            // Vircator Firing Logic\n            //-----------------------------------------------------------------\n            IF (rDeliveredFluence >= rTargetFluence_Jcm2) AND bChargeComplete THEN\n                bTriggerVircator := TRUE;\n                bEnableCharging := FALSE; // Drop charging command during EMI burst\n                aDiagnosticWords[1] := 16#0000_1111; // FIRED CODE\n            ELSE\n                bTriggerVircator := FALSE;\n                aDiagnosticWords[1] := 16#0000_2222; // INSUFFICIENT FLUENCE OR CHARGE\n            END_IF;\n            \n        ELSE\n            // No valid targets\n            nEngagedTargetID := 0;\n            rCalculatedTTI := 0.0;\n            bTriggerVircator := FALSE;\n            rElecSteerAzimuth := 0.0;\n            rElecSteerElevation := 0.0;\n            aDiagnosticWords[1] := 16#0000_0000;\n        END_IF;\n        \n        IF bStop THEN\n            eCurrentState := E_PackML_State.STOPPING;\n        END_IF;\n\n    E_PackML_State.STOPPING:\n        bTriggerVircator := FALSE;\n        bEnableCharging := FALSE;\n        eCurrentState := E_PackML_State.STOPPED;\n\n    E_PackML_State.ABORTING:\n        bTriggerVircator := FALSE;\n        bEnableCharging := FALSE;\n        // Dump capacitors to dummy load here via hardware relay\n        IF NOT bFaultActive THEN\n            eCurrentState := E_PackML_State.ABORTED;\n        END_IF;\n\n    E_PackML_State.ABORTED:\n        IF bStart THEN // Clear fault routine\n            eCurrentState := E_PackML_State.STOPPED;\n        END_IF;\n        \n    ELSE\n        // Catch-all\n        eCurrentState := E_PackML_State.STOPPED;\nEND_CASE;\nEND_FUNCTION_BLOCK\n```"
-        }
+        {"role": "user", "content": user_prompt},
+        {"role": "assistant", "content": assistant_response}
     ]
 }
 
-os.makedirs('data', exist_ok=True)
-with open('data/synthetic_generation_v3_enterprise.jsonl', 'a') as f:
-    f.write(json.dumps(data) + '\\n')
+file_path = r"C:\Users\majip\Downloads\LLM REASEARCH\data\synthetic_generation_v3_enterprise.jsonl"
+with open(file_path, "a", encoding="utf-8") as f:
+    f.write(json.dumps(data) + "\n")

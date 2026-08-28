@@ -43,6 +43,8 @@ APPROVED_SOURCES = [
      "Swarm-generated ultra-complex IEC 61131-3 controllers (cleaned)"),
     ("evol_instruct_dataset.jsonl",
      "Evolved instruction dataset baseline (1648 records)"),
+    ("final_verified_dataset.jsonl",
+     "Large curated legacy dataset of verified ST logic (5919 records)"),
     ("verified_github_code.jsonl",
      "Verified GitHub PLC code samples"),
     ("verified_oscat.jsonl",
@@ -102,6 +104,31 @@ def load_and_filter(filepath: Path, source_name: str) -> list:
             if not FB_PATTERN.search(assistant_content) and not LOGIC_PATTERN.search(assistant_content):
                 skipped += 1
                 continue
+
+            # Normalize prompt instructions (GAP-001/ARCH-003)
+            user_content = messages[0].get("content", "")
+            if "OUTPUT ONLY THE RAW CODE" in user_content or "DO NOT OUTPUT MARKDOWN" in user_content:
+                user_content = user_content.replace("OUTPUT ONLY THE RAW CODE", "")
+                user_content = user_content.replace("DO NOT OUTPUT MARKDOWN", "Output the code enclosed in a ```iec-st markdown code fence.")
+                messages[0]["content"] = user_content
+            
+            # Normalize response format (BUG-007 double fence fix)
+            # Strip existing backtick fences first, then re-wrap
+            clean_code = re.sub(r'^```[a-zA-Z\-]*\s*', '', assistant_content, flags=re.MULTILINE)
+            clean_code = re.sub(r'^```\s*$', '', clean_code, flags=re.MULTILINE)
+            clean_code = clean_code.strip()
+            
+            assistant_content = f"```iec-st\n{clean_code}\n```"
+            messages[1]["content"] = assistant_content
+
+            # Inject System Prompt (ARCH-002)
+            if len(messages) > 0 and messages[0].get("role") != "system":
+                system_msg = {
+                    "role": "system",
+                    "content": "You are Lumina AI, an expert industrial automation and IEC 61131-3 controls engineer. Generate mathematically verifiable, deterministic Structured Text (ST), Siemens SCL, or Rockwell L5X code. Ensure all arrays are bounded, all memory addresses are typed, and safety invariants are strictly preserved."
+                }
+                messages.insert(0, system_msg)
+                obj["messages"] = messages
 
             # Add source metadata
             obj["_source"] = source_name
@@ -184,6 +211,7 @@ def write_dataset_card(train: list, val: list, source_stats: dict, filepath: Pat
         "```json",
         '{',
         '  "messages": [',
+        '    {"role": "system", "content": "You are Lumina AI..."},',
         '    {"role": "user", "content": "<engineering task prompt>"},',
         '    {"role": "assistant", "content": "```iec-st\\n<IEC 61131-3 code>\\n```"}',
         '  ]',
@@ -244,11 +272,11 @@ def main():
     val_path   = MASTER_DIR / "validation.jsonl"
     card_path  = MASTER_DIR / "dataset_card.md"
 
-    write_jsonl(strip_metadata(train_records), train_path)
-    write_jsonl(strip_metadata(val_records),   val_path)
+    write_jsonl(train_records, train_path)
+    write_jsonl(val_records, val_path)
     write_dataset_card(
-        strip_metadata(train_records),
-        strip_metadata(val_records),
+        train_records,
+        val_records,
         source_stats,
         card_path
     )

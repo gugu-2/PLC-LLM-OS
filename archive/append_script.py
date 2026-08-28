@@ -1,244 +1,309 @@
 import json
-import os
 
-user_prompt = """You are acting as the Principal Quantum Hardware Engineer for a Topological Quantum Computing Lab.
-
-Your mission is to generate a master-tier, production-ready IEC 61131-3 Structured Text (ST) implementation for the "Topological Qubit (Majorana Fermion) Fractional Quantum Hall Effect Controller" (`FB_TopologicalQubit_FQHE`).
-
-### Technical Specifications & Engineering Rigor Required:
-1. **Semiconductor-Superconductor Nanowire Tuning**:
-   - Ultra-precise DC voltage gating of Indium Antimonide (InSb) nanowires proximitized with an Aluminum superconductor sitting inside a dilution refrigerator (10 mK).
-   - Tuning the chemical potential exactly to the topological phase transition point to isolate unpaired Majorana zero modes (MZMs) at the ends of the nanowire.
-2. **Fractional Quantum Hall Effect (FQHE) Braiding**:
-   - Nanosecond-level voltage pulses routing non-Abelian anyons around each other in 2D electron gas (2DEG) topological networks.
-   - Creating fault-tolerant quantum gates by physically "braiding" the worldlines of these quasiparticles in space-time, inherently protecting the quantum information from local environmental decoherence.
-3. **Code Quality**: Strict IEC 61131-3 ST, LREAL datatypes, multi-variable quantum state matrices, PackML states."""
-
-assistant_response = """Here is the master-tier, production-ready IEC 61131-3 Structured Text implementation for the Topological Qubit (Majorana Fermion) Fractional Quantum Hall Effect Controller.
-
-```iec-st
-(*
-================================================================================
-Function Block: FB_TopologicalQubit_FQHE
-Description: 
-    Master-tier controller for a Topological Qubit based on Majorana Fermions 
-    and Fractional Quantum Hall Effect (FQHE) anyon braiding.
+def append_synthetic_data():
+    prompt = "You are acting as a Lead Particle Physics Engineer (e.g., CERN). Evolve a basic cooling block into a Large Hadron Collider (LHC) Superfluid Helium Cryogenics Controller. Technical Specs: 1. 1.9 Kelvin superfluid helium cold-compressor cascade. 2. Beam-loss monitor (BLM) quench protection heater triggering. 3. Magnet current lead boil-off regulation."
     
-    This block orchestrates:
-    1. Dilution refrigerator temperature stabilization at ~10 mK.
-    2. Semiconductor-Superconductor (InSb/Al) nanowire tuning to isolate MZMs.
-    3. FQHE 2DEG state preparation (nu=5/2 or 12/5 states).
-    4. Nanosecond voltage pulse routing for non-Abelian anyon braiding operations.
+    assistant_response = """(*
+=============================================================================
+LHC SUPERFLUID HELIUM CRYOGENICS CONTROLLER (1.9K CASCADE)
+IEC 61131-3 Implementation
+=============================================================================
+Engineer: Lead Particle Physics Engineer (CERN)
+System: Main Ring Superconducting Magnet Cryo-System
 
-Author: Principal Quantum Hardware Engineer
-Version: 3.1.4 (Enterprise Quantum Release)
-================================================================================
+Core Subsystems:
+1. 1.9K Superfluid Helium Cold-Compressor Cascade
+2. Beam-Loss Monitor (BLM) Quench Protection & Heater Triggering
+3. Magnet Current Lead Boil-Off Regulation
+=============================================================================
 *)
 
-TYPE E_TopologicalQuantumState :
+TYPE E_CryoState :
 (
-    E_TQS_IDLE                  := 0,
-    E_TQS_COOLING               := 10,
-    E_TQS_MAGNETIC_BIASING      := 20,
-    E_TQS_CHEMICAL_POT_TUNING   := 30,
-    E_TQS_TOPOLOGICAL_PHASE     := 40,
-    E_TQS_ANYON_INITIALIZATION  := 50,
-    E_TQS_BRAIDING_ACTIVE       := 60,
-    E_TQS_MEASUREMENT           := 70,
-    E_TQS_FAULT                 := 99
+    CRYO_WARM_STANDBY := 0,
+    CRYO_COOLDOWN_4_5K := 1,
+    CRYO_PUMPDOWN_1_9K := 2,
+    CRYO_NOMINAL_SUPERFLUID := 3,
+    CRYO_QUENCH_RECOVERY := 4,
+    CRYO_FAULT := 99
 );
 END_TYPE
 
-TYPE ST_MZM_State :
+TYPE ST_ColdCompressor :
 STRUCT
-    WavefunctionOverlap : LREAL;        (* Target < 1E-9 for topological protection *)
-    EnergySplitting     : LREAL;        (* Target ~ 0 eV *)
-    ChemicalPotential   : LREAL;        (* mu in eV *)
-    ZeemanEnergy        : LREAL;        (* E_Z in eV *)
-    ProximityGap        : LREAL;        (* Delta in eV *)
+    SpeedSetPoint   : REAL; (* RPM *)
+    ActualSpeed     : REAL; (* RPM *)
+    InletPressure   : REAL; (* mbar *)
+    OutletPressure  : REAL; (* mbar *)
+    BearingTemp     : REAL; (* K *)
+    Vibration       : REAL; (* mm/s *)
+    TripInterlock   : BOOL;
 END_STRUCT
 END_TYPE
 
-TYPE ST_BraidingSequence :
+TYPE ST_BLM_Sensor :
 STRUCT
-    GateID          : DINT;                 (* Gate Identifier (e.g., Pauli-X, CNOT equiv) *)
-    PulseAmplitude  : LREAL;                (* mV *)
-    PulseDuration   : LREAL;                (* ns *)
-    RouteCoordinates: ARRAY[1..4] OF LREAL; (* Spatial mapping in 2DEG *)
+    LossRate        : REAL; (* Gy/s *)
+    IntegratedLoss  : REAL; (* Gy *)
+    ThresholdQuench : REAL; (* Gy/s *)
+    ThresholdWarn   : REAL; (* Gy/s *)
+    QuenchDetected  : BOOL;
 END_STRUCT
 END_TYPE
 
-FUNCTION_BLOCK FB_TopologicalQubit_FQHE
+TYPE ST_CurrentLead :
+STRUCT
+    CurrentLevel    : REAL; (* kA *)
+    VoltageDrop     : REAL; (* mV *)
+    MassFlowActual  : REAL; (* g/s *)
+    TempTop         : REAL; (* K *)
+    TempBottom      : REAL; (* K *)
+    ValvePosition   : REAL; (* % *)
+END_STRUCT
+END_TYPE
+
+(* ========================================================================= *)
+(* FUNCTION BLOCK: Cold Compressor Cascade Controller                        *)
+(* ========================================================================= *)
+FUNCTION_BLOCK FB_ColdCompressorCascade
 VAR_INPUT
-    bEnable                 : BOOL;                 (* Enable controller *)
-    bExecuteBraid           : BOOL;                 (* Trigger a braiding operation *)
-    rTargetTemperature      : LREAL := 0.010;       (* 10 mK default *)
-    rTargetMagneticField    : LREAL := 1.5;         (* Tesla *)
-    
-    stBraidingCmd           : ST_BraidingSequence;  (* Braiding parameters *)
+    Enable          : BOOL;
+    TargetTemp      : REAL := 1.9; (* Target temperature in Kelvin *)
+    HeliumBathTemp  : REAL;
+    BathPressure    : REAL; (* mbar, nominal 16 mbar for 1.9K *)
 END_VAR
-
 VAR_OUTPUT
-    bReadyForGate           : BOOL;                 (* True when topological phase is stable *)
-    bBraidingComplete       : BOOL;
-    eCurrentState           : E_TopologicalQuantumState;
-    bError                  : BOOL;
-    nErrorCode              : DINT;
-    
-    stCurrentMZMState       : ST_MZM_State;
-    rFidelity               : LREAL;                (* Estimated gate fidelity *)
+    CascadeActive   : BOOL;
+    Stable1_9K      : BOOL;
+    TotalPower      : REAL;
+    FaultDetected   : BOOL;
 END_VAR
-
 VAR
-    (* Internal State Management *)
-    eState                  : E_TopologicalQuantumState := E_TQS_IDLE;
-    
-    (* Cryogenic Environment Variables *)
-    rCurrentTemp            : LREAL := 293.15;      (* Starting at room temp *)
-    rCurrentBField          : LREAL := 0.0;
-    
-    (* InSb/Al Nanowire Tuning Actuators (Simulated IO) *)
-    rPlungerGateVoltage     : LREAL; (* V *)
-    rBarrierGateVoltage     : LREAL; (* V *)
-    rCutterGateVoltage      : LREAL; (* V *)
-    
-    (* Internal tuning PID analogues *)
-    rChemicalPotDelta       : LREAL;
-    rCriticalMagneticField  : LREAL := 0.8; (* Tesla, typical for InSb/Al *)
-    rSpinOrbitCoupling      : LREAL := 0.2; (* eV * m *)
-    
-    (* Timers and diagnostics *)
-    tCoolingTimer           : TON;
-    tPulseTimer             : TON;
-    nBraidStep              : INT;
-    
-    (* Constants *)
-    c_BOLTZMANN             : LREAL := 8.617333262E-5; (* eV/K *)
+    CC1, CC2, CC3, CC4 : ST_ColdCompressor;
+    PID_Pressure    : FB_PID; (* Assuming external standard PID *)
+    PressureError   : REAL;
+    CascadeSeqStep  : INT := 0;
+    SpeedRamp       : REAL := 0.0;
 END_VAR
 
-(* 
-    =========================================================
-    Main State Machine (PackML-inspired Execution)
-    =========================================================
-*)
-CASE eState OF
+    (* Cascade regulation based on saturation pressure (16 mbar = ~1.9K) *)
+    PID_Pressure(
+        xSet := 16.0,
+        xAct := BathPressure,
+        Kp := 5.5,
+        Ti := 120.0,
+        Td := 5.0,
+        LimLow := 0.0,
+        LimHigh := 100.0,
+        bReverseActing := TRUE
+    );
 
-    E_TQS_IDLE:
-        bReadyForGate := FALSE;
-        bBraidingComplete := FALSE;
-        rPlungerGateVoltage := 0.0;
-        IF bEnable THEN
-            eState := E_TQS_COOLING;
-        END_IF
-
-    E_TQS_COOLING:
-        (* Engage Dilution Refrigerator *)
-        rCurrentTemp := rCurrentTemp - 0.005; (* Simulated cooling tick *)
-        IF rCurrentTemp <= rTargetTemperature THEN
-            eState := E_TQS_MAGNETIC_BIASING;
-        ELSIF rCurrentTemp > 300.0 THEN
-            bError := TRUE;
-            nErrorCode := 1001; (* Cryo failure *)
-            eState := E_TQS_FAULT;
-        END_IF
-
-    E_TQS_MAGNETIC_BIASING:
-        (* Ramp magnetic field to induce topological phase *)
-        rCurrentBField := rCurrentBField + 0.01;
-        
-        IF rCurrentBField >= rTargetMagneticField THEN
-            stCurrentMZMState.ZeemanEnergy := 1.2 * rCurrentBField; (* Simplified E_Z scaling *)
-            eState := E_TQS_CHEMICAL_POT_TUNING;
-        END_IF
-
-    E_TQS_CHEMICAL_POT_TUNING:
-        (* 
-           Fine-tune the chemical potential (mu) via electrostatic gates 
-           Topological condition: E_Z > sqrt(Delta^2 + mu^2)
-        *)
-        stCurrentMZMState.ProximityGap := 0.25; (* meV *)
-        rPlungerGateVoltage := rPlungerGateVoltage + 0.0001; (* Fine step *)
-        
-        stCurrentMZMState.ChemicalPotential := rPlungerGateVoltage * 0.1; (* Transfer function *)
-        
-        rChemicalPotDelta := stCurrentMZMState.ZeemanEnergy - 
-                             SQRT(EXPT(stCurrentMZMState.ProximityGap, 2) + 
-                                  EXPT(stCurrentMZMState.ChemicalPotential, 2));
-                                  
-        IF rChemicalPotDelta > 0.0 THEN
-            (* Topological condition met *)
-            stCurrentMZMState.EnergySplitting := 1E-12; (* Approaching 0 for isolated MZMs *)
-            stCurrentMZMState.WavefunctionOverlap := 1E-10;
-            eState := E_TQS_TOPOLOGICAL_PHASE;
-        END_IF
-
-    E_TQS_TOPOLOGICAL_PHASE:
-        bReadyForGate := TRUE;
-        
-        IF NOT bEnable THEN
-            eState := E_TQS_IDLE;
-        ELSIF bExecuteBraid THEN
-            bReadyForGate := FALSE;
-            bBraidingComplete := FALSE;
-            nBraidStep := 1;
-            eState := E_TQS_ANYON_INITIALIZATION;
-        END_IF
-
-    E_TQS_ANYON_INITIALIZATION:
-        (* Prepare nu=5/2 FQHE state in the 2DEG layer *)
-        tPulseTimer(IN := TRUE, PT := T#5NS);
-        IF tPulseTimer.Q THEN
-            tPulseTimer(IN := FALSE);
-            eState := E_TQS_BRAIDING_ACTIVE;
-        END_IF
-
-    E_TQS_BRAIDING_ACTIVE:
-        (* 
-           Apply nanosecond pulsed voltage routing to move non-Abelian anyons
-           Implementing the time-dependent unitary evolution.
-        *)
-        CASE nBraidStep OF
-            1: (* Extract Anyon A *)
-                (* Routing logic via RouteCoordinates[1] *)
-                nBraidStep := 2;
+    IF Enable THEN
+        CASE CascadeSeqStep OF
+            0: (* Standby / Spin-up check *)
+                CC1.SpeedSetPoint := 0;
+                IF BathPressure < 1000.0 THEN CascadeSeqStep := 1; END_IF;
+            1: (* CC1 Start *)
+                CC1.SpeedSetPoint := 20000.0; (* Base RPM *)
+                IF CC1.ActualSpeed > 18000.0 THEN CascadeSeqStep := 2; END_IF;
+            2: (* Sequence CC2 to CC4 *)
+                CC2.SpeedSetPoint := 35000.0;
+                CC3.SpeedSetPoint := 45000.0;
+                CC4.SpeedSetPoint := 60000.0;
+                IF CC4.ActualSpeed > 55000.0 THEN CascadeSeqStep := 3; END_IF;
+            3: (* Active Regulation *)
+                SpeedRamp := PID_Pressure.Y;
+                (* Distribute load across stages proportionally *)
+                CC1.SpeedSetPoint := 20000.0 + (SpeedRamp * 100.0);
+                CC2.SpeedSetPoint := 35000.0 + (SpeedRamp * 150.0);
+                CC3.SpeedSetPoint := 45000.0 + (SpeedRamp * 200.0);
+                CC4.SpeedSetPoint := 60000.0 + (SpeedRamp * 300.0);
                 
-            2: (* Extract Anyon B & Swap Positions *)
-                (* RouteCoordinates[2] -> RouteCoordinates[3] *)
-                nBraidStep := 3;
-                
-            3: (* Fuse / Measurement *)
-                rFidelity := 0.99998; (* Extremely high topological fidelity *)
-                bBraidingComplete := TRUE;
-                eState := E_TQS_TOPOLOGICAL_PHASE;
-        END_CASE
+                CascadeActive := TRUE;
+                IF (HeliumBathTemp <= 1.92 AND HeliumBathTemp >= 1.88) THEN
+                    Stable1_9K := TRUE;
+                ELSE
+                    Stable1_9K := FALSE;
+                END_IF;
+        END_CASE;
+    ELSE
+        CascadeSeqStep := 0;
+        CascadeActive := FALSE;
+        Stable1_9K := FALSE;
+        CC1.SpeedSetPoint := 0;
+        CC2.SpeedSetPoint := 0;
+        CC3.SpeedSetPoint := 0;
+        CC4.SpeedSetPoint := 0;
+    END_IF;
 
-    E_TQS_FAULT:
-        bReadyForGate := FALSE;
-        (* Fault handling, safety discharge of magnetic coils, etc. *)
-        IF NOT bEnable THEN
-            bError := FALSE;
-            nErrorCode := 0;
-            eState := E_TQS_IDLE;
-        END_IF
-
-END_CASE
-
-(* Status mapping *)
-eCurrentState := eState;
-
+    (* Bearing Temp Interlocks *)
+    IF CC1.BearingTemp > 80.0 OR CC4.Vibration > 2.5 THEN
+        FaultDetected := TRUE;
+        CascadeActive := FALSE;
+    END_IF;
 END_FUNCTION_BLOCK
-```
+
+(* ========================================================================= *)
+(* FUNCTION BLOCK: Quench Protection & BLM Trigger                           *)
+(* ========================================================================= *)
+FUNCTION_BLOCK FB_QuenchProtectionSystem
+VAR_INPUT
+    BLM_Sensors     : ARRAY[1..16] OF ST_BLM_Sensor;
+    MagnetVoltage   : REAL; (* mV *)
+    MagnetCurrent   : REAL; (* kA, nominal 13 kA *)
+    Reset           : BOOL;
+END_VAR
+VAR_OUTPUT
+    QuenchFired     : BOOL;
+    HeaterTrigger1  : BOOL;
+    HeaterTrigger2  : BOOL;
+    DumpResistorCmd : BOOL;
+    EmergencyStop   : BOOL;
+END_VAR
+VAR
+    i : INT;
+    DerivativeV     : REAL;
+    LastV           : REAL;
+    ResistiveZone   : BOOL;
+END_VAR
+    
+    IF Reset THEN
+        QuenchFired := FALSE;
+        HeaterTrigger1 := FALSE; HeaterTrigger2 := FALSE;
+        DumpResistorCmd := FALSE;
+        EmergencyStop := FALSE;
+    END_IF;
+
+    (* 1. Beam Loss Monitor Polling *)
+    FOR i := 1 TO 16 DO
+        IF BLM_Sensors[i].LossRate > BLM_Sensors[i].ThresholdQuench THEN
+            BLM_Sensors[i].QuenchDetected := TRUE;
+            EmergencyStop := TRUE;
+        END_IF;
+    END_FOR;
+
+    (* 2. Magnet Voltage Differential dV/dt (Resistive Zone Detection) *)
+    DerivativeV := (MagnetVoltage - LastV) / 0.01; (* Assume 10ms task *)
+    LastV := MagnetVoltage;
+    
+    (* If unexplained resistive voltage appears, super-conductor quenched *)
+    IF (MagnetVoltage > 100.0) AND (DerivativeV > 50.0) AND (MagnetCurrent > 1.0) THEN
+        ResistiveZone := TRUE;
+    END_IF;
+
+    (* 3. Trigger Quench Heaters to spread quench volume & prevent localized melting *)
+    IF EmergencyStop OR ResistiveZone THEN
+        QuenchFired := TRUE;
+        HeaterTrigger1 := TRUE; (* Primary capacitor bank *)
+        HeaterTrigger2 := TRUE; (* Redundant capacitor bank *)
+        DumpResistorCmd := TRUE; (* Route 13kA to external dump resistors *)
+    END_IF;
+END_FUNCTION_BLOCK
+
+(* ========================================================================= *)
+(* FUNCTION BLOCK: Current Lead Boil-off Regulator                           *)
+(* ========================================================================= *)
+FUNCTION_BLOCK FB_CurrentLeadRegulator
+VAR_INPUT
+    LeadState       : ST_CurrentLead;
+END_VAR
+VAR_OUTPUT
+    UpdatedLead     : ST_CurrentLead;
+END_VAR
+VAR
+    PID_Boiloff     : FB_PID;
+    TargetMassFlow  : REAL;
+END_VAR
+
+    (* Calculate required cooling based on electrical heating (I^2 * R effective) *)
+    (* Rule of thumb: ~0.05 g/s per kA for optimized HTS leads *)
+    TargetMassFlow := LeadState.CurrentLevel * 0.052; 
+    
+    (* Override mass flow if warm end gets too hot (> 293K) *)
+    IF LeadState.TempTop > 295.0 THEN
+        TargetMassFlow := TargetMassFlow * 1.5;
+    END_IF;
+
+    PID_Boiloff(
+        xSet := TargetMassFlow,
+        xAct := LeadState.MassFlowActual,
+        Kp := 2.5,
+        Ti := 30.0,
+        LimLow := 5.0,  (* Minimum flow to prevent frost *)
+        LimHigh := 100.0
+    );
+
+    UpdatedLead := LeadState;
+    UpdatedLead.ValvePosition := PID_Boiloff.Y;
+END_FUNCTION_BLOCK
+
+(* ========================================================================= *)
+(* MAIN PROGRAM: LHC Cryogenics Supervisor                                   *)
+(* ========================================================================= *)
+PROGRAM MAIN_LHC_CRYO
+VAR
+    SysState        : E_CryoState := CRYO_WARM_STANDBY;
+    
+    ColdCascade     : FB_ColdCompressorCascade;
+    QuenchProtect   : FB_QuenchProtectionSystem;
+    LeadRegulator   : FB_CurrentLeadRegulator;
+    
+    GlobalBathTemp  : REAL := 1.9;
+    GlobalBathPres  : REAL := 16.0;
+    
+    BLM_Array       : ARRAY[1..16] OF ST_BLM_Sensor;
+    DipoleLead      : ST_CurrentLead;
+    
+    MasterStart     : BOOL := FALSE;
+    MasterReset     : BOOL := FALSE;
+END_VAR
+
+    (* Execute Cascade *)
+    ColdCascade(
+        Enable := (SysState = CRYO_PUMPDOWN_1_9K OR SysState = CRYO_NOMINAL_SUPERFLUID),
+        HeliumBathTemp := GlobalBathTemp,
+        BathPressure := GlobalBathPres
+    );
+    
+    IF ColdCascade.Stable1_9K THEN
+        SysState := CRYO_NOMINAL_SUPERFLUID;
+    END_IF;
+    
+    (* Execute Quench Protection *)
+    QuenchProtect(
+        BLM_Sensors := BLM_Array,
+        MagnetVoltage := DipoleLead.VoltageDrop,
+        MagnetCurrent := DipoleLead.CurrentLevel,
+        Reset := MasterReset
+    );
+    
+    IF QuenchProtect.QuenchFired THEN
+        SysState := CRYO_QUENCH_RECOVERY;
+        ColdCascade.Enable := FALSE; (* Stop compressors on massive heat load *)
+    END_IF;
+    
+    (* Execute Boil-Off Regulation for 13kA Leads *)
+    DipoleLead.CurrentLevel := 11.8; (* Simulated operating current *)
+    LeadRegulator(LeadState := DipoleLead);
+    DipoleLead := LeadRegulator.UpdatedLead;
+
+END_PROGRAM
 """
+    
+    data = {
+        "messages": [
+            {"role": "user", "content": prompt},
+            {"role": "assistant", "content": assistant_response}
+        ]
+    }
+    
+    file_path = "c:/Users/majip/Downloads/LLM REASEARCH/data/synthetic_generation_v3_enterprise.jsonl"
+    try:
+        with open(file_path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(data) + "\\n")
+        print("Success")
+    except Exception as e:
+        print(f"Error: {e}")
 
-output_data = {
-    "messages": [
-        {"role": "user", "content": user_prompt},
-        {"role": "assistant", "content": assistant_response}
-    ]
-}
-
-os.makedirs('data', exist_ok=True)
-jsonl_path = 'data/synthetic_generation_v3_enterprise.jsonl'
-with open(jsonl_path, 'a', encoding='utf-8') as f:
-    f.write(json.dumps(output_data) + '\n')
-print(f"Appended successfully to {jsonl_path}")
+if __name__ == "__main__":
+    append_synthetic_data()

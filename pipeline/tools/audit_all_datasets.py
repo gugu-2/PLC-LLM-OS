@@ -82,30 +82,38 @@ def audit_file(filepath: Path) -> dict:
                     result["parse_errors"] += 1
                     continue
 
-                assistant_content = messages[1].get("content", "")
-                content_len = len(assistant_content)
-                lengths.append(content_len)
-
-                # Dedup
-                h = hashlib.sha256(assistant_content[:300].encode()).hexdigest()
-                if h in result["content_hashes"]:
-                    result["duplicates"] += 1
-                result["content_hashes"].add(h)
-
                 # Checks
+                assistant_content = messages[1].get("content", "")
                 content_lower = assistant_content.lower()
                 if any(p in content_lower for p in REFUSAL_PHRASES):
                     result["refusals"] += 1
                     continue
 
-                if FB_PATTERN.search(assistant_content):
-                    result["has_function_block"] += 1
-                if VAR_PATTERN.search(assistant_content):
-                    result["has_var_io"] += 1
-                if LOGIC_PATTERN.search(assistant_content):
-                    result["has_logic"] += 1
+                # Add to length stats ONLY if it's not a refusal
+                assistant_content = messages[1].get("content", "")
+                
+                # Dedup
+                h = hashlib.sha256(assistant_content[:300].encode()).hexdigest()
+                if h in result["content_hashes"]:
+                    result["duplicates"] += 1
+                result["content_hashes"].add(h)
+                
+                content_len = len(assistant_content)
+                lengths.append(content_len)
 
-                result["good_records"] += 1
+                has_fb = bool(FB_PATTERN.search(assistant_content))
+                has_var = bool(VAR_PATTERN.search(assistant_content))
+                has_logic = bool(LOGIC_PATTERN.search(assistant_content))
+
+                if has_fb: result["has_function_block"] += 1
+                if has_var: result["has_var_io"] += 1
+                if has_logic: result["has_logic"] += 1
+
+                # A record is only "good" for fine-tuning if it actually contains IEC 61131-3 code
+                # And is above 1500 chars (relaxing to match new thresholds)
+                if has_fb and has_var and content_len >= 1500:
+                    result["good_records"] += 1
+                
                 result["min_length"] = min(result["min_length"], content_len)
                 result["max_length"] = max(result["max_length"], content_len)
 
@@ -116,11 +124,13 @@ def audit_file(filepath: Path) -> dict:
 
     # Compute derived stats
     valid = result["good_records"]
-    parseable = valid + result["refusals"]
-    total_non_empty = result["total_lines"] - result["empty_lines"]
-
-    if total_non_empty > 0:
-        pass_rate = valid / total_non_empty
+    parseable = valid + result["refusals"] + (result["total_lines"] - result["empty_lines"] - result["parse_errors"] - result["good_records"] - result["refusals"]) # total parsed records
+    
+    # Actually, pass rate should be valid / (total_lines - empty_lines - parse_errors)
+    total_parsed = result["total_lines"] - result["empty_lines"] - result["parse_errors"]
+    
+    if total_parsed > 0:
+        pass_rate = valid / total_parsed
     else:
         pass_rate = 0.0
 
