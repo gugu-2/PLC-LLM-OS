@@ -1,220 +1,194 @@
 import json
 import uuid
-import os
 
 prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 data.
-Your specific domain is: Commercial Spaceport Launch Pad.
-Task: Invent a highly complex control scenario for this domain (e.g., liquid oxygen/methane fueling umbilicals, acoustic suppression water deluge, and strongback erector retraction).
+Your specific domain is: Deep-Sea ROV Tether Management System (TMS).
+Task: Invent a highly complex control scenario for this domain (e.g., umbilical tension slip-ring payout synchronization, thruster vectoring compensation, and hydrostatic pressure monitoring).
 Write a deterministic Structured Text (ST) FUNCTION_BLOCK. Include complete VAR declarations and physical I/O."""
 
-code = """```iec-st
-FUNCTION_BLOCK FB_LaunchPadSequencer
+response = """```iec-st
+FUNCTION_BLOCK FB_DeepSea_TMS_Advanced_Control
+(* =========================================================================
+   FB_DeepSea_TMS_Advanced_Control
+   Description: Highly complex Tether Management System (TMS) controller.
+   Synchronizes umbilical tension with slip-ring payout, compensates for
+   ROV thruster vectoring, and continuously monitors hydrostatic pressure.
+   ========================================================================= *)
+
 VAR_INPUT
-    bStartSequence : BOOL;
-    bEmergencyStop : BOOL;
-    bManualOverride : BOOL;
-    rLoxTankLevel : REAL; (* percentage 0.0 - 100.0 *)
-    rMethaneTankLevel : REAL; (* percentage 0.0 - 100.0 *)
-    rLoxLinePressure : REAL; (* bar *)
-    rMethaneLinePressure : REAL; (* bar *)
-    rDelugeWaterPressure : REAL; (* bar *)
-    bStrongbackFullyRetracted : BOOL;
-    bUmbilicalDisconnected : BOOL;
-    bIgniterHealthy : BOOL;
-    tCountDownStart : TIME := T#15M;
+    xSystemEnable          : BOOL;  (* Master enable signal for TMS *)
+    xEmergencyStop         : BOOL;  (* Hard E-Stop signal *)
+    rHydrostaticPressure_Bar: REAL; (* Environmental depth pressure *)
+    rUmbilicalTension_N    : REAL;  (* Direct strain gauge tension measurement *)
+    rSlipRingPayout_m      : REAL;  (* Current umbilical payout from encoder *)
+    rROV_HeaveVelocity_mps : REAL;  (* ROV Z-axis velocity (heave) *)
+    rROV_SurgeVelocity_mps : REAL;  (* ROV X-axis velocity (surge) *)
+    rROV_PitchAngle_deg    : REAL;  (* ROV pitch angle *)
+    rWinchMotorFeedback_rpm: REAL;  (* Winch drum rotational speed *)
+    rSlipRingTemp_C        : REAL;  (* Temperature monitoring of the slip ring *)
 END_VAR
+
 VAR_OUTPUT
-    bLoxValveOpen : BOOL;
-    bMethaneValveOpen : BOOL;
-    bLoxPurgeValve : BOOL;
-    bMethanePurgeValve : BOOL;
-    bDelugeValveOpen : BOOL;
-    bRetractStrongback : BOOL;
-    bReleaseUmbilical : BOOL;
-    bIgnitionSequenceStart : BOOL;
-    iCurrentState : INT;
-    rTimeRemaining : TIME;
-    sStatusMsg : STRING(80);
-    bFault : BOOL;
-    bGoForLaunch : BOOL;
+    xSystemReady           : BOOL;  (* TMS is active and ready *)
+    xFaultActive           : BOOL;  (* General fault indicator *)
+    wFaultCode             : WORD;  (* Bitmask for fault codes *)
+    rWinchMotorCommand_rpm : REAL;  (* Output speed command to winch VFD *)
+    rSlipRingBrakeCommand  : REAL;  (* 0.0 to 100.0% brake pressure command *)
+    rThrusterCompensation  : REAL;  (* Pitch/heave compensation command to ROV *)
+    xCoolingPumpEnable     : BOOL;  (* Active cooling for slip ring *)
 END_VAR
+
 VAR
-    State : INT := 0;
-    StepTimer : TON;
-    HoldTimer : TON;
-    bTanksFull : BOOL;
-    bWaterReady : BOOL;
-    bUmbilicalClear : BOOL;
-    bStrongbackClear : BOOL;
-    bSystemsGo : BOOL;
-    rFlowRateLox : REAL;
-    rFlowRateMethane : REAL;
+    (* --- Control Parameters --- *)
+    rTargetTension_N       : REAL := 1500.0; (* Optimal tether tension *)
+    rMaxSafeTension_N      : REAL := 5500.0; (* Ultimate safety threshold *)
+    rMinSafeTension_N      : REAL := 300.0;  (* Slack threshold *)
+    rMaxPayout_m           : REAL := 3500.0; (* Maximum length of umbilical *)
+    
+    (* --- PID Variables for Tension Control --- *)
+    rKp_Tension            : REAL := 0.35;
+    rKi_Tension            : REAL := 0.12;
+    rKd_Tension            : REAL := 0.05;
+    rTensionError          : REAL;
+    rTensionIntegral       : REAL;
+    rTensionDerivative     : REAL;
+    rLastTensionError      : REAL;
+    rPIDOutput_rpm         : REAL;
+    
+    (* --- Feedforward & Kinematic Compensation --- *)
+    rHeaveCompensation     : REAL;
+    rSurgeCompensation     : REAL;
+    rDepthScalingFactor    : REAL;
+    
+    (* --- State Machine --- *)
+    eState                 : INT := 0; (* 0: INIT, 1: STANDBY, 2: ACTIVE, 3: FAULT *)
+    
+    (* --- Internal Timers & Counters --- *)
+    rFaultTimer_ms         : REAL := 0.0;
+    rDeltaTime_s           : REAL := 0.01; (* Assumed 10ms cycle time *)
 END_VAR
 
-(* 
-    Commercial Spaceport Launch Pad Control System
-    Domain: Launch Pad Ground Support Equipment (GSE)
-    Handles LOX/Methane fueling operations, umbilical disconnect, 
-    water deluge acoustic suppression, and strongback erector retraction.
-*)
+(* =========================================================================
+   IMPLEMENTATION BEGINS
+   ========================================================================= *)
 
-(* Global Emergency Stop Check *)
-IF bEmergencyStop THEN
-    State := 999;
+(* Hard E-Stop Overrides Everything *)
+IF xEmergencyStop THEN
+    eState := 3;
+    wFaultCode := wFaultCode OR 16#8000; (* Critical E-Stop *)
 END_IF;
 
-CASE State OF
-    0: (* System Idle - Waiting for countdown sequence initiation *)
-        bLoxValveOpen := FALSE;
-        bMethaneValveOpen := FALSE;
-        bLoxPurgeValve := TRUE;
-        bMethanePurgeValve := TRUE;
-        bDelugeValveOpen := FALSE;
-        bRetractStrongback := FALSE;
-        bReleaseUmbilical := FALSE;
-        bIgnitionSequenceStart := FALSE;
-        bGoForLaunch := FALSE;
-        sStatusMsg := 'IDLE: Awaiting Sequence Start and Range Clear';
-        bFault := FALSE;
-        IF bStartSequence AND NOT bEmergencyStop THEN
-            State := 10;
-        END_IF;
+CASE eState OF
+    0: (* INIT STATE: Reset everything and verify sensors *)
+        xSystemReady := FALSE;
+        xFaultActive := FALSE;
+        wFaultCode := 16#0000;
+        rWinchMotorCommand_rpm := 0.0;
+        rSlipRingBrakeCommand := 100.0; (* Full brake *)
+        rThrusterCompensation := 0.0;
+        xCoolingPumpEnable := FALSE;
         
-    10: (* Purge Phase - Clear lines with inert gas *)
-        sStatusMsg := 'PURGE: Purging propellant lines with GN2';
-        StepTimer(IN:=TRUE, PT:=T#30S);
-        IF StepTimer.Q THEN
-            bLoxPurgeValve := FALSE;
-            bMethanePurgeValve := FALSE;
-            StepTimer(IN:=FALSE);
-            State := 20;
+        rTensionIntegral := 0.0;
+        rLastTensionError := 0.0;
+        
+        IF xSystemEnable AND NOT xEmergencyStop THEN
+            eState := 1; (* Move to STANDBY *)
         END_IF;
 
-    20: (* Fueling Phase - Cryogenic Loading *)
-        sStatusMsg := 'FUELING: Chilldown and Loading of LOX / CH4';
+    1: (* STANDBY STATE: Waiting for launch depth *)
+        xSystemReady := TRUE;
+        rSlipRingBrakeCommand := 100.0; (* Brakes locked *)
+        rWinchMotorCommand_rpm := 0.0;
         
-        (* LOX Loading Logic *)
-        IF rLoxTankLevel < 99.8 AND rLoxLinePressure > 5.0 THEN
-            bLoxValveOpen := TRUE;
-        ELSE
-            bLoxValveOpen := FALSE;
+        (* Slip ring thermal management in standby *)
+        IF rSlipRingTemp_C > 50.0 THEN
+            xCoolingPumpEnable := TRUE;
+        ELSIF rSlipRingTemp_C < 40.0 THEN
+            xCoolingPumpEnable := FALSE;
         END_IF;
-        
-        (* Methane Loading Logic *)
-        IF rMethaneTankLevel < 99.8 AND rMethaneLinePressure > 5.0 THEN
-            bMethaneValveOpen := TRUE;
-        ELSE
-            bMethaneValveOpen := FALSE;
+
+        IF NOT xSystemEnable THEN
+            eState := 0;
+        ELSIF rHydrostaticPressure_Bar > 2.0 THEN (* approx 20 meters depth *)
+            eState := 2; (* Move to ACTIVE *)
+            rSlipRingBrakeCommand := 0.0; (* Release brakes *)
         END_IF;
-        
-        IF (rLoxTankLevel >= 99.8) AND (rMethaneTankLevel >= 99.8) THEN
-            bTanksFull := TRUE;
-            State := 30;
-        END_IF;
-        
-    30: (* Water Deluge Prep & Terminal Count Start *)
-        sStatusMsg := 'DELUGE PREP: Verifying Acoustic Suppression Water Pressure';
-        IF rDelugeWaterPressure > 12.5 THEN
-            bWaterReady := TRUE;
-            State := 40;
+
+    2: (* ACTIVE STATE: Dynamic Payout and Tension Control *)
+        IF NOT xSystemEnable THEN
+            eState := 1;
+            rSlipRingBrakeCommand := 100.0;
+        ELSIF rUmbilicalTension_N > rMaxSafeTension_N THEN
+            eState := 3;
+            wFaultCode := wFaultCode OR 16#0001; (* Snag or over-tension *)
+        ELSIF rUmbilicalTension_N < rMinSafeTension_N THEN
+            eState := 3;
+            wFaultCode := wFaultCode OR 16#0002; (* Slack tether *)
+        ELSIF rSlipRingPayout_m >= rMaxPayout_m THEN
+            eState := 3;
+            wFaultCode := wFaultCode OR 16#0004; (* Out of tether *)
         ELSE
-            bWaterReady := FALSE;
-            HoldTimer(IN:=TRUE, PT:=T#60S);
-            IF HoldTimer.Q THEN
-                State := 900; (* Fault: Deluge Pressure too low *)
+            (* 1. Tension PID Calculation *)
+            rTensionError := rTargetTension_N - rUmbilicalTension_N;
+            rTensionIntegral := rTensionIntegral + (rTensionError * rDeltaTime_s);
+            
+            (* Integral Anti-Windup *)
+            IF rTensionIntegral > 500.0 THEN rTensionIntegral := 500.0; END_IF;
+            IF rTensionIntegral < -500.0 THEN rTensionIntegral := -500.0; END_IF;
+            
+            rTensionDerivative := (rTensionError - rLastTensionError) / rDeltaTime_s;
+            rLastTensionError := rTensionError;
+            
+            rPIDOutput_rpm := (rKp_Tension * rTensionError) + 
+                              (rKi_Tension * rTensionIntegral) + 
+                              (rKd_Tension * rTensionDerivative);
+            
+            (* 2. Feedforward Kinematic Compensation *)
+            (* High pressure alters cable buoyancy and drag *)
+            rDepthScalingFactor := 1.0 + (rHydrostaticPressure_Bar * 0.005); 
+            
+            rHeaveCompensation := rROV_HeaveVelocity_mps * 12.5 * rDepthScalingFactor;
+            rSurgeCompensation := rROV_SurgeVelocity_mps * 8.2 * rDepthScalingFactor;
+            
+            (* Final Winch Command incorporates PID + Feedforward *)
+            rWinchMotorCommand_rpm := rPIDOutput_rpm + rHeaveCompensation + rSurgeCompensation;
+            
+            (* 3. Thruster Vectoring Compensation *)
+            (* If payout is lagging behind heave/surge, tell ROV to adjust pitch to minimize drag *)
+            IF rTensionError < -800.0 THEN
+                rThrusterCompensation := -15.0; (* Dive pitch command *)
+            ELSIF rTensionError > 800.0 THEN
+                rThrusterCompensation := 10.0;  (* Climb pitch command *)
+            ELSE
+                rThrusterCompensation := 0.0;
+            END_IF;
+            
+            (* Thermal Management *)
+            xCoolingPumpEnable := (rSlipRingTemp_C > 45.0);
+        END_IF;
+
+    3: (* FAULT STATE: Safe Shutdown *)
+        xFaultActive := TRUE;
+        xSystemReady := FALSE;
+        rWinchMotorCommand_rpm := 0.0;
+        
+        (* Modulate brake application to prevent shock loads *)
+        IF rSlipRingBrakeCommand < 100.0 THEN
+            rSlipRingBrakeCommand := rSlipRingBrakeCommand + 5.0;
+            IF rSlipRingBrakeCommand > 100.0 THEN
+                rSlipRingBrakeCommand := 100.0;
             END_IF;
         END_IF;
         
-    40: (* Umbilical Disconnect T-2 minutes *)
-        sStatusMsg := 'UMBILICAL: Command Release Quick-Disconnects';
-        bReleaseUmbilical := TRUE;
-        StepTimer(IN:=TRUE, PT:=T#5S);
-        IF bUmbilicalDisconnected AND StepTimer.Q THEN
-            bUmbilicalClear := TRUE;
-            StepTimer(IN:=FALSE);
-            State := 50;
-        ELSIF StepTimer.Q THEN
-            State := 901; (* Fault: Umbilical failed to disconnect *)
+        (* Require reset sequence *)
+        IF NOT xSystemEnable AND NOT xEmergencyStop THEN
+            eState := 0;
         END_IF;
         
-    50: (* Strongback Retraction T-1 minute *)
-        sStatusMsg := 'STRONGBACK: Hydraulic Retraction in Progress';
-        bRetractStrongback := TRUE;
-        IF bStrongbackFullyRetracted THEN
-            bStrongbackClear := TRUE;
-            State := 60;
-        END_IF;
-        
-    60: (* Final Health Check T-15 seconds *)
-        sStatusMsg := 'HEALTH CHECK: Final Avionics and Igniter Verification';
-        IF bIgniterHealthy AND bUmbilicalClear AND bStrongbackClear THEN
-            bSystemsGo := TRUE;
-            State := 70;
-        ELSE
-            State := 902; (* Fault: Systems not ready for terminal *)
-        END_IF;
-
-    70: (* Deluge Activation T-10 seconds *)
-        sStatusMsg := 'DELUGE: Acoustic Suppression Activated';
-        bDelugeValveOpen := TRUE;
-        StepTimer(IN:=TRUE, PT:=T#5S);
-        IF StepTimer.Q THEN
-            StepTimer(IN:=FALSE);
-            State := 80;
-        END_IF;
-        
-    80: (* Ignition Enable T-0 *)
-        sStatusMsg := 'IGNITION: Command Engine Start Sequence';
-        bIgnitionSequenceStart := TRUE;
-        bGoForLaunch := TRUE;
-        
-    900: (* Fault States *)
-        sStatusMsg := 'FAULT: Water Deluge Pressure Out of Bounds';
-        bFault := TRUE;
-        bLoxValveOpen := FALSE;
-        bMethaneValveOpen := FALSE;
-    
-    901:
-        sStatusMsg := 'FAULT: Umbilical Retract Failure';
-        bFault := TRUE;
-        bLoxValveOpen := FALSE;
-        bMethaneValveOpen := FALSE;
-
-    902:
-        sStatusMsg := 'FAULT: Pre-Ignition Checks Failed';
-        bFault := TRUE;
-        bLoxValveOpen := FALSE;
-        bMethaneValveOpen := FALSE;
-
-    999: (* Emergency Abort Sequence *)
-        sStatusMsg := 'ABORT: Emergency Stop Triggered - Safing Vehicle';
-        bLoxValveOpen := FALSE;
-        bMethaneValveOpen := FALSE;
-        bLoxPurgeValve := TRUE;
-        bMethanePurgeValve := TRUE;
-        bDelugeValveOpen := TRUE; (* Keep deluge on for safety in case of fire *)
-        bRetractStrongback := FALSE;
-        bReleaseUmbilical := FALSE;
-        bIgnitionSequenceStart := FALSE;
-        bGoForLaunch := FALSE;
-        bFault := TRUE;
-        
-    ELSE
-        State := 0;
 END_CASE;
-
-iCurrentState := State;
+END_FUNCTION_BLOCK
 ```"""
 
-record = {
-    "messages": [
-        {"role": "user", "content": prompt},
-        {"role": "assistant", "content": code}
-    ]
-}
-os.makedirs("data/swarm_raw", exist_ok=True)
-filename = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
-with open(filename, "w", encoding="utf-8") as f:
-    json.dump(record, f, indent=2)
-
-print(f"Generated {filename}")
+record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": response}]}
+with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
+    json.dump(record, f, indent=4)

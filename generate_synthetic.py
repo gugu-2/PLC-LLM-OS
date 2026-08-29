@@ -1,193 +1,229 @@
-import json, uuid, os
-content = """```iec-st
-FUNCTION_BLOCK FB_HydroTurbine_Control
+import json
+import uuid
+import os
+
+# Create swarm directory
+os.makedirs("data/swarm_raw", exist_ok=True)
+os.makedirs("data", exist_ok=True)
+
+prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 data.
+Your specific domain is: Fully Automated Electroplating Line.
+Task: Invent a highly complex control scenario for this domain (e.g., anodic oxidation current density profiling, hoist crane drag-out delay timing, and scrubber pH neutralization).
+Write a deterministic Structured Text (ST) FUNCTION_BLOCK. Include complete VAR declarations and physical I/O."""
+
+code = """```iec-st
+FUNCTION_BLOCK FB_ElectroplatingLineCtrl
 VAR_INPUT
-    bStartSeq : BOOL; (* Start sequence command *)
-    bStopSeq : BOOL; (* Stop sequence command *)
-    bEmergencyStop : BOOL; (* Emergency stop *)
-    rGridFreq : REAL; (* Grid frequency in Hz *)
-    rGridVoltage : REAL; (* Grid voltage in kV *)
-    rGenFreq : REAL; (* Generator frequency in Hz *)
-    rGenVoltage : REAL; (* Generator voltage in kV *)
-    rWaterHead : REAL; (* Net water head in meters *)
-    rFlowRate : REAL; (* Current flow rate m3/s *)
-    rLoadSetpoint : REAL; (* Desired MW load *)
+    bEnableLine : BOOL; // Main system enable
+    rHoistPositionX : REAL; // Crane horizontal position [mm]
+    rHoistPositionY : REAL; // Crane vertical position [mm]
+    bTank1_Ready : BOOL; // Cleaning tank ready
+    bTank2_Ready : BOOL; // Anodizing tank ready
+    rCurrentDensityFbk : REAL; // Feedback from rectifier [A/dm2]
+    rScrubber_pH : REAL; // Scrubber tank pH level
+    rPartSurfaceArea : REAL; // Calculated surface area of the batch [dm2]
 END_VAR
-
 VAR_OUTPUT
-    rWicketGatePos_SP : REAL; (* Setpoint for wicket gates % *)
-    rRunnerBladePos_SP : REAL; (* Setpoint for runner blades % *)
-    bSyncBreakerClose : BOOL; (* Command to close sync breaker *)
-    bExcitationEnable : BOOL; (* Enable generator excitation *)
-    bBrakeApply : BOOL; (* Apply mechanical brakes *)
-    iState : INT; (* Current state of sequence *)
-    bReadyToSync : BOOL; (* Generator ready to sync *)
-    bError : BOOL; (* Fault condition *)
-    iErrorCode : INT; (* Error code *)
+    bHoistMoveFwd : BOOL;
+    bHoistMoveRev : BOOL;
+    bHoistMoveUp : BOOL;
+    bHoistMoveDown : BOOL;
+    rRectifierSetpt : REAL; // Current setpoint to rectifier [A]
+    bRectifierEnable : BOOL;
+    rAcidDosingPump_Cmd : REAL; // Pump speed 0-100%
+    rBaseDosingPump_Cmd : REAL; // Pump speed 0-100%
+    iActiveState : INT; // Diagnostics
 END_VAR
-
 VAR
-    rtStart : R_TRIG;
-    rtStop : R_TRIG;
-    tSyncTimer : TON;
-    tBrakeTimer : TON;
-    tWaitTimer : TON;
+    // State Machine
+    eHoistState : INT := 0; // 0=IDLE, 1=PICK_UP, 2=MOVE_CLEAN, 3=CLEANING, 4=MOVE_ANODIZE, 5=ANODIZING, 6=DRAG_OUT, 7=MOVE_DROP, 8=DROP_OFF, 9=RETURN_HOME
     
-    rSpeedError : REAL;
-    rVoltError : REAL;
-    rPhaseDiff : REAL; (* Simulated phase difference *)
+    // Timers
+    tonCleanDelay : TON;
+    tonAnodizeDelay : TON;
+    tonDragOut : TON;
     
-    Kp_Speed : REAL := 2.5;
-    Ki_Speed : REAL := 0.5;
-    Kp_Volt : REAL := 1.2;
-    Ki_Volt : REAL := 0.3;
+    // Profiling
+    rRampRate : REAL := 0.5; // A/sec
+    rTargetDensity : REAL := 1.5; // A/dm2
+    rCurrentSetpt_Internal : REAL;
     
-    rSpeedIntegral : REAL := 0.0;
-    rVoltIntegral : REAL := 0.0;
+    // Scrubber PI Control
+    rError_pH : REAL;
+    rTarget_pH : REAL := 7.5;
+    rPropBand : REAL := 2.0;
+    rIntegral : REAL := 0.0;
+    rKi : REAL := 0.1;
     
-    rOptimalBladeAngle : REAL;
-    rMaxGatePos : REAL := 95.0;
+    // Constants
+    POS_HOME_X : REAL := 0.0;
+    POS_CLEAN_X : REAL := 2000.0;
+    POS_ANODIZE_X : REAL := 5000.0;
+    POS_DROP_X : REAL := 8000.0;
+    POS_UP_Y : REAL := 3000.0;
+    POS_DOWN_Y : REAL := 500.0;
+    POS_TOLERANCE : REAL := 5.0;
 END_VAR
 
-(* Main State Machine *)
-rtStart(CLK:= bStartSeq);
-rtStop(CLK:= bStopSeq);
+// Scrubber pH Neutralization Control (Continuous Process)
+rError_pH := rScrubber_pH - rTarget_pH;
+rIntegral := rIntegral + (rError_pH * rKi);
 
-IF bEmergencyStop THEN
-    iState := 99; (* Emergency state *)
+IF rIntegral > 100.0 THEN rIntegral := 100.0; END_IF;
+IF rIntegral < -100.0 THEN rIntegral := -100.0; END_IF;
+
+IF rError_pH > 0.5 THEN
+    rAcidDosingPump_Cmd := (rError_pH * rPropBand) + rIntegral;
+    rBaseDosingPump_Cmd := 0.0;
+ELSIF rError_pH < -0.5 THEN
+    rBaseDosingPump_Cmd := (ABS(rError_pH) * rPropBand) + ABS(rIntegral);
+    rAcidDosingPump_Cmd := 0.0;
+ELSE
+    rAcidDosingPump_Cmd := 0.0;
+    rBaseDosingPump_Cmd := 0.0;
 END_IF;
 
-CASE iState OF
-    0: (* IDLE *)
-        bSyncBreakerClose := FALSE;
-        bExcitationEnable := FALSE;
-        rWicketGatePos_SP := 0.0;
-        rRunnerBladePos_SP := 0.0;
-        IF rtStart.Q AND rWaterHead > 10.0 THEN
-            bBrakeApply := FALSE;
-            iState := 10;
-        END_IF;
-        
-    10: (* PRE-LUBE & AUXILIARIES *)
-        tWaitTimer(IN:= TRUE, PT:= T#5S);
-        IF tWaitTimer.Q THEN
-            tWaitTimer(IN:= FALSE);
-            iState := 20;
-        END_IF;
-        
-    20: (* ROLL-OFF & ACCELERATION *)
-        (* Open wicket gates slightly to overcome inertia *)
-        rWicketGatePos_SP := 15.0;
-        rRunnerBladePos_SP := 10.0;
-        IF rGenFreq > 5.0 THEN
-            iState := 30;
-        END_IF;
-        
-    30: (* SPEED-NO-LOAD CONTROL *)
-        rSpeedError := rGridFreq - rGenFreq;
-        rSpeedIntegral := rSpeedIntegral + (rSpeedError * 0.1);
-        rWicketGatePos_SP := (Kp_Speed * rSpeedError) + (Ki_Speed * rSpeedIntegral) + 20.0;
-        
-        IF rWicketGatePos_SP > 40.0 THEN
-            rWicketGatePos_SP := 40.0;
-        END_IF;
-        
-        IF ABS(rSpeedError) < 0.2 THEN
-            tWaitTimer(IN:= TRUE, PT:= T#10S);
-            IF tWaitTimer.Q THEN
-                tWaitTimer(IN:= FALSE);
-                iState := 40;
+// Limit outputs
+IF rAcidDosingPump_Cmd > 100.0 THEN rAcidDosingPump_Cmd := 100.0; END_IF;
+IF rBaseDosingPump_Cmd > 100.0 THEN rBaseDosingPump_Cmd := 100.0; END_IF;
+
+// Main Hoist and Process State Machine
+IF NOT bEnableLine THEN
+    eHoistState := 0;
+    bHoistMoveFwd := FALSE; bHoistMoveRev := FALSE;
+    bHoistMoveUp := FALSE; bHoistMoveDown := FALSE;
+    bRectifierEnable := FALSE;
+    rRectifierSetpt := 0.0;
+ELSE
+    CASE eHoistState OF
+        0: // IDLE
+            IF ABS(rHoistPositionX - POS_HOME_X) < POS_TOLERANCE AND ABS(rHoistPositionY - POS_UP_Y) < POS_TOLERANCE THEN
+                eHoistState := 1;
             END_IF;
-        ELSE
-            tWaitTimer(IN:= FALSE);
-        END_IF;
-        
-    40: (* EXCITATION AND VOLTAGE MATCHING *)
-        bExcitationEnable := TRUE;
-        rVoltError := rGridVoltage - rGenVoltage;
-        rVoltIntegral := rVoltIntegral + (rVoltError * 0.1);
-        
-        IF ABS(rVoltError) < 0.5 THEN
-            bReadyToSync := TRUE;
-            iState := 50;
-        END_IF;
-        
-    50: (* SYNCHRONIZATION *)
-        (* Assuming an external synchrocheck relay monitors phase angle *)
-        (* Here we simulate closing when conditions are met *)
-        tSyncTimer(IN:= bReadyToSync, PT:= T#2S);
-        IF tSyncTimer.Q THEN
-            bSyncBreakerClose := TRUE;
-            iState := 60;
-        END_IF;
-        
-    60: (* LOADED & 3D CAM RELATIONSHIP *)
-        (* Calculate optimal runner blade position based on net head and wicket gate position (Cam profile) *)
-        rOptimalBladeAngle := (rWicketGatePos_SP * 0.8) + (rWaterHead * 0.1);
-        IF rOptimalBladeAngle > 100.0 THEN
-            rOptimalBladeAngle := 100.0;
-        END_IF;
-        rRunnerBladePos_SP := rOptimalBladeAngle;
-        
-        (* Load control based on Setpoint *)
-        rWicketGatePos_SP := (rLoadSetpoint / 100.0) * rMaxGatePos;
-        
-        IF rtStop.Q THEN
-            iState := 70;
-        END_IF;
-        
-    70: (* UNLOADING *)
-        rWicketGatePos_SP := rWicketGatePos_SP - 0.5;
-        IF rWicketGatePos_SP <= 0.0 THEN
-            bSyncBreakerClose := FALSE;
-            bExcitationEnable := FALSE;
-            iState := 80;
-        END_IF;
-        
-    80: (* BRAKING *)
-        IF rGenFreq < 15.0 THEN
-            bBrakeApply := TRUE;
-        END_IF;
-        IF rGenFreq < 0.5 THEN
-            bBrakeApply := FALSE;
-            iState := 0;
-        END_IF;
-        
-    99: (* EMERGENCY SHUTDOWN *)
-        rWicketGatePos_SP := 0.0;
-        bSyncBreakerClose := FALSE;
-        bExcitationEnable := FALSE;
-        IF rGenFreq < 20.0 THEN
-            bBrakeApply := TRUE;
-        END_IF;
-        bError := TRUE;
-        iErrorCode := 1001;
-        
-END_CASE;
+            
+        1: // PICK_UP
+            bHoistMoveDown := TRUE; bHoistMoveUp := FALSE;
+            IF ABS(rHoistPositionY - POS_DOWN_Y) < POS_TOLERANCE THEN
+                bHoistMoveDown := FALSE;
+                eHoistState := 2;
+            END_IF;
+            
+        2: // MOVE_CLEAN
+            bHoistMoveUp := TRUE;
+            IF ABS(rHoistPositionY - POS_UP_Y) < POS_TOLERANCE THEN
+                bHoistMoveUp := FALSE;
+                bHoistMoveFwd := TRUE;
+                IF ABS(rHoistPositionX - POS_CLEAN_X) < POS_TOLERANCE THEN
+                    bHoistMoveFwd := FALSE;
+                    bHoistMoveDown := TRUE;
+                    IF ABS(rHoistPositionY - POS_DOWN_Y) < POS_TOLERANCE THEN
+                        bHoistMoveDown := FALSE;
+                        eHoistState := 3;
+                    END_IF;
+                END_IF;
+            END_IF;
+            
+        3: // CLEANING
+            tonCleanDelay(IN:= TRUE, PT:= T#120S);
+            IF tonCleanDelay.Q THEN
+                tonCleanDelay(IN:= FALSE);
+                eHoistState := 4;
+            END_IF;
+            
+        4: // MOVE_ANODIZE
+            bHoistMoveUp := TRUE;
+            IF ABS(rHoistPositionY - POS_UP_Y) < POS_TOLERANCE THEN
+                bHoistMoveUp := FALSE;
+                bHoistMoveFwd := TRUE;
+                IF ABS(rHoistPositionX - POS_ANODIZE_X) < POS_TOLERANCE THEN
+                    bHoistMoveFwd := FALSE;
+                    bHoistMoveDown := TRUE;
+                    IF ABS(rHoistPositionY - POS_DOWN_Y) < POS_TOLERANCE THEN
+                        bHoistMoveDown := FALSE;
+                        eHoistState := 5;
+                    END_IF;
+                END_IF;
+            END_IF;
+            
+        5: // ANODIZING
+            bRectifierEnable := TRUE;
+            // Anodic oxidation current density profiling
+            rCurrentSetpt_Internal := rCurrentSetpt_Internal + rRampRate;
+            IF rCurrentSetpt_Internal > (rTargetDensity * rPartSurfaceArea) THEN
+                rCurrentSetpt_Internal := rTargetDensity * rPartSurfaceArea;
+            END_IF;
+            rRectifierSetpt := rCurrentSetpt_Internal;
+            
+            tonAnodizeDelay(IN:= TRUE, PT:= T#600S);
+            IF tonAnodizeDelay.Q THEN
+                tonAnodizeDelay(IN:= FALSE);
+                bRectifierEnable := FALSE;
+                rRectifierSetpt := 0.0;
+                rCurrentSetpt_Internal := 0.0;
+                eHoistState := 6;
+            END_IF;
+            
+        6: // DRAG_OUT_DELAY
+            // Lift slightly above tank and hold for drag-out
+            bHoistMoveUp := TRUE;
+            IF ABS(rHoistPositionY - (POS_DOWN_Y + 500.0)) < POS_TOLERANCE THEN
+                bHoistMoveUp := FALSE;
+                tonDragOut(IN:= TRUE, PT:= T#15S); // Delay for dripping
+                IF tonDragOut.Q THEN
+                    tonDragOut(IN:= FALSE);
+                    eHoistState := 7;
+                END_IF;
+            END_IF;
+            
+        7: // MOVE_DROP
+            bHoistMoveUp := TRUE;
+            IF ABS(rHoistPositionY - POS_UP_Y) < POS_TOLERANCE THEN
+                bHoistMoveUp := FALSE;
+                bHoistMoveFwd := TRUE;
+                IF ABS(rHoistPositionX - POS_DROP_X) < POS_TOLERANCE THEN
+                    bHoistMoveFwd := FALSE;
+                    bHoistMoveDown := TRUE;
+                    IF ABS(rHoistPositionY - POS_DOWN_Y) < POS_TOLERANCE THEN
+                        bHoistMoveDown := FALSE;
+                        eHoistState := 8;
+                    END_IF;
+                END_IF;
+            END_IF;
+            
+        8: // DROP_OFF
+            // Logic to release part would go here
+            eHoistState := 9;
+            
+        9: // RETURN_HOME
+            bHoistMoveUp := TRUE;
+            IF ABS(rHoistPositionY - POS_UP_Y) < POS_TOLERANCE THEN
+                bHoistMoveUp := FALSE;
+                bHoistMoveRev := TRUE;
+                IF ABS(rHoistPositionX - POS_HOME_X) < POS_TOLERANCE THEN
+                    bHoistMoveRev := FALSE;
+                    eHoistState := 0;
+                END_IF;
+            END_IF;
+    END_CASE;
+END_IF;
+iActiveState := eHoistState;
 END_FUNCTION_BLOCK
 ```"""
 
 record = {
-    'messages': [
-        {
-            'role': 'user',
-            'content': 'You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 data.\nYour specific domain is: Multi-Megawatt Hydroelectric Turbine.\nTask: Invent a highly complex control scenario for this domain (e.g., Kaplan runner blade pitch adjustment, guide vane wicket gate sequencing, and generator synchronizing).\nWrite a deterministic Structured Text (ST) FUNCTION_BLOCK. Include complete VAR declarations and physical I/O.'
-        },
-        {
-            'role': 'assistant',
-            'content': content
-        }
+    "messages": [
+        {"role": "user", "content": prompt},
+        {"role": "assistant", "content": code}
     ]
 }
 
-os.makedirs('data/swarm_raw', exist_ok=True)
-filename = f'data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json'
-with open(filename, 'w', encoding='utf-8') as f:
-    json.dump(record, f)
+# Write to unique swarm_raw file
+filename = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
+with open(filename, "w", encoding="utf-8") as f:
+    json.dump(record, f, indent=2)
 
-# System instruction 5: Append this JSON object as a single line to data/synthetic_generation_v3_enterprise.jsonl
-os.makedirs('data', exist_ok=True)
-with open('data/synthetic_generation_v3_enterprise.jsonl', 'a', encoding='utf-8') as f:
-    f.write(json.dumps(record) + '\n')
-    
-print(filename)
+# Write to synthetic_generation_v3_enterprise.jsonl
+with open("data/synthetic_generation_v3_enterprise.jsonl", "a", encoding="utf-8") as f:
+    f.write(json.dumps(record) + "\\n")
+
+print(f"Generated and written successfully to {filename} and data/synthetic_generation_v3_enterprise.jsonl")

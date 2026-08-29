@@ -1,98 +1,228 @@
-import json, uuid, os
+import os
+import json
+import uuid
 
-st_code = """FUNCTION_BLOCK FB_WindFarmWakeSteering
+os.makedirs('data/swarm_raw', exist_ok=True)
+
+st_code = """```iec-st
+FUNCTION_BLOCK FB_Diaper_Web_Master_Control
+TITLE = 'High-Speed Diaper Web Converting & SAP Dosing Master Control'
+// 
+// This function block orchestrates the complex web handling,
+// ultrasonic bonding, SAP dosing, and rotary die cutting for
+// high-speed diaper manufacturing lines.
+//
+
 VAR_INPUT
-    bEnableWakeSteering : BOOL; (* Enable/Disable Wake Steering Optimization *)
-    rWindSpeed : REAL; (* Incoming Free-stream Wind Speed (m/s) *)
-    rWindDirection : REAL; (* Incoming Wind Direction (degrees) *)
-    rActivePowerDemand : REAL; (* Grid Active Power Demand (MW) *)
-    rGridFrequency : REAL; (* Grid Frequency (Hz) *)
-    rNominalFrequency : REAL := 50.0; (* Nominal Grid Frequency (Hz) *)
-    rDroopCoefficient : REAL := 0.04; (* Frequency Droop Coefficient *)
-    aTurbineStatus : ARRAY[1..10] OF BOOL; (* Status of each turbine (TRUE=OK) *)
+    bEnableLine           : BOOL;  // Main line enable
+    rMasterVelocity       : REAL;  // Master line speed in m/s
+    rTensionSetpoint      : REAL;  // Web tension setpoint in N
+    rActualTension        : REAL;  // Actual web tension feedback in N
+    rSAPTargetDosing      : REAL;  // Target SAP dosing in g/pad
+    rSAPActualFlow        : REAL;  // Actual SAP flow rate in g/s
+    bUltrasonicReady      : BOOL;  // Ultrasonic generator ready status
+    rBondingPressure      : REAL;  // Required bonding pressure in Bar
+    bRotaryDieHome        : BOOL;  // Rotary die cutter home position sensor
+    rProductLength        : REAL;  // Diaper product length in mm
 END_VAR
 
 VAR_OUTPUT
-    aYawMisalignmentTargets : ARRAY[1..10] OF REAL; (* Target Yaw Misalignment per turbine (degrees) *)
-    aPowerCurtailmentTargets : ARRAY[1..10] OF REAL; (* Target Active Power per turbine (MW) *)
-    bFrequencyResponseActive : BOOL; (* Droop control active *)
-    rTotalFarmPowerTarget : REAL; (* Total Wind Farm Power Target (MW) *)
+    bLineRunning          : BOOL;  // Line is actively running
+    bError                : BOOL;  // General error flag
+    iErrorCode            : INT;   // Error code for diagnostics
+    rTensionCtrlOut       : REAL;  // Speed trim for tension control (%)
+    rSAPDosingSpeedOut    : REAL;  // Speed reference for SAP screw feeder (RPM)
+    bUltrasonicEnable     : BOOL;  // Enable ultrasonic bonding
+    rBondingPressureOut   : REAL;  // Output to proportional valve for bonding pressure
+    rRotaryDiePhaseTrim   : REAL;  // Phase correction for rotary die cutter (degrees)
+    bCutterEngage         : BOOL;  // Engage die cutter
 END_VAR
 
 VAR
-    i : INT;
-    rFrequencyError : REAL;
-    rFrequencyPowerAdjustment : REAL;
-    rBaseFarmTarget : REAL;
-    aWakeDeflectionCoefficients : ARRAY[1..10, 1..10] OF REAL; (* Simplified interaction matrix *)
-    rMaxYawMisalignment : REAL := 25.0; (* Max allowable yaw misalignment (degrees) *)
-    rOptimalYaw : REAL;
-    rAvailablePowerPerTurbine : REAL := 5.0; (* Assume 5MW nominal per turbine *)
-    iActiveTurbines : INT;
+    // State Machine
+    iState                : INT := 0; 
+    
+    // PID for Tension Control
+    rTensionError         : REAL;
+    rTensionIntegral      : REAL;
+    rTensionDerivative    : REAL;
+    rTensionLastError     : REAL;
+    Kp_Tension            : REAL := 1.5;
+    Ki_Tension            : REAL := 0.2;
+    Kd_Tension            : REAL := 0.05;
+    
+    // SAP Dosing Control
+    rSAPError             : REAL;
+    rSAPIntegral          : REAL;
+    Kp_SAP                : REAL := 2.0;
+    Ki_SAP                : REAL := 0.5;
+    rSAPFeedForward       : REAL;
+    
+    // Rotary Die Registration
+    rVirtualMasterPos     : REAL;  // Virtual master position in mm
+    rCutPosition          : REAL;  // Calculated cut position
+    rPhaseError           : REAL;
+    Kp_Phase              : REAL := 0.1;
+    
+    // Timers & Filters
+    TMR_StartDelay        : TON;
+    TMR_BondingDwell      : TON;
+    rFilteredVelocity     : REAL;
 END_VAR
 
-(* 1. Calculate Grid Frequency Droop Response *)
-rFrequencyError := rNominalFrequency - rGridFrequency;
-IF ABS(rFrequencyError) > 0.05 THEN
-    bFrequencyResponseActive := TRUE;
-    (* P_delta = -(delta_f / (f_nom * Droop)) * P_nom *)
-    rFrequencyPowerAdjustment := (rFrequencyError / (rNominalFrequency * rDroopCoefficient)) * (10.0 * rAvailablePowerPerTurbine);
-ELSE
-    bFrequencyResponseActive := FALSE;
-    rFrequencyPowerAdjustment := 0.0;
-END_IF;
+// ==============================================================================
+// 1. STATE MACHINE FOR LINE CONTROL
+// ==============================================================================
+CASE iState OF
+    0: // STOPPED
+        bLineRunning := FALSE;
+        bUltrasonicEnable := FALSE;
+        bCutterEngage := FALSE;
+        rTensionCtrlOut := 0.0;
+        rSAPDosingSpeedOut := 0.0;
+        
+        IF bEnableLine THEN
+            iState := 10;
+            TMR_StartDelay(IN := FALSE);
+        END_IF;
+        
+    10: // STARTING UP - TENSION ESTABLISHMENT
+        TMR_StartDelay(IN := TRUE, PT := T#2S);
+        
+        // Tension PID calculation
+        rTensionError := rTensionSetpoint - rActualTension;
+        rTensionIntegral := rTensionIntegral + (rTensionError * 0.01); // 10ms task
+        rTensionDerivative := (rTensionError - rTensionLastError) / 0.01;
+        rTensionCtrlOut := (Kp_Tension * rTensionError) + (Ki_Tension * rTensionIntegral) + (Kd_Tension * rTensionDerivative);
+        rTensionLastError := rTensionError;
+        
+        // Limit tension control authority during startup
+        IF rTensionCtrlOut > 10.0 THEN rTensionCtrlOut := 10.0; END_IF;
+        IF rTensionCtrlOut < -10.0 THEN rTensionCtrlOut := -10.0; END_IF;
+        
+        IF TMR_StartDelay.Q THEN
+            iState := 20;
+        END_IF;
+        
+        IF NOT bEnableLine THEN iState := 0; END_IF;
 
-(* 2. Determine Total Farm Target *)
-rBaseFarmTarget := MIN(rActivePowerDemand, 10.0 * rAvailablePowerPerTurbine);
-rTotalFarmPowerTarget := LIMIT(0.0, rBaseFarmTarget + rFrequencyPowerAdjustment, 10.0 * rAvailablePowerPerTurbine);
-
-(* 3. Count Active Turbines *)
-iActiveTurbines := 0;
-FOR i := 1 TO 10 DO
-    IF aTurbineStatus[i] THEN
-        iActiveTurbines := iActiveTurbines + 1;
-    END_IF;
-END_FOR;
-
-(* 4. Dispatch Wake Steering and Power *)
-IF bEnableWakeSteering AND (iActiveTurbines > 0) THEN
-    (* Simplified Wake Steering Logic: Upstream turbines misalign to deflect wake *)
-    FOR i := 1 TO 10 DO
-        IF aTurbineStatus[i] THEN
-            (* Dummy algorithm: Turbines 1-3 are upstream for 270 deg wind *)
-            IF (rWindDirection > 250.0 AND rWindDirection < 290.0) AND (i <= 3) THEN
-                rOptimalYaw := rMaxYawMisalignment * (1.0 - (rWindSpeed / 25.0)); 
-                aYawMisalignmentTargets[i] := LIMIT(-rMaxYawMisalignment, rOptimalYaw, rMaxYawMisalignment);
-            ELSE
-                aYawMisalignmentTargets[i] := 0.0;
+    20: // RUNNING - FULL PRODUCTION
+        bLineRunning := TRUE;
+        bCutterEngage := TRUE;
+        
+        // --- TENSION CONTROL ---
+        rTensionError := rTensionSetpoint - rActualTension;
+        // Anti-windup
+        IF (rTensionCtrlOut < 100.0 AND rTensionCtrlOut > -100.0) THEN
+            rTensionIntegral := rTensionIntegral + (rTensionError * 0.01);
+        END_IF;
+        rTensionDerivative := (rTensionError - rTensionLastError) / 0.01;
+        rTensionCtrlOut := (Kp_Tension * rTensionError) + (Ki_Tension * rTensionIntegral) + (Kd_Tension * rTensionDerivative);
+        rTensionLastError := rTensionError;
+        
+        // --- SAP DOSING CONTROL (Feedforward + PI) ---
+        // Feedforward based on master line speed and target g/pad
+        // Assumes conversion factor from m/s and g/pad to screw RPM
+        rSAPFeedForward := rMasterVelocity * rSAPTargetDosing * 15.0; 
+        
+        rSAPError := (rMasterVelocity * rSAPTargetDosing * 1000.0 / rProductLength) - rSAPActualFlow;
+        rSAPIntegral := rSAPIntegral + (rSAPError * 0.01);
+        rSAPDosingSpeedOut := rSAPFeedForward + (Kp_SAP * rSAPError) + (Ki_SAP * rSAPIntegral);
+        
+        // Max limit on dosing
+        IF rSAPDosingSpeedOut > 3000.0 THEN rSAPDosingSpeedOut := 3000.0; END_IF;
+        IF rSAPDosingSpeedOut < 0.0 THEN rSAPDosingSpeedOut := 0.0; END_IF;
+        
+        // --- ULTRASONIC BONDING CONTROL ---
+        IF bUltrasonicReady AND (rMasterVelocity > 0.5) THEN
+            bUltrasonicEnable := TRUE;
+            // Modulate pressure based on speed (higher speed = slightly higher pressure)
+            rBondingPressureOut := rBondingPressure + (rMasterVelocity * 0.2);
+            IF rBondingPressureOut > 8.0 THEN rBondingPressureOut := 8.0; END_IF; // Max 8 bar
+        ELSE
+            bUltrasonicEnable := FALSE;
+            rBondingPressureOut := 0.0;
+        END_IF;
+        
+        // --- ROTARY DIE REGISTRATION ---
+        // Update virtual master position integration
+        rVirtualMasterPos := rVirtualMasterPos + (rMasterVelocity * 1000.0 * 0.01); // mm per 10ms
+        IF rVirtualMasterPos >= rProductLength THEN
+            rVirtualMasterPos := rVirtualMasterPos - rProductLength;
+        END_IF;
+        
+        // Simple phase correction when die is home
+        IF bRotaryDieHome THEN
+            // Die should be home at 0 position of the product length
+            rPhaseError := 0.0 - rVirtualMasterPos;
+            // Shortest path calculation
+            IF rPhaseError > (rProductLength / 2.0) THEN
+                rPhaseError := rPhaseError - rProductLength;
+            ELSIF rPhaseError < -(rProductLength / 2.0) THEN
+                rPhaseError := rPhaseError + rProductLength;
             END_IF;
             
-            (* Equal dispatch of power with compensation for wake *)
-            aPowerCurtailmentTargets[i] := rTotalFarmPowerTarget / INT_TO_REAL(iActiveTurbines);
+            // Convert linear error to rotary phase trim (assume 360 deg = 1 product length)
+            rRotaryDiePhaseTrim := (rPhaseError / rProductLength) * 360.0 * Kp_Phase;
         ELSE
-            aYawMisalignmentTargets[i] := 0.0;
-            aPowerCurtailmentTargets[i] := 0.0;
+            rRotaryDiePhaseTrim := 0.0;
         END_IF;
-    END_FOR;
-ELSE
-    (* Fallback to normal operation: 0 yaw misalignment, equal dispatch *)
-    FOR i := 1 TO 10 DO
-        aYawMisalignmentTargets[i] := 0.0;
-        IF aTurbineStatus[i] AND (iActiveTurbines > 0) THEN
-            aPowerCurtailmentTargets[i] := rTotalFarmPowerTarget / INT_TO_REAL(iActiveTurbines);
-        ELSE
-            aPowerCurtailmentTargets[i] := 0.0;
+        
+        IF NOT bEnableLine THEN iState := 30; END_IF;
+        
+        // Error monitoring
+        IF ABS(rTensionError) > (rTensionSetpoint * 0.5) THEN
+            iState := 99; // Error state
+            iErrorCode := 101; // Tension out of bounds
         END_IF;
-    END_FOR;
-END_IF;
+        
+    30: // STOPPING
+        bLineRunning := FALSE;
+        bCutterEngage := FALSE;
+        bUltrasonicEnable := FALSE;
+        rSAPDosingSpeedOut := 0.0;
+        
+        IF rMasterVelocity < 0.1 THEN
+            iState := 0;
+        END_IF;
+        
+    99: // ERROR STATE
+        bLineRunning := FALSE;
+        bError := TRUE;
+        bUltrasonicEnable := FALSE;
+        bCutterEngage := FALSE;
+        rTensionCtrlOut := 0.0;
+        rSAPDosingSpeedOut := 0.0;
+        rBondingPressureOut := 0.0;
+        
+        IF NOT bEnableLine THEN
+            bError := FALSE;
+            iErrorCode := 0;
+            iState := 0;
+        END_IF;
+        
+END_CASE;
 END_FUNCTION_BLOCK
-"""
+```"""
 
-prompt = "Invent a highly complex control scenario for Utility-Scale Wind Farm Wake Steering (e.g., yaw misalignment optimization for array efficiency, active power curtailment tracking, and grid frequency droop response). Write a deterministic Structured Text (ST) FUNCTION_BLOCK. Include complete VAR declarations and physical I/O."
-record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": f"```iec-st\n{st_code}\n```"}]}
+prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 data.
+Your specific domain is: High-Speed Diaper Manufacturing / Web Converting.
+Task: Invent a highly complex control scenario for this domain (e.g., non-woven material ultrasonic bonding, Super Absorbent Polymer (SAP) dosing cascades, and rotary die cutting registration).
+Write a deterministic Structured Text (ST) FUNCTION_BLOCK. Include complete VAR declarations and physical I/O.
 
-os.makedirs("c:/Users/majip/Downloads/LLM REASEARCH/data/swarm_raw", exist_ok=True)
-filename = f"c:/Users/majip/Downloads/LLM REASEARCH/data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
-with open(filename, "w", encoding="utf-8") as f:
+CRITICAL RULES:
+1. You MUST output the code enclosed in a ```iec-st markdown code fence. DO NOT APOLOGIZE. DO NOT EXPLAIN.
+2. The code must be >= 1500 chars, with FUNCTION_BLOCK and VAR_INPUT/VAR_OUTPUT."""
+
+record = {
+    "messages": [
+        {"role": "user", "content": prompt},
+        {"role": "assistant", "content": st_code}
+    ]
+}
+
+filepath = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
+with open(filepath, "w", encoding="utf-8") as f:
     json.dump(record, f, indent=2)
-print(f"Saved to {filename}")
+
+print(f"Success. File written to: {os.path.abspath(filepath)}")

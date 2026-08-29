@@ -1,169 +1,186 @@
 import json, uuid, os
 
-os.makedirs("data/swarm_raw", exist_ok=True)
-os.makedirs("data", exist_ok=True)
+prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 data.
+Your specific domain is: Solar Thermal Molten Salt Storage System.
+Task: Invent a highly complex control scenario for this domain (e.g., cold/hot tank level mass balancing, freeze protection heat tracing cascades, and heat exchanger bypass).
+Write a deterministic Structured Text (ST) FUNCTION_BLOCK. Include complete VAR declarations and physical I/O.
+"""
 
-prompt = "You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 data.\nYour specific domain is: High-Speed Automated People Mover (APM).\nTask: Invent a highly complex control scenario for this domain (e.g., guideway switching interlocks, station platform screen door synchronization, and CBTC communication handoffs).\nWrite a deterministic Structured Text (ST) FUNCTION_BLOCK. Include complete VAR declarations and physical I/O."
+st_code = """```iec-st
+FUNCTION_BLOCK FB_MoltenSaltStorageManager
+TITLE = 'Solar Thermal Molten Salt Storage Mass Balancing and Freeze Protection'
+VERSION : '1.0'
+AUTHOR : 'Lumina AI Cloud Swarm'
 
-code = """```iec-st
-FUNCTION_BLOCK FB_APM_Guideway_Control
 VAR_INPUT
-    bStart_Sequence : BOOL; // Start train sequence
-    bTrain_At_Station : BOOL; // Train presence detected
-    bDoors_Closed_Train : BOOL; // Train doors fully closed
-    bDoors_Closed_Platform : BOOL; // Platform screen doors closed
-    rTrain_Speed : REAL; // Current train speed in m/s
-    bGuideway_Switch_Lock : BOOL; // Lock signal from guideway switch
-    bCBTC_Comm_OK : BOOL; // Communication status with CBTC
-    rDistance_To_Next_Zone : REAL; // Distance to the next control zone
-    bEmergency_Stop : BOOL; // Emergency stop request
-    bPower_Rail_Active : BOOL; // Traction power status
+    bSystemEnable : BOOL; // Main system enable
+    rHotTankLevel : REAL; // Current hot tank level (%)
+    rColdTankLevel : REAL; // Current cold tank level (%)
+    rHotTankTemp : REAL; // Hot tank temperature (C)
+    rColdTankTemp : REAL; // Cold tank temperature (C)
+    rReceiverTemp : REAL; // Receiver outlet temperature (C)
+    rTargetHotTemp : REAL; // Target hot temperature for salt (C)
+    rAmbientTemp : REAL; // Ambient temperature (C)
+    bEmergencyStop : BOOL; // Emergency stop signal
+    bGridDemandHigh : BOOL; // High power demand from grid
+    bSolarFieldReady : BOOL; // Solar field is focused and ready
 END_VAR
 
 VAR_OUTPUT
-    bAllow_Departure : BOOL; // Signal to allow train departure
-    bOpen_Platform_Doors : BOOL; // Command to open platform doors
-    bOpen_Train_Doors : BOOL; // Command to open train doors
-    bEngage_Traction : BOOL; // Command to engage traction motors
-    rTarget_Speed : REAL; // Target speed command to CBTC
-    bTrigger_E_Brake : BOOL; // Command to engage emergency brake
-    bSwitch_Req : BOOL; // Request guideway switch operation
-    iSystem_State : INT; // Current state of the APM controller
-    bAlarm_Comm_Loss : BOOL; // Alarm for CBTC communication loss
-    bAlarm_Door_Sync : BOOL; // Alarm for door synchronization failure
+    bPumpColdToReceiver : BOOL; // Enable cold salt pump to receiver
+    rColdPumpSpeed : REAL; // Cold salt pump speed command (0-100%)
+    bPumpHotToGenerator : BOOL; // Enable hot salt pump to steam generator
+    rHotPumpSpeed : REAL; // Hot salt pump speed command (0-100%)
+    bHeatTracingHotPipes : BOOL; // Enable electrical heat tracing on hot piping
+    bHeatTracingColdPipes : BOOL; // Enable electrical heat tracing on cold piping
+    bReceiverBypassValve : BOOL; // Open receiver bypass (recirculation)
+    rSystemStateCode : INT; // Current system state code
+    bSystemFault : BOOL; // General fault flag
 END_VAR
 
 VAR
-    Tmr_Door_Sync : TON;
-    Tmr_Comm_Loss : TON;
-    Tmr_Departure_Delay : TON;
-    bState_Init : BOOL := TRUE;
-    iState : INT := 0; 
-    // 0: Init, 1: Arriving, 2: Docked, 3: Doors Open, 4: Boarding Complete, 5: Departing, 99: Fault
-    bDoor_Opening_Seq : BOOL;
-    bDeparture_Seq : BOOL;
+    rMassBalanceError : REAL;
+    rTempDifferential : REAL;
+    tFreezeTimer : TON;
+    tBypassTimer : TON;
+    bFreezeWarning : BOOL;
+    rSaltFreezeTemp : REAL := 220.0; // Salt freezes below this temp (C)
+    rSafeMargin : REAL := 20.0; // Safety margin for freeze protection (C)
+    bIsCharging : BOOL;
+    bIsDischarging : BOOL;
 END_VAR
 
-// -----------------------------------------------------------------------------
-// TIMER LOGIC
-// -----------------------------------------------------------------------------
-Tmr_Door_Sync(IN := bDoor_Opening_Seq AND NOT (bDoors_Closed_Train AND bDoors_Closed_Platform), PT := T#5S);
-Tmr_Comm_Loss(IN := NOT bCBTC_Comm_OK, PT := T#1S);
-Tmr_Departure_Delay(IN := bDeparture_Seq, PT := T#3S);
-
-// -----------------------------------------------------------------------------
-// EMERGENCY AND FAULT MONITORING
-// -----------------------------------------------------------------------------
-IF bEmergency_Stop THEN
-    bTrigger_E_Brake := TRUE;
-    bAllow_Departure := FALSE;
-    bEngage_Traction := FALSE;
-    rTarget_Speed := 0.0;
-    iState := 99;
-ELSIF Tmr_Comm_Loss.Q THEN
-    bAlarm_Comm_Loss := TRUE;
-    bTrigger_E_Brake := TRUE;
-    bAllow_Departure := FALSE;
-    rTarget_Speed := 0.0;
-    iState := 99;
+// Implementation Details
+IF bEmergencyStop THEN
+    bPumpColdToReceiver := FALSE;
+    bPumpHotToGenerator := FALSE;
+    rColdPumpSpeed := 0.0;
+    rHotPumpSpeed := 0.0;
+    bReceiverBypassValve := TRUE; // Fail-safe to bypass
+    bHeatTracingHotPipes := TRUE; // Keep pipes warm to prevent freezing during e-stop
+    bHeatTracingColdPipes := TRUE;
+    rSystemStateCode := 999;
+    bSystemFault := TRUE;
+    RETURN;
 END_IF;
 
-// -----------------------------------------------------------------------------
-// MAIN STATE MACHINE
-// -----------------------------------------------------------------------------
-CASE iState OF
-    0: // Initialization
-        bAllow_Departure := FALSE;
-        bOpen_Platform_Doors := FALSE;
-        bOpen_Train_Doors := FALSE;
-        bEngage_Traction := FALSE;
-        rTarget_Speed := 0.0;
-        IF bCBTC_Comm_OK AND bPower_Rail_Active AND NOT bEmergency_Stop THEN
-            iState := 1;
-        END_IF;
+IF NOT bSystemEnable THEN
+    bPumpColdToReceiver := FALSE;
+    bPumpHotToGenerator := FALSE;
+    rColdPumpSpeed := 0.0;
+    rHotPumpSpeed := 0.0;
+    rSystemStateCode := 0; // Off state
+    
+    // Check freeze protection even when off
+    bHeatTracingHotPipes := (rHotTankTemp < (rSaltFreezeTemp + rSafeMargin));
+    bHeatTracingColdPipes := (rColdTankTemp < (rSaltFreezeTemp + rSafeMargin));
+    RETURN;
+END_IF;
 
-    1: // Arriving
-        IF bTrain_At_Station AND (rTrain_Speed < 0.1) THEN
-            rTarget_Speed := 0.0;
-            bEngage_Traction := FALSE;
-            iState := 2; // Transition to Docked
-        ELSE
-            rTarget_Speed := 15.0; // Approach speed
-            bEngage_Traction := TRUE;
-        END_IF;
+// Reset fault if we get here
+bSystemFault := FALSE;
 
-    2: // Docked
-        IF bTrain_At_Station AND (rTrain_Speed = 0.0) THEN
-            bDoor_Opening_Seq := TRUE;
-            bOpen_Platform_Doors := TRUE;
-            bOpen_Train_Doors := TRUE;
-            IF NOT bDoors_Closed_Train AND NOT bDoors_Closed_Platform THEN
-                bDoor_Opening_Seq := FALSE;
-                iState := 3;
-            ELSIF Tmr_Door_Sync.Q THEN
-                bAlarm_Door_Sync := TRUE;
-                iState := 99; // Fault due to door failure
-            END_IF;
-        END_IF;
+// 1. Freeze Protection Logic
+bFreezeWarning := (rAmbientTemp < 5.0) OR (rHotTankTemp < (rSaltFreezeTemp + rSafeMargin)) OR (rColdTankTemp < (rSaltFreezeTemp + rSafeMargin));
+tFreezeTimer(IN:= bFreezeWarning, PT:= T#30s);
 
-    3: // Doors Open / Boarding
-        IF bStart_Sequence THEN
-            bOpen_Platform_Doors := FALSE;
-            bOpen_Train_Doors := FALSE;
-            IF bDoors_Closed_Train AND bDoors_Closed_Platform THEN
-                iState := 4;
-            END_IF;
-        END_IF;
+IF tFreezeTimer.Q THEN
+    bHeatTracingHotPipes := TRUE;
+    bHeatTracingColdPipes := TRUE;
+    // If temp drops critically, activate circulation pump to prevent line freezing
+    IF rHotTankTemp < (rSaltFreezeTemp + 10.0) THEN
+        bPumpHotToGenerator := TRUE;
+        rHotPumpSpeed := 15.0; // Low speed circulation
+    END_IF;
+ELSE
+    bHeatTracingHotPipes := FALSE;
+    bHeatTracingColdPipes := FALSE;
+END_IF;
 
-    4: // Boarding Complete, Awaiting Guideway
-        IF bGuideway_Switch_Lock AND (rDistance_To_Next_Zone > 500.0) THEN
-            bDeparture_Seq := TRUE;
-            IF Tmr_Departure_Delay.Q THEN
-                bDeparture_Seq := FALSE;
-                bAllow_Departure := TRUE;
-                iState := 5;
-            END_IF;
-        ELSE
-            bSwitch_Req := TRUE; // Request switch ahead
-        END_IF;
-        
-    5: // Departing
-        bAllow_Departure := TRUE;
-        bEngage_Traction := TRUE;
-        rTarget_Speed := 25.0; // Nominal cruising speed
-        
-        IF NOT bTrain_At_Station THEN
-            // Train has left the station
-            bAllow_Departure := FALSE;
-            iState := 1; // Reset to arriving for next station/zone block
-        END_IF;
+// 2. Solar Field Charging Logic (Cold -> Receiver -> Hot)
+IF bSolarFieldReady AND (rHotTankLevel < 95.0) AND (rColdTankLevel > 5.0) THEN
+    bIsCharging := TRUE;
+    bPumpColdToReceiver := TRUE;
+    
+    // PID-like flow control based on receiver outlet temperature
+    rTempDifferential := rTargetHotTemp - rReceiverTemp;
+    
+    IF rTempDifferential > 10.0 THEN
+        // Receiver too cold, slow down pump to allow more heating
+        rColdPumpSpeed := 30.0;
+        bReceiverBypassValve := TRUE; // Recirculate until up to temp
+    ELSIF rTempDifferential < -10.0 THEN
+        // Receiver too hot, speed up pump
+        rColdPumpSpeed := 90.0;
+        bReceiverBypassValve := FALSE;
+    ELSE
+        // Ideal temperature range
+        rColdPumpSpeed := 60.0;
+        bReceiverBypassValve := FALSE;
+    END_IF;
+    
+    // Delayed bypass closure
+    tBypassTimer(IN:= (rTempDifferential <= 10.0), PT:= T#2m);
+    IF tBypassTimer.Q THEN
+        bReceiverBypassValve := FALSE;
+    END_IF;
+ELSE
+    bIsCharging := FALSE;
+    bPumpColdToReceiver := FALSE;
+    rColdPumpSpeed := 0.0;
+    bReceiverBypassValve := TRUE; // Default to bypass when not actively charging
+END_IF;
 
-    99: // Fault State
-        bEngage_Traction := FALSE;
-        bAllow_Departure := FALSE;
-        rTarget_Speed := 0.0;
-        bOpen_Platform_Doors := FALSE;
-        bOpen_Train_Doors := FALSE;
-        
-        // Requires manual reset or remote command to clear
-        IF bCBTC_Comm_OK AND NOT bEmergency_Stop AND NOT bAlarm_Door_Sync THEN
-            iState := 0; // Attempt auto-recovery to init
-            bTrigger_E_Brake := FALSE;
-            bAlarm_Comm_Loss := FALSE;
-        END_IF;
-        
-END_CASE;
+// 3. Discharge Logic (Hot -> Steam Generator -> Cold)
+IF bGridDemandHigh AND (rHotTankLevel > 5.0) THEN
+    bIsDischarging := TRUE;
+    bPumpHotToGenerator := TRUE;
+    rHotPumpSpeed := 85.0; // Max flow for high demand
+ELSIF (NOT bGridDemandHigh) AND (rHotTankLevel > 10.0) THEN
+    bIsDischarging := TRUE;
+    bPumpHotToGenerator := TRUE;
+    rHotPumpSpeed := 40.0; // Base load flow
+ELSE
+    bIsDischarging := FALSE;
+    // Don't turn off if freeze protection circulation is active
+    IF NOT (tFreezeTimer.Q AND (rHotTankTemp < (rSaltFreezeTemp + 10.0))) THEN
+        bPumpHotToGenerator := FALSE;
+        rHotPumpSpeed := 0.0;
+    END_IF;
+END_IF;
 
-// State Output
-iSystem_State := iState;
+// 4. Mass Balancing / Safety Cross-checks
+rMassBalanceError := (rHotTankLevel + rColdTankLevel) - 100.0;
+IF ABS(rMassBalanceError) > 5.0 THEN
+    // Mass loss detected (potential leak or sensor failure)
+    bSystemFault := TRUE;
+    bPumpColdToReceiver := FALSE;
+    bPumpHotToGenerator := FALSE;
+    rColdPumpSpeed := 0.0;
+    rHotPumpSpeed := 0.0;
+    rSystemStateCode := 888; // Leak fault
+    RETURN;
+END_IF;
+
+// State Assignment
+IF bIsCharging AND bIsDischarging THEN
+    rSystemStateCode := 3; // Simultaneous charge/discharge
+ELSIF bIsCharging THEN
+    rSystemStateCode := 1; // Charging only
+ELSIF bIsDischarging THEN
+    rSystemStateCode := 2; // Discharging only
+ELSE
+    rSystemStateCode := 4; // Standby
+END_IF;
 
 END_FUNCTION_BLOCK
 ```"""
 
-record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
+record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": st_code}]}
 
-with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
+os.makedirs("data/swarm_raw", exist_ok=True)
+filename = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
+with open(filename, "w", encoding="utf-8") as f:
     json.dump(record, f)
 
-with open("data/synthetic_generation_v3_enterprise.jsonl", "a", encoding="utf-8") as f:
-    f.write(json.dumps(record) + "\\n")
+print(f"File saved to {filename}")
