@@ -1,145 +1,185 @@
-import json
-import uuid
-import os
+import json, uuid, os
 
-os.makedirs('data/swarm_raw', exist_ok=True)
+os.makedirs("data/swarm_raw", exist_ok=True)
+prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 data.
+Your specific domain is: Commercial Coffee Freeze-Drying (Lyophilization).
+Task: Invent a highly complex control scenario for this domain (e.g., sublimation vacuum chamber pressure profiling, radiant heating shelf thermal zones, and condenser ice loading limit).
+Write a deterministic Structured Text (ST) FUNCTION_BLOCK. Include complete VAR declarations and physical I/O."""
 
-prompt = "Invent a highly complex control scenario for a Geothermal Power Plant (e.g., steam flash separator pressure loop and brine reinjection). Write a deterministic Structured Text (ST) FUNCTION_BLOCK. Include complete VAR declarations and physical I/O."
-
-st_code = """
-FUNCTION_BLOCK FB_Geothermal_Flash_Separator
+code = """```iec-st
+FUNCTION_BLOCK FB_CoffeeLyophilizer
 VAR_INPUT
-    rSeparatorPressure_bar : REAL; // Current pressure of the flash separator (bar)
-    rSeparatorLevel_m      : REAL; // Brine level in the separator (meters)
-    rInletTemperature_C    : REAL; // Two-phase fluid inlet temperature (Celsius)
-    rSteamFlowRate_kgs     : REAL; // Steam flow rate to turbine (kg/s)
-    bSystemEnable          : BOOL; // Master enable signal
-    bEmergencyStop         : BOOL; // E-Stop condition (active high)
+    bStartCycle : BOOL;
+    bEmergencyStop : BOOL;
+    rChamberPressure : REAL; (* Current chamber pressure in mTorr *)
+    rCondenserTemp : REAL; (* Condenser temperature in Celsius *)
+    rShelfTemp_Zone1 : REAL; (* Shelf 1 temperature in Celsius *)
+    rShelfTemp_Zone2 : REAL; (* Shelf 2 temperature in Celsius *)
+    rProductTemp_Avg : REAL; (* Average product temperature from RTDs *)
+    rTargetPressure : REAL; (* Target pressure setpoint *)
+    rTargetShelfTemp : REAL; (* Target shelf temperature setpoint *)
+    tPrimaryDryingTime : TIME := T#24H;
+    tSecondaryDryingTime : TIME := T#6H;
 END_VAR
+
 VAR_OUTPUT
-    rSteamValveCmd_pct     : REAL; // Control valve command for steam to turbine (0-100%)
-    rBrineValveCmd_pct     : REAL; // Control valve command for brine reinjection (0-100%)
-    bHighPressureAlarm     : BOOL; // Alarm: Separator pressure critically high
-    bHighLevelAlarm        : BOOL; // Alarm: Separator brine level critically high
-    bLowLevelAlarm         : BOOL; // Alarm: Separator brine level critically low
-    bReinjectionPumpCmd    : BOOL; // Command to start brine reinjection pump
-    bSystemFault           : BOOL; // Fault flag active
+    bVacuumPumpRun : BOOL;
+    rVacuumValvePos : REAL; (* 0-100% position *)
+    bCompressorRun : BOOL;
+    rHeatingValve_Zone1 : REAL; (* 0-100% heating valve *)
+    rHeatingValve_Zone2 : REAL; (* 0-100% heating valve *)
+    rCoolingValve_Zone1 : REAL; (* 0-100% cooling valve *)
+    rCoolingValve_Zone2 : REAL; (* 0-100% cooling valve *)
+    eState : INT; (* 0: Idle, 1: Freezing, 2: Primary Drying, 3: Secondary Drying, 4: Complete, 5: Fault *)
+    bAlarm : BOOL;
+    sStatusMessage : STRING[50];
 END_VAR
+
 VAR
-    // PID parameters for Pressure Control
-    kp_Press               : REAL := 1.25;
-    ki_Press               : REAL := 0.05;
-    kd_Press               : REAL := 0.01;
-    rPressSetPoint         : REAL := 6.5; // Target pressure in bar
-    rPressError            : REAL;
-    rPressIntegral         : REAL := 0.0;
-    rPressDerivative       : REAL;
-    rPressLastError        : REAL := 0.0;
-    
-    // PID parameters for Level Control
-    kp_Level               : REAL := 2.0;
-    ki_Level               : REAL := 0.1;
-    kd_Level               : REAL := 0.02;
-    rLevelSetPoint         : REAL := 1.5; // Target level in meters
-    rLevelError            : REAL;
-    rLevelIntegral         : REAL := 0.0;
-    rLevelDerivative       : REAL;
-    rLevelLastError        : REAL := 0.0;
-    
-    // Internal States & Timers
-    tCycleTime             : REAL := 0.1; // 100ms cycle time
-    rPressOut              : REAL;
-    rLevelOut              : REAL;
+    tCycleTimer : TON;
+    rPressureError : REAL;
+    rShelfTempError1 : REAL;
+    rShelfTempError2 : REAL;
+    PID_Vacuum : FB_PID;
+    PID_Shelf1 : FB_PID;
+    PID_Shelf2 : FB_PID;
+    bInitialize : BOOL := TRUE;
 END_VAR
 
-// Initialization and Safety Checks
+(* Implementation *)
 IF bEmergencyStop THEN
-    rSteamValveCmd_pct := 0.0;
-    rBrineValveCmd_pct := 0.0;
-    bReinjectionPumpCmd := FALSE;
-    bSystemFault := TRUE;
-    // Reset integrals
-    rPressIntegral := 0.0;
-    rLevelIntegral := 0.0;
+    eState := 5;
+    bAlarm := TRUE;
+    sStatusMessage := 'EMERGENCY STOP';
+    bVacuumPumpRun := FALSE;
+    bCompressorRun := FALSE;
+    rVacuumValvePos := 0.0;
+    rHeatingValve_Zone1 := 0.0;
+    rHeatingValve_Zone2 := 0.0;
+    rCoolingValve_Zone1 := 100.0; (* Failsafe cool *)
+    rCoolingValve_Zone2 := 100.0;
     RETURN;
 END_IF;
 
-IF NOT bSystemEnable THEN
-    rSteamValveCmd_pct := 0.0;
-    rBrineValveCmd_pct := 0.0;
-    bReinjectionPumpCmd := FALSE;
-    bSystemFault := FALSE;
-    rPressIntegral := 0.0;
-    rLevelIntegral := 0.0;
-    RETURN;
+IF bInitialize THEN
+    PID_Vacuum.Kp := 0.5;
+    PID_Vacuum.Ki := 0.1;
+    PID_Vacuum.Kd := 0.05;
+    
+    PID_Shelf1.Kp := 1.2;
+    PID_Shelf1.Ki := 0.2;
+    PID_Shelf1.Kd := 0.1;
+    
+    PID_Shelf2.Kp := 1.2;
+    PID_Shelf2.Ki := 0.2;
+    PID_Shelf2.Kd := 0.1;
+    
+    bInitialize := FALSE;
 END_IF;
 
-// Alarms Evaluation
-bHighPressureAlarm := rSeparatorPressure_bar > 8.0;
-bHighLevelAlarm := rSeparatorLevel_m > 2.5;
-bLowLevelAlarm := rSeparatorLevel_m < 0.5;
+CASE eState OF
+    0: (* Idle *)
+        IF bStartCycle THEN
+            eState := 1; (* Move to Freezing *)
+            sStatusMessage := 'Freezing Phase';
+            bCompressorRun := TRUE;
+        END_IF;
+        
+    1: (* Freezing *)
+        (* Deep freeze the product below eutectic point *)
+        IF rProductTemp_Avg < -40.0 THEN
+            eState := 2; (* Move to Primary Drying *)
+            sStatusMessage := 'Primary Drying (Sublimation)';
+            bVacuumPumpRun := TRUE;
+            tCycleTimer(IN := FALSE); (* Reset timer *)
+        END_IF;
+        
+    2: (* Primary Drying - Sublimation *)
+        tCycleTimer(IN := TRUE, PT := tPrimaryDryingTime);
+        
+        (* Pressure Control via Vacuum Valve *)
+        PID_Vacuum(
+            rSetpoint := rTargetPressure,
+            rProcessValue := rChamberPressure,
+            rOutput => rVacuumValvePos
+        );
+        
+        (* Shelf Heating Control *)
+        PID_Shelf1(
+            rSetpoint := rTargetShelfTemp,
+            rProcessValue := rShelfTemp_Zone1,
+            rOutput => rHeatingValve_Zone1
+        );
+        PID_Shelf2(
+            rSetpoint := rTargetShelfTemp,
+            rProcessValue := rShelfTemp_Zone2,
+            rOutput => rHeatingValve_Zone2
+        );
+        
+        IF tCycleTimer.Q THEN
+            eState := 3; (* Move to Secondary Drying *)
+            sStatusMessage := 'Secondary Drying (Desorption)';
+            tCycleTimer(IN := FALSE);
+        END_IF;
+        
+    3: (* Secondary Drying - Desorption *)
+        tCycleTimer(IN := TRUE, PT := tSecondaryDryingTime);
+        
+        (* Higher temperature, lower pressure *)
+        PID_Vacuum(
+            rSetpoint := rTargetPressure / 2.0,
+            rProcessValue := rChamberPressure,
+            rOutput => rVacuumValvePos
+        );
+        
+        PID_Shelf1(
+            rSetpoint := rTargetShelfTemp + 10.0,
+            rProcessValue := rShelfTemp_Zone1,
+            rOutput => rHeatingValve_Zone1
+        );
+        PID_Shelf2(
+            rSetpoint := rTargetShelfTemp + 10.0,
+            rProcessValue := rShelfTemp_Zone2,
+            rOutput => rHeatingValve_Zone2
+        );
+        
+        IF tCycleTimer.Q THEN
+            eState := 4; (* Complete *)
+            sStatusMessage := 'Cycle Complete';
+            bVacuumPumpRun := FALSE;
+            rVacuumValvePos := 0.0;
+        END_IF;
+        
+    4: (* Complete *)
+        rHeatingValve_Zone1 := 0.0;
+        rHeatingValve_Zone2 := 0.0;
+        IF NOT bStartCycle THEN
+            eState := 0;
+            sStatusMessage := 'Idle';
+        END_IF;
+        
+    5: (* Fault *)
+        (* Fault logic already handled by e-stop, additional monitoring could go here *)
+        IF NOT bEmergencyStop THEN
+            bAlarm := FALSE;
+            eState := 0;
+        END_IF;
+END_CASE;
 
-IF bHighPressureAlarm OR bHighLevelAlarm THEN
-    bSystemFault := TRUE;
-ELSE
-    bSystemFault := FALSE;
-END_IF;
-
-// Pressure Control Loop (PID)
-rPressError := rPressSetPoint - rSeparatorPressure_bar;
-rPressIntegral := rPressIntegral + (rPressError * tCycleTime);
-rPressDerivative := (rPressError - rPressLastError) / tCycleTime;
-
-// Anti-windup for pressure integral
-IF rPressIntegral > 100.0 THEN rPressIntegral := 100.0; END_IF;
-IF rPressIntegral < -100.0 THEN rPressIntegral := -100.0; END_IF;
-
-rPressOut := (kp_Press * rPressError) + (ki_Press * rPressIntegral) + (kd_Press * rPressDerivative);
-rPressLastError := rPressError;
-
-// Map PID output to Valve Command (Reverse acting: if pressure high, open steam valve more? 
-// No, if pressure high, open valve to turbine to relieve pressure)
-rSteamValveCmd_pct := 50.0 - rPressOut; // Base 50%
-IF rSteamValveCmd_pct > 100.0 THEN rSteamValveCmd_pct := 100.0; END_IF;
-IF rSteamValveCmd_pct < 0.0 THEN rSteamValveCmd_pct := 0.0; END_IF;
-
-
-// Level Control Loop (PID)
-rLevelError := rLevelSetPoint - rSeparatorLevel_m;
-rLevelIntegral := rLevelIntegral + (rLevelError * tCycleTime);
-rLevelDerivative := (rLevelError - rLevelLastError) / tCycleTime;
-
-// Anti-windup for level integral
-IF rLevelIntegral > 100.0 THEN rLevelIntegral := 100.0; END_IF;
-IF rLevelIntegral < -100.0 THEN rLevelIntegral := -100.0; END_IF;
-
-rLevelOut := (kp_Level * rLevelError) + (ki_Level * rLevelIntegral) + (kd_Level * rLevelDerivative);
-rLevelLastError := rLevelError;
-
-// Map Level output to Brine valve (Direct acting: if level high, open valve more to dump brine)
-rBrineValveCmd_pct := 50.0 - rLevelOut; 
-IF rBrineValveCmd_pct > 100.0 THEN rBrineValveCmd_pct := 100.0; END_IF;
-IF rBrineValveCmd_pct < 0.0 THEN rBrineValveCmd_pct := 0.0; END_IF;
-
-// Reinjection Pump Control
-IF rSeparatorLevel_m > 0.8 AND NOT bSystemFault THEN
-    bReinjectionPumpCmd := TRUE;
-ELSIF rSeparatorLevel_m < 0.5 THEN
-    bReinjectionPumpCmd := FALSE;
+(* Condenser limit monitoring *)
+IF rCondenserTemp > -50.0 AND (eState = 2 OR eState = 3) THEN
+    bAlarm := TRUE;
+    sStatusMessage := 'WARNING: Condenser Overload';
+    (* Reduce shelf heating to slow sublimation *)
+    rHeatingValve_Zone1 := rHeatingValve_Zone1 * 0.5;
+    rHeatingValve_Zone2 := rHeatingValve_Zone2 * 0.5;
 END_IF;
 
 END_FUNCTION_BLOCK
-"""
+```"""
 
-record = {
-    "messages": [
-        {"role": "user", "content": prompt},
-        {"role": "assistant", "content": f"```iec-st\n{st_code}\n```"}
-    ]
-}
-
+record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
 filename = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
 with open(filename, "w", encoding="utf-8") as f:
     json.dump(record, f, indent=2)
-
-print(f"Saved to {filename}")
+print(f"Generated {filename}")

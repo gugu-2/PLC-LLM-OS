@@ -1,198 +1,158 @@
-import os, json, uuid
+import json, uuid, os
 
 prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 data.
-Your specific domain is: Concentrated Solar Power (CSP) Heliostat Array.
-Task: Invent a highly complex control scenario for this domain (e.g., dual-axis sun tracking algorithms, molten salt receiver temperature feedback, and wind-stow emergency positioning).
+Your specific domain is: Deep Sea Mining Nodule Collector.
+Task: Invent a highly complex control scenario for this domain (e.g., hydraulic track drives in high-pressure fluid, acoustic altimeter seabed following, and lift pipe slurry density).
 Write a deterministic Structured Text (ST) FUNCTION_BLOCK. Include complete VAR declarations and physical I/O."""
 
 st_code = """```iec-st
-FUNCTION_BLOCK FB_Heliostat_Controller
-TITLE = 'CSP Heliostat Array Dual-Axis Controller'
-VERSION : '3.1'
-AUTHOR : 'Lumina AI Elite'
+FUNCTION_BLOCK FB_NoduleCollectorControl
+TITLE = 'Deep Sea Mining Nodule Collector Control System'
+VERSION : '1.0'
 
 VAR_INPUT
-    Enable : BOOL; // System enable flag
-    Mode_Auto : BOOL; // True for automatic tracking, False for manual
-    Manual_Azimuth : REAL; // Manual override azimuth target (degrees)
-    Manual_Elevation : REAL; // Manual override elevation target (degrees)
-    
-    // Environmental & Sensor Inputs
-    Wind_Speed : REAL; // Current wind speed (m/s)
-    Wind_Direction : REAL; // Current wind direction (degrees)
-    Solar_Irradiance : REAL; // DNI (W/m^2)
-    Sun_Azimuth : REAL; // Calculated sun azimuth (degrees)
-    Sun_Elevation : REAL; // Calculated sun elevation (degrees)
-    
-    // Receiver Feedback
-    Receiver_Temp : REAL; // Molten salt receiver surface temperature (C)
-    Receiver_Temp_Setpoint : REAL; // Target receiver temperature (C)
-    
-    // Heliostat Encoders
-    Actual_Azimuth : REAL; // Current azimuth angle (degrees)
-    Actual_Elevation : REAL; // Current elevation angle (degrees)
-    
-    // Safety & Interlocks
-    E_Stop : BOOL; // Emergency stop active low
-    Grid_Loss : BOOL; // Power grid loss signal
+    bEnableSystem         : BOOL;  // Main system enable
+    rTargetSpeed          : REAL;  // Desired forward speed (m/s)
+    rTargetClearance      : REAL;  // Target altitude above seabed (m)
+    rAcousticAltimeter1   : REAL;  // Seabed distance front (m)
+    rAcousticAltimeter2   : REAL;  // Seabed distance rear (m)
+    rHydraulicPressureIn  : REAL;  // Main hydraulic supply pressure (bar)
+    rAmbientPressure      : REAL;  // External hydrostatic pressure (bar)
+    rSlurryDensityIn      : REAL;  // Lift pipe slurry density (kg/m3)
+    rTrackSlipLeft        : REAL;  // Left track slip percentage
+    rTrackSlipRight       : REAL;  // Right track slip percentage
 END_VAR
 
 VAR_OUTPUT
-    Azimuth_Drive_Cmd : REAL; // Velocity command to azimuth drive (-100 to 100%)
-    Elevation_Drive_Cmd : REAL; // Velocity command to elevation drive (-100 to 100%)
-    Brake_Release : BOOL; // Release holding brakes
-    
-    Status_State : INT; // 0=Off, 1=Track, 2=Stow, 3=Standby, 4=Fault
-    Alarm_Active : BOOL; // High level alarm flag
-    Alarm_Code : INT; // Diagnostic code
-    
-    Target_Azimuth_Out : REAL; // Current target for telemetry
-    Target_Elevation_Out : REAL; // Current target for telemetry
+    rValveCmdTrackLeft    : REAL;  // Left track hydraulic valve command (0-100%)
+    rValveCmdTrackRight   : REAL;  // Right track hydraulic valve command (0-100%)
+    rValveCmdSuspension   : REAL;  // Suspension height control valve (0-100%)
+    rPumpCmdSlurryLift    : REAL;  // Slurry lift pump speed command (0-100%)
+    bSystemFault          : BOOL;  // Critical system fault
+    iFaultCode            : INT;   // Active fault code
 END_VAR
 
 VAR
-    // Internal States & Timers
-    Current_State : INT;
-    T_Stow_Delay : LTIME;
-    T_Wind_Filter_Time : TIME := T#5S;
-    T_Wind_Filter_Acc : TIME;
+    // Internal state variables
+    rCurrentClearance     : REAL;
+    rClearanceError       : REAL;
+    rClearanceIntegral    : REAL;
+    rClearanceDerivative  : REAL;
+    rLastClearanceError   : REAL;
     
-    // PID Controllers (Simplified)
-    Azimuth_Error : REAL;
-    Azimuth_Integral : REAL;
-    Elevation_Error : REAL;
-    Elevation_Integral : REAL;
+    rSpeedControlLeft     : REAL;
+    rSpeedControlRight    : REAL;
     
-    // Constants & Parameters
-    MAX_WIND_SPEED : REAL := 15.0; // Stow wind speed threshold (m/s)
-    STOW_AZIMUTH : REAL := 90.0; // Safe stow position
-    STOW_ELEVATION : REAL := 85.0; // Face up to sky
-    DEFOCUS_OFFSET : REAL := 5.0; // Degrees to defocus if receiver is too hot
-    MAX_RECEIVER_TEMP : REAL := 650.0; // Maximum safe receiver temp (C)
+    // PID Constants
+    Kp_Alt                : REAL := 15.5;
+    Ki_Alt                : REAL := 2.1;
+    Kd_Alt                : REAL := 5.0;
     
-    // Control gains
-    KP_AZ : REAL := 2.5;
-    KI_AZ : REAL := 0.1;
-    KP_EL : REAL := 2.5;
-    KI_EL : REAL := 0.1;
+    Kp_Track              : REAL := 20.0;
+    
+    // Safety limits
+    MAX_SLIP_ALLOWABLE    : REAL := 15.0;
+    MIN_HYD_PRESSURE      : REAL := 250.0;
+    MAX_SLURRY_DENSITY    : REAL := 1350.0;
+    
+    // Timers
+    tHydraulicFaultTimer  : TON;
+    tSlipFaultTimer       : TON;
 END_VAR
 
-(* 
-    Heliostat Control Logic 
-    - Handles emergency conditions and wind stowing.
-    - Manages receiver temperature by defocusing if necessary.
-    - Performs closed-loop dual-axis sun tracking.
-*)
+// System State Evaluation
+IF NOT bEnableSystem THEN
+    rValveCmdTrackLeft := 0.0;
+    rValveCmdTrackRight := 0.0;
+    rValveCmdSuspension := 0.0;
+    rPumpCmdSlurryLift := 0.0;
+    bSystemFault := FALSE;
+    iFaultCode := 0;
+    RETURN;
+END_IF;
 
-// 1. Safety and Environmental Checks
-IF NOT E_Stop OR Grid_Loss THEN
-    Current_State := 4; // Fault / Emergency
-    Alarm_Active := TRUE;
-    Alarm_Code := 1001; // E-Stop or Grid Loss
-ELSIF Wind_Speed > MAX_WIND_SPEED THEN
-    // Simulated wind filter TON logic without calling FB explicitly
-    Current_State := 2; // Wind Stow
-    Alarm_Active := TRUE;
-    Alarm_Code := 2001; // High Wind
+// Calculate current average clearance from acoustic altimeters
+rCurrentClearance := (rAcousticAltimeter1 + rAcousticAltimeter2) / 2.0;
+
+// Altitude PID Control for Suspension
+rClearanceError := rTargetClearance - rCurrentClearance;
+rClearanceIntegral := rClearanceIntegral + (rClearanceError * 0.1); // Assuming 100ms cycle
+rClearanceDerivative := (rClearanceError - rLastClearanceError) / 0.1;
+
+rValveCmdSuspension := (Kp_Alt * rClearanceError) + (Ki_Alt * rClearanceIntegral) + (Kd_Alt * rClearanceDerivative);
+rLastClearanceError := rClearanceError;
+
+// Limit suspension command
+IF rValveCmdSuspension > 100.0 THEN
+    rValveCmdSuspension := 100.0;
+ELSIF rValveCmdSuspension < -100.0 THEN
+    rValveCmdSuspension := -100.0;
+END_IF;
+
+// Hydraulic Track Drive Control with Slip Compensation
+// Adjust speed target based on slip
+rSpeedControlLeft := rTargetSpeed;
+IF rTrackSlipLeft > 5.0 THEN
+    rSpeedControlLeft := rTargetSpeed * (1.0 - (rTrackSlipLeft / 100.0) * Kp_Track);
+END_IF;
+
+rSpeedControlRight := rTargetSpeed;
+IF rTrackSlipRight > 5.0 THEN
+    rSpeedControlRight := rTargetSpeed * (1.0 - (rTrackSlipRight / 100.0) * Kp_Track);
+END_IF;
+
+rValveCmdTrackLeft := rSpeedControlLeft * 10.0; // Scale to valve %
+rValveCmdTrackRight := rSpeedControlRight * 10.0;
+
+// Limit track commands
+IF rValveCmdTrackLeft > 100.0 THEN rValveCmdTrackLeft := 100.0; END_IF;
+IF rValveCmdTrackRight > 100.0 THEN rValveCmdTrackRight := 100.0; END_IF;
+IF rValveCmdTrackLeft < 0.0 THEN rValveCmdTrackLeft := 0.0; END_IF;
+IF rValveCmdTrackRight < 0.0 THEN rValveCmdTrackRight := 0.0; END_IF;
+
+// Lift Pipe Slurry Density Control
+// Adjust lift pump based on ambient pressure and slurry density to prevent choking
+IF rSlurryDensityIn > MAX_SLURRY_DENSITY THEN
+    // Reduce pump speed to dilute slurry
+    rPumpCmdSlurryLift := 100.0; // Max speed to clear dense plug
 ELSE
-    IF NOT Enable THEN
-        Current_State := 0; // Off
-        Alarm_Active := FALSE;
-        Alarm_Code := 0;
-    ELSIF Mode_Auto THEN
-        Current_State := 1; // Tracking
-        Alarm_Active := FALSE;
-        Alarm_Code := 0;
-    ELSE
-        Current_State := 3; // Manual Standby
-        Alarm_Active := FALSE;
-        Alarm_Code := 0;
-    END_IF;
+    // Normal operation, scale based on target density 1200 kg/m3
+    rPumpCmdSlurryLift := 50.0 + ((rSlurryDensityIn - 1000.0) * 0.1);
+END_IF;
+IF rPumpCmdSlurryLift > 100.0 THEN rPumpCmdSlurryLift := 100.0; END_IF;
+
+// Fault Monitoring
+// Hydraulic Pressure Fault
+tHydraulicFaultTimer(IN := (rHydraulicPressureIn - rAmbientPressure) < MIN_HYD_PRESSURE, PT := T#2S);
+IF tHydraulicFaultTimer.Q THEN
+    bSystemFault := TRUE;
+    iFaultCode := 101; // Low differential pressure
 END_IF;
 
-// 2. Determine Targets based on State
-CASE Current_State OF
-    0, 4: // Off or Fault - Apply Brakes, Zero Commands
-        Target_Azimuth_Out := Actual_Azimuth;
-        Target_Elevation_Out := Actual_Elevation;
-        Azimuth_Drive_Cmd := 0.0;
-        Elevation_Drive_Cmd := 0.0;
-        Brake_Release := FALSE;
-        
-    2: // Wind Stow
-        Target_Azimuth_Out := STOW_AZIMUTH;
-        Target_Elevation_Out := STOW_ELEVATION;
-        Brake_Release := TRUE;
-        
-    3: // Manual Override
-        Target_Azimuth_Out := Manual_Azimuth;
-        Target_Elevation_Out := Manual_Elevation;
-        Brake_Release := TRUE;
-        
-    1: // Auto Tracking
-        // Defocus logic if receiver is exceeding target temperature
-        IF Receiver_Temp > Receiver_Temp_Setpoint AND Receiver_Temp < MAX_RECEIVER_TEMP THEN
-            // Proportional defocus on elevation
-            Target_Elevation_Out := Sun_Elevation + ((Receiver_Temp - Receiver_Temp_Setpoint) * 0.1);
-            Target_Azimuth_Out := Sun_Azimuth;
-        ELSIF Receiver_Temp >= MAX_RECEIVER_TEMP THEN
-            // Emergency Defocus
-            Target_Elevation_Out := Sun_Elevation + DEFOCUS_OFFSET;
-            Target_Azimuth_Out := Sun_Azimuth + DEFOCUS_OFFSET;
-        ELSE
-            // Normal Tracking
-            Target_Azimuth_Out := Sun_Azimuth;
-            Target_Elevation_Out := Sun_Elevation;
-        END_IF;
-        Brake_Release := TRUE;
-END_CASE;
-
-// 3. Closed-Loop Position Control
-IF Current_State = 1 OR Current_State = 2 OR Current_State = 3 THEN
-    // Azimuth PI Control
-    Azimuth_Error := Target_Azimuth_Out - Actual_Azimuth;
-    Azimuth_Integral := Azimuth_Integral + (Azimuth_Error * 0.1); // Assuming 100ms cycle
-    // Anti-windup
-    IF Azimuth_Integral > 50.0 THEN Azimuth_Integral := 50.0; END_IF;
-    IF Azimuth_Integral < -50.0 THEN Azimuth_Integral := -50.0; END_IF;
-    
-    Azimuth_Drive_Cmd := (KP_AZ * Azimuth_Error) + (KI_AZ * Azimuth_Integral);
-    
-    // Elevation PI Control
-    Elevation_Error := Target_Elevation_Out - Actual_Elevation;
-    Elevation_Integral := Elevation_Integral + (Elevation_Error * 0.1);
-    // Anti-windup
-    IF Elevation_Integral > 50.0 THEN Elevation_Integral := 50.0; END_IF;
-    IF Elevation_Integral < -50.0 THEN Elevation_Integral := -50.0; END_IF;
-    
-    Elevation_Drive_Cmd := (KP_EL * Elevation_Error) + (KI_EL * Elevation_Integral);
-    
-    // Output Limiting
-    IF Azimuth_Drive_Cmd > 100.0 THEN Azimuth_Drive_Cmd := 100.0; END_IF;
-    IF Azimuth_Drive_Cmd < -100.0 THEN Azimuth_Drive_Cmd := -100.0; END_IF;
-    IF Elevation_Drive_Cmd > 100.0 THEN Elevation_Drive_Cmd := 100.0; END_IF;
-    IF Elevation_Drive_Cmd < -100.0 THEN Elevation_Drive_Cmd := -100.0; END_IF;
+// Excessive Slip Fault
+tSlipFaultTimer(IN := (rTrackSlipLeft > MAX_SLIP_ALLOWABLE) OR (rTrackSlipRight > MAX_SLIP_ALLOWABLE), PT := T#5S);
+IF tSlipFaultTimer.Q THEN
+    bSystemFault := TRUE;
+    iFaultCode := 102; // Track slip timeout
 END_IF;
 
-// 4. Update Status
-Status_State := Current_State;
+// Failsafe override
+IF bSystemFault THEN
+    rValveCmdTrackLeft := 0.0;
+    rValveCmdTrackRight := 0.0;
+    rPumpCmdSlurryLift := 10.0; // Minimal flow to prevent settling
+END_IF;
 
 END_FUNCTION_BLOCK
 ```"""
 
-record = {
-    "messages": [
-        {"role": "user", "content": prompt},
-        {"role": "assistant", "content": st_code}
-    ]
-}
-
 os.makedirs("data/swarm_raw", exist_ok=True)
-uid = uuid.uuid4().hex[:8]
-with open(f"data/swarm_raw/agent_{uid}.json", "w", encoding="utf-8") as f:
-    json.dump(record, f)
+record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": st_code}]}
+filepath = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
+with open(filepath, "w", encoding="utf-8") as f:
+    json.dump(record, f, indent=4)
+print(f"File created: {filepath}")
 
 with open("data/synthetic_generation_v3_enterprise.jsonl", "a", encoding="utf-8") as f:
-    f.write(json.dumps(record) + "\\n")
-
-print(f"Success. Agent {uid} generated.")
+    json.dump(record, f)
+    f.write("\n")
