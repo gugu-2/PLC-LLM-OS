@@ -1,184 +1,163 @@
-import json
-import uuid
-import os
-
-prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 data.
-Your specific domain is: Utility-Scale Solar Inverter Farm.
-Task: Invent a highly complex control scenario for this domain (e.g., Maximum Power Point Tracking (MPPT) array voltage sweeping, IGBT active thermal derating, and grid anti-islanding protection).
-Write a deterministic Structured Text (ST) FUNCTION_BLOCK. Include complete VAR declarations and physical I/O."""
-
-code = """```iec-st
-FUNCTION_BLOCK FB_SolarInverterControl
-TITLE = 'Utility-Scale Solar Inverter Farm Control'
-// Description: Highly complex control for multi-megawatt solar inverter.
-// Includes Perturb & Observe MPPT, IGBT thermal derating, and anti-islanding protection.
+import os, json, uuid
+st_code = """```iec-st
+FUNCTION_BLOCK FB_HVDC_VSC_Control
+TITLE = 'HVDC VSC MMC Advanced Controller'
+VERSION : '2.5'
 
 VAR_INPUT
-    V_DC_Array      : REAL; // DC bus voltage from solar array (V)
-    I_DC_Array      : REAL; // DC current from solar array (A)
-    V_Grid_L1       : REAL; // Grid voltage L1-N (V)
-    V_Grid_L2       : REAL; // Grid voltage L2-N (V)
-    V_Grid_L3       : REAL; // Grid voltage L3-N (V)
-    Freq_Grid       : REAL; // Grid frequency (Hz)
-    Temp_IGBT       : REAL; // Maximum IGBT heatsink temperature (C)
-    Irradiance      : REAL; // Solar irradiance (W/m2)
-    Enable_Cmd      : BOOL; // Master enable command
-    Reset_Fault     : BOOL; // Fault reset command
+    Enable : BOOL; // Enable VSC operation
+    V_dc_ref : REAL; // DC voltage reference (kV)
+    P_ref : REAL; // Active power reference (MW)
+    Q_ref : REAL; // Reactive power reference (MVAr)
+    V_grid_abc : ARRAY[0..2] OF REAL; // Grid voltages (kV)
+    I_grid_abc : ARRAY[0..2] OF REAL; // Grid currents (kA)
+    V_dc_meas : REAL; // Measured DC voltage (kV)
+    Submodule_V_cap : ARRAY[0..511] OF REAL; // Submodule capacitor voltages
+    Submodule_Status : ARRAY[0..511] OF BOOL; // Submodule health status
+    Fault_DC_Line : BOOL; // DC line fault detection flag
 END_VAR
 
 VAR_OUTPUT
-    PWM_Active      : BOOL; // Inverter switching active
-    P_Ref           : REAL; // Active power reference (kW)
-    Q_Ref           : REAL; // Reactive power reference (kVAR)
-    State_Machine   : INT;  // Current control state
-    Fault_Code      : DINT; // Active fault code
-    Derate_Factor   : REAL; // Active thermal derating factor (0.0 to 1.0)
+    Switching_Cmds : ARRAY[0..511] OF BOOL; // Submodule switching commands
+    V_dc_err : REAL; // DC voltage error
+    P_meas : REAL; // Measured active power
+    Q_meas : REAL; // Measured reactive power
+    System_Ready : BOOL;
+    Fault_Blocked : BOOL;
 END_VAR
 
 VAR
-    // MPPT Variables
-    P_DC_Actual     : REAL;
-    P_DC_Prev       : REAL := 0.0;
-    V_DC_Prev       : REAL := 0.0;
-    MPPT_Step       : REAL := 2.5; // Voltage step for P&O (V)
-    MPPT_V_Ref      : REAL := 1000.0;
-    MPPT_Direction  : INT := 1;
-
-    // Anti-Islanding Variables
-    Grid_Fault_Timer: REAL := 0.0;
-    Grid_Fault_Time_Limit : REAL := 0.16; // 160ms trip time for V/f faults
-    Is_Grid_Valid   : BOOL := FALSE;
-    V_Grid_Avg      : REAL;
-
-    // Thermal Derating Variables
-    Temp_Warn_Limit : REAL := 80.0;
-    Temp_Trip_Limit : REAL := 95.0;
-    Derate_Slope    : REAL := 0.05; // 5% reduction per degree above warning
-
-    // State Machine
-    SM_INIT         : INT := 0;
-    SM_STANDBY      : INT := 1;
-    SM_STARTUP      : INT := 2;
-    SM_MPPT         : INT := 3;
-    SM_FAULT        : INT := 99;
-
-    // Clock/Timing
-    Cycle_Time      : REAL := 0.01; // 10ms execution cycle
+    // Internal variables for Park/Clarke transformations
+    alpha, beta : REAL;
+    d, q : REAL;
+    theta_pll : REAL;
+    sin_theta, cos_theta : REAL;
+    
+    // PI Controller states
+    PI_Vdc_integral : REAL;
+    PI_Id_integral : REAL;
+    PI_Iq_integral : REAL;
+    
+    // Decoupling network
+    omega : REAL := 314.159; // 50Hz in rad/s
+    L_grid : REAL := 0.05; // Grid inductance (H)
+    
+    // Submodule balancing
+    i, j, temp_idx : INT;
+    sorted_indices : ARRAY[0..511] OF INT;
+    temp_val : REAL;
+    cap_voltages_sorted : ARRAY[0..511] OF REAL;
+    arm_current_dir : INT; // 1 for charging, -1 for discharging
+    num_inserted : INT;
+    
+    // Fault handling
+    block_timer : TIME;
+    is_blocked : BOOL := FALSE;
 END_VAR
 
-// --- Grid Monitoring and Anti-Islanding (IEEE 1547 / UL 1741) ---
-V_Grid_Avg := (V_Grid_L1 + V_Grid_L2 + V_Grid_L3) / 3.0;
-
-IF (V_Grid_Avg < 240.0) OR (V_Grid_Avg > 293.0) OR (Freq_Grid < 59.3) OR (Freq_Grid > 60.5) THEN
-    Grid_Fault_Timer := Grid_Fault_Timer + Cycle_Time;
-    IF Grid_Fault_Timer >= Grid_Fault_Time_Limit THEN
-        Is_Grid_Valid := FALSE;
-    END_IF;
-ELSE
-    Grid_Fault_Timer := 0.0;
-    Is_Grid_Valid := TRUE;
+// -- Execution --
+IF NOT Enable THEN
+    System_Ready := FALSE;
+    PI_Vdc_integral := 0.0;
+    PI_Id_integral := 0.0;
+    PI_Iq_integral := 0.0;
+    FOR i := 0 TO 511 DO
+        Switching_Cmds[i] := FALSE;
+    END_FOR;
+    RETURN;
 END_IF;
 
-// --- IGBT Thermal Derating ---
-IF Temp_IGBT >= Temp_Trip_Limit THEN
-    Derate_Factor := 0.0; // Complete shutdown
-ELSIF Temp_IGBT > Temp_Warn_Limit THEN
-    Derate_Factor := 1.0 - ((Temp_IGBT - Temp_Warn_Limit) * Derate_Slope);
-    IF Derate_Factor < 0.1 THEN
-        Derate_Factor := 0.1; // Minimum output before trip
-    END_IF;
+// 1. DC Fault Blocking Sequence
+IF Fault_DC_Line THEN
+    is_blocked := TRUE;
+    Fault_Blocked := TRUE;
+    // Block all submodules to clear DC fault
+    FOR i := 0 TO 511 DO
+        Switching_Cmds[i] := FALSE;
+    END_FOR;
+    RETURN; // Halt normal control execution
 ELSE
-    Derate_Factor := 1.0;
+    is_blocked := FALSE;
+    Fault_Blocked := FALSE;
 END_IF;
 
-// --- State Machine ---
-CASE State_Machine OF
-    SM_INIT:
-        PWM_Active := FALSE;
-        P_Ref := 0.0;
-        Q_Ref := 0.0;
-        IF Enable_Cmd THEN
-            State_Machine := SM_STANDBY;
+// 2. Phase-Locked Loop (PLL) - Simplified for brevity
+theta_pll := theta_pll + 0.00314;
+IF theta_pll > 6.28318 THEN
+    theta_pll := theta_pll - 6.28318;
+END_IF;
+sin_theta := SIN(theta_pll);
+cos_theta := COS(theta_pll);
+
+// 3. Active and Reactive Power Calculation & Decoupling
+alpha := (2.0/3.0) * (V_grid_abc[0] - 0.5*V_grid_abc[1] - 0.5*V_grid_abc[2]);
+beta  := (2.0/3.0) * (0.866025*V_grid_abc[1] - 0.866025*V_grid_abc[2]);
+
+d := alpha * cos_theta + beta * sin_theta;
+q := -alpha * sin_theta + beta * cos_theta;
+
+P_meas := 1.5 * (d * I_grid_abc[0] + q * I_grid_abc[1]);
+Q_meas := 1.5 * (q * I_grid_abc[0] - d * I_grid_abc[1]);
+
+V_dc_err := V_dc_ref - V_dc_meas;
+PI_Vdc_integral := PI_Vdc_integral + (V_dc_err * 0.001);
+
+// 4. MMC Submodule Capacitor Voltage Balancing Algorithm
+IF I_grid_abc[0] > 0.0 THEN
+    arm_current_dir := 1; 
+ELSE
+    arm_current_dir := -1; 
+END_IF;
+
+FOR i := 0 TO 511 DO
+    sorted_indices[i] := i;
+    cap_voltages_sorted[i] := Submodule_V_cap[i];
+END_FOR;
+
+FOR i := 0 TO 510 DO
+    FOR j := 0 TO 510 - i DO
+        IF cap_voltages_sorted[j] > cap_voltages_sorted[j+1] THEN
+            temp_val := cap_voltages_sorted[j];
+            cap_voltages_sorted[j] := cap_voltages_sorted[j+1];
+            cap_voltages_sorted[j+1] := temp_val;
+            temp_idx := sorted_indices[j];
+            sorted_indices[j] := sorted_indices[j+1];
+            sorted_indices[j+1] := temp_idx;
         END_IF;
+    END_FOR;
+END_FOR;
 
-    SM_STANDBY:
-        PWM_Active := FALSE;
-        IF NOT Is_Grid_Valid THEN
-            State_Machine := SM_FAULT;
-            Fault_Code := 101; // Grid fault
-        ELSIF (V_DC_Array > 600.0) AND Is_Grid_Valid THEN
-            State_Machine := SM_STARTUP;
+num_inserted := 256;
+
+FOR i := 0 TO 511 DO
+    Switching_Cmds[i] := FALSE;
+END_FOR;
+
+IF arm_current_dir = 1 THEN
+    FOR i := 0 TO (num_inserted - 1) DO
+        IF Submodule_Status[sorted_indices[i]] THEN
+            Switching_Cmds[sorted_indices[i]] := TRUE;
         END_IF;
-
-    SM_STARTUP:
-        PWM_Active := TRUE;
-        // Soft start logic here (ramp up voltage)
-        MPPT_V_Ref := V_DC_Array; // Initialize at open-circuit
-        State_Machine := SM_MPPT;
-
-    SM_MPPT:
-        IF NOT Is_Grid_Valid THEN
-            State_Machine := SM_FAULT;
-            Fault_Code := 102; // Islanding detected
-        ELSIF Temp_IGBT >= Temp_Trip_Limit THEN
-            State_Machine := SM_FAULT;
-            Fault_Code := 201; // Overtemperature
-        ELSE
-            // Perturb & Observe Algorithm
-            P_DC_Actual := V_DC_Array * I_DC_Array;
-            
-            IF (P_DC_Actual - P_DC_Prev) > 10.0 THEN // Significant power change
-                IF (V_DC_Array - V_DC_Prev) > 0.0 THEN
-                    MPPT_Direction := 1;
-                ELSE
-                    MPPT_Direction := -1;
-                END_IF;
-            ELSIF (P_DC_Actual - P_DC_Prev) < -10.0 THEN
-                IF (V_DC_Array - V_DC_Prev) > 0.0 THEN
-                    MPPT_Direction := -1;
-                ELSE
-                    MPPT_Direction := 1;
-                END_IF;
-            END_IF;
-
-            MPPT_V_Ref := MPPT_V_Ref + (REAL_TO_INT(MPPT_Direction) * MPPT_Step);
-            
-            // Limit MPPT range
-            IF MPPT_V_Ref > 1200.0 THEN MPPT_V_Ref := 1200.0; END_IF;
-            IF MPPT_V_Ref < 500.0 THEN MPPT_V_Ref := 500.0; END_IF;
-
-            P_DC_Prev := P_DC_Actual;
-            V_DC_Prev := V_DC_Array;
-            
-            // Set power reference based on MPPT and Derating
-            P_Ref := (P_DC_Actual / 1000.0) * Derate_Factor; 
+    END_FOR;
+ELSE
+    FOR i := 511 DOWNTO (512 - num_inserted) DO
+        IF Submodule_Status[sorted_indices[i]] THEN
+            Switching_Cmds[sorted_indices[i]] := TRUE;
         END_IF;
+    END_FOR;
+END_IF;
 
-    SM_FAULT:
-        PWM_Active := FALSE;
-        P_Ref := 0.0;
-        IF Reset_Fault AND Is_Grid_Valid AND (Temp_IGBT < Temp_Warn_Limit) THEN
-            Fault_Code := 0;
-            State_Machine := SM_INIT;
-        END_IF;
-        
-    ELSE
-        State_Machine := SM_INIT;
-END_CASE;
+System_Ready := TRUE;
 END_FUNCTION_BLOCK
 ```"""
 
-record = {
-    "messages": [
-        {"role": "user", "content": prompt},
-        {"role": "assistant", "content": code}
-    ]
-}
+prompt = "You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 data.\nYour specific domain is: HVDC Voltage Source Converter (VSC) Substation.\nTask: Invent a highly complex control scenario for this domain (e.g., modular multilevel converter (MMC) submodule capacitor voltage balancing, active/reactive power decoupling, and DC fault blocking).\nWrite a deterministic Structured Text (ST) FUNCTION_BLOCK. Include complete VAR declarations and physical I/O."
+record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": st_code}]}
 
 os.makedirs("data/swarm_raw", exist_ok=True)
-
-with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
-    json.dump(record, f, indent=4)
+uid = uuid.uuid4().hex[:8]
+with open(f"data/swarm_raw/agent_{uid}.json", "w", encoding="utf-8") as f:
+    json.dump(record, f)
 
 with open("data/synthetic_generation_v3_enterprise.jsonl", "a", encoding="utf-8") as f:
     f.write(json.dumps(record) + "\\n")

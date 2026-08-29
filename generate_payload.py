@@ -1,158 +1,188 @@
-import json, uuid, os
+﻿import json, uuid, os
 
-prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 data.
-Your specific domain is: Deep Sea Mining Nodule Collector.
-Task: Invent a highly complex control scenario for this domain (e.g., hydraulic track drives in high-pressure fluid, acoustic altimeter seabed following, and lift pipe slurry density).
-Write a deterministic Structured Text (ST) FUNCTION_BLOCK. Include complete VAR declarations and physical I/O."""
+prompt = '''You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 data.
+Your specific domain is: Pumped Hydro Energy Storage.
+Task: Invent a highly complex control scenario for this domain (e.g., reversible Francis pump-turbine mode transition sequencing, penstock surge tank level mapping, and stator water cooling).
+Write a deterministic Structured Text (ST) FUNCTION_BLOCK. Include complete VAR declarations and physical I/O.'''
 
-st_code = """```iec-st
-FUNCTION_BLOCK FB_NoduleCollectorControl
-TITLE = 'Deep Sea Mining Nodule Collector Control System'
-VERSION : '1.0'
-
+st_code = '''`iec-st
+FUNCTION_BLOCK FB_PumpedHydroControl
 VAR_INPUT
-    bEnableSystem         : BOOL;  // Main system enable
-    rTargetSpeed          : REAL;  // Desired forward speed (m/s)
-    rTargetClearance      : REAL;  // Target altitude above seabed (m)
-    rAcousticAltimeter1   : REAL;  // Seabed distance front (m)
-    rAcousticAltimeter2   : REAL;  // Seabed distance rear (m)
-    rHydraulicPressureIn  : REAL;  // Main hydraulic supply pressure (bar)
-    rAmbientPressure      : REAL;  // External hydrostatic pressure (bar)
-    rSlurryDensityIn      : REAL;  // Lift pipe slurry density (kg/m3)
-    rTrackSlipLeft        : REAL;  // Left track slip percentage
-    rTrackSlipRight       : REAL;  // Right track slip percentage
+    bStartModeTransition : BOOL; (* Initiate mode transition *)
+    eTargetMode : INT; (* 0: Standstill, 1: Generate, 2: Pump, 3: Synchronous Condenser *)
+    
+    (* Penstock and Surge Tank *)
+    rUpperResLevel : REAL; (* meters *)
+    rLowerResLevel : REAL; (* meters *)
+    rSurgeTankLevel : REAL; (* meters *)
+    rPenstockPressure : REAL; (* bar *)
+    rPenstockFlow : REAL; (* m3/s *)
+    
+    (* Turbine/Pump parameters *)
+    rRotorSpeed : REAL; (* RPM *)
+    rGuideVanePosition : REAL; (* 0-100% *)
+    bMainInletValveOpen : BOOL;
+    bMainInletValveClosed : BOOL;
+    
+    (* Stator Water Cooling (SWC) *)
+    rSWCTempIn : REAL; (* Celsius *)
+    rSWCTempOut : REAL; (* Celsius *)
+    rSWCFlow : REAL; (* L/min *)
+    rSWCConductivity : REAL; (* uS/cm *)
+    
+    (* Grid constraints *)
+    bGridSyncOk : BOOL;
+    rActivePower : REAL; (* MW *)
 END_VAR
 
 VAR_OUTPUT
-    rValveCmdTrackLeft    : REAL;  // Left track hydraulic valve command (0-100%)
-    rValveCmdTrackRight   : REAL;  // Right track hydraulic valve command (0-100%)
-    rValveCmdSuspension   : REAL;  // Suspension height control valve (0-100%)
-    rPumpCmdSlurryLift    : REAL;  // Slurry lift pump speed command (0-100%)
-    bSystemFault          : BOOL;  // Critical system fault
-    iFaultCode            : INT;   // Active fault code
+    eCurrentMode : INT;
+    bTransitionInProgress : BOOL;
+    bTransitionComplete : BOOL;
+    bTransitionFault : BOOL;
+    iErrorCode : INT;
+    
+    (* Actuator Commands *)
+    rGuideVaneCmd : REAL;
+    bMainInletValveCmd : BOOL;
+    bExcitationEnable : BOOL;
+    bSyncBreakerClose : BOOL;
+    
+    (* SWC Commands *)
+    bSWCPumpCmd : BOOL;
+    bSWCHeaterCmd : BOOL;
+    
+    (* Surge Protection *)
+    bReliefValveCmd : BOOL;
 END_VAR
 
 VAR
-    // Internal state variables
-    rCurrentClearance     : REAL;
-    rClearanceError       : REAL;
-    rClearanceIntegral    : REAL;
-    rClearanceDerivative  : REAL;
-    rLastClearanceError   : REAL;
-    
-    rSpeedControlLeft     : REAL;
-    rSpeedControlRight    : REAL;
-    
-    // PID Constants
-    Kp_Alt                : REAL := 15.5;
-    Ki_Alt                : REAL := 2.1;
-    Kd_Alt                : REAL := 5.0;
-    
-    Kp_Track              : REAL := 20.0;
-    
-    // Safety limits
-    MAX_SLIP_ALLOWABLE    : REAL := 15.0;
-    MIN_HYD_PRESSURE      : REAL := 250.0;
-    MAX_SLURRY_DENSITY    : REAL := 1350.0;
-    
-    // Timers
-    tHydraulicFaultTimer  : TON;
-    tSlipFaultTimer       : TON;
+    eState : INT; (* Internal state machine *)
+    rHeadNet : REAL;
+    rSurgeLimitUpper : REAL := 150.0;
+    rSurgeLimitLower : REAL := 10.0;
+    tTransitionTimer : TON;
+    tSWCTimer : TON;
 END_VAR
 
-// System State Evaluation
-IF NOT bEnableSystem THEN
-    rValveCmdTrackLeft := 0.0;
-    rValveCmdTrackRight := 0.0;
-    rValveCmdSuspension := 0.0;
-    rPumpCmdSlurryLift := 0.0;
-    bSystemFault := FALSE;
-    iFaultCode := 0;
-    RETURN;
-END_IF;
+(* Calculate Net Head *)
+rHeadNet := rUpperResLevel - rLowerResLevel;
 
-// Calculate current average clearance from acoustic altimeters
-rCurrentClearance := (rAcousticAltimeter1 + rAcousticAltimeter2) / 2.0;
-
-// Altitude PID Control for Suspension
-rClearanceError := rTargetClearance - rCurrentClearance;
-rClearanceIntegral := rClearanceIntegral + (rClearanceError * 0.1); // Assuming 100ms cycle
-rClearanceDerivative := (rClearanceError - rLastClearanceError) / 0.1;
-
-rValveCmdSuspension := (Kp_Alt * rClearanceError) + (Ki_Alt * rClearanceIntegral) + (Kd_Alt * rClearanceDerivative);
-rLastClearanceError := rClearanceError;
-
-// Limit suspension command
-IF rValveCmdSuspension > 100.0 THEN
-    rValveCmdSuspension := 100.0;
-ELSIF rValveCmdSuspension < -100.0 THEN
-    rValveCmdSuspension := -100.0;
-END_IF;
-
-// Hydraulic Track Drive Control with Slip Compensation
-// Adjust speed target based on slip
-rSpeedControlLeft := rTargetSpeed;
-IF rTrackSlipLeft > 5.0 THEN
-    rSpeedControlLeft := rTargetSpeed * (1.0 - (rTrackSlipLeft / 100.0) * Kp_Track);
-END_IF;
-
-rSpeedControlRight := rTargetSpeed;
-IF rTrackSlipRight > 5.0 THEN
-    rSpeedControlRight := rTargetSpeed * (1.0 - (rTrackSlipRight / 100.0) * Kp_Track);
-END_IF;
-
-rValveCmdTrackLeft := rSpeedControlLeft * 10.0; // Scale to valve %
-rValveCmdTrackRight := rSpeedControlRight * 10.0;
-
-// Limit track commands
-IF rValveCmdTrackLeft > 100.0 THEN rValveCmdTrackLeft := 100.0; END_IF;
-IF rValveCmdTrackRight > 100.0 THEN rValveCmdTrackRight := 100.0; END_IF;
-IF rValveCmdTrackLeft < 0.0 THEN rValveCmdTrackLeft := 0.0; END_IF;
-IF rValveCmdTrackRight < 0.0 THEN rValveCmdTrackRight := 0.0; END_IF;
-
-// Lift Pipe Slurry Density Control
-// Adjust lift pump based on ambient pressure and slurry density to prevent choking
-IF rSlurryDensityIn > MAX_SLURRY_DENSITY THEN
-    // Reduce pump speed to dilute slurry
-    rPumpCmdSlurryLift := 100.0; // Max speed to clear dense plug
+(* Stator Water Cooling Logic *)
+IF rSWCTempIn > 45.0 OR rSWCConductivity > 0.5 THEN
+    bSWCPumpCmd := TRUE;
+    iErrorCode := 101; (* SWC Warning *)
+ELSIF rSWCTempIn < 15.0 THEN
+    bSWCHeaterCmd := TRUE;
+    bSWCPumpCmd := TRUE;
 ELSE
-    // Normal operation, scale based on target density 1200 kg/m3
-    rPumpCmdSlurryLift := 50.0 + ((rSlurryDensityIn - 1000.0) * 0.1);
-END_IF;
-IF rPumpCmdSlurryLift > 100.0 THEN rPumpCmdSlurryLift := 100.0; END_IF;
-
-// Fault Monitoring
-// Hydraulic Pressure Fault
-tHydraulicFaultTimer(IN := (rHydraulicPressureIn - rAmbientPressure) < MIN_HYD_PRESSURE, PT := T#2S);
-IF tHydraulicFaultTimer.Q THEN
-    bSystemFault := TRUE;
-    iFaultCode := 101; // Low differential pressure
+    bSWCHeaterCmd := FALSE;
+    bSWCPumpCmd := (eCurrentMode > 0);
 END_IF;
 
-// Excessive Slip Fault
-tSlipFaultTimer(IN := (rTrackSlipLeft > MAX_SLIP_ALLOWABLE) OR (rTrackSlipRight > MAX_SLIP_ALLOWABLE), PT := T#5S);
-IF tSlipFaultTimer.Q THEN
-    bSystemFault := TRUE;
-    iFaultCode := 102; // Track slip timeout
+(* Surge Tank Monitoring *)
+IF rSurgeTankLevel > rSurgeLimitUpper OR rPenstockPressure > 50.0 THEN
+    bReliefValveCmd := TRUE;
+    iErrorCode := 201; (* Surge high *)
+    IF eCurrentMode = 1 OR eCurrentMode = 2 THEN
+        eTargetMode := 0; (* Emergency shutdown *)
+        bStartModeTransition := TRUE;
+    END_IF;
+ELSE
+    bReliefValveCmd := FALSE;
 END_IF;
 
-// Failsafe override
-IF bSystemFault THEN
-    rValveCmdTrackLeft := 0.0;
-    rValveCmdTrackRight := 0.0;
-    rPumpCmdSlurryLift := 10.0; // Minimal flow to prevent settling
+(* Mode Transition State Machine *)
+tTransitionTimer(IN := bTransitionInProgress, PT := T#120s);
+
+IF bStartModeTransition AND NOT bTransitionInProgress THEN
+    bTransitionInProgress := TRUE;
+    bTransitionComplete := FALSE;
+    bTransitionFault := FALSE;
+    eState := 10; (* Init Transition *)
 END_IF;
 
+IF bTransitionInProgress THEN
+    CASE eState OF
+        10: (* Initialize *)
+            IF eCurrentMode = eTargetMode THEN
+                bTransitionInProgress := FALSE;
+                bTransitionComplete := TRUE;
+            ELSE
+                IF eCurrentMode = 0 AND eTargetMode = 1 THEN eState := 20; (* To Generate *)
+                ELSIF eCurrentMode = 0 AND eTargetMode = 2 THEN eState := 30; (* To Pump *)
+                ELSIF eTargetMode = 0 THEN eState := 90; (* To Standstill *)
+                ELSE eState := 90; (* Default to shutdown first *)
+                END_IF;
+            END_IF;
+            
+        20: (* Generation: Open MIV *)
+            bMainInletValveCmd := TRUE;
+            IF bMainInletValveOpen THEN
+                eState := 21;
+            END_IF;
+            
+        21: (* Generation: Guide Vane to No-Load *)
+            rGuideVaneCmd := 15.0; (* 15% opening *)
+            IF rRotorSpeed >= 300.0 THEN (* Rated speed *)
+                bExcitationEnable := TRUE;
+                eState := 22;
+            END_IF;
+            
+        22: (* Generation: Grid Sync *)
+            IF bGridSyncOk THEN
+                bSyncBreakerClose := TRUE;
+                eCurrentMode := 1;
+                bTransitionInProgress := FALSE;
+                bTransitionComplete := TRUE;
+            END_IF;
+            
+        30: (* Pumping: Start Sequence *)
+            (* Assuming variable speed or static frequency converter start *)
+            bMainInletValveCmd := TRUE;
+            IF bMainInletValveOpen THEN
+                eState := 31;
+            END_IF;
+            
+        31: (* Pumping: Motor Start *)
+            bExcitationEnable := TRUE;
+            IF rRotorSpeed >= 300.0 AND bGridSyncOk THEN
+                bSyncBreakerClose := TRUE;
+                rGuideVaneCmd := 40.0; (* Optimal pump opening *)
+                eCurrentMode := 2;
+                bTransitionInProgress := FALSE;
+                bTransitionComplete := TRUE;
+            END_IF;
+            
+        90: (* Shutdown Sequence *)
+            rGuideVaneCmd := 0.0;
+            bSyncBreakerClose := FALSE;
+            bExcitationEnable := FALSE;
+            IF rRotorSpeed < 10.0 THEN
+                bMainInletValveCmd := FALSE;
+                IF bMainInletValveClosed THEN
+                    eCurrentMode := 0;
+                    bTransitionInProgress := FALSE;
+                    bTransitionComplete := TRUE;
+                END_IF;
+            END_IF;
+            
+    END_CASE;
+    
+    (* Timeout protection *)
+    IF tTransitionTimer.Q THEN
+        bTransitionFault := TRUE;
+        bTransitionInProgress := FALSE;
+        iErrorCode := 301; (* Transition timeout *)
+        eState := 90; (* Force shutdown *)
+    END_IF;
+END_IF;
 END_FUNCTION_BLOCK
-```"""
+`'''
 
-os.makedirs("data/swarm_raw", exist_ok=True)
 record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": st_code}]}
-filepath = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
-with open(filepath, "w", encoding="utf-8") as f:
-    json.dump(record, f, indent=4)
-print(f"File created: {filepath}")
-
-with open("data/synthetic_generation_v3_enterprise.jsonl", "a", encoding="utf-8") as f:
-    json.dump(record, f)
-    f.write("\n")
+filename = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
+os.makedirs("data/swarm_raw", exist_ok=True)
+with open(filename, "w", encoding="utf-8") as f:
+    json.dump(record, f, indent=2)
+print("Saved to " + filename)

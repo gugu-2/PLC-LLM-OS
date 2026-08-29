@@ -1,167 +1,134 @@
 import json, uuid, os
 
-os.makedirs('data/swarm_raw', exist_ok=True)
-
-prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 data.
-Your specific domain is: High-Speed Web Cardboard Corrugator.
-Task: Invent a highly complex control scenario for this domain (e.g., single-facer flute roll steam pressure profiling, starch adhesive gelatinization temperature, and double-backer hot plate zones).
-Write a deterministic Structured Text (ST) FUNCTION_BLOCK. Include complete VAR declarations and physical I/O."""
-
-iec_code = """FUNCTION_BLOCK FB_Corrugator_Control
+st_code = """```iec-st
+FUNCTION_BLOCK FB_CBW_Controller
+(*
+    Continuous Batch Washer (CBW) Industrial Laundry Controller
+    Manages multi-compartment counterflow water cascading, 
+    variable chemical dosing integration, and hydraulic cake press.
+*)
 VAR_INPUT
-    bEnable : BOOL; // System enable
-    rLineSpeed_m_min : REAL; // Current web line speed
-    rTargetStarchTemp_C : REAL; // Setpoint for starch gelatinization
-    rSteamPressSP_Bar : REAL; // Single-facer flute roll steam pressure setpoint
-    rHotPlateTempSP_C : REAL; // Double-backer hot plate setpoint
-    
-    // Physical AI
-    AI_StarchTemp1_C : REAL;
-    AI_StarchTemp2_C : REAL;
-    AI_SteamPress1_Bar : REAL;
-    AI_HotPlateTempZone1_C : REAL;
-    AI_HotPlateTempZone2_C : REAL;
-    AI_HotPlateTempZone3_C : REAL;
+    bEnable                 : BOOL; // System enable
+    bEStop                  : BOOL; // Emergency stop
+    rMainWaterTemp          : REAL; // Incoming water temperature (C)
+    rMainWaterPressure      : REAL; // Main water pressure (Bar)
+    arrCompartmentTemp      : ARRAY[1..12] OF REAL; // Temp per compartment
+    arrCompartmentPh        : ARRAY[1..12] OF REAL; // pH per compartment
+    arrLoadWeight           : ARRAY[1..12] OF REAL; // Load weight per compartment (kg)
+    bCakePressReady         : BOOL; // Press ready signal
+    rCakePressPressure      : REAL; // Current press pressure
 END_VAR
 
 VAR_OUTPUT
-    bSystemReady : BOOL;
-    bAlarmActive : BOOL;
-    iAlarmCode : INT;
-    
-    // Physical AO
-    AO_StarchHeaterValve_Pct : REAL; // 0-100%
-    AO_SteamValve_Pct : REAL; // 0-100%
-    AO_HotPlateHeaterZone1_Pct : REAL; // 0-100%
-    AO_HotPlateHeaterZone2_Pct : REAL; // 0-100%
-    AO_HotPlateHeaterZone3_Pct : REAL; // 0-100%
+    bSystemReady            : BOOL; // System ready for next batch
+    arrHeaterValves         : ARRAY[1..12] OF BOOL; // Steam valves for heating
+    arrWaterTransfer        : ARRAY[1..11] OF BOOL; // Transfer pumps/valves between compartments
+    arrChemicalDoseValves   : ARRAY[1..4] OF BOOL; // Alkali, Detergent, Bleach, Sour
+    rChemicalDoseRate       : ARRAY[1..4] OF REAL; // Dose rates (ml/min)
+    bCakePressStart         : BOOL; // Start press cycle
+    nActiveAlarms           : INT; // Number of active alarms
 END_VAR
 
 VAR
-    // PID Controllers for Starch
-    stStarchPID : PID_T;
-    rStarchTempAvg : REAL;
-    
-    // PID for Steam
-    stSteamPID : PID_T;
-    
-    // PID for Hot Plates
-    stHotPlatePID_Z1 : PID_T;
-    stHotPlatePID_Z2 : PID_T;
-    stHotPlatePID_Z3 : PID_T;
-    
-    // Timers
-    tonStartupDelay : TON;
-    tonAlarmDelay : TON;
-    
-    // Internal States
-    iState : INT;
-    bStarchOK : BOOL;
-    bSteamOK : BOOL;
-    bHotPlatesOK : BOOL;
-    
-    // Tuning params (static for this example)
-    Kp_Starch : REAL := 2.5;
-    Ti_Starch : REAL := 12.0;
-    Kp_Steam : REAL := 1.8;
-    Ti_Steam : REAL := 8.0;
+    i                       : INT;
+    rTargetTemp             : ARRAY[1..12] OF REAL := [30.0, 40.0, 50.0, 60.0, 70.0, 75.0, 75.0, 65.0, 50.0, 40.0, 30.0, 25.0];
+    rTargetPh               : ARRAY[1..12] OF REAL := [7.0, 8.5, 9.5, 10.5, 11.0, 11.0, 10.5, 9.0, 8.0, 7.0, 6.0, 5.5];
+    tStateTimer             : TON;
+    nState                  : INT := 0; // 0: Idle, 1: Fill, 2: Wash/Dose, 3: Transfer, 4: Press
+    bAlarmState             : BOOL;
 END_VAR
 
-// --- IMPLEMENTATION ---
-IF NOT bEnable THEN
+// Main Logic
+IF bEStop THEN
+    nState := 0;
     bSystemReady := FALSE;
-    bAlarmActive := FALSE;
-    iAlarmCode := 0;
-    AO_StarchHeaterValve_Pct := 0.0;
-    AO_SteamValve_Pct := 0.0;
-    AO_HotPlateHeaterZone1_Pct := 0.0;
-    AO_HotPlateHeaterZone2_Pct := 0.0;
-    AO_HotPlateHeaterZone3_Pct := 0.0;
-    iState := 0;
+    bCakePressStart := FALSE;
+    FOR i := 1 TO 12 DO
+        arrHeaterValves[i] := FALSE;
+        IF i < 12 THEN arrWaterTransfer[i] := FALSE; END_IF
+    END_FOR
+    FOR i := 1 TO 4 DO
+        arrChemicalDoseValves[i] := FALSE;
+        rChemicalDoseRate[i] := 0.0;
+    END_FOR
     RETURN;
 END_IF;
 
-// Calculate averages
-rStarchTempAvg := (AI_StarchTemp1_C + AI_StarchTemp2_C) / 2.0;
-
-// Starch Temperature Control
-stStarchPID.SP := rTargetStarchTemp_C;
-stStarchPID.PV := rStarchTempAvg;
-stStarchPID.Kp := Kp_Starch;
-stStarchPID.Ti := Ti_Starch;
-stStarchPID.EN := TRUE;
-stStarchPID(); // Execute PID
-AO_StarchHeaterValve_Pct := stStarchPID.OUT;
-
-// Steam Pressure Control
-stSteamPID.SP := rSteamPressSP_Bar;
-stSteamPID.PV := AI_SteamPress1_Bar;
-stSteamPID.Kp := Kp_Steam;
-stSteamPID.Ti := Ti_Steam;
-stSteamPID.EN := TRUE;
-stSteamPID();
-AO_SteamValve_Pct := stSteamPID.OUT;
-
-// Hot Plate Zone 1 Control
-stHotPlatePID_Z1.SP := rHotPlateTempSP_C;
-stHotPlatePID_Z1.PV := AI_HotPlateTempZone1_C;
-stHotPlatePID_Z1.Kp := 3.0;
-stHotPlatePID_Z1.Ti := 15.0;
-stHotPlatePID_Z1.EN := TRUE;
-stHotPlatePID_Z1();
-AO_HotPlateHeaterZone1_Pct := stHotPlatePID_Z1.OUT;
-
-// Hot Plate Zone 2 Control (Offset by line speed influence)
-stHotPlatePID_Z2.SP := rHotPlateTempSP_C + (rLineSpeed_m_min * 0.05);
-stHotPlatePID_Z2.PV := AI_HotPlateTempZone2_C;
-stHotPlatePID_Z2.Kp := 3.0;
-stHotPlatePID_Z2.Ti := 15.0;
-stHotPlatePID_Z2.EN := TRUE;
-stHotPlatePID_Z2();
-AO_HotPlateHeaterZone2_Pct := stHotPlatePID_Z2.OUT;
-
-// Hot Plate Zone 3 Control (Further offset)
-stHotPlatePID_Z3.SP := rHotPlateTempSP_C + (rLineSpeed_m_min * 0.1);
-stHotPlatePID_Z3.PV := AI_HotPlateTempZone3_C;
-stHotPlatePID_Z3.Kp := 3.0;
-stHotPlatePID_Z3.Ti := 15.0;
-stHotPlatePID_Z3.EN := TRUE;
-stHotPlatePID_Z3();
-AO_HotPlateHeaterZone3_Pct := stHotPlatePID_Z3.OUT;
-
-// Readiness Checks
-bStarchOK := ABS(rTargetStarchTemp_C - rStarchTempAvg) < 2.0;
-bSteamOK := ABS(rSteamPressSP_Bar - AI_SteamPress1_Bar) < 0.5;
-bHotPlatesOK := (ABS(rHotPlateTempSP_C - AI_HotPlateTempZone1_C) < 5.0) AND
-                (ABS(stHotPlatePID_Z2.SP - AI_HotPlateTempZone2_C) < 5.0) AND
-                (ABS(stHotPlatePID_Z3.SP - AI_HotPlateTempZone3_C) < 5.0);
-
-bSystemReady := bStarchOK AND bSteamOK AND bHotPlatesOK;
-
-// Alarms
-IF rStarchTempAvg > 120.0 THEN
-    bAlarmActive := TRUE;
-    iAlarmCode := 101; // Starch over-temp
-ELSIF AI_SteamPress1_Bar > 12.0 THEN
-    bAlarmActive := TRUE;
-    iAlarmCode := 102; // Steam over-pressure
+IF bEnable THEN
+    CASE nState OF
+        0: // Idle
+            bSystemReady := TRUE;
+            IF rMainWaterPressure > 2.0 AND bCakePressReady THEN
+                nState := 1;
+            END_IF;
+            
+        1: // Temp Control & Counterflow Water Cascade
+            bSystemReady := FALSE;
+            FOR i := 1 TO 12 DO
+                // Bang-bang temp control with hysteresis
+                IF arrCompartmentTemp[i] < (rTargetTemp[i] - 2.0) THEN
+                    arrHeaterValves[i] := TRUE;
+                ELSIF arrCompartmentTemp[i] >= rTargetTemp[i] THEN
+                    arrHeaterValves[i] := FALSE;
+                END_IF;
+            END_FOR;
+            // Activate cascading pumps
+            FOR i := 2 TO 12 DO
+                arrWaterTransfer[i-1] := TRUE;
+            END_FOR;
+            
+            tStateTimer(IN:=TRUE, PT:=T#60S);
+            IF tStateTimer.Q THEN
+                tStateTimer(IN:=FALSE);
+                nState := 2;
+            END_IF;
+            
+        2: // Chemical Dosing based on pH and weight
+            FOR i := 1 TO 4 DO
+                arrChemicalDoseValves[i] := TRUE;
+                // Calculate rate based on load weight in primary wash (e.g. comp 4)
+                rChemicalDoseRate[i] := arrLoadWeight[4] * 0.5; 
+            END_FOR;
+            
+            tStateTimer(IN:=TRUE, PT:=T#120S);
+            IF tStateTimer.Q THEN
+                tStateTimer(IN:=FALSE);
+                FOR i := 1 TO 4 DO
+                    arrChemicalDoseValves[i] := FALSE;
+                    rChemicalDoseRate[i] := 0.0;
+                END_FOR;
+                nState := 3;
+            END_IF;
+            
+        3: // Load Transfer
+            // Simulated load transfer delay
+            tStateTimer(IN:=TRUE, PT:=T#30S);
+            IF tStateTimer.Q THEN
+                tStateTimer(IN:=FALSE);
+                nState := 4;
+            END_IF;
+            
+        4: // Cake Press integration
+            IF bCakePressReady THEN
+                bCakePressStart := TRUE;
+                IF rCakePressPressure >= 40.0 THEN // Max pressure reached
+                    bCakePressStart := FALSE;
+                    nState := 0; // Return to idle
+                END_IF;
+            END_IF;
+    END_CASE;
 ELSE
-    bAlarmActive := FALSE;
-    iAlarmCode := 0;
+    bSystemReady := FALSE;
+    nState := 0;
 END_IF;
+END_FUNCTION_BLOCK
+```"""
 
-END_FUNCTION_BLOCK"""
+prompt = "Invent a highly complex control scenario for Continuous Batch Washer (CBW) Industrial Laundry."
 
-assistant_content = f"```iec-st\n{iec_code}\n```"
-
-record = {
-    "messages": [
-        {"role": "user", "content": prompt},
-        {"role": "assistant", "content": assistant_content}
-    ]
-}
-
-file_path = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
-with open(file_path, "w", encoding="utf-8") as f:
+os.makedirs('data/swarm_raw', exist_ok=True)
+record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": st_code}]}
+filename = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
+with open(filename, "w", encoding="utf-8") as f:
     json.dump(record, f, indent=2)
-print(f"Success: {file_path}")
+print(f"Saved to {filename}")

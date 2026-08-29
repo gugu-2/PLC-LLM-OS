@@ -1,186 +1,194 @@
 import json, uuid, os
 
 prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 data.
-Your specific domain is: Solar Thermal Molten Salt Storage System.
-Task: Invent a highly complex control scenario for this domain (e.g., cold/hot tank level mass balancing, freeze protection heat tracing cascades, and heat exchanger bypass).
-Write a deterministic Structured Text (ST) FUNCTION_BLOCK. Include complete VAR declarations and physical I/O.
-"""
+Your specific domain is: Fluidized Bed Dryer (Pharmaceutical Granules).
+Task: Invent a highly complex control scenario for this domain (e.g., inlet air temperature/humidity cascade profiles, product moisture capacitance tracking, and exhaust filter pulse-jet cleaning).
+Write a deterministic Structured Text (ST) FUNCTION_BLOCK. Include complete VAR declarations and physical I/O."""
 
 st_code = """```iec-st
-FUNCTION_BLOCK FB_MoltenSaltStorageManager
-TITLE = 'Solar Thermal Molten Salt Storage Mass Balancing and Freeze Protection'
-VERSION : '1.0'
-AUTHOR : 'Lumina AI Cloud Swarm'
+FUNCTION_BLOCK FB_FluidizedBedDryer_AdvancedControl
+TITLE = 'Advanced Control for Pharma Fluidized Bed Dryer'
+VERSION : '2.1'
+AUTHOR : 'Lumina Swarm Architect'
 
 VAR_INPUT
-    bSystemEnable : BOOL; // Main system enable
-    rHotTankLevel : REAL; // Current hot tank level (%)
-    rColdTankLevel : REAL; // Current cold tank level (%)
-    rHotTankTemp : REAL; // Hot tank temperature (C)
-    rColdTankTemp : REAL; // Cold tank temperature (C)
-    rReceiverTemp : REAL; // Receiver outlet temperature (C)
-    rTargetHotTemp : REAL; // Target hot temperature for salt (C)
-    rAmbientTemp : REAL; // Ambient temperature (C)
-    bEmergencyStop : BOOL; // Emergency stop signal
-    bGridDemandHigh : BOOL; // High power demand from grid
-    bSolarFieldReady : BOOL; // Solar field is focused and ready
+    // Physical I/O
+    rInletAirTemp_PV      : REAL;  // [°C] Inlet air temperature
+    rInletAirHum_PV       : REAL;  // [%RH] Inlet air humidity
+    rProductTemp_PV       : REAL;  // [°C] Product bed temperature
+    rProductMoisture_PV   : REAL;  // [%] Capacitance moisture sensor
+    rExhaustPressure_PV   : REAL;  // [Pa] Differential pressure across exhaust filter
+    rAirflow_PV           : REAL;  // [m3/h] Primary airflow rate
+    
+    // Settings & SPs
+    rProductTemp_SP       : REAL := 60.0; // [°C] Target product temp
+    rProductMoisture_SP   : REAL := 2.5;  // [%] Target end moisture
+    rExhaustPress_Max     : REAL := 1500.0; // [Pa] Trigger for pulse jet
+    tPulseJetDuration     : TIME := T#200MS;
+    tPulseJetInterval     : TIME := T#5S;
+    
+    bStartDrying          : BOOL;
+    bEmergencyStop        : BOOL;
 END_VAR
 
 VAR_OUTPUT
-    bPumpColdToReceiver : BOOL; // Enable cold salt pump to receiver
-    rColdPumpSpeed : REAL; // Cold salt pump speed command (0-100%)
-    bPumpHotToGenerator : BOOL; // Enable hot salt pump to steam generator
-    rHotPumpSpeed : REAL; // Hot salt pump speed command (0-100%)
-    bHeatTracingHotPipes : BOOL; // Enable electrical heat tracing on hot piping
-    bHeatTracingColdPipes : BOOL; // Enable electrical heat tracing on cold piping
-    bReceiverBypassValve : BOOL; // Open receiver bypass (recirculation)
-    rSystemStateCode : INT; // Current system state code
-    bSystemFault : BOOL; // General fault flag
+    rHeaterValve_CV       : REAL; // [0-100%] Control valve for steam/electric heater
+    rDehumValve_CV        : REAL; // [0-100%] Chilled water valve for dehumidification
+    rBlowerSpeed_CV       : REAL; // [0-100%] VFD speed for main blower
+    
+    bPulseJetValve1       : BOOL; // Solenoid for exhaust filter cartridge 1
+    bPulseJetValve2       : BOOL; // Solenoid for exhaust filter cartridge 2
+    
+    bDryingComplete       : BOOL;
+    bAlarm_HighPressure   : BOOL;
+    bAlarm_OverTemp       : BOOL;
 END_VAR
 
 VAR
-    rMassBalanceError : REAL;
-    rTempDifferential : REAL;
-    tFreezeTimer : TON;
-    tBypassTimer : TON;
-    bFreezeWarning : BOOL;
-    rSaltFreezeTemp : REAL := 220.0; // Salt freezes below this temp (C)
-    rSafeMargin : REAL := 20.0; // Safety margin for freeze protection (C)
-    bIsCharging : BOOL;
-    bIsDischarging : BOOL;
+    // Internal States
+    eState                : INT := 0; // 0: Idle, 1: Pre-Heat, 2: Main Drying, 3: Cooling, 4: Pulse Clean
+    
+    // PID Controllers
+    pidTempCascade        : FB_PID_Cascade;
+    pidMoisture           : FB_PID_Standard;
+    
+    // Timers
+    tonPulseInterval      : TON;
+    tofPulseDuration      : TOF;
+    
+    rInletTemp_SP_Casc    : REAL;
+    bToggleCartridge      : BOOL;
+    
+    // Capacitance tracking algorithm
+    rMoistureIntegral     : REAL := 0.0;
+    rMoistureDerivative   : REAL := 0.0;
+    rLastMoisture         : REAL := 0.0;
 END_VAR
 
-// Implementation Details
+// --- MAIN ALGORITHM ---
+
+// Safety Interlocks
 IF bEmergencyStop THEN
-    bPumpColdToReceiver := FALSE;
-    bPumpHotToGenerator := FALSE;
-    rColdPumpSpeed := 0.0;
-    rHotPumpSpeed := 0.0;
-    bReceiverBypassValve := TRUE; // Fail-safe to bypass
-    bHeatTracingHotPipes := TRUE; // Keep pipes warm to prevent freezing during e-stop
-    bHeatTracingColdPipes := TRUE;
-    rSystemStateCode := 999;
-    bSystemFault := TRUE;
+    rHeaterValve_CV := 0.0;
+    rDehumValve_CV  := 0.0;
+    rBlowerSpeed_CV := 0.0;
+    bPulseJetValve1 := FALSE;
+    bPulseJetValve2 := FALSE;
+    eState := 0;
     RETURN;
 END_IF;
 
-IF NOT bSystemEnable THEN
-    bPumpColdToReceiver := FALSE;
-    bPumpHotToGenerator := FALSE;
-    rColdPumpSpeed := 0.0;
-    rHotPumpSpeed := 0.0;
-    rSystemStateCode := 0; // Off state
-    
-    // Check freeze protection even when off
-    bHeatTracingHotPipes := (rHotTankTemp < (rSaltFreezeTemp + rSafeMargin));
-    bHeatTracingColdPipes := (rColdTankTemp < (rSaltFreezeTemp + rSafeMargin));
-    RETURN;
+// Pulse-Jet Cleaning Logic (Continuous Background Process based on dP)
+bAlarm_HighPressure := (rExhaustPressure_PV > (rExhaustPress_Max * 1.2));
+
+tonPulseInterval(IN := (rExhaustPressure_PV > rExhaustPress_Max) AND bStartDrying, PT := tPulseJetInterval);
+IF tonPulseInterval.Q THEN
+    bToggleCartridge := NOT bToggleCartridge;
+    tonPulseInterval(IN := FALSE); // Reset timer
 END_IF;
 
-// Reset fault if we get here
-bSystemFault := FALSE;
+tofPulseDuration(IN := tonPulseInterval.Q, PT := tPulseJetDuration);
 
-// 1. Freeze Protection Logic
-bFreezeWarning := (rAmbientTemp < 5.0) OR (rHotTankTemp < (rSaltFreezeTemp + rSafeMargin)) OR (rColdTankTemp < (rSaltFreezeTemp + rSafeMargin));
-tFreezeTimer(IN:= bFreezeWarning, PT:= T#30s);
-
-IF tFreezeTimer.Q THEN
-    bHeatTracingHotPipes := TRUE;
-    bHeatTracingColdPipes := TRUE;
-    // If temp drops critically, activate circulation pump to prevent line freezing
-    IF rHotTankTemp < (rSaltFreezeTemp + 10.0) THEN
-        bPumpHotToGenerator := TRUE;
-        rHotPumpSpeed := 15.0; // Low speed circulation
-    END_IF;
-ELSE
-    bHeatTracingHotPipes := FALSE;
-    bHeatTracingColdPipes := FALSE;
-END_IF;
-
-// 2. Solar Field Charging Logic (Cold -> Receiver -> Hot)
-IF bSolarFieldReady AND (rHotTankLevel < 95.0) AND (rColdTankLevel > 5.0) THEN
-    bIsCharging := TRUE;
-    bPumpColdToReceiver := TRUE;
-    
-    // PID-like flow control based on receiver outlet temperature
-    rTempDifferential := rTargetHotTemp - rReceiverTemp;
-    
-    IF rTempDifferential > 10.0 THEN
-        // Receiver too cold, slow down pump to allow more heating
-        rColdPumpSpeed := 30.0;
-        bReceiverBypassValve := TRUE; // Recirculate until up to temp
-    ELSIF rTempDifferential < -10.0 THEN
-        // Receiver too hot, speed up pump
-        rColdPumpSpeed := 90.0;
-        bReceiverBypassValve := FALSE;
+IF tofPulseDuration.Q THEN
+    IF bToggleCartridge THEN
+        bPulseJetValve1 := TRUE;
+        bPulseJetValve2 := FALSE;
     ELSE
-        // Ideal temperature range
-        rColdPumpSpeed := 60.0;
-        bReceiverBypassValve := FALSE;
-    END_IF;
-    
-    // Delayed bypass closure
-    tBypassTimer(IN:= (rTempDifferential <= 10.0), PT:= T#2m);
-    IF tBypassTimer.Q THEN
-        bReceiverBypassValve := FALSE;
+        bPulseJetValve1 := FALSE;
+        bPulseJetValve2 := TRUE;
     END_IF;
 ELSE
-    bIsCharging := FALSE;
-    bPumpColdToReceiver := FALSE;
-    rColdPumpSpeed := 0.0;
-    bReceiverBypassValve := TRUE; // Default to bypass when not actively charging
+    bPulseJetValve1 := FALSE;
+    bPulseJetValve2 := FALSE;
 END_IF;
 
-// 3. Discharge Logic (Hot -> Steam Generator -> Cold)
-IF bGridDemandHigh AND (rHotTankLevel > 5.0) THEN
-    bIsDischarging := TRUE;
-    bPumpHotToGenerator := TRUE;
-    rHotPumpSpeed := 85.0; // Max flow for high demand
-ELSIF (NOT bGridDemandHigh) AND (rHotTankLevel > 10.0) THEN
-    bIsDischarging := TRUE;
-    bPumpHotToGenerator := TRUE;
-    rHotPumpSpeed := 40.0; // Base load flow
-ELSE
-    bIsDischarging := FALSE;
-    // Don't turn off if freeze protection circulation is active
-    IF NOT (tFreezeTimer.Q AND (rHotTankTemp < (rSaltFreezeTemp + 10.0))) THEN
-        bPumpHotToGenerator := FALSE;
-        rHotPumpSpeed := 0.0;
-    END_IF;
-END_IF;
+// Moisture tracking derivation
+rMoistureDerivative := rProductMoisture_PV - rLastMoisture;
+rLastMoisture := rProductMoisture_PV;
 
-// 4. Mass Balancing / Safety Cross-checks
-rMassBalanceError := (rHotTankLevel + rColdTankLevel) - 100.0;
-IF ABS(rMassBalanceError) > 5.0 THEN
-    // Mass loss detected (potential leak or sensor failure)
-    bSystemFault := TRUE;
-    bPumpColdToReceiver := FALSE;
-    bPumpHotToGenerator := FALSE;
-    rColdPumpSpeed := 0.0;
-    rHotPumpSpeed := 0.0;
-    rSystemStateCode := 888; // Leak fault
-    RETURN;
-END_IF;
+// State Machine
+CASE eState OF
+    0: // IDLE
+        bDryingComplete := FALSE;
+        rHeaterValve_CV := 0.0;
+        rDehumValve_CV := 0.0;
+        IF bStartDrying THEN
+            eState := 1;
+        END_IF;
+        
+    1: // PRE-HEAT
+        rBlowerSpeed_CV := 50.0; // Constant low flow for pre-heat
+        // Target specific inlet temp
+        pidTempCascade.rSetPoint := 50.0; 
+        pidTempCascade.rProcessValue := rInletAirTemp_PV;
+        pidTempCascade();
+        rHeaterValve_CV := pidTempCascade.rControlValue;
+        
+        IF rProductTemp_PV >= 40.0 THEN
+            eState := 2; // Move to main drying once bed is warm
+        END_IF;
+        
+    2: // MAIN DRYING
+        // Cascade control: Product temp SP dictates Inlet Temp SP
+        pidMoisture.rSetPoint := rProductTemp_SP;
+        pidMoisture.rProcessValue := rProductTemp_PV;
+        pidMoisture();
+        
+        // Limit inlet temp to prevent product degradation
+        rInletTemp_SP_Casc := pidMoisture.rControlValue;
+        IF rInletTemp_SP_Casc > 85.0 THEN
+            rInletTemp_SP_Casc := 85.0;
+        END_IF;
+        
+        pidTempCascade.rSetPoint := rInletTemp_SP_Casc;
+        pidTempCascade.rProcessValue := rInletAirTemp_PV;
+        pidTempCascade();
+        rHeaterValve_CV := pidTempCascade.rControlValue;
+        
+        // Humidity control
+        IF rInletAirHum_PV > 15.0 THEN
+            rDehumValve_CV := (rInletAirHum_PV - 15.0) * 5.0; 
+        ELSE
+            rDehumValve_CV := 0.0;
+        END_IF;
+        
+        rBlowerSpeed_CV := 80.0;
+        
+        // Moisture endpoint detection
+        IF rProductMoisture_PV <= rProductMoisture_SP AND rMoistureDerivative > -0.05 THEN
+            eState := 3;
+        END_IF;
+        
+    3: // COOLING
+        rHeaterValve_CV := 0.0;
+        rDehumValve_CV := 100.0; // Max dry air for cooling
+        rBlowerSpeed_CV := 60.0;
+        
+        IF rProductTemp_PV < 35.0 THEN
+            bDryingComplete := TRUE;
+            eState := 0;
+        END_IF;
+        
+END_CASE;
 
-// State Assignment
-IF bIsCharging AND bIsDischarging THEN
-    rSystemStateCode := 3; // Simultaneous charge/discharge
-ELSIF bIsCharging THEN
-    rSystemStateCode := 1; // Charging only
-ELSIF bIsDischarging THEN
-    rSystemStateCode := 2; // Discharging only
-ELSE
-    rSystemStateCode := 4; // Standby
-END_IF;
+// Alarms
+bAlarm_OverTemp := rProductTemp_PV > (rProductTemp_SP + 10.0) OR rInletAirTemp_PV > 95.0;
 
 END_FUNCTION_BLOCK
 ```"""
 
+os.makedirs("data/swarm_raw", exist_ok=True)
+os.makedirs("data", exist_ok=True)
+
 record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": st_code}]}
 
-os.makedirs("data/swarm_raw", exist_ok=True)
-filename = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
-with open(filename, "w", encoding="utf-8") as f:
+file_id = uuid.uuid4().hex[:8]
+swarm_file = f"data/swarm_raw/agent_{file_id}.json"
+with open(swarm_file, "w", encoding="utf-8") as f:
     json.dump(record, f)
-
-print(f"File saved to {filename}")
+    
+jsonl_file = "data/synthetic_generation_v3_enterprise.jsonl"
+with open(jsonl_file, "a", encoding="utf-8") as f:
+    f.write(json.dumps(record) + "\n")
+    
+print(f"Saved to {swarm_file} and {jsonl_file}")
