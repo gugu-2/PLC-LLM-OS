@@ -1,186 +1,252 @@
 import json, uuid, os
+os.makedirs('data/swarm_raw', exist_ok=True)
+os.makedirs('data', exist_ok=True)
 
-prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 data.
-Your specific domain is: Solar Thermal Molten Salt Storage System.
-Task: Invent a highly complex control scenario for this domain (e.g., cold/hot tank level mass balancing, freeze protection heat tracing cascades, and heat exchanger bypass).
-Write a deterministic Structured Text (ST) FUNCTION_BLOCK. Include complete VAR declarations and physical I/O.
-"""
-
-st_code = """```iec-st
-FUNCTION_BLOCK FB_MoltenSaltStorageManager
-TITLE = 'Solar Thermal Molten Salt Storage Mass Balancing and Freeze Protection'
-VERSION : '1.0'
+code='''```iec-st
+FUNCTION_BLOCK FB_TissueMachineMasterControl
+TITLE = 'Tissue Paper Machine Master Control - Yankee, Crepe, Calendar'
+VERSION : '2.4.1'
 AUTHOR : 'Lumina AI Cloud Swarm'
 
 VAR_INPUT
-    bSystemEnable : BOOL; // Main system enable
-    rHotTankLevel : REAL; // Current hot tank level (%)
-    rColdTankLevel : REAL; // Current cold tank level (%)
-    rHotTankTemp : REAL; // Hot tank temperature (C)
-    rColdTankTemp : REAL; // Cold tank temperature (C)
-    rReceiverTemp : REAL; // Receiver outlet temperature (C)
-    rTargetHotTemp : REAL; // Target hot temperature for salt (C)
-    rAmbientTemp : REAL; // Ambient temperature (C)
-    bEmergencyStop : BOOL; // Emergency stop signal
-    bGridDemandHigh : BOOL; // High power demand from grid
-    bSolarFieldReady : BOOL; // Solar field is focused and ready
+    // System Control
+    xEnableSystem          : BOOL;   // Master enable switch
+    xEmergencyStop         : BOOL;   // E-Stop active low
+    xResetFaults           : BOOL;   // Reset alarm latches
+    
+    // Yankee Dryer Sensors
+    rYankeeSurfaceTemp     : REAL;   // Current Yankee cylinder surface temperature [C]
+    rMainSteamPressure     : REAL;   // Main header steam pressure [bar]
+    rYankeeCondensateLevel : REAL;   // Condensate level inside the Yankee [mm]
+    
+    // Crepe Doctor Blade Sensors
+    rBladeWearSensor       : REAL;   // Doctor blade wear measurement [mm]
+    rHydraulicSupplyPress  : REAL;   // Hydraulic system supply pressure [bar]
+    rBladeVibrationLevel   : REAL;   // Vibration monitoring for chatter [mm/s]
+    
+    // Calendar Stack Sensors
+    rWebTension            : REAL;   // Sheet tension entering calendar [N/m]
+    rNipLoadCell1          : REAL;   // Drive side nip load cell [kN/m]
+    rNipLoadCell2          : REAL;   // Tender side nip load cell [kN/m]
+    rTargetCaliper         : REAL;   // Target sheet thickness [microns]
+    
+    // Target Setpoints
+    rTargetYankeeTemp      : REAL;   // Target Yankee temperature [C]
+    rTargetBladeLoad       : REAL;   // Target doctor blade linear load [kN/m]
+    rTargetNipPressure     : REAL;   // Target average nip pressure [kN/m]
 END_VAR
 
 VAR_OUTPUT
-    bPumpColdToReceiver : BOOL; // Enable cold salt pump to receiver
-    rColdPumpSpeed : REAL; // Cold salt pump speed command (0-100%)
-    bPumpHotToGenerator : BOOL; // Enable hot salt pump to steam generator
-    rHotPumpSpeed : REAL; // Hot salt pump speed command (0-100%)
-    bHeatTracingHotPipes : BOOL; // Enable electrical heat tracing on hot piping
-    bHeatTracingColdPipes : BOOL; // Enable electrical heat tracing on cold piping
-    bReceiverBypassValve : BOOL; // Open receiver bypass (recirculation)
-    rSystemStateCode : INT; // Current system state code
-    bSystemFault : BOOL; // General fault flag
+    // Actuators - Yankee
+    rSteamValveCommand     : REAL;   // Command to Yankee steam inlet valve [0-100%]
+    rBlowThroughValveCmd   : REAL;   // Command to condensate blow-through valve [0-100%]
+    xCondensatePumpRun     : BOOL;   // Start/Stop for condensate removal pump
+    
+    // Actuators - Crepe Blade
+    rBladeLoadValveDrive   : REAL;   // Proportional valve cmd for drive side blade load [0-100%]
+    rBladeLoadValveTender  : REAL;   // Proportional valve cmd for tender side blade load [0-100%]
+    xBladeOscillatorRun    : BOOL;   // Enable cross-machine blade oscillation
+    
+    // Actuators - Calendar Stack
+    rNipHydraulicCmdDrive  : REAL;   // Calendar loading cylinder drive side [0-100%]
+    rNipHydraulicCmdTender : REAL;   // Calendar loading cylinder tender side [0-100%]
+    
+    // Status and Alarms
+    xSystemReady           : BOOL;
+    xYankeeTempOK          : BOOL;
+    xBladeChatterAlarm     : BOOL;
+    xWebBreakAlarm         : BOOL;
+    wErrorCode             : WORD;   // Bitmask of active faults
 END_VAR
 
 VAR
-    rMassBalanceError : REAL;
-    rTempDifferential : REAL;
-    tFreezeTimer : TON;
-    tBypassTimer : TON;
-    bFreezeWarning : BOOL;
-    rSaltFreezeTemp : REAL := 220.0; // Salt freezes below this temp (C)
-    rSafeMargin : REAL := 20.0; // Safety margin for freeze protection (C)
-    bIsCharging : BOOL;
-    bIsDischarging : BOOL;
+    // Internal Control States
+    rTempError             : REAL;
+    rTempIntegral          : REAL := 0.0;
+    rTempDerivative        : REAL := 0.0;
+    rLastTempError         : REAL := 0.0;
+    
+    rPressureSetpoint      : REAL;
+    rPressureError         : REAL;
+    rPressureIntegral      : REAL := 0.0;
+    
+    // Tuning Parameters
+    rKp_Temp               : REAL := 2.5;
+    rKi_Temp               : REAL := 0.15;
+    rKd_Temp               : REAL := 0.05;
+    
+    rKp_Press              : REAL := 5.0;
+    rKi_Press              : REAL := 0.8;
+    
+    // Timers
+    tonCondensateDrain     : TON;
+    tonVibrationFilter     : TON;
+    
+    // Safety Limits
+    rMaxSteamPressure      : REAL := 8.5; // Maximum allowable Yankee steam pressure
+    rMaxBladeVibration     : REAL := 12.0; // Vibration trip limit
+    rMinWebTension         : REAL := 50.0; // Minimum tension before assuming web break
+    
+    // Local flags
+    xFaultActive           : BOOL;
+    
+    // Calcs
+    rCompensatedLoad       : REAL;
+    rNipErrorDrive         : REAL;
+    rNipErrorTender        : REAL;
 END_VAR
 
-// Implementation Details
-IF bEmergencyStop THEN
-    bPumpColdToReceiver := FALSE;
-    bPumpHotToGenerator := FALSE;
-    rColdPumpSpeed := 0.0;
-    rHotPumpSpeed := 0.0;
-    bReceiverBypassValve := TRUE; // Fail-safe to bypass
-    bHeatTracingHotPipes := TRUE; // Keep pipes warm to prevent freezing during e-stop
-    bHeatTracingColdPipes := TRUE;
-    rSystemStateCode := 999;
-    bSystemFault := TRUE;
+// -----------------------------------------------------------------------------
+// FAULT HANDLING AND SAFETY INTERLOCKS
+// -----------------------------------------------------------------------------
+xFaultActive := FALSE;
+wErrorCode := 0;
+
+IF NOT xEmergencyStop THEN
+    wErrorCode := wErrorCode OR 16#0001;
+    xFaultActive := TRUE;
+END_IF;
+
+IF rMainSteamPressure > rMaxSteamPressure THEN
+    wErrorCode := wErrorCode OR 16#0002;
+    xFaultActive := TRUE;
+END_IF;
+
+tonVibrationFilter(IN := (rBladeVibrationLevel > rMaxBladeVibration), PT := T#2S);
+IF tonVibrationFilter.Q THEN
+    xBladeChatterAlarm := TRUE;
+    wErrorCode := wErrorCode OR 16#0004;
+    xFaultActive := TRUE;
+END_IF;
+
+IF (rWebTension < rMinWebTension) AND xEnableSystem THEN
+    xWebBreakAlarm := TRUE;
+    wErrorCode := wErrorCode OR 16#0008;
+END_IF;
+
+IF xResetFaults THEN
+    xBladeChatterAlarm := FALSE;
+    xWebBreakAlarm := FALSE;
+    xFaultActive := FALSE;
+    wErrorCode := 0;
+END_IF;
+
+// Fast stop on critical fault
+IF xFaultActive THEN
+    rSteamValveCommand := 0.0;
+    rBlowThroughValveCmd := 100.0; // Vent
+    rBladeLoadValveDrive := 0.0;
+    rBladeLoadValveTender := 0.0;
+    xBladeOscillatorRun := FALSE;
+    rNipHydraulicCmdDrive := 0.0;
+    rNipHydraulicCmdTender := 0.0;
+    xSystemReady := FALSE;
     RETURN;
 END_IF;
 
-IF NOT bSystemEnable THEN
-    bPumpColdToReceiver := FALSE;
-    bPumpHotToGenerator := FALSE;
-    rColdPumpSpeed := 0.0;
-    rHotPumpSpeed := 0.0;
-    rSystemStateCode := 0; // Off state
-    
-    // Check freeze protection even when off
-    bHeatTracingHotPipes := (rHotTankTemp < (rSaltFreezeTemp + rSafeMargin));
-    bHeatTracingColdPipes := (rColdTankTemp < (rSaltFreezeTemp + rSafeMargin));
-    RETURN;
+// -----------------------------------------------------------------------------
+// CASCADE PID: YANKEE DRYER TEMPERATURE TO STEAM PRESSURE
+// -----------------------------------------------------------------------------
+// Outer Loop: Temperature to Pressure Setpoint
+rTempError := rTargetYankeeTemp - rYankeeSurfaceTemp;
+rTempIntegral := rTempIntegral + (rTempError * 0.1); // Assuming 100ms task
+rTempDerivative := (rTempError - rLastTempError) / 0.1;
+rLastTempError := rTempError;
+
+// Anti-windup for Outer Loop
+IF rTempIntegral > 50.0 THEN rTempIntegral := 50.0; END_IF;
+IF rTempIntegral < -50.0 THEN rTempIntegral := -50.0; END_IF;
+
+rPressureSetpoint := (rKp_Temp * rTempError) + (rKi_Temp * rTempIntegral) + (rKd_Temp * rTempDerivative);
+
+// Clamp Pressure Setpoint
+IF rPressureSetpoint > (rMaxSteamPressure - 0.5) THEN
+    rPressureSetpoint := rMaxSteamPressure - 0.5;
+ELSIF rPressureSetpoint < 0.0 THEN
+    rPressureSetpoint := 0.0;
 END_IF;
 
-// Reset fault if we get here
-bSystemFault := FALSE;
+// Inner Loop: Pressure Setpoint to Valve Command
+rPressureError := rPressureSetpoint - rMainSteamPressure;
+rPressureIntegral := rPressureIntegral + (rPressureError * 0.1);
 
-// 1. Freeze Protection Logic
-bFreezeWarning := (rAmbientTemp < 5.0) OR (rHotTankTemp < (rSaltFreezeTemp + rSafeMargin)) OR (rColdTankTemp < (rSaltFreezeTemp + rSafeMargin));
-tFreezeTimer(IN:= bFreezeWarning, PT:= T#30s);
+// Anti-windup for Inner Loop
+IF rPressureIntegral > 100.0 THEN rPressureIntegral := 100.0; END_IF;
+IF rPressureIntegral < 0.0 THEN rPressureIntegral := 0.0; END_IF;
 
-IF tFreezeTimer.Q THEN
-    bHeatTracingHotPipes := TRUE;
-    bHeatTracingColdPipes := TRUE;
-    // If temp drops critically, activate circulation pump to prevent line freezing
-    IF rHotTankTemp < (rSaltFreezeTemp + 10.0) THEN
-        bPumpHotToGenerator := TRUE;
-        rHotPumpSpeed := 15.0; // Low speed circulation
-    END_IF;
+rSteamValveCommand := (rKp_Press * rPressureError) + (rKi_Press * rPressureIntegral);
+IF rSteamValveCommand > 100.0 THEN rSteamValveCommand := 100.0; END_IF;
+IF rSteamValveCommand < 0.0 THEN rSteamValveCommand := 0.0; END_IF;
+
+// Condensate Management
+xCondensatePumpRun := (rYankeeCondensateLevel > 150.0) OR (rMainSteamPressure > 4.0);
+IF rYankeeCondensateLevel > 250.0 THEN
+    rBlowThroughValveCmd := 80.0; // Aggressive blow-through
 ELSE
-    bHeatTracingHotPipes := FALSE;
-    bHeatTracingColdPipes := FALSE;
+    rBlowThroughValveCmd := 20.0; // Baseline DP control
 END_IF;
 
-// 2. Solar Field Charging Logic (Cold -> Receiver -> Hot)
-IF bSolarFieldReady AND (rHotTankLevel < 95.0) AND (rColdTankLevel > 5.0) THEN
-    bIsCharging := TRUE;
-    bPumpColdToReceiver := TRUE;
+xYankeeTempOK := ABS(rTempError) < 2.5;
+
+// -----------------------------------------------------------------------------
+// CREPE DOCTOR BLADE HYDRAULIC LOADING
+// -----------------------------------------------------------------------------
+IF xEnableSystem AND NOT xWebBreakAlarm THEN
+    // Compensate target load based on blade wear profile (simple linear scaling)
+    rCompensatedLoad := rTargetBladeLoad * (1.0 + (rBladeWearSensor * 0.02));
     
-    // PID-like flow control based on receiver outlet temperature
-    rTempDifferential := rTargetHotTemp - rReceiverTemp;
+    // Distribute load evenly assuming uniform cross-machine profile, but offset if needed
+    rBladeLoadValveDrive := (rCompensatedLoad / rHydraulicSupplyPress) * 100.0;
+    rBladeLoadValveTender := (rCompensatedLoad / rHydraulicSupplyPress) * 100.0;
     
-    IF rTempDifferential > 10.0 THEN
-        // Receiver too cold, slow down pump to allow more heating
-        rColdPumpSpeed := 30.0;
-        bReceiverBypassValve := TRUE; // Recirculate until up to temp
-    ELSIF rTempDifferential < -10.0 THEN
-        // Receiver too hot, speed up pump
-        rColdPumpSpeed := 90.0;
-        bReceiverBypassValve := FALSE;
-    ELSE
-        // Ideal temperature range
-        rColdPumpSpeed := 60.0;
-        bReceiverBypassValve := FALSE;
-    END_IF;
+    // Clamp output commands
+    IF rBladeLoadValveDrive > 100.0 THEN rBladeLoadValveDrive := 100.0; END_IF;
+    IF rBladeLoadValveTender > 100.0 THEN rBladeLoadValveTender := 100.0; END_IF;
     
-    // Delayed bypass closure
-    tBypassTimer(IN:= (rTempDifferential <= 10.0), PT:= T#2m);
-    IF tBypassTimer.Q THEN
-        bReceiverBypassValve := FALSE;
-    END_IF;
+    xBladeOscillatorRun := TRUE;
 ELSE
-    bIsCharging := FALSE;
-    bPumpColdToReceiver := FALSE;
-    rColdPumpSpeed := 0.0;
-    bReceiverBypassValve := TRUE; // Default to bypass when not actively charging
+    rBladeLoadValveDrive := 0.0;
+    rBladeLoadValveTender := 0.0;
+    xBladeOscillatorRun := FALSE;
 END_IF;
 
-// 3. Discharge Logic (Hot -> Steam Generator -> Cold)
-IF bGridDemandHigh AND (rHotTankLevel > 5.0) THEN
-    bIsDischarging := TRUE;
-    bPumpHotToGenerator := TRUE;
-    rHotPumpSpeed := 85.0; // Max flow for high demand
-ELSIF (NOT bGridDemandHigh) AND (rHotTankLevel > 10.0) THEN
-    bIsDischarging := TRUE;
-    bPumpHotToGenerator := TRUE;
-    rHotPumpSpeed := 40.0; // Base load flow
+// -----------------------------------------------------------------------------
+// CALENDAR STACK NIP PRESSURE
+// -----------------------------------------------------------------------------
+IF xEnableSystem AND NOT xWebBreakAlarm THEN
+    // Target Nip Pressure is split between Drive and Tender sides based on load cells
+    rNipErrorDrive := rTargetNipPressure - rNipLoadCell1;
+    rNipErrorTender := rTargetNipPressure - rNipLoadCell2;
+    
+    // Simple Proportional feedback for Nip Gap
+    rNipHydraulicCmdDrive := rNipHydraulicCmdDrive + (rNipErrorDrive * 0.1);
+    rNipHydraulicCmdTender := rNipHydraulicCmdTender + (rNipErrorTender * 0.1);
+    
+    // Clamping logic
+    IF rNipHydraulicCmdDrive > 100.0 THEN rNipHydraulicCmdDrive := 100.0; END_IF;
+    IF rNipHydraulicCmdDrive < 0.0 THEN rNipHydraulicCmdDrive := 0.0; END_IF;
+    
+    IF rNipHydraulicCmdTender > 100.0 THEN rNipHydraulicCmdTender := 100.0; END_IF;
+    IF rNipHydraulicCmdTender < 0.0 THEN rNipHydraulicCmdTender := 0.0; END_IF;
 ELSE
-    bIsDischarging := FALSE;
-    // Don't turn off if freeze protection circulation is active
-    IF NOT (tFreezeTimer.Q AND (rHotTankTemp < (rSaltFreezeTemp + 10.0))) THEN
-        bPumpHotToGenerator := FALSE;
-        rHotPumpSpeed := 0.0;
-    END_IF;
+    rNipHydraulicCmdDrive := 0.0;
+    rNipHydraulicCmdTender := 0.0;
 END_IF;
 
-// 4. Mass Balancing / Safety Cross-checks
-rMassBalanceError := (rHotTankLevel + rColdTankLevel) - 100.0;
-IF ABS(rMassBalanceError) > 5.0 THEN
-    // Mass loss detected (potential leak or sensor failure)
-    bSystemFault := TRUE;
-    bPumpColdToReceiver := FALSE;
-    bPumpHotToGenerator := FALSE;
-    rColdPumpSpeed := 0.0;
-    rHotPumpSpeed := 0.0;
-    rSystemStateCode := 888; // Leak fault
-    RETURN;
-END_IF;
-
-// State Assignment
-IF bIsCharging AND bIsDischarging THEN
-    rSystemStateCode := 3; // Simultaneous charge/discharge
-ELSIF bIsCharging THEN
-    rSystemStateCode := 1; // Charging only
-ELSIF bIsDischarging THEN
-    rSystemStateCode := 2; // Discharging only
-ELSE
-    rSystemStateCode := 4; // Standby
-END_IF;
-
+xSystemReady := TRUE;
 END_FUNCTION_BLOCK
-```"""
+```'''
 
-record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": st_code}]}
+prompt='Invent a highly complex control scenario for a Tissue Paper Machine (Yankee dryer steam pressure cascading, crepe doctor blade hydraulic loading, and calendar stack nip pressure). Write a deterministic Structured Text (ST) FUNCTION_BLOCK. Include complete VAR declarations and physical I/O.'
+record={'messages':[{'role':'user','content':prompt},{'role':'assistant','content':code}]}
 
-os.makedirs("data/swarm_raw", exist_ok=True)
-filename = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
-with open(filename, "w", encoding="utf-8") as f:
-    json.dump(record, f)
-
-print(f"File saved to {filename}")
+# 1. Save to unique file
+filepath=f'data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json'
+with open(filepath,'w',encoding='utf-8') as f:
+    json.dump(record,f,indent=2)
+    
+# 2. Append to jsonl
+with open('data/synthetic_generation_v3_enterprise.jsonl','a',encoding='utf-8') as f:
+    f.write(json.dumps(record) + "\n")
+    
+print('Success: ' + filepath)

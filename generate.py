@@ -1,139 +1,149 @@
-import json
-import uuid
+import json, uuid
 import os
 
-prompt = "You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 data.\nYour specific domain is: Battery Cathode Material Calcination Kiln.\nTask: Invent a highly complex control scenario for this domain (e.g., rotary kiln longitudinal thermal gradients, sagger tray servo indexing, and precise oxygen enrichment cascades).\nWrite a deterministic Structured Text (ST) FUNCTION_BLOCK. Include complete VAR declarations and physical I/O."
-
-st_code = """FUNCTION_BLOCK FB_Cathode_Calcination_Kiln
-TITLE = 'Battery Cathode Material Calcination Kiln Control'
-// Highly complex control for a rotary kiln processing battery cathode materials.
-// Features: Longitudinal thermal gradients, sagger tray servo indexing, and precise O2 cascade.
-
+code = """```iec-st
+FUNCTION_BLOCK FB_RO_DesalinationControl
 VAR_INPUT
-    bEnable : BOOL; // Enable Kiln Operation
-    rTempSetpoint_Z1 : REAL; // Zone 1 Temperature Setpoint (C)
-    rTempSetpoint_Z2 : REAL; // Zone 2 Temperature Setpoint (C)
-    rTempSetpoint_Z3 : REAL; // Zone 3 Temperature Setpoint (C)
-    rTempSetpoint_Z4 : REAL; // Zone 4 Temperature Setpoint (C)
-    rActualTemp_Z1 : REAL; // Actual Temp Zone 1
-    rActualTemp_Z2 : REAL; // Actual Temp Zone 2
-    rActualTemp_Z3 : REAL; // Actual Temp Zone 3
-    rActualTemp_Z4 : REAL; // Actual Temp Zone 4
-    rO2_Setpoint : REAL; // Oxygen concentration setpoint (%)
-    rActual_O2 : REAL; // Actual Oxygen concentration
-    bSaggerIndexReq : BOOL; // Request to index the sagger tray
-    bSaggerAtPos : BOOL; // Sagger tray is at the indexing position
-    rKilnRotationSpeedReq : REAL; // Required Kiln Rotation Speed (RPM)
+    bStartSequence : BOOL;
+    bEmergencyStop : BOOL;
+    rFeedPressure : REAL; (* Bar *)
+    rPermeateFlow : REAL; (* m3/h *)
+    rConcentrateFlow : REAL; (* m3/h *)
+    rFeedConductivity : REAL; (* uS/cm *)
+    rMembraneDiffPressure : REAL; (* Bar *)
+    rAntiScalantTankLevel : REAL; (* % *)
 END_VAR
-
 VAR_OUTPUT
-    rHeaterCmd_Z1 : REAL; // 0-100% Heater Command Zone 1
-    rHeaterCmd_Z2 : REAL; // 0-100% Heater Command Zone 2
-    rHeaterCmd_Z3 : REAL; // 0-100% Heater Command Zone 3
-    rHeaterCmd_Z4 : REAL; // 0-100% Heater Command Zone 4
-    rO2_ValveCmd : REAL; // 0-100% O2 Enrichment Valve Command
-    bSaggerServoIndex : BOOL; // Command to index sagger tray servo
-    rKilnDriveCmd : REAL; // 0-100% Kiln Drive Command
-    bSystemReady : BOOL; // System is at temperature and stable
-    bAlarm : BOOL; // General Alarm flag
-    iErrorCode : INT; // Error Code for diagnostics
+    bHighPressurePumpCmd : BOOL;
+    bERDBoosterPumpCmd : BOOL;
+    rAntiScalantDosingRate : REAL; (* L/h *)
+    rRejectControlValvePos : REAL; (* 0-100% *)
+    bSystemReady : BOOL;
+    bAlarmActive : BOOL;
+    iStateSequence : INT;
 END_VAR
-
 VAR
-    // PID Controllers for Temperature Zones
-    PID_Z1 : FB_PID;
-    PID_Z2 : FB_PID;
-    PID_Z3 : FB_PID;
-    PID_Z4 : FB_PID;
-    
-    // PID Controller for O2 Cascade
-    PID_O2 : FB_PID;
-    
-    // Timers
-    TMR_SaggerDelay : TON;
-    TMR_TempStabilization : TON;
-    
-    // Internal state variables
-    bGradientsOK : BOOL;
-    rTempDev_Z1 : REAL;
-    rTempDev_Z2 : REAL;
-    rTempDev_Z3 : REAL;
-    rTempDev_Z4 : REAL;
-    
-    // Constants
-    rMaxTempDev : REAL := 5.0; // Max allowable temperature deviation
+    TON_StartupDelay : TON;
+    TON_RampUp : TON;
+    rTargetPressure : REAL := 65.0; (* Bar *)
+    rCurrentDosingSetpoint : REAL := 0.0;
+    bMembraneFoulingWarning : BOOL := FALSE;
+    bStartupComplete : BOOL := FALSE;
+    rRecoveryRate : REAL := 0.0;
 END_VAR
 
-// --- IMPLEMENTATION ---
-IF NOT bEnable THEN
-    rHeaterCmd_Z1 := 0.0;
-    rHeaterCmd_Z2 := 0.0;
-    rHeaterCmd_Z3 := 0.0;
-    rHeaterCmd_Z4 := 0.0;
-    rO2_ValveCmd := 0.0;
-    bSaggerServoIndex := FALSE;
-    rKilnDriveCmd := 0.0;
+(* Control Logic for RO Desalination Plant *)
+
+IF bEmergencyStop THEN
+    bHighPressurePumpCmd := FALSE;
+    bERDBoosterPumpCmd := FALSE;
+    rAntiScalantDosingRate := 0.0;
+    rRejectControlValvePos := 100.0; (* Fully open for safe shutdown *)
+    iStateSequence := 0;
+    bAlarmActive := TRUE;
     bSystemReady := FALSE;
-    bAlarm := FALSE;
-    iErrorCode := 0;
     RETURN;
 END_IF;
 
-// Calculate Temperature Deviations
-rTempDev_Z1 := ABS(rTempSetpoint_Z1 - rActualTemp_Z1);
-rTempDev_Z2 := ABS(rTempSetpoint_Z2 - rActualTemp_Z2);
-rTempDev_Z3 := ABS(rTempSetpoint_Z3 - rActualTemp_Z3);
-rTempDev_Z4 := ABS(rTempSetpoint_Z4 - rActualTemp_Z4);
+(* Calculate Recovery Rate *)
+IF (rPermeateFlow + rConcentrateFlow) > 0.0 THEN
+    rRecoveryRate := (rPermeateFlow / (rPermeateFlow + rConcentrateFlow)) * 100.0;
+END_IF;
 
-// Evaluate Longitudinal Thermal Gradients
-bGradientsOK := (rTempDev_Z1 < rMaxTempDev) AND 
-                (rTempDev_Z2 < rMaxTempDev) AND 
-                (rTempDev_Z3 < rMaxTempDev) AND 
-                (rTempDev_Z4 < rMaxTempDev);
-
-// Stabilization Timer
-TMR_TempStabilization(IN := bGradientsOK, PT := T#5M);
-bSystemReady := TMR_TempStabilization.Q;
-
-// Temperature Control (PID execution)
-PID_Z1(bEnable := TRUE, rSetpoint := rTempSetpoint_Z1, rProcessValue := rActualTemp_Z1, rOutput => rHeaterCmd_Z1);
-PID_Z2(bEnable := TRUE, rSetpoint := rTempSetpoint_Z2, rProcessValue := rActualTemp_Z2, rOutput => rHeaterCmd_Z2);
-PID_Z3(bEnable := TRUE, rSetpoint := rTempSetpoint_Z3, rProcessValue := rActualTemp_Z3, rOutput => rHeaterCmd_Z3);
-PID_Z4(bEnable := TRUE, rSetpoint := rTempSetpoint_Z4, rProcessValue := rActualTemp_Z4, rOutput => rHeaterCmd_Z4);
-
-// Oxygen Enrichment Cascade
-PID_O2(bEnable := bSystemReady, rSetpoint := rO2_Setpoint, rProcessValue := rActual_O2, rOutput => rO2_ValveCmd);
-
-// Sagger Tray Servo Indexing Logic
-TMR_SaggerDelay(IN := bSaggerIndexReq AND bSystemReady, PT := T#2S);
-IF TMR_SaggerDelay.Q AND bSaggerAtPos THEN
-    bSaggerServoIndex := TRUE;
+(* Membrane Fouling Detection *)
+IF rMembraneDiffPressure > 2.5 THEN
+    bMembraneFoulingWarning := TRUE;
 ELSE
-    bSaggerServoIndex := FALSE;
+    bMembraneFoulingWarning := FALSE;
 END_IF;
 
-// Kiln Rotation
-// Basic mapping of RPM to drive command, assuming linear relationship max 10 RPM = 100%
-rKilnDriveCmd := LIMIT(0.0, (rKilnRotationSpeedReq / 10.0) * 100.0, 100.0);
-
-// Alarms
-IF rActualTemp_Z1 > (rTempSetpoint_Z1 + 20.0) OR rActualTemp_Z4 > (rTempSetpoint_Z4 + 20.0) THEN
-    bAlarm := TRUE;
-    iErrorCode := 101; // Over temperature alarm
+(* Anti-scalant Dosing Control - Flow Proportional *)
+IF bHighPressurePumpCmd AND rFeedPressure > 10.0 THEN
+    (* Base dosing rate on feed flow and setpoint *)
+    rCurrentDosingSetpoint := (rPermeateFlow + rConcentrateFlow) * 0.02; (* 20 ppm *)
+    IF rAntiScalantTankLevel < 10.0 THEN
+        bAlarmActive := TRUE; (* Low level alarm *)
+        rAntiScalantDosingRate := rCurrentDosingSetpoint;
+    ELSE
+        rAntiScalantDosingRate := rCurrentDosingSetpoint;
+    END_IF;
+ELSE
+    rAntiScalantDosingRate := 0.0;
 END_IF;
+
+(* Sequence Control *)
+CASE iStateSequence OF
+    0: (* Standby *)
+        bSystemReady := TRUE;
+        bHighPressurePumpCmd := FALSE;
+        bERDBoosterPumpCmd := FALSE;
+        rRejectControlValvePos := 100.0; 
+        IF bStartSequence AND NOT bAlarmActive THEN
+            iStateSequence := 10;
+            bSystemReady := FALSE;
+        END_IF;
+        
+    10: (* Pre-checks and ERD Booster Start *)
+        bERDBoosterPumpCmd := TRUE;
+        TON_StartupDelay(IN:=TRUE, PT:=T#5S);
+        IF TON_StartupDelay.Q THEN
+            TON_StartupDelay(IN:=FALSE);
+            iStateSequence := 20;
+        END_IF;
+        
+    20: (* High Pressure Pump Ramp Up *)
+        bHighPressurePumpCmd := TRUE;
+        TON_RampUp(IN:=TRUE, PT:=T#30S);
+        
+        (* Gradually close reject valve to build pressure *)
+        IF rRejectControlValvePos > 40.0 THEN
+            rRejectControlValvePos := rRejectControlValvePos - 0.1;
+        END_IF;
+        
+        IF rFeedPressure >= rTargetPressure OR TON_RampUp.Q THEN
+            iStateSequence := 30;
+            TON_RampUp(IN:=FALSE);
+        END_IF;
+        
+    30: (* Steady State Operation *)
+        bStartupComplete := TRUE;
+        
+        (* Pressure Control via Reject Valve *)
+        IF rFeedPressure < rTargetPressure - 1.0 THEN
+            rRejectControlValvePos := rRejectControlValvePos - 0.05;
+        ELSIF rFeedPressure > rTargetPressure + 1.0 THEN
+            rRejectControlValvePos := rRejectControlValvePos + 0.05;
+        END_IF;
+        
+        (* Limit valve position *)
+        IF rRejectControlValvePos > 100.0 THEN rRejectControlValvePos := 100.0; END_IF;
+        IF rRejectControlValvePos < 10.0 THEN rRejectControlValvePos := 10.0; END_IF;
+        
+        IF NOT bStartSequence THEN
+            iStateSequence := 40; (* Shutdown sequence *)
+        END_IF;
+        
+    40: (* Normal Shutdown *)
+        bHighPressurePumpCmd := FALSE;
+        bStartupComplete := FALSE;
+        rRejectControlValvePos := 100.0; (* Open reject valve *)
+        TON_StartupDelay(IN:=TRUE, PT:=T#10S);
+        IF TON_StartupDelay.Q THEN
+            bERDBoosterPumpCmd := FALSE;
+            TON_StartupDelay(IN:=FALSE);
+            iStateSequence := 0;
+        END_IF;
+END_CASE;
 
 END_FUNCTION_BLOCK
-"""
+```"""
 
-response_content = f"```iec-st\n{st_code}\n```"
-record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": response_content}]}
+prompt = "Invent a highly complex control scenario for a Reverse Osmosis (RO) Desalination Plant (e.g., high-pressure pump Energy Recovery Device (ERD) sequencing, membrane differential pressure tracking, and anti-scalant dosing). Write a deterministic Structured Text (ST) FUNCTION_BLOCK. Include complete VAR declarations and physical I/O."
 
-os.makedirs("data/swarm_raw", exist_ok=True)
+record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
+
 os.makedirs("data", exist_ok=True)
-
-filename = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
-with open(filename, "w", encoding="utf-8") as f:
-    json.dump(record, f)
-
-with open("data/synthetic_generation_v3_enterprise.jsonl", "a", encoding="utf-8") as f:
-    f.write(json.dumps(record) + "\n")
+jsonl_file = "data/synthetic_generation_v3_enterprise.jsonl"
+with open(jsonl_file, "a", encoding="utf-8") as f:
+    f.write(json.dumps(record) + "\\n")
+print(f"Appended to {jsonl_file}")

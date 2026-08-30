@@ -1,167 +1,185 @@
-import json, uuid, os
-
-os.makedirs('data/swarm_raw', exist_ok=True)
+import json
+import uuid
+import os
 
 prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 data.
-Your specific domain is: High-Speed Web Cardboard Corrugator.
-Task: Invent a highly complex control scenario for this domain (e.g., single-facer flute roll steam pressure profiling, starch adhesive gelatinization temperature, and double-backer hot plate zones).
+Your specific domain is: Utility-Scale Synchronous Condenser.
+Task: Invent a highly complex control scenario for this domain (e.g., stator hydrogen cooling cascades, Automatic Voltage Regulator (AVR) reactive power excitation limits, and flywheel kinetic inertia mapping).
 Write a deterministic Structured Text (ST) FUNCTION_BLOCK. Include complete VAR declarations and physical I/O."""
 
-iec_code = """FUNCTION_BLOCK FB_Corrugator_Control
+st_code = """```iec-st
+FUNCTION_BLOCK FB_SyncCondenser_MasterControl
+TITLE = 'Utility-Scale Synchronous Condenser Master Controller'
+VERSION : '2.1'
+AUTHOR : 'Lumina Elite Data Architect'
+
 VAR_INPUT
-    bEnable : BOOL; // System enable
-    rLineSpeed_m_min : REAL; // Current web line speed
-    rTargetStarchTemp_C : REAL; // Setpoint for starch gelatinization
-    rSteamPressSP_Bar : REAL; // Single-facer flute roll steam pressure setpoint
-    rHotPlateTempSP_C : REAL; // Double-backer hot plate setpoint
+    Enable : BOOL; // System Master Enable
+    Grid_Voltage_pu : REAL; // Grid voltage in per-unit (0.0 to 1.2)
+    Grid_Frequency_Hz : REAL; // Grid frequency in Hz
+    ActivePower_MW : REAL; // Active power in MW (losses)
+    ReactivePower_MVAR : REAL; // Reactive power in MVAR
     
-    // Physical AI
-    AI_StarchTemp1_C : REAL;
-    AI_StarchTemp2_C : REAL;
-    AI_SteamPress1_Bar : REAL;
-    AI_HotPlateTempZone1_C : REAL;
-    AI_HotPlateTempZone2_C : REAL;
-    AI_HotPlateTempZone3_C : REAL;
+    // Hydrogen Cooling System
+    H2_Pressure_kPa : REAL; // Hydrogen pressure in kPa
+    H2_Purity_Pct : REAL; // Hydrogen purity percentage
+    Stator_Temp_C : REAL; // Stator winding temperature
+    CoolingWater_Flow_Lps : REAL; // Primary cooling water flow
+    
+    // Flywheel & Inertia
+    Rotor_Speed_RPM : REAL; // Current rotor speed
+    Vibration_mm_s : REAL; // Shaft vibration level
+    
+    // AVR & Excitation
+    Excitation_Current_A : REAL; // Field current
+    Exciter_Temp_C : REAL; // Exciter temperature
+    AVR_Setpoint_pu : REAL; // AVR voltage setpoint
 END_VAR
 
 VAR_OUTPUT
-    bSystemReady : BOOL;
-    bAlarmActive : BOOL;
-    iAlarmCode : INT;
+    System_Ready : BOOL;
+    System_Fault : BOOL;
     
-    // Physical AO
-    AO_StarchHeaterValve_Pct : REAL; // 0-100%
-    AO_SteamValve_Pct : REAL; // 0-100%
-    AO_HotPlateHeaterZone1_Pct : REAL; // 0-100%
-    AO_HotPlateHeaterZone2_Pct : REAL; // 0-100%
-    AO_HotPlateHeaterZone3_Pct : REAL; // 0-100%
+    // AVR Control
+    Excitation_Target_A : REAL; // Calculated field current target
+    AVR_OEL_Active : BOOL; // Over-Excitation Limit active
+    AVR_UEL_Active : BOOL; // Under-Excitation Limit active
+    
+    // Cooling Control
+    H2_Makeup_Valve_Open : BOOL; // Hydrogen makeup valve
+    Water_Pump_Speed_Pct : REAL; // Cooling water pump VFD command
+    
+    // Diagnostics
+    Inertial_Response_MWs : REAL; // Calculated kinetic energy available
+    Fault_Code : INT;
 END_VAR
 
 VAR
-    // PID Controllers for Starch
-    stStarchPID : PID_T;
-    rStarchTempAvg : REAL;
-    
-    // PID for Steam
-    stSteamPID : PID_T;
-    
-    // PID for Hot Plates
-    stHotPlatePID_Z1 : PID_T;
-    stHotPlatePID_Z2 : PID_T;
-    stHotPlatePID_Z3 : PID_T;
-    
-    // Timers
-    tonStartupDelay : TON;
-    tonAlarmDelay : TON;
-    
     // Internal States
-    iState : INT;
-    bStarchOK : BOOL;
-    bSteamOK : BOOL;
-    bHotPlatesOK : BOOL;
+    State_Machine : INT; // 0=Off, 1=Startup, 2=Sync, 3=Run, 4=Fault
+    Timer_Startup : TON;
+    Timer_Cooling : TON;
     
-    // Tuning params (static for this example)
-    Kp_Starch : REAL := 2.5;
-    Ti_Starch : REAL := 12.0;
-    Kp_Steam : REAL := 1.8;
-    Ti_Steam : REAL := 8.0;
+    // AVR Constants
+    K_p_AVR : REAL := 2.5;
+    K_i_AVR : REAL := 0.5;
+    Error_Int : REAL; // Integral accumulator
+    OEL_Threshold_A : REAL := 3500.0;
+    UEL_Threshold_A : REAL := -1200.0;
+    
+    // Cooling Constants
+    H2_Min_Pressure : REAL := 300.0; // kPa
+    H2_Min_Purity : REAL := 95.0; // %
+    Stator_Max_Temp : REAL := 120.0; // C
+    
+    // Inertia Constants
+    J_Flywheel : REAL := 45000.0; // kg*m^2
+    Omega_Nominal : REAL := 377.0; // rad/s for 60Hz
 END_VAR
 
-// --- IMPLEMENTATION ---
-IF NOT bEnable THEN
-    bSystemReady := FALSE;
-    bAlarmActive := FALSE;
-    iAlarmCode := 0;
-    AO_StarchHeaterValve_Pct := 0.0;
-    AO_SteamValve_Pct := 0.0;
-    AO_HotPlateHeaterZone1_Pct := 0.0;
-    AO_HotPlateHeaterZone2_Pct := 0.0;
-    AO_HotPlateHeaterZone3_Pct := 0.0;
-    iState := 0;
-    RETURN;
+// ====================================================================
+// SYNCHRONOUS CONDENSER CONTROL LOGIC
+// ====================================================================
+
+// Fault Detection
+System_Fault := FALSE;
+Fault_Code := 0;
+
+IF H2_Purity_Pct < H2_Min_Purity THEN
+    System_Fault := TRUE;
+    Fault_Code := 101; // Hydrogen purity critical
 END_IF;
 
-// Calculate averages
-rStarchTempAvg := (AI_StarchTemp1_C + AI_StarchTemp2_C) / 2.0;
+IF Stator_Temp_C > Stator_Max_Temp THEN
+    System_Fault := TRUE;
+    Fault_Code := 102; // Stator over-temperature
+END_IF;
 
-// Starch Temperature Control
-stStarchPID.SP := rTargetStarchTemp_C;
-stStarchPID.PV := rStarchTempAvg;
-stStarchPID.Kp := Kp_Starch;
-stStarchPID.Ti := Ti_Starch;
-stStarchPID.EN := TRUE;
-stStarchPID(); // Execute PID
-AO_StarchHeaterValve_Pct := stStarchPID.OUT;
+IF Vibration_mm_s > 15.0 THEN
+    System_Fault := TRUE;
+    Fault_Code := 103; // High vibration
+END_IF;
 
-// Steam Pressure Control
-stSteamPID.SP := rSteamPressSP_Bar;
-stSteamPID.PV := AI_SteamPress1_Bar;
-stSteamPID.Kp := Kp_Steam;
-stSteamPID.Ti := Ti_Steam;
-stSteamPID.EN := TRUE;
-stSteamPID();
-AO_SteamValve_Pct := stSteamPID.OUT;
-
-// Hot Plate Zone 1 Control
-stHotPlatePID_Z1.SP := rHotPlateTempSP_C;
-stHotPlatePID_Z1.PV := AI_HotPlateTempZone1_C;
-stHotPlatePID_Z1.Kp := 3.0;
-stHotPlatePID_Z1.Ti := 15.0;
-stHotPlatePID_Z1.EN := TRUE;
-stHotPlatePID_Z1();
-AO_HotPlateHeaterZone1_Pct := stHotPlatePID_Z1.OUT;
-
-// Hot Plate Zone 2 Control (Offset by line speed influence)
-stHotPlatePID_Z2.SP := rHotPlateTempSP_C + (rLineSpeed_m_min * 0.05);
-stHotPlatePID_Z2.PV := AI_HotPlateTempZone2_C;
-stHotPlatePID_Z2.Kp := 3.0;
-stHotPlatePID_Z2.Ti := 15.0;
-stHotPlatePID_Z2.EN := TRUE;
-stHotPlatePID_Z2();
-AO_HotPlateHeaterZone2_Pct := stHotPlatePID_Z2.OUT;
-
-// Hot Plate Zone 3 Control (Further offset)
-stHotPlatePID_Z3.SP := rHotPlateTempSP_C + (rLineSpeed_m_min * 0.1);
-stHotPlatePID_Z3.PV := AI_HotPlateTempZone3_C;
-stHotPlatePID_Z3.Kp := 3.0;
-stHotPlatePID_Z3.Ti := 15.0;
-stHotPlatePID_Z3.EN := TRUE;
-stHotPlatePID_Z3();
-AO_HotPlateHeaterZone3_Pct := stHotPlatePID_Z3.OUT;
-
-// Readiness Checks
-bStarchOK := ABS(rTargetStarchTemp_C - rStarchTempAvg) < 2.0;
-bSteamOK := ABS(rSteamPressSP_Bar - AI_SteamPress1_Bar) < 0.5;
-bHotPlatesOK := (ABS(rHotPlateTempSP_C - AI_HotPlateTempZone1_C) < 5.0) AND
-                (ABS(stHotPlatePID_Z2.SP - AI_HotPlateTempZone2_C) < 5.0) AND
-                (ABS(stHotPlatePID_Z3.SP - AI_HotPlateTempZone3_C) < 5.0);
-
-bSystemReady := bStarchOK AND bSteamOK AND bHotPlatesOK;
-
-// Alarms
-IF rStarchTempAvg > 120.0 THEN
-    bAlarmActive := TRUE;
-    iAlarmCode := 101; // Starch over-temp
-ELSIF AI_SteamPress1_Bar > 12.0 THEN
-    bAlarmActive := TRUE;
-    iAlarmCode := 102; // Steam over-pressure
+// Hydrogen Cooling Cascade
+IF H2_Pressure_kPa < H2_Min_Pressure AND NOT System_Fault THEN
+    H2_Makeup_Valve_Open := TRUE;
 ELSE
-    bAlarmActive := FALSE;
-    iAlarmCode := 0;
+    H2_Makeup_Valve_Open := FALSE;
 END_IF;
 
-END_FUNCTION_BLOCK"""
+// Dynamic Cooling Water Control based on Stator Temperature
+IF Stator_Temp_C > 80.0 THEN
+    Water_Pump_Speed_Pct := 50.0 + (Stator_Temp_C - 80.0) * 1.25;
+    IF Water_Pump_Speed_Pct > 100.0 THEN Water_Pump_Speed_Pct := 100.0; END_IF;
+ELSE
+    Water_Pump_Speed_Pct := 30.0; // Base cooling flow
+END_IF;
 
-assistant_content = f"```iec-st\n{iec_code}\n```"
+// Flywheel Kinetic Inertia Mapping
+// KE = 0.5 * J * w^2
+Inertial_Response_MWs := 0.5 * J_Flywheel * (Rotor_Speed_RPM * 0.104719755) * (Rotor_Speed_RPM * 0.104719755) / 1000000.0;
 
-record = {
-    "messages": [
-        {"role": "user", "content": prompt},
-        {"role": "assistant", "content": assistant_content}
-    ]
-}
+// Automatic Voltage Regulator (AVR) with Limits
+IF Enable AND NOT System_Fault THEN
+    System_Ready := TRUE;
+    
+    // PI Control for Voltage
+    VAR
+        V_Error : REAL;
+        P_Term : REAL;
+    END_VAR
+    
+    V_Error := AVR_Setpoint_pu - Grid_Voltage_pu;
+    P_Term := K_p_AVR * V_Error;
+    Error_Int := Error_Int + (K_i_AVR * V_Error * 0.1); // Assuming 100ms task cycle
+    
+    Excitation_Target_A := P_Term + Error_Int;
+    
+    // Over-Excitation Limit (OEL)
+    IF Excitation_Target_A > OEL_Threshold_A THEN
+        Excitation_Target_A := OEL_Threshold_A;
+        AVR_OEL_Active := TRUE;
+        // Anti-windup
+        Error_Int := Error_Int - (K_i_AVR * V_Error * 0.1);
+    ELSE
+        AVR_OEL_Active := FALSE;
+    END_IF;
+    
+    // Under-Excitation Limit (UEL)
+    IF Excitation_Target_A < UEL_Threshold_A THEN
+        Excitation_Target_A := UEL_Threshold_A;
+        AVR_UEL_Active := TRUE;
+        // Anti-windup
+        Error_Int := Error_Int - (K_i_AVR * V_Error * 0.1);
+    ELSE
+        AVR_UEL_Active := FALSE;
+    END_IF;
 
-file_path = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
-with open(file_path, "w", encoding="utf-8") as f:
-    json.dump(record, f, indent=2)
-print(f"Success: {file_path}")
+ELSE
+    System_Ready := FALSE;
+    Excitation_Target_A := 0.0;
+    Error_Int := 0.0;
+    AVR_OEL_Active := FALSE;
+    AVR_UEL_Active := FALSE;
+    Water_Pump_Speed_Pct := 0.0;
+    H2_Makeup_Valve_Open := FALSE;
+END_IF;
+
+END_FUNCTION_BLOCK
+```"""
+
+record = {'messages': [{'role': 'user', 'content': prompt}, {'role': 'assistant', 'content': st_code}]}
+
+os.makedirs('data/swarm_raw', exist_ok=True)
+os.makedirs('data', exist_ok=True)
+
+agent_id = uuid.uuid4().hex[:8]
+filename = f'data/swarm_raw/agent_{agent_id}.json'
+
+with open(filename, 'w', encoding='utf-8') as f:
+    json.dump(record, f)
+
+with open('data/synthetic_generation_v3_enterprise.jsonl', 'a', encoding='utf-8') as f:
+    f.write(json.dumps(record) + '\\n')
+    
+print('Success')
