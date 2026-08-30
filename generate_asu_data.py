@@ -1,24 +1,203 @@
-import json
-import os
-import uuid
+import os, json, uuid
+
+prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 data.
+Your specific domain is: Cryogenic Air Separation Unit (ASU).
+Task: Invent a highly complex control scenario for this domain (e.g., expansion turbine RPM limits, cryogenic distillation column thermal profiles, and argon/oxygen/nitrogen fractioning).
+Write a deterministic Structured Text (ST) FUNCTION_BLOCK. Include complete VAR declarations and physical I/O.
+"""
+
+response = """```iec-st
+FUNCTION_BLOCK FB_ASU_Distillation_Control
+TITLE = 'Cryogenic Air Separation Unit Distillation Control'
+VERSION : '1.0'
+
+VAR_INPUT
+    rFeedFlow_Nm3_h     : REAL;  // Incoming compressed air flow
+    rFeedTemp_C         : REAL;  // Feed temperature, typical -170 C
+    rFeedPressure_kPa   : REAL;  // Feed pressure to primary column
+    rTurbineSpeed_RPM   : REAL;  // Expansion turbine current speed
+    rMainCol_TopTemp_C  : REAL;  // Main distillation column top temperature
+    rMainCol_BotTemp_C  : REAL;  // Main distillation column bottom temperature
+    rArgonDraw_Flow_Nm3 : REAL;  // Argon draw-off flow rate
+    rO2_Purity_Percent  : REAL;  // Measured O2 purity at bottom
+    bEmergencyStop      : BOOL;  // Emergency shutdown signal
+    bStartSequence      : BOOL;  // Sequence start command
+END_VAR
+
+VAR_OUTPUT
+    rTurbineValve_Pos_Pct : REAL; // Turbine inlet valve position command
+    rRefluxValve_Pos_Pct  : REAL; // Nitrogen reflux valve position
+    rProductO2_Valve_Pct  : REAL; // Oxygen product draw valve position
+    rArgonVent_Valve_Pct  : REAL; // Argon column vent valve position
+    bTurbineTrip          : BOOL; // Turbine trip command
+    bSystemSafe           : BOOL; // System status indicator
+    iActiveState          : INT;  // Current control state machine step
+END_VAR
+
+VAR
+    rPID_Error_O2         : REAL;
+    rPID_Int_O2           : REAL;
+    rPID_PrevErr_O2       : REAL;
+    
+    rPID_Error_Temp       : REAL;
+    rPID_Int_Temp         : REAL;
+    rPID_PrevErr_Temp     : REAL;
+    
+    rTargetO2Purity       : REAL := 99.6; // Minimum 99.6% purity
+    rTargetTopTemp        : REAL := -195.8; // Target for LN2 reflux
+    rMaxTurbineRPM        : REAL := 45000.0;
+    rMinTurbineRPM        : REAL := 25000.0;
+    rTurbineTripRPM       : REAL := 48000.0;
+    
+    rKp_O2 : REAL := 2.5;
+    rKi_O2 : REAL := 0.05;
+    rKd_O2 : REAL := 0.1;
+    
+    rKp_Temp : REAL := 1.8;
+    rKi_Temp : REAL := 0.02;
+    rKd_Temp : REAL := 0.05;
+    
+    tStateTimer : TON;
+    tStabilizationTimer : TON;
+    iState : INT := 0; 
+END_VAR
+
+// Constants
+VAR CONSTANT
+    STATE_INIT : INT := 0;
+    STATE_PURGE : INT := 10;
+    STATE_COOLDOWN : INT := 20;
+    STATE_STEADY : INT := 30;
+    STATE_SHUTDOWN : INT := 99;
+END_VAR
+
+// Control Logic
+IF bEmergencyStop THEN
+    iState := STATE_SHUTDOWN;
+END_IF;
+
+IF rTurbineSpeed_RPM >= rTurbineTripRPM THEN
+    bTurbineTrip := TRUE;
+    iState := STATE_SHUTDOWN;
+ELSE
+    bTurbineTrip := FALSE;
+END_IF;
+
+CASE iState OF
+    STATE_INIT:
+        rTurbineValve_Pos_Pct := 0.0;
+        rRefluxValve_Pos_Pct := 0.0;
+        rProductO2_Valve_Pct := 0.0;
+        rArgonVent_Valve_Pct := 100.0; // Vent open
+        bSystemSafe := TRUE;
+        
+        IF bStartSequence AND NOT bEmergencyStop THEN
+            iState := STATE_PURGE;
+        END_IF;
+        
+    STATE_PURGE:
+        // Purging logic, simulating time delay
+        tStateTimer(IN := TRUE, PT := T#30s);
+        rTurbineValve_Pos_Pct := 5.0; // Minimal flow
+        rArgonVent_Valve_Pct := 100.0;
+        
+        IF tStateTimer.Q THEN
+            tStateTimer(IN := FALSE);
+            iState := STATE_COOLDOWN;
+        END_IF;
+        
+    STATE_COOLDOWN:
+        // Ramp up turbine to drop temperature
+        tStateTimer(IN := TRUE, PT := T#120s);
+        
+        IF rTurbineSpeed_RPM < rMaxTurbineRPM - 2000.0 THEN
+            rTurbineValve_Pos_Pct := rTurbineValve_Pos_Pct + 0.1;
+        END_IF;
+        
+        IF rTurbineValve_Pos_Pct > 85.0 THEN
+            rTurbineValve_Pos_Pct := 85.0;
+        END_IF;
+        
+        IF (rMainCol_BotTemp_C <= -180.0) AND (rMainCol_TopTemp_C <= -190.0) THEN
+            tStateTimer(IN := FALSE);
+            iState := STATE_STEADY;
+        END_IF;
+        
+    STATE_STEADY:
+        bSystemSafe := TRUE;
+        
+        // --- O2 Purity PID Control (Controls O2 Product Draw Valve) ---
+        rPID_Error_O2 := rO2_Purity_Percent - rTargetO2Purity;
+        rPID_Int_O2 := rPID_Int_O2 + rPID_Error_O2;
+        
+        // Anti-windup
+        IF rPID_Int_O2 > 500.0 THEN rPID_Int_O2 := 500.0; END_IF;
+        IF rPID_Int_O2 < -500.0 THEN rPID_Int_O2 := -500.0; END_IF;
+        
+        rProductO2_Valve_Pct := (rKp_O2 * rPID_Error_O2) + (rKi_O2 * rPID_Int_O2) + (rKd_O2 * (rPID_Error_O2 - rPID_PrevErr_O2));
+        rPID_PrevErr_O2 := rPID_Error_O2;
+        
+        IF rProductO2_Valve_Pct > 100.0 THEN rProductO2_Valve_Pct := 100.0; END_IF;
+        IF rProductO2_Valve_Pct < 0.0 THEN rProductO2_Valve_Pct := 0.0; END_IF;
+        
+        // --- Top Temperature PID Control (Controls Reflux Valve) ---
+        rPID_Error_Temp := rMainCol_TopTemp_C - rTargetTopTemp;
+        rPID_Int_Temp := rPID_Int_Temp + rPID_Error_Temp;
+        
+        // Anti-windup
+        IF rPID_Int_Temp > 200.0 THEN rPID_Int_Temp := 200.0; END_IF;
+        IF rPID_Int_Temp < -200.0 THEN rPID_Int_Temp := -200.0; END_IF;
+        
+        rRefluxValve_Pos_Pct := (rKp_Temp * rPID_Error_Temp) + (rKi_Temp * rPID_Int_Temp) + (rKd_Temp * (rPID_Error_Temp - rPID_PrevErr_Temp));
+        rPID_PrevErr_Temp := rPID_Error_Temp;
+        
+        IF rRefluxValve_Pos_Pct > 100.0 THEN rRefluxValve_Pos_Pct := 100.0; END_IF;
+        IF rRefluxValve_Pos_Pct < 10.0 THEN rRefluxValve_Pos_Pct := 10.0; END_IF; // Maintain min reflux
+        
+        // --- Turbine Speed Regulation ---
+        IF rTurbineSpeed_RPM > rMaxTurbineRPM THEN
+            rTurbineValve_Pos_Pct := rTurbineValve_Pos_Pct - 1.0;
+        ELSIF rTurbineSpeed_RPM < rMinTurbineRPM THEN
+            rTurbineValve_Pos_Pct := rTurbineValve_Pos_Pct + 0.5;
+        END_IF;
+        
+        // --- Argon Side-draw Control ---
+        IF rO2_Purity_Percent > 99.5 AND rArgonDraw_Flow_Nm3 > 10.0 THEN
+             rArgonVent_Valve_Pct := 20.0; // Normal venting
+        ELSE
+             rArgonVent_Valve_Pct := 80.0; // Flush argon if O2 purity drops
+        END_IF;
+        
+    STATE_SHUTDOWN:
+        bSystemSafe := FALSE;
+        rTurbineValve_Pos_Pct := 0.0;
+        rRefluxValve_Pos_Pct := 0.0;
+        rProductO2_Valve_Pct := 0.0;
+        rArgonVent_Valve_Pct := 100.0;
+        tStateTimer(IN := FALSE);
+        
+        IF NOT bEmergencyStop AND NOT bStartSequence THEN
+            iState := STATE_INIT;
+        END_IF;
+        
+    ELSE
+        iState := STATE_SHUTDOWN;
+END_CASE;
+
+iActiveState := iState;
+
+END_FUNCTION_BLOCK
+```"""
 
 record = {
     "messages": [
-        {
-            "role": "user",
-            "content": "Invent a highly complex control scenario for this domain (e.g., fractional distillation of liquid nitrogen/oxygen, turbo-expander efficiency mapping, and argon side-draw cascade control).\nWrite a deterministic Structured Text (ST) FUNCTION_BLOCK. Include complete VAR declarations and physical I/O."
-        },
-        {
-            "role": "assistant",
-            "content": "```iec-st\nFUNCTION_BLOCK FB_ASU_DistillationControl\nVAR_INPUT\n    rFeedTemp           : REAL; (* Main air feed temperature (K) *)\n    rFeedPress          : REAL; (* Main air feed pressure (bar) *)\n    rMainExchangerEff   : REAL; (* Heat exchanger efficiency (0-1) *)\n    rArgonDrawFlow      : REAL; (* Argon side-draw flow rate (kg/h) *)\n    bTurboTrip          : BOOL; (* Turbo-expander trip signal *)\n    bStartSequence      : BOOL;\n    bEmergencyStop      : BOOL;\nEND_VAR\nVAR_OUTPUT\n    rN2ProductFlow      : REAL;\n    rO2ProductFlow      : REAL;\n    rTurboSpeedCmd      : REAL;\n    rReboilerHeaterCmd  : REAL;\n    rRefluxValveCmd     : REAL;\n    bSystemStable       : BOOL;\n    bAlarmHighPress     : BOOL;\n    bAlarmLowTemp       : BOOL;\nEND_VAR\nVAR\n    eState              : DINT;\n    rInternalTemp       : REAL := 298.15;\n    rColumnPress        : REAL := 1.0;\n    rArgonPurity        : REAL := 0.0;\n    rLiquidLevel        : REAL := 0.0;\n    TimerStartup        : TON;\n    rTurboTargetSpeed   : REAL := 0.0;\nEND_VAR\n\n(* Main State Machine for Cryogenic Air Separation *)\nIF bEmergencyStop OR bTurboTrip THEN\n    eState := 5; (* SAFE_SHUTDOWN *)\nEND_IF;\n\nCASE eState OF\n    0: (* INIT *)\n        rN2ProductFlow := 0.0;\n        rO2ProductFlow := 0.0;\n        rTurboSpeedCmd := 0.0;\n        rReboilerHeaterCmd := 0.0;\n        rRefluxValveCmd := 0.0;\n        bSystemStable := FALSE;\n        IF bStartSequence THEN\n            eState := 1; (* STARTUP *)\n        END_IF;\n\n    1: (* STARTUP *)\n        rTurboTargetSpeed := 15000.0; (* RPM *)\n        TimerStartup(IN:=TRUE, PT:=T#5M);\n        IF TimerStartup.Q THEN\n            eState := 2; (* COOLING *)\n            TimerStartup(IN:=FALSE);\n        END_IF;\n\n    2: (* COOLING *)\n        rInternalTemp := rInternalTemp - (rMainExchangerEff * 2.5);\n        IF rInternalTemp < 90.0 THEN\n            bAlarmLowTemp := TRUE;\n        END_IF;\n        \n        IF rInternalTemp <= 100.0 THEN\n            eState := 3; (* DISTILLATION *)\n        END_IF;\n\n    3: (* DISTILLATION *)\n        rColumnPress := rFeedPress * 0.85;\n        IF rColumnPress > 6.5 THEN\n            bAlarmHighPress := TRUE;\n        END_IF;\n        \n        rN2ProductFlow := rFeedPress * 100.0 * (100.0 / rInternalTemp);\n        rO2ProductFlow := rFeedPress * 20.0 * (150.0 / rInternalTemp);\n        rReboilerHeaterCmd := 45.5; \n        \n        IF rArgonDrawFlow > 10.0 THEN\n            rArgonPurity := 98.5;\n        END_IF;\n        \n        IF ABS(rN2ProductFlow - 500.0) < 50.0 THEN\n            eState := 4; (* STABILIZATION *)\n        END_IF;\n\n    4: (* STABILIZATION *)\n        bSystemStable := TRUE;\n        IF rInternalTemp > 110.0 THEN\n            bSystemStable := FALSE;\n            eState := 3; (* DISTILLATION *)\n        END_IF;\n\n    5: (* SAFE_SHUTDOWN *)\n        rTurboSpeedCmd := 0.0;\n        rRefluxValveCmd := 0.0;\n        rReboilerHeaterCmd := 0.0;\n        bSystemStable := FALSE;\n        IF NOT bEmergencyStop AND NOT bTurboTrip THEN\n            eState := 0;\n        END_IF;\nEND_CASE;\nEND_FUNCTION_BLOCK\n```"
-        }
+        {"role": "user", "content": prompt},
+        {"role": "assistant", "content": response}
     ]
 }
 
-os.makedirs('data/swarm_raw', exist_ok=True)
-
-with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
-    json.dump(record, f)
-
-with open('data/synthetic_generation_v3_enterprise.jsonl', 'a') as f:
-    f.write(json.dumps(record) + '\n')
+os.makedirs("data/swarm_raw", exist_ok=True)
+filename = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
+with open(filename, "w", encoding="utf-8") as f:
+    json.dump(record, f, indent=4)
+print(f"Saved to {filename}")

@@ -1,195 +1,190 @@
-import json
-import uuid
-import os
+import json, uuid, os
+
+# Ensure dir exists
+os.makedirs("data/swarm_raw", exist_ok=True)
+
+prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 data.
+Your specific domain is: Industrial Coffee Roasting Plant.
+Task: Invent a highly complex control scenario for this domain (e.g., proportional gas burner roasting profiles, drum rotation kinematics, and chaff cyclone extraction loops).
+Write a deterministic Structured Text (ST) FUNCTION_BLOCK. Include complete VAR declarations and physical I/O.
+"""
 
 code = """```iec-st
-FUNCTION_BLOCK FB_DrawTower_MasterControl
+FUNCTION_BLOCK FB_AdvancedCoffeeRoaster
 VAR_INPUT
-    bEnable : BOOL; // System Enable
-    rTargetDrawSpeed_mps : REAL; // Target drawing speed (m/s)
-    rPreformDiameter_mm : REAL; // Initial preform diameter
-    rTargetFiberDiameter_um : REAL; // Target fiber diameter (typically 125 um)
-    rFurnaceTemp_PV : REAL; // Actual furnace temperature (deg C)
-    rFurnaceTemp_SP : REAL; // Furnace temperature setpoint (deg C)
-    rTension_PV : REAL; // Measured draw tension (g)
-    rCoatingDiameter_PV : REAL; // Measured coated fiber diameter (um)
-    rCoatingConcentricity_PV : REAL; // Measured concentricity offset (um)
+    bStartRoast : BOOL; (* Initiate roast cycle *)
+    bEmergencyStop : BOOL; (* E-Stop condition *)
+    rTargetTemperature : REAL; (* Desired end roast temperature [C] *)
+    rDrumSpeedSetPoint : REAL; (* Target drum speed [RPM] *)
+    iProfileType : INT; (* 1: Light, 2: Medium, 3: Dark, 4: Espresso *)
+    rAirflowRateSetPoint : REAL; (* Required airflow [m3/h] *)
+    rBeanTemperatureSensor : REAL; (* Measured bean mass temp [C] *)
+    rExhaustTemperatureSensor : REAL; (* Measured exhaust temp [C] *)
+    rAmbientTemperature : REAL; (* Ambient room temp [C] *)
+    bChargeDoorsClosed : BOOL; (* Hopper drop doors status *)
+    bDischargeDoorsClosed : BOOL; (* Cooling tray doors status *)
+    bIgnitionConfirmed : BOOL; (* Gas burner flame sense *)
 END_VAR
 
 VAR_OUTPUT
-    rPreformFeedRate_mm_min : REAL; // Calculated preform downfeed speed
-    rCapstanSpeed_mps : REAL; // Primary capstan speed control
-    rUVPower_pct : REAL; // UV curing lamp power (%)
-    rCoatingPressure_kPa : REAL; // Acrylate coating pressurization
-    rTractorSpeed_mps : REAL; // Secondary capstan/tractor speed
-    bSystemReady : BOOL;
-    bAlarmActive : BOOL;
-    iErrorCode : INT;
+    rBurnerValveOutput : REAL; (* Proportional gas valve command 0-100% *)
+    rDrumMotorVFD : REAL; (* Drum VFD command 0-100% *)
+    rExhaustFanVFD : REAL; (* Chaff cyclone exhaust fan 0-100% *)
+    bIgniterRelay : BOOL; (* Burner spark ignition relay *)
+    bGasSafetyValve : BOOL; (* Main gas line solenoid *)
+    bCoolingAgitator : BOOL; (* Cooling tray mixing arms *)
+    bCoolingFan : BOOL; (* Cooling tray fan *)
+    sRoastStatusMessage : STRING(50); (* Current state machine step text *)
+    bRoastComplete : BOOL; (* True when drop temp is reached *)
+    bAlarmActive : BOOL; (* True if any interlock fails *)
 END_VAR
 
 VAR
-    // Internal States
-    iState : INT := 0; 
-    // State constants
-    IDLE : INT := 0;
-    RAMP_UP : INT := 1;
-    STEADY_STATE : INT := 2;
-    RAMP_DOWN : INT := 3;
-    FAULT : INT := 99;
-    
-    // PID Controllers for Tension and Diameter
-    PID_Tension : FB_PID_Advanced;
-    PID_Diameter : FB_PID_Advanced;
-    PID_Coating : FB_PID_Advanced;
-    
-    // Internal Variables
-    rCurrentSpeed_mps : REAL := 0.0;
-    rMassBalance_Feed : REAL;
-    rDrawRatio : REAL;
-    
-    // Timers
-    tStartupDelay : TON;
-    tFaultTimer : TON;
-    
-    // Limits
-    MAX_SPEED : REAL := 50.0; // 50 m/s max draw speed
-    MIN_TENSION : REAL := 50.0; // 50 grams
-    MAX_TENSION : REAL := 250.0; // 250 grams
+    iState : INT := 0; (* State machine tracker *)
+    rPID_Kp : REAL := 2.5; (* Temp control proportional gain *)
+    rPID_Ki : REAL := 0.1; (* Temp control integral gain *)
+    rPID_Kd : REAL := 0.5; (* Temp control derivative gain *)
+    rTempError : REAL := 0.0;
+    rTempIntegral : REAL := 0.0;
+    rTempDerivative : REAL := 0.0;
+    rLastTempError : REAL := 0.0;
+    rRateOfRise : REAL := 0.0; (* ROR: Degrees per minute *)
+    tRoastTimer : TON;
+    tCoolingTimer : TON;
+    rMaxTempLimit : REAL := 250.0; (* Safety cutoff [C] *)
+    bPreheatComplete : BOOL := FALSE;
+    bFirstCrackDetected : BOOL := FALSE;
+    rFirstCrackTemp : REAL;
 END_VAR
 
-// Mass Balance Calculation
-rDrawRatio := (rTargetFiberDiameter_um * 0.001) / rPreformDiameter_mm;
-rMassBalance_Feed := (rCurrentSpeed_mps * 60000.0) * (rDrawRatio * rDrawRatio);
+(* Implementation *)
+IF bEmergencyStop THEN
+    rBurnerValveOutput := 0.0;
+    bGasSafetyValve := FALSE;
+    bIgniterRelay := FALSE;
+    rDrumMotorVFD := 0.0;
+    rExhaustFanVFD := 100.0; (* Evacuate smoke *)
+    bCoolingAgitator := FALSE;
+    bCoolingFan := FALSE;
+    iState := 999; (* E-Stop State *)
+    sRoastStatusMessage := 'EMERGENCY STOP ACTIVE';
+    bAlarmActive := TRUE;
+    RETURN;
+END_IF;
+
+(* Rate of Rise Calculation (Simplified for PLC cycle) *)
+rRateOfRise := rBeanTemperatureSensor - rLastTempError; (* Typically filtered over a minute *)
 
 CASE iState OF
-    IDLE:
-        bSystemReady := TRUE;
-        rCurrentSpeed_mps := 0.0;
-        rPreformFeedRate_mm_min := 0.0;
-        rCapstanSpeed_mps := 0.0;
-        rUVPower_pct := 0.0;
-        bAlarmActive := FALSE;
-        iErrorCode := 0;
-        
-        IF bEnable AND (rFurnaceTemp_PV >= rFurnaceTemp_SP * 0.99) THEN
-            iState := RAMP_UP;
-            bSystemReady := FALSE;
-        END_IF
-        
-    RAMP_UP:
-        rCurrentSpeed_mps := rCurrentSpeed_mps + 0.1;
-        IF rCurrentSpeed_mps >= rTargetDrawSpeed_mps THEN
-            rCurrentSpeed_mps := rTargetDrawSpeed_mps;
-            iState := STEADY_STATE;
-        END_IF
-        
-        IF (rTension_PV > MAX_TENSION) THEN
-            iState := FAULT;
-            iErrorCode := 101;
-        END_IF
-        
-    STEADY_STATE:
-        PID_Diameter(
-            bEnable := TRUE,
-            rSetpoint := rTargetFiberDiameter_um,
-            rProcessValue := rTargetFiberDiameter_um,
-            rKp := 0.5, rKi := 0.1, rKd := 0.01,
-            rOutput => rCapstanSpeed_mps
-        );
-        rCapstanSpeed_mps := rCurrentSpeed_mps + PID_Diameter.rOutput;
-        
-        PID_Tension(
-            bEnable := TRUE,
-            rSetpoint := 120.0,
-            rProcessValue := rTension_PV,
-            rKp := 0.2, rKi := 0.05, rKd := 0.0,
-            rOutput => rTractorSpeed_mps
-        );
-        rTractorSpeed_mps := rCapstanSpeed_mps + PID_Tension.rOutput;
-        
-        rUVPower_pct := (rCurrentSpeed_mps / MAX_SPEED) * 100.0;
-        
-        PID_Coating(
-            bEnable := TRUE,
-            rSetpoint := 250.0,
-            rProcessValue := rCoatingDiameter_PV,
-            rKp := 1.2, rKi := 0.3, rKd := 0.05,
-            rOutput => rCoatingPressure_kPa
-        );
-        
-        IF NOT bEnable THEN
-            iState := RAMP_DOWN;
-        ELSIF rTension_PV < MIN_TENSION OR rTension_PV > MAX_TENSION THEN
-            iState := FAULT;
-            iErrorCode := 102;
-        END_IF
-        
-    RAMP_DOWN:
-        rCurrentSpeed_mps := rCurrentSpeed_mps - 0.2;
-        IF rCurrentSpeed_mps <= 0.0 THEN
-            rCurrentSpeed_mps := 0.0;
-            iState := IDLE;
-        END_IF
-        
-    FAULT:
-        bAlarmActive := TRUE;
-        rCurrentSpeed_mps := 0.0;
-        rPreformFeedRate_mm_min := 0.0;
-        rCapstanSpeed_mps := 0.0;
-        rTractorSpeed_mps := 0.0;
-        rUVPower_pct := 0.0;
-        rCoatingPressure_kPa := 0.0;
-        
-        IF NOT bEnable THEN
-            iState := IDLE;
-        END_IF
-END_CASE
+    0: (* Idle / Standby *)
+        sRoastStatusMessage := 'SYSTEM READY';
+        bGasSafetyValve := FALSE;
+        rBurnerValveOutput := 0.0;
+        rDrumMotorVFD := 10.0; (* Keep drum turning slowly to prevent warping *)
+        rExhaustFanVFD := 20.0;
+        IF bStartRoast AND bChargeDoorsClosed AND bDischargeDoorsClosed THEN
+            iState := 10;
+        END_IF;
 
-rPreformFeedRate_mm_min := rMassBalance_Feed;
-END_FUNCTION_BLOCK
+    10: (* Pre-heat phase *)
+        sRoastStatusMessage := 'PREHEATING';
+        bGasSafetyValve := TRUE;
+        bIgniterRelay := NOT bIgnitionConfirmed;
+        rDrumMotorVFD := rDrumSpeedSetPoint;
+        rExhaustFanVFD := rAirflowRateSetPoint;
+        IF bIgnitionConfirmed THEN
+            rBurnerValveOutput := 50.0; (* Initial preheat burner power *)
+        END_IF;
+        IF rAmbientTemperature > 200.0 THEN (* Assuming drum ambient probe *)
+            bPreheatComplete := TRUE;
+            iState := 20;
+        END_IF;
 
-FUNCTION_BLOCK FB_PID_Advanced
-VAR_INPUT
-    bEnable : BOOL;
-    rSetpoint : REAL;
-    rProcessValue : REAL;
-    rKp : REAL;
-    rKi : REAL;
-    rKd : REAL;
-END_VAR
-VAR_OUTPUT
-    rOutput : REAL;
-END_VAR
-VAR
-    rError : REAL;
-    rLastError : REAL;
-    rIntegral : REAL;
-    rDerivative : REAL;
-END_VAR
-IF bEnable THEN
-    rError := rSetpoint - rProcessValue;
-    rIntegral := rIntegral + (rError * 0.01);
-    rDerivative := (rError - rLastError) / 0.01;
-    rOutput := (rKp * rError) + (rKi * rIntegral) + (rKd * rDerivative);
-    rLastError := rError;
-ELSE
-    rOutput := 0.0;
-    rIntegral := 0.0;
-    rLastError := 0.0;
-END_IF
+    20: (* Charge (Drop beans) *)
+        sRoastStatusMessage := 'DROP BEANS NOW';
+        rBurnerValveOutput := 0.0; (* Turn down heat during drop to prevent scorching *)
+        IF NOT bChargeDoorsClosed THEN
+            iState := 30;
+        END_IF;
+
+    30: (* Turning Point / Drying Phase *)
+        sRoastStatusMessage := 'DRYING PHASE';
+        rBurnerValveOutput := 30.0; (* Gradual heat application *)
+        IF rBeanTemperatureSensor > 150.0 THEN
+            iState := 40;
+        END_IF;
+
+    40: (* Maillard Reaction Phase *)
+        sRoastStatusMessage := 'MAILLARD PHASE';
+        (* Simple PID implementation for target trajectory *)
+        rTempError := rTargetTemperature - rBeanTemperatureSensor;
+        rTempIntegral := rTempIntegral + rTempError;
+        rTempDerivative := rTempError - rLastTempError;
+        rBurnerValveOutput := (rPID_Kp * rTempError) + (rPID_Ki * rTempIntegral) + (rPID_Kd * rTempDerivative);
+        
+        (* Clamp burner output *)
+        IF rBurnerValveOutput > 100.0 THEN rBurnerValveOutput := 100.0; END_IF;
+        IF rBurnerValveOutput < 10.0 THEN rBurnerValveOutput := 10.0; END_IF;
+        
+        IF rBeanTemperatureSensor >= 195.0 THEN (* First crack onset approx *)
+            bFirstCrackDetected := TRUE;
+            rFirstCrackTemp := rBeanTemperatureSensor;
+            iState := 50;
+        END_IF;
+
+    50: (* Development Phase *)
+        sRoastStatusMessage := 'DEVELOPMENT PHASE';
+        (* Reduce heat to prevent baked flavors, increase airflow *)
+        rBurnerValveOutput := rBurnerValveOutput * 0.5; 
+        rExhaustFanVFD := rExhaustFanVFD + 10.0; 
+        
+        IF rBeanTemperatureSensor >= rTargetTemperature THEN
+            iState := 60;
+        END_IF;
+
+    60: (* Drop and Cool *)
+        sRoastStatusMessage := 'ROAST COMPLETE - DROPPING';
+        bGasSafetyValve := FALSE;
+        rBurnerValveOutput := 0.0;
+        bRoastComplete := TRUE;
+        
+        IF NOT bDischargeDoorsClosed THEN
+            bCoolingFan := TRUE;
+            bCoolingAgitator := TRUE;
+            tCoolingTimer(IN:=TRUE, PT:=T#4M);
+            IF tCoolingTimer.Q THEN
+                iState := 0; (* Reset for next batch *)
+                bRoastComplete := FALSE;
+                tCoolingTimer(IN:=FALSE);
+                bCoolingFan := FALSE;
+                bCoolingAgitator := FALSE;
+            END_IF;
+        END_IF;
+
+    999: (* Fault handling *)
+        (* Needs manual reset *)
+        IF NOT bEmergencyStop THEN
+            bAlarmActive := FALSE;
+            iState := 0;
+        END_IF;
+END_CASE;
+
+rLastTempError := rTempError;
+
+(* Safety Overrides *)
+IF rBeanTemperatureSensor > rMaxTempLimit OR rExhaustTemperatureSensor > (rMaxTempLimit + 50.0) THEN
+    bGasSafetyValve := FALSE;
+    rBurnerValveOutput := 0.0;
+    bAlarmActive := TRUE;
+    sRoastStatusMessage := 'ALARM: OVERTEMP';
+    iState := 999;
+END_IF;
 END_FUNCTION_BLOCK
 ```"""
 
-os.makedirs("data/swarm_raw", exist_ok=True)
-record = {
-    "messages": [
-        {"role": "user", "content": "You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 data.\nYour specific domain is: Optical Fiber Draw Tower.\nTask: Invent a highly complex control scenario for this domain (e.g., glass preform feed indexing, UV-cured acrylate coating concentricity, and dual capstan tension).\nWrite a deterministic Structured Text (ST) FUNCTION_BLOCK. Include complete VAR declarations and physical I/O."},
-        {"role": "assistant", "content": code}
-    ]
-}
-with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
+record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
+filename = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
+with open(filename, "w", encoding="utf-8") as f:
     json.dump(record, f)
 
-# Also append to the data/synthetic_generation_v3_enterprise.jsonl as per system prompt
-with open("data/synthetic_generation_v3_enterprise.jsonl", "a", encoding="utf-8") as f:
-    f.write(json.dumps(record) + "\\n")
+print(f"Saved to {filename}")

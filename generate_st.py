@@ -1,185 +1,179 @@
-import json
-import uuid
-import os
-
-prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 data.
-Your specific domain is: Utility-Scale Synchronous Condenser.
-Task: Invent a highly complex control scenario for this domain (e.g., stator hydrogen cooling cascades, Automatic Voltage Regulator (AVR) reactive power excitation limits, and flywheel kinetic inertia mapping).
-Write a deterministic Structured Text (ST) FUNCTION_BLOCK. Include complete VAR declarations and physical I/O."""
+import os, json, uuid
+os.makedirs('data/swarm_raw', exist_ok=True)
+prompt = "You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 data.\nYour specific domain is: Lead-Acid Battery Plate Curing.\nTask: Invent a highly complex control scenario for this domain (e.g., hydroset chamber humidity/temperature cascades, grid pasting thickness feedback, and exothermic reaction cooling logic).\nWrite a deterministic Structured Text (ST) FUNCTION_BLOCK. Include complete VAR declarations and physical I/O."
 
 st_code = """```iec-st
-FUNCTION_BLOCK FB_SyncCondenser_MasterControl
-TITLE = 'Utility-Scale Synchronous Condenser Master Controller'
-VERSION : '2.1'
-AUTHOR : 'Lumina Elite Data Architect'
+FUNCTION_BLOCK FB_BatteryPlateCuringController
+TITLE = 'Lead-Acid Battery Plate Curing and Hydroset Controller'
+VERSION : '1.5'
+
+(*
+  This function block handles the complex multi-phase curing process
+  for lead-acid battery plates, specifically managing the hydroset chamber
+  humidity/temperature cascades, grid pasting thickness feedback compensation,
+  and exothermic reaction cooling logic to prevent plate thermal runaway.
+*)
 
 VAR_INPUT
-    Enable : BOOL; // System Master Enable
-    Grid_Voltage_pu : REAL; // Grid voltage in per-unit (0.0 to 1.2)
-    Grid_Frequency_Hz : REAL; // Grid frequency in Hz
-    ActivePower_MW : REAL; // Active power in MW (losses)
-    ReactivePower_MVAR : REAL; // Reactive power in MVAR
-    
-    // Hydrogen Cooling System
-    H2_Pressure_kPa : REAL; // Hydrogen pressure in kPa
-    H2_Purity_Pct : REAL; // Hydrogen purity percentage
-    Stator_Temp_C : REAL; // Stator winding temperature
-    CoolingWater_Flow_Lps : REAL; // Primary cooling water flow
-    
-    // Flywheel & Inertia
-    Rotor_Speed_RPM : REAL; // Current rotor speed
-    Vibration_mm_s : REAL; // Shaft vibration level
-    
-    // AVR & Excitation
-    Excitation_Current_A : REAL; // Field current
-    Exciter_Temp_C : REAL; // Exciter temperature
-    AVR_Setpoint_pu : REAL; // AVR voltage setpoint
+    bEnableProcess       : BOOL;   (* Start the curing process *)
+    bEmergencyStop       : BOOL;   (* Safety stop *)
+    rActualTemp          : REAL;   (* Chamber temperature feedback (Deg C) *)
+    rActualHumidity      : REAL;   (* Chamber Relative Humidity (%) *)
+    rPlateSurfaceTemp    : REAL;   (* IR sensor for exothermic reaction detection (Deg C) *)
+    rPasteThickness      : REAL;   (* Feedback from inline thickness gauge (mm) *)
+    rTargetThickness     : REAL;   (* Setpoint for plate thickness (mm) *)
+    rBaseTempSetpoint    : REAL;   (* Base hydroset temp setpoint (Deg C) *)
+    rBaseHumidSetpoint   : REAL;   (* Base hydroset humidity setpoint (%) *)
+    rExoDeltaT_Limit     : REAL;   (* Maximum allowed delta between surface and chamber temp *)
 END_VAR
 
 VAR_OUTPUT
-    System_Ready : BOOL;
-    System_Fault : BOOL;
-    
-    // AVR Control
-    Excitation_Target_A : REAL; // Calculated field current target
-    AVR_OEL_Active : BOOL; // Over-Excitation Limit active
-    AVR_UEL_Active : BOOL; // Under-Excitation Limit active
-    
-    // Cooling Control
-    H2_Makeup_Valve_Open : BOOL; // Hydrogen makeup valve
-    Water_Pump_Speed_Pct : REAL; // Cooling water pump VFD command
-    
-    // Diagnostics
-    Inertial_Response_MWs : REAL; // Calculated kinetic energy available
-    Fault_Code : INT;
+    bHeaterEnable        : BOOL;   (* Chamber heater control *)
+    rHeaterCV            : REAL;   (* Heater control value 0-100% *)
+    bSteamValveEnable    : BOOL;   (* Steam injection valve *)
+    rSteamValveCV        : REAL;   (* Steam valve control value 0-100% *)
+    bCoolingFanEnable    : BOOL;   (* Exothermic cooling fan *)
+    rCoolingFanCV        : REAL;   (* Fan speed control 0-100% *)
+    iCurrentPhase        : INT;    (* 0=Idle, 1=Flash Dry, 2=Hydroset, 3=Final Dry, 4=Cooling *)
+    bProcessComplete     : BOOL;
+    bAlarmThermalRunaway : BOOL;
+    rCalculatedTempSP    : REAL;
+    rCalculatedHumidSP   : REAL;
 END_VAR
 
 VAR
-    // Internal States
-    State_Machine : INT; // 0=Off, 1=Startup, 2=Sync, 3=Run, 4=Fault
-    Timer_Startup : TON;
-    Timer_Cooling : TON;
-    
-    // AVR Constants
-    K_p_AVR : REAL := 2.5;
-    K_i_AVR : REAL := 0.5;
-    Error_Int : REAL; // Integral accumulator
-    OEL_Threshold_A : REAL := 3500.0;
-    UEL_Threshold_A : REAL := -1200.0;
-    
-    // Cooling Constants
-    H2_Min_Pressure : REAL := 300.0; // kPa
-    H2_Min_Purity : REAL := 95.0; // %
-    Stator_Max_Temp : REAL := 120.0; // C
-    
-    // Inertia Constants
-    J_Flywheel : REAL := 45000.0; // kg*m^2
-    Omega_Nominal : REAL := 377.0; // rad/s for 60Hz
+    rThicknessOffset     : REAL;
+    rTempError           : REAL;
+    rHumidError          : REAL;
+    rTempIntegral        : REAL;
+    rHumidIntegral       : REAL;
+    tPhaseTimer          : TON;
+    rKp_Temp             : REAL := 2.5;
+    rKi_Temp             : REAL := 0.1;
+    rKp_Humid            : REAL := 1.8;
+    rKi_Humid            : REAL := 0.05;
+    rExoDelta            : REAL;
 END_VAR
 
-// ====================================================================
-// SYNCHRONOUS CONDENSER CONTROL LOGIC
-// ====================================================================
-
-// Fault Detection
-System_Fault := FALSE;
-Fault_Code := 0;
-
-IF H2_Purity_Pct < H2_Min_Purity THEN
-    System_Fault := TRUE;
-    Fault_Code := 101; // Hydrogen purity critical
+(* Check for Emergency Stop *)
+IF bEmergencyStop THEN
+    bHeaterEnable        := FALSE;
+    rHeaterCV            := 0.0;
+    bSteamValveEnable    := FALSE;
+    rSteamValveCV        := 0.0;
+    bCoolingFanEnable    := TRUE;
+    rCoolingFanCV        := 100.0;
+    iCurrentPhase        := 0;
+    bProcessComplete     := FALSE;
+    RETURN;
 END_IF;
 
-IF Stator_Temp_C > Stator_Max_Temp THEN
-    System_Fault := TRUE;
-    Fault_Code := 102; // Stator over-temperature
+(* Process Logic Enable *)
+IF NOT bEnableProcess THEN
+    iCurrentPhase := 0;
+    bProcessComplete := FALSE;
+    bHeaterEnable := FALSE;
+    bSteamValveEnable := FALSE;
+    bCoolingFanEnable := FALSE;
+    rHeaterCV := 0.0;
+    rSteamValveCV := 0.0;
+    rCoolingFanCV := 0.0;
+    tPhaseTimer(IN := FALSE);
+    RETURN;
 END_IF;
 
-IF Vibration_mm_s > 15.0 THEN
-    System_Fault := TRUE;
-    Fault_Code := 103; // High vibration
-END_IF;
+(* Thickness Feedback Compensation: Thicker plates require higher temp/humidity *)
+rThicknessOffset := (rPasteThickness - rTargetThickness) * 1.5;
 
-// Hydrogen Cooling Cascade
-IF H2_Pressure_kPa < H2_Min_Pressure AND NOT System_Fault THEN
-    H2_Makeup_Valve_Open := TRUE;
+(* Phase Management Timer *)
+tPhaseTimer(IN := bEnableProcess, PT := T#72h);
+
+IF tPhaseTimer.ET < T#1h THEN
+    iCurrentPhase := 1; (* Flash Dry *)
+    rCalculatedTempSP := 65.0 + rThicknessOffset;
+    rCalculatedHumidSP := 40.0;
+ELSIF tPhaseTimer.ET < T#24h THEN
+    iCurrentPhase := 2; (* Hydroset Phase *)
+    rCalculatedTempSP := rBaseTempSetpoint + rThicknessOffset;
+    rCalculatedHumidSP := rBaseHumidSetpoint + (rThicknessOffset * 2.0);
+ELSIF tPhaseTimer.ET < T#70h THEN
+    iCurrentPhase := 3; (* Final Dry Phase *)
+    rCalculatedTempSP := 55.0;
+    rCalculatedHumidSP := 15.0;
+ELSIF tPhaseTimer.ET < T#72h THEN
+    iCurrentPhase := 4; (* Cooling Phase *)
+    rCalculatedTempSP := 25.0;
+    rCalculatedHumidSP := 0.0;
 ELSE
-    H2_Makeup_Valve_Open := FALSE;
+    iCurrentPhase := 5; (* Done *)
+    bProcessComplete := TRUE;
 END_IF;
 
-// Dynamic Cooling Water Control based on Stator Temperature
-IF Stator_Temp_C > 80.0 THEN
-    Water_Pump_Speed_Pct := 50.0 + (Stator_Temp_C - 80.0) * 1.25;
-    IF Water_Pump_Speed_Pct > 100.0 THEN Water_Pump_Speed_Pct := 100.0; END_IF;
+(* Exothermic Reaction Cooling Logic *)
+rExoDelta := rPlateSurfaceTemp - rActualTemp;
+IF rExoDelta > rExoDeltaT_Limit THEN
+    bAlarmThermalRunaway := TRUE;
+    bCoolingFanEnable := TRUE;
+    rCoolingFanCV := 100.0;
+    (* Override Heater *)
+    rHeaterCV := 0.0;
+    bHeaterEnable := FALSE;
 ELSE
-    Water_Pump_Speed_Pct := 30.0; // Base cooling flow
+    bAlarmThermalRunaway := FALSE;
+    (* Standard Cooling Fan control for dehumidification/circulation *)
+    bCoolingFanEnable := (iCurrentPhase = 4);
+    rCoolingFanCV := SEL(iCurrentPhase = 4, 20.0, 80.0);
 END_IF;
 
-// Flywheel Kinetic Inertia Mapping
-// KE = 0.5 * J * w^2
-Inertial_Response_MWs := 0.5 * J_Flywheel * (Rotor_Speed_RPM * 0.104719755) * (Rotor_Speed_RPM * 0.104719755) / 1000000.0;
-
-// Automatic Voltage Regulator (AVR) with Limits
-IF Enable AND NOT System_Fault THEN
-    System_Ready := TRUE;
+(* Cascaded PID for Temperature *)
+IF NOT bAlarmThermalRunaway THEN
+    rTempError := rCalculatedTempSP - rActualTemp;
+    rTempIntegral := rTempIntegral + (rTempError * 0.1);
+    IF rTempIntegral > 100.0 THEN rTempIntegral := 100.0; END_IF;
+    IF rTempIntegral < 0.0 THEN rTempIntegral := 0.0; END_IF;
     
-    // PI Control for Voltage
-    VAR
-        V_Error : REAL;
-        P_Term : REAL;
-    END_VAR
+    rHeaterCV := (rKp_Temp * rTempError) + (rKi_Temp * rTempIntegral);
     
-    V_Error := AVR_Setpoint_pu - Grid_Voltage_pu;
-    P_Term := K_p_AVR * V_Error;
-    Error_Int := Error_Int + (K_i_AVR * V_Error * 0.1); // Assuming 100ms task cycle
+    IF rHeaterCV > 100.0 THEN rHeaterCV := 100.0; END_IF;
+    IF rHeaterCV < 0.0 THEN rHeaterCV := 0.0; END_IF;
     
-    Excitation_Target_A := P_Term + Error_Int;
-    
-    // Over-Excitation Limit (OEL)
-    IF Excitation_Target_A > OEL_Threshold_A THEN
-        Excitation_Target_A := OEL_Threshold_A;
-        AVR_OEL_Active := TRUE;
-        // Anti-windup
-        Error_Int := Error_Int - (K_i_AVR * V_Error * 0.1);
-    ELSE
-        AVR_OEL_Active := FALSE;
-    END_IF;
-    
-    // Under-Excitation Limit (UEL)
-    IF Excitation_Target_A < UEL_Threshold_A THEN
-        Excitation_Target_A := UEL_Threshold_A;
-        AVR_UEL_Active := TRUE;
-        // Anti-windup
-        Error_Int := Error_Int - (K_i_AVR * V_Error * 0.1);
-    ELSE
-        AVR_UEL_Active := FALSE;
-    END_IF;
-
-ELSE
-    System_Ready := FALSE;
-    Excitation_Target_A := 0.0;
-    Error_Int := 0.0;
-    AVR_OEL_Active := FALSE;
-    AVR_UEL_Active := FALSE;
-    Water_Pump_Speed_Pct := 0.0;
-    H2_Makeup_Valve_Open := FALSE;
+    bHeaterEnable := (rHeaterCV > 5.0);
 END_IF;
+
+(* Cascaded PID for Humidity *)
+rHumidError := rCalculatedHumidSP - rActualHumidity;
+rHumidIntegral := rHumidIntegral + (rHumidError * 0.1);
+IF rHumidIntegral > 100.0 THEN rHumidIntegral := 100.0; END_IF;
+IF rHumidIntegral < 0.0 THEN rHumidIntegral := 0.0; END_IF;
+
+rSteamValveCV := (rKp_Humid * rHumidError) + (rKi_Humid * rHumidIntegral);
+
+IF rSteamValveCV > 100.0 THEN rSteamValveCV := 100.0; END_IF;
+IF rSteamValveCV < 0.0 THEN rSteamValveCV := 0.0; END_IF;
+
+(* Do not inject steam during cooling *)
+IF iCurrentPhase = 4 OR iCurrentPhase = 5 THEN
+    rSteamValveCV := 0.0;
+END_IF;
+
+bSteamValveEnable := (rSteamValveCV > 5.0);
 
 END_FUNCTION_BLOCK
 ```"""
 
-record = {'messages': [{'role': 'user', 'content': prompt}, {'role': 'assistant', 'content': st_code}]}
+record = {
+    "messages": [
+        {"role": "user", "content": prompt},
+        {"role": "assistant", "content": st_code}
+    ]
+}
+filepath = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
+with open(filepath, "w", encoding="utf-8") as f:
+    json.dump(record, f, indent=2)
 
-os.makedirs('data/swarm_raw', exist_ok=True)
+print("SUCCESS: Wrote JSON to", filepath)
+
+# Also append to synthetic_generation_v3_enterprise.jsonl
 os.makedirs('data', exist_ok=True)
-
-agent_id = uuid.uuid4().hex[:8]
-filename = f'data/swarm_raw/agent_{agent_id}.json'
-
-with open(filename, 'w', encoding='utf-8') as f:
-    json.dump(record, f)
-
-with open('data/synthetic_generation_v3_enterprise.jsonl', 'a', encoding='utf-8') as f:
-    f.write(json.dumps(record) + '\\n')
-    
-print('Success')
+with open("data/synthetic_generation_v3_enterprise.jsonl", "a", encoding="utf-8") as f:
+    f.write(json.dumps(record) + "\n")

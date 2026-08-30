@@ -1,192 +1,169 @@
 import json, uuid, os
 
-prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 data.
-Your specific domain is: High-Speed Cardboard Die Cutter.
-Task: Invent a highly complex control scenario for this domain (e.g., stripping station waste ejection pin timing, cam-driven platen pressure profiling, and blanking tool synchronization).
-Write a deterministic Structured Text (ST) FUNCTION_BLOCK. Include complete VAR declarations and physical I/O."""
+prompt = "You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 data.\nYour specific domain is: Flue Gas Desulfurization (FGD) System.\nTask: Invent a highly complex control scenario for this domain (e.g., limestone slurry density loops, absorber spray header sequencing, and gypsum dewatering hydrocyclones).\nWrite a deterministic Structured Text (ST) FUNCTION_BLOCK. Include complete VAR declarations and physical I/O."
 
-code = """```iec-st
-FUNCTION_BLOCK FB_DieCutterMasterSync
-TITLE = 'High-Speed Cardboard Die Cutter Master Control'
-// -----------------------------------------------------------------------------
-// Description:
-// Master synchronization and control block for a high-speed cardboard die cutter.
-// Handles platen pressure profiling, stripping station waste ejection pin timing,
-// and blanking tool synchronization based on master virtual axis (encoder).
-// -----------------------------------------------------------------------------
-
+iec_st_code = """FUNCTION_BLOCK FB_FGD_System_Control
 VAR_INPUT
-    xEnable                  : BOOL; // Enable die cutter operations
-    xResetFaults             : BOOL; // Reset active faults
-    rMasterVelocity          : REAL; // Master line speed (sheets per minute)
-    diMasterEncoderPos       : DINT; // Master machine angle (0 - 35999, hundredths of degree)
-    
-    // Physical I/O
-    xSensorSheetEntry        : BOOL; // Sheet detected at entry
-    xSensorPlatenClear       : BOOL; // Platen area clear
-    xSensorStrippingJam      : BOOL; // Jam detected in stripping station
-    rActualPlatenPressure    : REAL; // Hydraulic platen pressure feedback (bar)
-    diEjectorPinPosition     : DINT; // Feedback from ejector pin servo
+    rFlueGasInletFlow       : REAL; (* kg/s *)
+    rFlueGasInletSO2        : REAL; (* ppm *)
+    rFlueGasOutletSO2       : REAL; (* ppm *)
+    rAbsorberLevel          : REAL; (* % *)
+    rAbsorberpH             : REAL; (* pH *)
+    rSlurryDensity          : REAL; (* kg/m3 *)
+    bStartCommand           : BOOL;
+    bEmergencyStop          : BOOL;
 END_VAR
 
 VAR_OUTPUT
-    xReady                   : BOOL; // Machine is ready for production
-    xRunning                 : BOOL; // Machine is actively processing
-    xFault                   : BOOL; // General fault active
-    diFaultCode              : DINT; // Specific fault code
-    
-    // Actuators / Outputs
-    rCmdPlatenPressure       : REAL; // Command to platen hydraulic proportional valve
-    xCmdEngageClutch         : BOOL; // Main drive clutch engagement
-    xCmdFireEjectorPins      : BOOL; // High-speed solenoid command for waste stripping
-    rCmdBlankingAxisVelocity : REAL; // Velocity command for blanking servo
-    rCmdBlankingAxisPos      : REAL; // Position command for blanking servo
+    rLimestoneFeedRate      : REAL; (* kg/h *)
+    bSprayHeader1_Cmd       : BOOL;
+    bSprayHeader2_Cmd       : BOOL;
+    bSprayHeader3_Cmd       : BOOL;
+    bSprayHeader4_Cmd       : BOOL;
+    bOxidationBlower_Cmd    : BOOL;
+    bHydrocycloneFeedPump   : BOOL;
+    rHydrocycloneValve      : REAL; (* % *)
+    bSystemReady            : BOOL;
+    bAlarm                  : BOOL;
+    iAlarmCode              : INT;
 END_VAR
 
 VAR
-    eState                   : INT := 0; // State machine state
+    rTargetSO2              : REAL := 50.0; (* ppm *)
+    rTargetpH               : REAL := 5.5;
+    rTargetDensity          : REAL := 1150.0; (* kg/m3 *)
     
-    // Cam Profile Data
-    arPlatenCamProfile       : ARRAY[0..360] OF REAL; // Pressure profile vs angle
-    rTargetPressure          : REAL;
-    rPressureError           : REAL;
-    rPressureIntegral        : REAL;
+    (* PI Controller variables for pH (Limestone Feed) *)
+    rError_pH               : REAL;
+    rIntegral_pH            : REAL;
+    Kp_pH                   : REAL := 120.0;
+    Ki_pH                   : REAL := 5.0;
     
-    // Timing calculations
-    diStrippingFireAngleOn   : DINT := 12500; // 125.00 degrees
-    diStrippingFireAngleOff  : DINT := 14000; // 140.00 degrees
-    xSheetInPlaten           : BOOL;
-    xSheetInStripping        : BOOL;
-    xSheetInBlanking         : BOOL;
+    (* Density control for hydrocyclones *)
+    rError_Density          : REAL;
     
-    // Tracking
-    diSheetCounter           : DINT := 0;
-    diLastEncoderPos         : DINT := 0;
-    rBlankingSyncOffset      : REAL := 15.5; // Offset mm
-    
-    // Constants
-    MAX_PRESSURE             : REAL := 350.0; // Bar
-    MIN_PRESSURE             : REAL := 10.0;
-    PRESSURE_KP              : REAL := 2.5;
-    PRESSURE_KI              : REAL := 0.1;
-    
-    // Diagnostics
-    tPlatenResponseTimer     : TON;
+    (* State machine variables *)
+    iState                  : INT := 0;
+    tSprayTimer             : TIME := T#0s;
+    bHeadersActive          : BOOL := FALSE;
 END_VAR
 
-// =============================================================================
-// Implementation
-// =============================================================================
+(*
+    FLUE GAS DESULFURIZATION (FGD) COMPLEX CONTROL ALGORITHM
+    - pH-based limestone slurry feed control
+    - Staged spray header activation based on SO2 load
+    - Gypsum dewatering density management
+*)
 
-// 1. Fault Handling
-IF xResetFaults THEN
-    xFault := FALSE;
-    diFaultCode := 0;
-    eState := 0;
+IF bEmergencyStop THEN
+    iState := 99;
 END_IF;
 
-IF xSensorStrippingJam THEN
-    xFault := TRUE;
-    diFaultCode := 1001; // Stripping jam
-END_IF;
-
-IF rActualPlatenPressure > (MAX_PRESSURE + 20.0) THEN
-    xFault := TRUE;
-    diFaultCode := 1002; // Overpressure
-END_IF;
-
-IF xFault THEN
-    xRunning := FALSE;
-    xCmdEngageClutch := FALSE;
-    xCmdFireEjectorPins := FALSE;
-    rCmdPlatenPressure := 0.0;
-    rCmdBlankingAxisVelocity := 0.0;
-    RETURN;
-END_IF;
-
-// 2. Master State Machine
-CASE eState OF
-    0: // INIT
-        xReady := TRUE;
-        IF xEnable THEN
-            eState := 10;
-            xReady := FALSE;
+CASE iState OF
+    0: (* Standby *)
+        rLimestoneFeedRate := 0.0;
+        bSprayHeader1_Cmd := FALSE;
+        bSprayHeader2_Cmd := FALSE;
+        bSprayHeader3_Cmd := FALSE;
+        bSprayHeader4_Cmd := FALSE;
+        bOxidationBlower_Cmd := FALSE;
+        bHydrocycloneFeedPump := FALSE;
+        bSystemReady := TRUE;
+        bAlarm := FALSE;
+        iAlarmCode := 0;
+        
+        IF bStartCommand THEN
+            iState := 10;
+            bSystemReady := FALSE;
         END_IF;
         
-    10: // STARTUP
-        xCmdEngageClutch := TRUE;
-        IF rMasterVelocity > 10.0 THEN
-            eState := 20; // RUNNING
-            xRunning := TRUE;
+    10: (* Startup Sequence: Start Oxidation Blowers *)
+        bOxidationBlower_Cmd := TRUE;
+        (* Assume blowers reach operating state instantly for this block *)
+        iState := 20;
+        
+    20: (* Startup Sequence: Initialize Base Spray Headers *)
+        bSprayHeader1_Cmd := TRUE;
+        bSprayHeader2_Cmd := TRUE;
+        iState := 30;
+        
+    30: (* Continuous Control Loop *)
+        (* 1. Limestone Feed Control (pH Loop) *)
+        rError_pH := rTargetpH - rAbsorberpH;
+        rIntegral_pH := rIntegral_pH + (rError_pH * 0.1); (* Assuming 100ms task rate *)
+        
+        (* Anti-windup *)
+        IF rIntegral_pH > 5000.0 THEN rIntegral_pH := 5000.0; END_IF;
+        IF rIntegral_pH < -1000.0 THEN rIntegral_pH := -1000.0; END_IF;
+        
+        rLimestoneFeedRate := (Kp_pH * rError_pH) + (Ki_pH * rIntegral_pH);
+        IF rLimestoneFeedRate < 0.0 THEN rLimestoneFeedRate := 0.0; END_IF;
+        IF rLimestoneFeedRate > 10000.0 THEN rLimestoneFeedRate := 10000.0; END_IF;
+        
+        (* 2. Spray Header Sequencing (SO2 Load Management) *)
+        IF rFlueGasOutletSO2 > (rTargetSO2 * 1.2) THEN
+            bSprayHeader3_Cmd := TRUE;
+            IF rFlueGasOutletSO2 > (rTargetSO2 * 1.5) THEN
+                bSprayHeader4_Cmd := TRUE;
+            END_IF;
+        ELSIF rFlueGasOutletSO2 < (rTargetSO2 * 0.8) THEN
+            bSprayHeader4_Cmd := FALSE;
+            IF rFlueGasOutletSO2 < (rTargetSO2 * 0.5) THEN
+                bSprayHeader3_Cmd := FALSE;
+            END_IF;
         END_IF;
         
-    20: // RUNNING
-        IF NOT xEnable THEN
-            eState := 30;
+        (* 3. Gypsum Dewatering (Density Control Loop) *)
+        rError_Density := rSlurryDensity - rTargetDensity;
+        IF rError_Density > 20.0 THEN
+            bHydrocycloneFeedPump := TRUE;
+            rHydrocycloneValve := 50.0 + (rError_Density * 0.5);
+            IF rHydrocycloneValve > 100.0 THEN rHydrocycloneValve := 100.0; END_IF;
+        ELSIF rError_Density < -10.0 THEN
+            rHydrocycloneValve := 0.0;
+            bHydrocycloneFeedPump := FALSE;
         END_IF;
         
-        // --- Platen Pressure Cam Profiling ---
-        // Calculate target pressure based on machine angle (modulo 360 degrees)
-        rTargetPressure := arPlatenCamProfile[diMasterEncoderPos / 100];
-        
-        // Simple PI control for hydraulic pressure
-        rPressureError := rTargetPressure - rActualPlatenPressure;
-        rPressureIntegral := rPressureIntegral + (rPressureError * 0.001); // Assuming 1ms cycle
-        
-        // Anti-windup
-        IF rPressureIntegral > MAX_PRESSURE THEN rPressureIntegral := MAX_PRESSURE; END_IF;
-        IF rPressureIntegral < 0.0 THEN rPressureIntegral := 0.0; END_IF;
-        
-        rCmdPlatenPressure := (rPressureError * PRESSURE_KP) + (rPressureIntegral * PRESSURE_KI);
-        IF rCmdPlatenPressure > MAX_PRESSURE THEN rCmdPlatenPressure := MAX_PRESSURE; END_IF;
-        IF rCmdPlatenPressure < MIN_PRESSURE THEN rCmdPlatenPressure := MIN_PRESSURE; END_IF;
-        
-        // --- Stripping Station Waste Ejection Pin Timing ---
-        // Fire pins accurately based on angle window
-        IF (diMasterEncoderPos >= diStrippingFireAngleOn) AND (diMasterEncoderPos <= diStrippingFireAngleOff) THEN
-            xCmdFireEjectorPins := TRUE;
-        ELSE
-            xCmdFireEjectorPins := FALSE;
+        (* 4. Alarm Monitoring *)
+        IF rAbsorberLevel > 85.0 THEN
+            bAlarm := TRUE;
+            iAlarmCode := 101; (* High Level Alarm *)
+        ELSIF rAbsorberLevel < 15.0 THEN
+            bAlarm := TRUE;
+            iAlarmCode := 102; (* Low Level Alarm *)
         END_IF;
         
-        // --- Blanking Tool Synchronization ---
-        // Electronic gearing to master velocity with positional phase offset
-        rCmdBlankingAxisVelocity := rMasterVelocity * 1.05; // 5% overspeed to catch sheet
-        rCmdBlankingAxisPos := DINT_TO_REAL(diMasterEncoderPos) * 0.01 + rBlankingSyncOffset;
+    99: (* Emergency Shutdown Sequence *)
+        rLimestoneFeedRate := 0.0;
+        bSprayHeader1_Cmd := FALSE;
+        bSprayHeader2_Cmd := FALSE;
+        bSprayHeader3_Cmd := FALSE;
+        bSprayHeader4_Cmd := FALSE;
+        bOxidationBlower_Cmd := FALSE;
+        bHydrocycloneFeedPump := FALSE;
+        rHydrocycloneValve := 0.0;
+        bAlarm := TRUE;
+        iAlarmCode := 999;
         
-    30: // STOPPING
-        xCmdEngageClutch := FALSE;
-        xRunning := FALSE;
-        IF rMasterVelocity < 1.0 THEN
-            eState := 0;
+        IF NOT bEmergencyStop AND NOT bStartCommand THEN
+            iState := 0;
         END_IF;
-        
-    ELSE
-        eState := 0;
 END_CASE;
-
-// 3. Update memory variables
-diLastEncoderPos := diMasterEncoderPos;
-
 END_FUNCTION_BLOCK
-```"""
+"""
+
+response_content = f"```iec-st\n{iec_st_code}\n```"
 
 record = {
     "messages": [
         {"role": "user", "content": prompt},
-        {"role": "assistant", "content": code}
+        {"role": "assistant", "content": response_content}
     ]
 }
 
 os.makedirs("data/swarm_raw", exist_ok=True)
-file_id = uuid.uuid4().hex[:8]
-swarm_file = f"data/swarm_raw/agent_{file_id}.json"
-with open(swarm_file, "w", encoding="utf-8") as f:
+file_path = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
+with open(file_path, "w", encoding="utf-8") as f:
     json.dump(record, f, indent=2)
 
-os.makedirs("data", exist_ok=True)
-jsonl_file = "data/synthetic_generation_v3_enterprise.jsonl"
-with open(jsonl_file, "a", encoding="utf-8") as f:
-    f.write(json.dumps(record) + "\n")
-
-print(f"Successfully wrote data to {swarm_file} and {jsonl_file}")
+print(file_path)

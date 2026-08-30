@@ -1,135 +1,200 @@
-import os
-import json
-import uuid
+import json, uuid, os
 
-os.makedirs("data/swarm_raw", exist_ok=True)
-os.makedirs("data", exist_ok=True)
-
-prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 data.
-Your specific domain is: Industrial Bookbinding Perfect Binder.
-Task: Invent a highly complex control scenario for this domain (e.g., spine roughing milling depth compensation, hot-melt EVA glue extrusion tracking, and cover nipping pressure profiling).
-Write a deterministic Structured Text (ST) FUNCTION_BLOCK. Include complete VAR declarations and physical I/O."""
-
-response = """```iec-st
-FUNCTION_BLOCK FB_PerfectBinderControl
+record = {
+    "messages": [
+        {
+            "role": "user", 
+            "content": "You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 data.\nYour specific domain is: CNC Wire Electrical Discharge Machining (EDM).\nTask: Invent a highly complex control scenario for this domain (e.g., deionized water dielectric conductivity, continuous wire tension unspooling, and spark gap voltage optimization).\nWrite a deterministic Structured Text (ST) FUNCTION_BLOCK. Include complete VAR declarations and physical I/O."
+        }, 
+        {
+            "role": "assistant", 
+            "content": """```iec-st
+FUNCTION_BLOCK FB_WireEDM_ProcessController
 VAR_INPUT
-    bEnable : BOOL; // Enable binder control
-    rBookThickness : REAL; // Measured book block thickness (mm)
-    rPaperDensity : REAL; // Paper density factor (gsm)
-    rTargetMillingDepth : REAL; // Base target milling depth (mm)
-    rActualMillingCurrent : REAL; // Feedback current from milling motor (A)
-    rGlueTempEVA : REAL; // Current EVA glue temperature (deg C)
-    rLineSpeed : REAL; // Machine speed (books/min)
-    bCoverReady : BOOL; // Cover feeder ready signal
+    rTargetSparkGapVoltage      : REAL;   (* Setpoint for spark gap voltage [V] *)
+    rActualSparkGapVoltage      : REAL;   (* Feedback from gap sensor [V] *)
+    rTargetWireTension          : REAL;   (* Setpoint for wire tension [N] *)
+    rActualWireTension          : REAL;   (* Feedback from tension load cell [N] *)
+    rTargetConductivity         : REAL;   (* Setpoint for dielectric conductivity [uS/cm] *)
+    rActualConductivity         : REAL;   (* Feedback from conductivity sensor [uS/cm] *)
+    rWireSpeed                  : REAL;   (* Current wire unspooling speed [m/min] *)
+    bSystemEnable               : BOOL;   (* Master process enable *)
+    bEmergencyStop              : BOOL;   (* Safety interlock *)
+    rKp_Tension                 : REAL := 1.5;
+    rKi_Tension                 : REAL := 0.5;
+    rKd_Tension                 : REAL := 0.1;
+    rKp_Conductivity            : REAL := 2.0;
+    rKi_Conductivity            : REAL := 0.8;
 END_VAR
+
 VAR_OUTPUT
-    rMillingDepthSetPoint : REAL; // Compensated milling depth (mm)
-    rGlueExtrusionRate : REAL; // Calculated glue extrusion volume (ml/s)
-    rNippingPressure : REAL; // Calculated cover nipping pressure (Bar)
-    bSystemReady : BOOL; // System ready to cycle
-    bError : BOOL; // General error flag
-    iErrorID : INT; // Error code
+    rGeneratorPWMOutput         : REAL;   (* 0-100% PWM for spark generator power *)
+    rUnspoolMotorTorqueCmd      : REAL;   (* Torque command to wire spool motor [Nm] *)
+    rResinPumpSpeedCmd          : REAL;   (* Speed command to deionization resin pump [RPM] *)
+    bWireBreakDetected          : BOOL;   (* Flag indicating sudden drop in tension *)
+    bConductivityAlarm          : BOOL;   (* Flag indicating dielectric quality out of bounds *)
+    bShortCircuitDetected       : BOOL;   (* Flag indicating electrode touching workpiece *)
+    iMachineState               : INT;    (* 0=Idle, 1=Running, 2=Fault *)
 END_VAR
+
 VAR
-    rMillingWearCompensation : REAL := 0.0;
-    rBaseExtrusion : REAL;
-    rNippingBaseForce : REAL := 150.0; // Base force per mm thickness
-    rTempFactor : REAL;
-    rSpeedFactor : REAL;
+    rTensionError               : REAL;
+    rTensionErrorIntegral       : REAL;
+    rTensionErrorPrev           : REAL;
+    rTensionDerivative          : REAL;
     
-    // Timers
-    TMR_GlueHeating : TON;
+    rCondError                  : REAL;
+    rCondErrorIntegral          : REAL;
     
-    // Constants
-    cMaxMillingDepth : REAL := 3.5;
-    cMinMillingDepth : REAL := 0.5;
-    cOptimumGlueTemp : REAL := 160.0;
-    cGlueTempTolerance : REAL := 5.0;
+    rGapVoltageError            : REAL;
+    
+    rTensionTolerance           : REAL := 0.2; (* [N] *)
+    rCondAlarmThreshold         : REAL := 50.0; (* [uS/cm] max limit *)
+    rShortCircuitThreshold      : REAL := 5.0; (* [V] *)
+    rWireBreakThreshold         : REAL := 1.0; (* [N] *)
+    
+    tCycleTime                  : REAL := 0.01; (* 10ms execution cycle *)
+    
+    rMaxTorque                  : REAL := 10.0; (* [Nm] *)
+    rMaxPumpSpeed               : REAL := 3000.0; (* [RPM] *)
+    
+    bInitDone                   : BOOL := FALSE;
 END_VAR
 
-// Reset outputs if disabled
-IF NOT bEnable THEN
-    rMillingDepthSetPoint := 0.0;
-    rGlueExtrusionRate := 0.0;
-    rNippingPressure := 0.0;
-    bSystemReady := FALSE;
-    bError := FALSE;
-    iErrorID := 0;
+(* Initialization Block *)
+IF NOT bInitDone THEN
+    rTensionErrorIntegral := 0.0;
+    rTensionErrorPrev := 0.0;
+    rCondErrorIntegral := 0.0;
+    bInitDone := TRUE;
+END_IF
+
+(* Safety and State Management *)
+IF bEmergencyStop THEN
+    rGeneratorPWMOutput := 0.0;
+    rUnspoolMotorTorqueCmd := 0.0;
+    rResinPumpSpeedCmd := 0.0;
+    iMachineState := 2;
     RETURN;
-END_IF;
+ELSIF NOT bSystemEnable THEN
+    rGeneratorPWMOutput := 0.0;
+    rUnspoolMotorTorqueCmd := 0.0;
+    rResinPumpSpeedCmd := 0.0;
+    iMachineState := 0;
+    RETURN;
+ELSE
+    iMachineState := 1;
+END_IF
 
-// 1. Spine Roughing Milling Depth Compensation
-// Increase milling depth slightly if motor current is low (implies blade wear or softer paper)
-IF rActualMillingCurrent < 4.5 AND rActualMillingCurrent > 1.0 THEN
-    rMillingWearCompensation := rMillingWearCompensation + 0.001;
-ELSIF rActualMillingCurrent > 6.0 THEN
-    rMillingWearCompensation := rMillingWearCompensation - 0.001;
-END_IF;
-
-rMillingDepthSetPoint := rTargetMillingDepth + rMillingWearCompensation;
-
-// Clamp milling depth
-IF rMillingDepthSetPoint > cMaxMillingDepth THEN
-    rMillingDepthSetPoint := cMaxMillingDepth;
-ELSIF rMillingDepthSetPoint < cMinMillingDepth THEN
-    rMillingDepthSetPoint := cMinMillingDepth;
-END_IF;
-
-// 2. Hot-Melt EVA Glue Extrusion Tracking
-// Extrusion rate depends on line speed, book thickness, and glue temperature
-rSpeedFactor := rLineSpeed / 60.0; // scale to books per sec
-rTempFactor := 1.0;
-
-// If temp is low, viscosity is high, push harder
-IF rGlueTempEVA < cOptimumGlueTemp THEN
-    rTempFactor := 1.1 + ((cOptimumGlueTemp - rGlueTempEVA) * 0.02);
-END_IF;
-
-// Base extrusion (ml/s) = thickness * speed * constant
-rBaseExtrusion := rBookThickness * rSpeedFactor * 0.85; 
-rGlueExtrusionRate := rBaseExtrusion * rTempFactor;
-
-// Check temperature bounds for error
-IF ABS(rGlueTempEVA - cOptimumGlueTemp) > cGlueTempTolerance THEN
-    // Warning state, not necessarily error, but flag if too cold
-    IF rGlueTempEVA < (cOptimumGlueTemp - 15.0) THEN
-        bError := TRUE;
-        iErrorID := 101; // Glue too cold
-    END_IF;
-END_IF;
-
-// 3. Cover Nipping Pressure Profiling
-// Pressure applied must be proportional to book thickness and paper density
-// Thicker books need more baseline force, higher density needs firmer nip
-IF bCoverReady THEN
-    rNippingPressure := (rNippingBaseForce * rBookThickness * (rPaperDensity / 80.0)) / 100.0; // Scale to Bar
+(* -------------------------------------------------------------
+   1. Wire Tension Control (PID)
+   ------------------------------------------------------------- *)
+(* Detect Wire Break *)
+IF rActualWireTension < rWireBreakThreshold AND rWireSpeed > 0.0 THEN
+    bWireBreakDetected := TRUE;
+    rUnspoolMotorTorqueCmd := 0.0;
+    iMachineState := 2;
+ELSE
+    bWireBreakDetected := FALSE;
     
-    // Safety clamp
-    IF rNippingPressure > 8.0 THEN
-        rNippingPressure := 8.0; // Max 8 Bar
-    ELSIF rNippingPressure < 2.0 THEN
-        rNippingPressure := 2.0; // Min 2 Bar
-    END_IF;
-ELSE
-    rNippingPressure := 0.0;
-END_IF;
+    rTensionError := rTargetWireTension - rActualWireTension;
+    rTensionErrorIntegral := rTensionErrorIntegral + (rTensionError * tCycleTime);
+    
+    (* Anti-windup for Tension Integral *)
+    IF rTensionErrorIntegral > 20.0 THEN
+        rTensionErrorIntegral := 20.0;
+    ELSIF rTensionErrorIntegral < -20.0 THEN
+        rTensionErrorIntegral := -20.0;
+    END_IF
+    
+    rTensionDerivative := (rTensionError - rTensionErrorPrev) / tCycleTime;
+    
+    rUnspoolMotorTorqueCmd := (rKp_Tension * rTensionError) + 
+                              (rKi_Tension * rTensionErrorIntegral) + 
+                              (rKd_Tension * rTensionDerivative);
+                              
+    rTensionErrorPrev := rTensionError;
+    
+    (* Output clamping *)
+    IF rUnspoolMotorTorqueCmd > rMaxTorque THEN
+        rUnspoolMotorTorqueCmd := rMaxTorque;
+    ELSIF rUnspoolMotorTorqueCmd < 0.0 THEN
+        rUnspoolMotorTorqueCmd := 0.0;
+    END_IF
+END_IF
 
-// Evaluate System Ready State
-IF NOT bError AND bCoverReady AND (ABS(rGlueTempEVA - cOptimumGlueTemp) <= cGlueTempTolerance) THEN
-    bSystemReady := TRUE;
+(* -------------------------------------------------------------
+   2. Dielectric Conductivity Control (PI)
+   ------------------------------------------------------------- *)
+(* If conductivity is too high, pump water through DI resin *)
+rCondError := rActualConductivity - rTargetConductivity;
+
+IF rCondError > 0.0 THEN
+    rCondErrorIntegral := rCondErrorIntegral + (rCondError * tCycleTime);
 ELSE
-    bSystemReady := FALSE;
-END_IF;
+    (* Optional: Decay integral if we are below target to prevent windup *)
+    rCondErrorIntegral := rCondErrorIntegral * 0.99;
+END_IF
+
+rResinPumpSpeedCmd := (rKp_Conductivity * rCondError) + (rKi_Conductivity * rCondErrorIntegral);
+
+IF rResinPumpSpeedCmd > rMaxPumpSpeed THEN
+    rResinPumpSpeedCmd := rMaxPumpSpeed;
+ELSIF rResinPumpSpeedCmd < 0.0 THEN
+    rResinPumpSpeedCmd := 0.0;
+END_IF
+
+IF rActualConductivity > rCondAlarmThreshold THEN
+    bConductivityAlarm := TRUE;
+ELSE
+    bConductivityAlarm := FALSE;
+END_IF
+
+(* -------------------------------------------------------------
+   3. Spark Gap Voltage Optimization
+   ------------------------------------------------------------- *)
+(* Maintain gap by regulating PWM power based on voltage deviation.
+   In a real EDM, the feed rate is also adjusted, but here we adjust generator power. *)
+   
+IF rActualSparkGapVoltage < rShortCircuitThreshold THEN
+    bShortCircuitDetected := TRUE;
+    (* Immediately cut power to prevent wire melting *)
+    rGeneratorPWMOutput := 0.0;
+ELSE
+    bShortCircuitDetected := FALSE;
+    
+    rGapVoltageError := rActualSparkGapVoltage - rTargetSparkGapVoltage;
+    
+    (* If gap voltage is higher than target, gap is too large -> increase power.
+       If gap voltage is lower than target, gap is too small -> decrease power.
+       Simple proportional relationship for this implementation. *)
+       
+    rGeneratorPWMOutput := 50.0 + (rGapVoltageError * 2.5); (* 50% base duty cycle *)
+    
+    IF rGeneratorPWMOutput > 100.0 THEN
+        rGeneratorPWMOutput := 100.0;
+    ELSIF rGeneratorPWMOutput < 10.0 THEN
+        rGeneratorPWMOutput := 10.0; (* Maintain minimum pilot spark *)
+    END_IF
+END_IF
+
+(* Critical Fault Handling *)
+IF bWireBreakDetected OR bShortCircuitDetected THEN
+    iMachineState := 2;
+END_IF
 
 END_FUNCTION_BLOCK
 ```"""
+        }
+    ]
+}
 
-record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": response}]}
-
-with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
+os.makedirs("data/swarm_raw", exist_ok=True)
+filename = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
+with open(filename, "w", encoding="utf-8") as f:
     json.dump(record, f)
 
+# System instruction append
+os.makedirs("data", exist_ok=True)
 with open("data/synthetic_generation_v3_enterprise.jsonl", "a", encoding="utf-8") as f:
     f.write(json.dumps(record) + "\n")
-
-print("Success")

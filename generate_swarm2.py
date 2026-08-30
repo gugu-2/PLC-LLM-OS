@@ -2,198 +2,194 @@ import json
 import uuid
 import os
 
-workspace = r"c:\Users\majip\Downloads\LLM REASEARCH"
-swarm_dir = os.path.join(workspace, "data", "swarm_raw")
-os.makedirs(swarm_dir, exist_ok=True)
-jsonl_file = os.path.join(workspace, "data", "synthetic_generation_v3_enterprise.jsonl")
+os.makedirs('data/swarm_raw', exist_ok=True)
 
-prompt = "Invent a highly complex control scenario for an Industrial Bread Proofing Tower (multi-tiered rack helical indexing, ultrasonic humidity injection atomization, and convective heat profiling). Write a deterministic Structured Text (ST) FUNCTION_BLOCK. Include complete VAR declarations and physical I/O."
+prompt = "You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 data.\nYour specific domain is: Automotive Robotic Spot Welding Cell.\nTask: Invent a highly complex control scenario for this domain (e.g., servo weld-gun tip dressing, welding transformer current ramping, and fixture pneumatic clamp staging)."
 
-st_code = """```iec-st
-FUNCTION_BLOCK FB_BreadProofingTower_HelicalIndexer
-TITLE = 'Enterprise Grade Multi-Tier Bread Proofing Tower Control'
-VERSION : '1.0'
-
-(*
-  This function block handles the deterministic control of an industrial bread proofing tower.
-  It coordinates the multi-tiered helical indexing mechanism for rack movement,
-  ultrasonic humidity injection atomization for precise moisture control, 
-  and convective heat profiling for optimal dough rising.
-*)
+st_code = """FUNCTION_BLOCK FB_RoboticSpotWeldingCell
+TITLE = 'Automotive Robotic Spot Welding Cell Control'
+// This function block manages the intricate sequencing of an automotive robotic spot weld cell.
+// Includes servo gun tip dressing, transformer current ramping, and fixture pneumatic staging.
 
 VAR_INPUT
-    bSystemEnable         : BOOL;  (* Master enable for the proofing tower *)
-    rTargetTemp_C         : REAL;  (* Target convective heat profile temp in Celsius (e.g. 35.0) *)
-    rTargetHum_RH         : REAL;  (* Target relative humidity % (e.g. 85.0) *)
-    rIndexerSpeed_RPM     : REAL;  (* Helical indexer rotation speed (e.g. 2.5 RPM) *)
-    bTrayLoadDetect       : BOOL;  (* Sensor detecting new dough tray at entrance conveyor *)
-    bTrayUnloadDetect     : BOOL;  (* Sensor detecting dough tray at exit conveyor *)
-    rExhaustFanTarget_Pct : REAL;  (* Desired exhaust fan speed % *)
-    bEmergencyStop        : BOOL;  (* Safety E-Stop signal *)
+    bEnableSystem : BOOL;            // Master Enable
+    bSafetyOk : BOOL;                // Safety Gate and E-Stops OK
+    bPartPresent : BOOL;             // Photoeye detects part in fixture
+    bCycleStart : BOOL;              // Operator initiates cycle
+    bWaterFlowOk : BOOL;             // Chilled water for weld gun
+    bAirPressureOk : BOOL;           // Main pneumatic pressure
+    bRobotInClear : BOOL;            // Robot is at home/clear position
+    rActualWeldCurrent : REAL;       // Feedback from weld controller
+    nTipDressCount : INT;            // Number of welds since last dress
 END_VAR
 
 VAR_OUTPUT
-    bHeaterEnable         : BOOL;  (* Enable convective heaters *)
-    rHeaterOutput_PWM     : REAL;  (* Heater PWM output 0-100% *)
-    bUltrasonicEnable     : BOOL;  (* Enable ultrasonic atomizers *)
-    rUltrasonicLevel_PWM  : REAL;  (* Atomizer intensity 0-100% *)
-    bIndexerMotorRun      : BOOL;  (* Enable helical indexer motor *)
-    rIndexerMotorFreq_Hz  : REAL;  (* VFD frequency for indexer *)
-    bSystemReady          : BOOL;  (* Tower is at temperature and humidity setpoints *)
-    bAlarmActive          : BOOL;  (* System fault active *)
-    iErrorCode            : INT;   (* Fault code for HMI display *)
-    rActualTemp_C         : REAL;  (* Measured average tower temperature *)
-    rActualHum_RH         : REAL;  (* Measured average tower humidity *)
+    bFixtureClamp1 : BOOL;           // Actuate Clamp 1
+    bFixtureClamp2 : BOOL;           // Actuate Clamp 2
+    bRobotStart : BOOL;              // Signal robot to begin weld path
+    bWeldTrigger : BOOL;             // Trigger weld controller
+    rWeldCommandCurrent : REAL;      // Analog command to weld controller
+    bTipDresserRun : BOOL;           // Start tip dresser motor
+    bCellFault : BOOL;               // Fault indicator
+    nCellStateCode : INT;            // Current state for HMI
 END_VAR
 
 VAR
-    rZone1Temp_C          : REAL := 22.0; (* Simulated sensor 1 *)
-    rZone2Temp_C          : REAL := 22.0; (* Simulated sensor 2 *)
-    rZone1Hum_RH          : REAL := 40.0; (* Simulated hum 1 *)
-    rTempError            : REAL;
-    rHumError             : REAL;
-    
-    (* PID Controller instances *)
-    pidTemp               : FB_PID_Controller;
-    pidHum                : FB_PID_Controller;
-    
-    (* State Machine *)
-    stateTower            : INT := 0; (* 0=Off, 1=Warmup, 2=Ready, 3=Indexing, 99=Error *)
-    timerWarmup           : TON;
-    
-    (* Internal physical variables *)
-    rIndexerPosition_Deg  : REAL := 0.0; (* Current angular position in helical track *)
-    bInternalFault        : BOOL := FALSE;
+    nState : INT := 0;               // Main State Machine
+    nFaultCode : INT := 0;
+    tonClampDelay : TON;             // Timer for clamp actuation
+    tonWeldSqueeze : TON;            // Squeeze time before weld
+    tonWeldHold : TON;               // Hold time after weld
+    tonTipDress : TON;               // Tip dressing duration
+    rRampIncrement : REAL;           // Calculated ramp step
+    nRampStep : INT;
+    bRampingDone : BOOL;
+    bCycleComplete : BOOL;
 END_VAR
 
-(* --- Safety and Master Control --- *)
-IF bEmergencyStop THEN
-    stateTower := 99;
-    iErrorCode := 9001; (* E-Stop Pressed *)
-    bInternalFault := TRUE;
+// Constants
+VAR CONSTANT
+    STATE_IDLE : INT := 0;
+    STATE_STAGING : INT := 10;
+    STATE_CLAMPING : INT := 20;
+    STATE_ROBOT_APPROACH : INT := 30;
+    STATE_WELD_RAMPING : INT := 40;
+    STATE_WELD_HOLD : INT := 50;
+    STATE_UNCLAMPING : INT := 60;
+    STATE_TIP_DRESS : INT := 70;
+    STATE_FAULT : INT := 999;
+    
+    MAX_WELD_CURRENT : REAL := 12500.0; // Amps
+    RAMP_STEPS : INT := 10;
+    TIP_DRESS_LIMIT : INT := 50;
+END_VAR
+
+// Logic
+IF NOT bEnableSystem OR NOT bSafetyOk OR NOT bWaterFlowOk OR NOT bAirPressureOk THEN
+    nState := STATE_FAULT;
+    nFaultCode := 1; // General interlock fault
 END_IF;
 
-IF NOT bSystemEnable AND NOT bInternalFault THEN
-    stateTower := 0;
-    bHeaterEnable := FALSE;
-    bUltrasonicEnable := FALSE;
-    bIndexerMotorRun := FALSE;
-    bSystemReady := FALSE;
-    iErrorCode := 0;
-ELSIF bSystemEnable AND stateTower = 0 AND NOT bInternalFault THEN
-    stateTower := 1; (* Transition to Warmup phase *)
-    timerWarmup(IN := FALSE);
-END_IF;
-
-(* --- Simulated Sensor Averaging --- *)
-rActualTemp_C := (rZone1Temp_C + rZone2Temp_C) / 2.0;
-rActualHum_RH := rZone1Hum_RH; (* Assuming single central humidity sensor *)
-
-(* --- Convective Heat Profiling (PID) --- *)
-rTempError := rTargetTemp_C - rActualTemp_C;
-pidTemp.rSetpoint := rTargetTemp_C;
-pidTemp.rProcessValue := rActualTemp_C;
-pidTemp.rKp := 3.25;
-pidTemp.rKi := 0.15;
-pidTemp.rKd := 0.05;
-pidTemp(bEnable := (stateTower > 0 AND stateTower <> 99));
-
-IF pidTemp.rOutput > 0.0 THEN
-    bHeaterEnable := TRUE;
-    rHeaterOutput_PWM := pidTemp.rOutput;
-ELSE
-    bHeaterEnable := FALSE;
-    rHeaterOutput_PWM := 0.0;
-END_IF;
-
-(* --- Ultrasonic Humidity Injection Atomization (PID) --- *)
-rHumError := rTargetHum_RH - rActualHum_RH;
-pidHum.rSetpoint := rTargetHum_RH;
-pidHum.rProcessValue := rActualHum_RH;
-pidHum.rKp := 2.10;
-pidHum.rKi := 0.25;
-pidHum.rKd := 0.02;
-pidHum(bEnable := (stateTower > 0 AND stateTower <> 99));
-
-IF pidHum.rOutput > 0.0 THEN
-    bUltrasonicEnable := TRUE;
-    rUltrasonicLevel_PWM := pidHum.rOutput;
-ELSE
-    bUltrasonicEnable := FALSE;
-    rUltrasonicLevel_PWM := 0.0;
-END_IF;
-
-(* --- Multi-tiered Helical Indexer State Machine --- *)
-CASE stateTower OF
-    0: (* OFF State *)
-        bSystemReady := FALSE;
-        bIndexerMotorRun := FALSE;
-        rIndexerMotorFreq_Hz := 0.0;
-
-    1: (* WARMUP State: Establish Convective Profile and Atomization Base *)
-        timerWarmup(IN := TRUE, PT := T#10M);
-        IF (ABS(rTempError) <= 1.5) AND (ABS(rHumError) <= 2.0) THEN
-            stateTower := 2;
-            bSystemReady := TRUE;
-        ELSIF timerWarmup.Q THEN
-            stateTower := 99;
-            iErrorCode := 1001; (* Warmup Timeout Error - Heating/Humidification failed *)
+CASE nState OF
+    STATE_IDLE:
+        bFixtureClamp1 := FALSE;
+        bFixtureClamp2 := FALSE;
+        bRobotStart := FALSE;
+        bWeldTrigger := FALSE;
+        rWeldCommandCurrent := 0.0;
+        bTipDresserRun := FALSE;
+        bCellFault := FALSE;
+        nCellStateCode := 0;
+        bCycleComplete := FALSE;
+        
+        IF bCycleStart AND bPartPresent AND bRobotInClear THEN
+            nState := STATE_STAGING;
+        ELSIF nTipDressCount >= TIP_DRESS_LIMIT AND bRobotInClear THEN
+            nState := STATE_TIP_DRESS;
         END_IF;
 
-    2: (* READY State: Awaiting Tray Load *)
-        bSystemReady := TRUE;
-        bIndexerMotorRun := FALSE;
-        rIndexerMotorFreq_Hz := 0.0;
-        
-        IF bTrayLoadDetect THEN
-            stateTower := 3;
+    STATE_STAGING:
+        nCellStateCode := 10;
+        // Engage staging pins or pre-clamps
+        bFixtureClamp1 := TRUE;
+        tonClampDelay(IN := TRUE, PT := T#500MS);
+        IF tonClampDelay.Q THEN
+            tonClampDelay(IN := FALSE);
+            nState := STATE_CLAMPING;
         END_IF;
 
-    3: (* INDEXING State: Helical Rack Movement *)
-        bSystemReady := TRUE;
-        bIndexerMotorRun := TRUE;
-        
-        (* Map RPM to VFD Frequency (Assuming 60Hz = 5.0 RPM as arbitrary scaling) *)
-        rIndexerMotorFreq_Hz := (rIndexerSpeed_RPM / 5.0) * 60.0;
-        
-        (* Simulation of helical position increment *)
-        rIndexerPosition_Deg := rIndexerPosition_Deg + (rIndexerSpeed_RPM * 6.0); 
-        IF rIndexerPosition_Deg >= 360.0 THEN
-            rIndexerPosition_Deg := rIndexerPosition_Deg - 360.0;
-        END_IF;
-        
-        (* Exit condition when load clears or unload triggers *)
-        IF NOT bTrayLoadDetect AND bTrayUnloadDetect THEN
-            stateTower := 2; (* Return to ready for next tray *)
+    STATE_CLAMPING:
+        nCellStateCode := 20;
+        bFixtureClamp2 := TRUE;
+        tonClampDelay(IN := TRUE, PT := T#500MS);
+        IF tonClampDelay.Q THEN
+            tonClampDelay(IN := FALSE);
+            bRobotStart := TRUE;
+            nState := STATE_ROBOT_APPROACH;
         END_IF;
 
-    99: (* ERROR State *)
-        bSystemReady := FALSE;
-        bHeaterEnable := FALSE;
-        rHeaterOutput_PWM := 0.0;
-        bUltrasonicEnable := FALSE;
-        rUltrasonicLevel_PWM := 0.0;
-        bIndexerMotorRun := FALSE;
-        rIndexerMotorFreq_Hz := 0.0;
-        bAlarmActive := TRUE;
+    STATE_ROBOT_APPROACH:
+        nCellStateCode := 30;
+        // Wait for robot to squeeze gun (simulated by external input or timer)
+        tonWeldSqueeze(IN := TRUE, PT := T#2S);
+        IF tonWeldSqueeze.Q THEN
+            tonWeldSqueeze(IN := FALSE);
+            nRampStep := 0;
+            bRampingDone := FALSE;
+            bWeldTrigger := TRUE;
+            nState := STATE_WELD_RAMPING;
+        END_IF;
+
+    STATE_WELD_RAMPING:
+        nCellStateCode := 40;
+        // Ramp up current to prolong tip life and improve nugget formation
+        IF NOT bRampingDone THEN
+            rRampIncrement := MAX_WELD_CURRENT / INT_TO_REAL(RAMP_STEPS);
+            rWeldCommandCurrent := rRampIncrement * INT_TO_REAL(nRampStep);
+            nRampStep := nRampStep + 1;
+            IF nRampStep > RAMP_STEPS THEN
+                bRampingDone := TRUE;
+                rWeldCommandCurrent := MAX_WELD_CURRENT;
+            END_IF;
+        ELSE
+            // Hold at max current
+            tonWeldHold(IN := TRUE, PT := T#300MS);
+            IF tonWeldHold.Q THEN
+                tonWeldHold(IN := FALSE);
+                bWeldTrigger := FALSE;
+                rWeldCommandCurrent := 0.0;
+                nState := STATE_UNCLAMPING;
+            END_IF;
+        END_IF;
+
+    STATE_UNCLAMPING:
+        nCellStateCode := 60;
+        bRobotStart := FALSE;
+        bFixtureClamp1 := FALSE;
+        bFixtureClamp2 := FALSE;
+        tonClampDelay(IN := TRUE, PT := T#1S);
+        IF tonClampDelay.Q THEN
+            tonClampDelay(IN := FALSE);
+            bCycleComplete := TRUE;
+            nState := STATE_IDLE;
+        END_IF;
+        
+    STATE_TIP_DRESS:
+        nCellStateCode := 70;
+        bTipDresserRun := TRUE;
+        tonTipDress(IN := TRUE, PT := T#5S);
+        IF tonTipDress.Q THEN
+            tonTipDress(IN := FALSE);
+            bTipDresserRun := FALSE;
+            nState := STATE_IDLE;
+        END_IF;
+
+    STATE_FAULT:
+        bCellFault := TRUE;
+        bFixtureClamp1 := FALSE;
+        bFixtureClamp2 := FALSE;
+        bRobotStart := FALSE;
+        bWeldTrigger := FALSE;
+        rWeldCommandCurrent := 0.0;
+        bTipDresserRun := FALSE;
+        nCellStateCode := 999;
+        // Reset logic would go here
+        IF bEnableSystem AND bSafetyOk THEN
+            nState := STATE_IDLE;
+        END_IF;
+        
 END_CASE;
-
 END_FUNCTION_BLOCK
-```"""
+"""
 
 record = {
     "messages": [
         {"role": "user", "content": prompt},
-        {"role": "assistant", "content": st_code}
+        {"role": "assistant", "content": f"```iec-st\n{st_code}\n```"}
     ]
 }
 
-file_id = uuid.uuid4().hex[:8]
-swarm_path = os.path.join(swarm_dir, f"agent_{file_id}.json")
-with open(swarm_path, "w", encoding="utf-8") as f:
-    json.dump(record, f, indent=2)
-
-with open(jsonl_file, "a", encoding="utf-8") as f:
-    f.write(json.dumps(record) + "\\n")
-
-print(f"Generated swarm file {swarm_path}")
+file_name = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
+with open(file_name, "w", encoding="utf-8") as f:
+    json.dump(record, f, indent=4)
+print(f"File successfully saved to {file_name}")

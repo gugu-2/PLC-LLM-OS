@@ -1,210 +1,202 @@
-import json
-import os
-import uuid
+import json, uuid, os
 
-prompt = "Invent a highly complex control scenario for a Laser Tube Cutting Machine, including chuck rotary axis interpolation, capacitive height sensor dynamic tracking, and assist gas proportional valve loops. Write a deterministic Structured Text (ST) FUNCTION_BLOCK. Include complete VAR declarations and physical I/O."
+os.makedirs("data/swarm_raw", exist_ok=True)
 
-code = """FUNCTION_BLOCK FB_LaserTubeCutter_Core
-TITLE = 'Laser Tube Cutting Control Core'
-VERSION : '1.0'
+prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 data.
+Your specific domain is: Dry Pasta Manufacturing Line.
+Task: Invent a highly complex control scenario for this domain (e.g., semolina hydration vacuum mixing, Teflon die extrusion pressure, and multi-tier climate-controlled drying profiles).
+Write a deterministic Structured Text (ST) FUNCTION_BLOCK. Include complete VAR declarations and physical I/O."""
 
+code = """FUNCTION_BLOCK FB_DryPastaProductionLine
+(* 
+   Advanced Dry Pasta Manufacturing Line Controller 
+   Handles semolina hydration vacuum mixing, Teflon die extrusion pressure, 
+   and multi-tier climate-controlled drying profiles.
+*)
 VAR_INPUT
-    bEnable : BOOL; // System enable
-    bStartCut : BOOL; // Start cutting sequence
-    rTargetPositionX : REAL; // Linear axis target (mm)
-    rTargetAngleC : REAL; // Rotary axis target (deg)
-    rFeedRate : REAL; // Cutting feed rate (mm/min)
-    rMaterialThickness : REAL; // Tube wall thickness (mm)
-    
-    // Sensor Inputs
-    rCapacitiveHeight : REAL; // Actual standoff distance from nozzle to tube (mm)
-    rGasPressureAct : REAL; // Actual assist gas pressure (bar)
-    rLaserPowerAct : REAL; // Actual laser power (W)
-    
-    // Safety & Limits
-    bChillerOk : BOOL;
-    bGasSupplyOk : BOOL;
-    bSafetyGuardsClosed : BOOL;
+    bEnableLine : BOOL; (* Start production line *)
+    rSemolinaFeedRate : REAL; (* Target Semolina feed rate in kg/h *)
+    rWaterFlowTarget : REAL; (* Target hydration water flow in L/h *)
+    rVacuumTarget : REAL; (* Target vacuum pressure in mixer (mbar) *)
+    rExtrusionPressTarget : REAL; (* Target extrusion die pressure (bar) *)
+    rExtruderTempTarget : REAL; (* Target extrusion temperature (Celsius) *)
+    rDryingZone1Temp : REAL; (* Phase 1 Drying Temp *)
+    rDryingZone1Hum : REAL; (* Phase 1 Humidity *)
+    rDryingZone2Temp : REAL; (* Phase 2 Drying Temp *)
+    rDryingZone2Hum : REAL; (* Phase 2 Humidity *)
+    rDryingZone3Temp : REAL; (* Phase 3 Drying Temp *)
+    rDryingZone3Hum : REAL; (* Phase 3 Humidity *)
+    bEmergencyStop : BOOL; (* Global Emergency Stop *)
 END_VAR
 
 VAR_OUTPUT
-    bReady : BOOL;
-    bActive : BOOL;
-    bError : BOOL;
-    nErrorID : WORD;
-    
-    // Actuator Commands
-    rCmdVelocityX : REAL; // Linear axis command
-    rCmdVelocityC : REAL; // Rotary axis command
-    rCmdHeightZ : REAL; // Height control Z axis command
-    
-    // Laser & Gas Commands
-    rCmdLaserPower : REAL; // Commanded laser power (W)
-    bLaserEmissionOn : BOOL;
-    rCmdGasValve : REAL; // Proportional gas valve command (0-10V or 0-100%)
+    bMixingReady : BOOL;
+    bExtrusionActive : BOOL;
+    bDryingActive : BOOL;
+    rActualExtrusionPress : REAL;
+    rActualExtruderTemp : REAL;
+    iErrorCode : DINT;
+    bAlarmActive : BOOL;
 END_VAR
 
 VAR
-    // State Machine
-    eState : (INIT, IDLE, PIERCE, CUTTING, RETRACT, FAULT);
+    (* State Machine *)
+    iState : INT := 0; 
     
-    // Height Control PID
-    rHeightSetpoint : REAL := 1.0; // 1mm standoff
-    rHeightError : REAL;
-    rHeightIntegral : REAL;
-    rHeightKp : REAL := 5.5;
-    rHeightKi : REAL := 0.2;
+    (* Mixing Control Loop *)
+    rWaterFlowProcessValue : REAL;
+    rWaterValveControl : REAL;
+    rMixerSpeed : REAL;
+    rVacuumLevel : REAL;
     
-    // Gas Control PID
-    rGasSetpoint : REAL;
-    rGasError : REAL;
-    rGasIntegral : REAL;
-    rGasKp : REAL := 2.0;
-    rGasKi : REAL := 0.5;
+    (* Extrusion Control Loop *)
+    rExtruderMotorSpeed : REAL;
+    rDieTemperature : REAL;
+    rKnifeSpeed : REAL;
     
-    // Interpolation
-    rCurrentX : REAL;
-    rCurrentC : REAL;
-    rPathLength : REAL;
+    (* Timers *)
+    tMixTimer : TON;
+    tExtrusionStartup : TON;
+    tDryingPhase1 : TON;
+    tDryingPhase2 : TON;
     
-    // Timers
-    tPierceTimer : TON;
-    tSettleTimer : TON;
+    (* Drying Profiler variables *)
+    rCurrentDryingTemp : REAL;
+    rCurrentDryingHum : REAL;
+    iDryingPhase : INT := 0;
 END_VAR
 
-// Control Logic
-IF NOT bEnable OR NOT bSafetyGuardsClosed OR NOT bChillerOk OR NOT bGasSupplyOk THEN
-    eState := FAULT;
-    nErrorID := 16#1001;
-END_VAR;
+(* -----------------------------------------------------------------------------
+   Main Implementation
+----------------------------------------------------------------------------- *)
 
-CASE eState OF
-    INIT:
-        bReady := FALSE;
-        bActive := FALSE;
-        bError := FALSE;
-        nErrorID := 0;
-        bLaserEmissionOn := FALSE;
-        rCmdVelocityX := 0.0;
-        rCmdVelocityC := 0.0;
-        rCmdHeightZ := 0.0;
-        rCmdLaserPower := 0.0;
-        rCmdGasValve := 0.0;
-        IF bEnable THEN
-            eState := IDLE;
+(* Check for Global Emergency Stop before processing any state logic *)
+IF bEmergencyStop THEN
+    iState := 99;
+    iErrorCode := 16#FFFF; (* Critical Fault Code *)
+    bAlarmActive := TRUE;
+    bMixingReady := FALSE;
+    bExtrusionActive := FALSE;
+    bDryingActive := FALSE;
+    rWaterValveControl := 0.0;
+    rMixerSpeed := 0.0;
+    rExtruderMotorSpeed := 0.0;
+    rKnifeSpeed := 0.0;
+    RETURN;
+END_IF;
+
+CASE iState OF
+    0: (* Idle State - Waiting for Start Command *)
+        IF bEnableLine THEN
+            iState := 10;
+            iErrorCode := 0;
+            bAlarmActive := FALSE;
+            iDryingPhase := 0;
         END_IF;
         
-    IDLE:
-        bReady := TRUE;
-        bActive := FALSE;
-        IF bStartCut THEN
-            bReady := FALSE;
-            bActive := TRUE;
-            eState := PIERCE;
-            tPierceTimer(IN := FALSE); // Reset timer
-        END_IF;
-        
-    PIERCE:
-        // Set piercing parameters
-        rHeightSetpoint := 2.5; // Higher standoff for piercing
-        rCmdLaserPower := 1500.0; // Piercing power
-        rGasSetpoint := 3.0; // Low pressure for piercing
-        
-        bLaserEmissionOn := TRUE;
-        
-        tPierceTimer(IN := TRUE, PT := T#500MS);
-        IF tPierceTimer.Q THEN
-            eState := CUTTING;
-        END_IF;
-        
-    CUTTING:
-        // Cutting parameters
-        rHeightSetpoint := 1.0; // Optimal cutting standoff
-        rCmdLaserPower := 3000.0; // Cutting power
-        rGasSetpoint := 12.0; // High pressure for cutting
-        
-        // Chuck and Linear Interpolation (Simplified Outline)
-        // Ensure constant surface speed considering rotary axis C and linear X
-        rPathLength := SQRT((rTargetPositionX - rCurrentX)*(rTargetPositionX - rCurrentX) + 
-                            (rTargetAngleC - rCurrentC)*(rTargetAngleC - rCurrentC)); // Simplified
-                            
-        IF rPathLength > 0.1 THEN
-            rCmdVelocityX := (rTargetPositionX - rCurrentX) / rPathLength * rFeedRate;
-            rCmdVelocityC := (rTargetAngleC - rCurrentC) / rPathLength * rFeedRate;
+    10: (* Hydration & Vacuum Mixing Phase *)
+        (* Emulate Water flow control PI loop *)
+        IF rWaterFlowProcessValue < rWaterFlowTarget THEN
+            rWaterValveControl := rWaterValveControl + 1.25;
+            rWaterFlowProcessValue := rWaterFlowProcessValue + 2.0;
         ELSE
-            rCmdVelocityX := 0.0;
-            rCmdVelocityC := 0.0;
-            eState := RETRACT;
+            rWaterValveControl := rWaterValveControl - 0.75;
+            rWaterFlowProcessValue := rWaterFlowProcessValue - 1.0;
         END_IF;
         
-    RETRACT:
-        bLaserEmissionOn := FALSE;
-        rCmdLaserPower := 0.0;
-        rGasSetpoint := 0.0;
-        rHeightSetpoint := 10.0; // Retract Z
-        
-        IF rCapacitiveHeight > 9.5 THEN
-            eState := IDLE;
+        (* Regulate Vacuum level in the mixing chamber to prevent oxidation *)
+        IF rVacuumLevel > rVacuumTarget THEN
+            rVacuumLevel := rVacuumLevel - 5.0; (* Pump down *)
         END_IF;
         
-    FAULT:
-        bError := TRUE;
-        bReady := FALSE;
-        bActive := FALSE;
-        bLaserEmissionOn := FALSE;
-        rCmdLaserPower := 0.0;
-        rCmdVelocityX := 0.0;
-        rCmdVelocityC := 0.0;
-        rCmdGasValve := 0.0;
-        rCmdHeightZ := 0.0;
+        rMixerSpeed := 1500.0; (* Standard hydration RPM *)
         
-        IF NOT bEnable THEN
-            bError := FALSE;
-            eState := INIT;
+        tMixTimer(IN := TRUE, PT := T#10M);
+        IF tMixTimer.Q THEN
+            bMixingReady := TRUE;
+            iState := 20;
+            tMixTimer(IN := FALSE);
+        END_IF;
+        
+    20: (* Extrusion Phase through Teflon Die *)
+        bExtrusionActive := TRUE;
+        
+        (* Pressure Control Loop: Regulate auger speed to maintain die pressure *)
+        IF rActualExtrusionPress < rExtrusionPressTarget THEN
+            rExtruderMotorSpeed := LIMIT(0.0, rExtruderMotorSpeed + 0.5, 100.0);
+            rActualExtrusionPress := rActualExtrusionPress + 1.2;
+        ELSE
+            rExtruderMotorSpeed := LIMIT(0.0, rExtruderMotorSpeed - 0.2, 100.0);
+            rActualExtrusionPress := rActualExtrusionPress - 0.5;
+        END_IF;
+        
+        (* Temperature Control Loop for the extrusion barrel *)
+        IF rActualExtruderTemp < rExtruderTempTarget THEN
+            rDieTemperature := rDieTemperature + 1.5;
+            rActualExtruderTemp := rActualExtruderTemp + 0.5;
+        END_IF;
+        
+        (* Cutter knife sync based on extrusion pressure to maintain pasta length *)
+        rKnifeSpeed := rActualExtrusionPress * 0.5; 
+        
+        tExtrusionStartup(IN := TRUE, PT := T#5M);
+        IF tExtrusionStartup.Q THEN
+            iState := 30;
+            tExtrusionStartup(IN := FALSE);
+        END_IF;
+        
+    30: (* Multi-Tier Climate Controlled Drying - Profiling *)
+        bDryingActive := TRUE;
+        
+        (* Advanced multi-phase drying logic to prevent pasta cracking (checking) *)
+        CASE iDryingPhase OF
+            0: (* Pre-drying (Incartamento) - High Temp, Low Humidity to form crust *)
+                rCurrentDryingTemp := rDryingZone1Temp;
+                rCurrentDryingHum := rDryingZone1Hum;
+                tDryingPhase1(IN := TRUE, PT := T#45M);
+                IF tDryingPhase1.Q THEN
+                    iDryingPhase := 1;
+                    tDryingPhase1(IN := FALSE);
+                END_IF;
+                
+            1: (* Main Drying - Sweating Phase - Moderate Temp, High Humidity *)
+                rCurrentDryingTemp := rDryingZone2Temp;
+                rCurrentDryingHum := rDryingZone2Hum;
+                tDryingPhase2(IN := TRUE, PT := T#120M);
+                IF tDryingPhase2.Q THEN
+                    iDryingPhase := 2;
+                    tDryingPhase2(IN := FALSE);
+                END_IF;
+                
+            2: (* Stabilization & Cooling - Ambient Temp, Controlled Humidity *)
+                rCurrentDryingTemp := rDryingZone3Temp;
+                rCurrentDryingHum := rDryingZone3Hum;
+                
+                (* End of complete cycle *)
+                IF NOT bEnableLine THEN
+                    iState := 0;
+                    bMixingReady := FALSE;
+                    bExtrusionActive := FALSE;
+                    bDryingActive := FALSE;
+                    iDryingPhase := 0;
+                END_IF;
+        END_CASE;
+        
+    99: (* Fault Handling State *)
+        bAlarmActive := TRUE;
+        IF NOT bEmergencyStop THEN
+            iState := 0; (* Auto-recover if E-stop is physically cleared, requires operator reset *)
+            iErrorCode := 0;
         END_IF;
 END_CASE;
+END_FUNCTION_BLOCK"""
 
-// Capacitive Height Sensor Dynamic Tracking (PI Control)
-rHeightError := rHeightSetpoint - rCapacitiveHeight;
-IF bActive THEN
-    rHeightIntegral := rHeightIntegral + (rHeightError * 0.01); // Assuming 10ms cycle
-    rCmdHeightZ := (rHeightKp * rHeightError) + (rHeightKi * rHeightIntegral);
-    
-    // Anti-windup
-    IF rCmdHeightZ > 100.0 THEN rCmdHeightZ := 100.0; rHeightIntegral := rHeightIntegral - (rHeightError * 0.01); END_IF;
-    IF rCmdHeightZ < -100.0 THEN rCmdHeightZ := -100.0; rHeightIntegral := rHeightIntegral - (rHeightError * 0.01); END_IF;
-ELSE
-    rHeightIntegral := 0.0;
-END_IF;
-
-// Assist Gas Proportional Valve Loop (PI Control)
-rGasError := rGasSetpoint - rGasPressureAct;
-IF bActive THEN
-    rGasIntegral := rGasIntegral + (rGasError * 0.01);
-    rCmdGasValve := (rGasKp * rGasError) + (rGasKi * rGasIntegral);
-    
-    // Anti-windup limits 0-100%
-    IF rCmdGasValve > 100.0 THEN rCmdGasValve := 100.0; rGasIntegral := rGasIntegral - (rGasError * 0.01); END_IF;
-    IF rCmdGasValve < 0.0 THEN rCmdGasValve := 0.0; rGasIntegral := 0.0; END_IF;
-ELSE
-    rGasIntegral := 0.0;
-END_IF;
-
-END_FUNCTION_BLOCK
-"""
-
-msg = {
+record = {
     "messages": [
         {"role": "user", "content": prompt},
         {"role": "assistant", "content": f"```iec-st\n{code}\n```"}
     ]
 }
 
-os.makedirs("c:/Users/majip/Downloads/LLM REASEARCH/data", exist_ok=True)
-with open("c:/Users/majip/Downloads/LLM REASEARCH/data/synthetic_generation_v3_enterprise.jsonl", "a", encoding="utf-8") as f:
-    f.write(json.dumps(msg) + "\n")
-
-os.makedirs("c:/Users/majip/Downloads/LLM REASEARCH/data/swarm_raw", exist_ok=True)
-file_id = uuid.uuid4().hex[:8]
-with open(f"c:/Users/majip/Downloads/LLM REASEARCH/data/swarm_raw/agent_{file_id}.json", "w", encoding="utf-8") as f:
-    json.dump(msg, f)
+with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
+    json.dump(record, f, indent=2)

@@ -1,252 +1,175 @@
 import json, uuid, os
-os.makedirs('data/swarm_raw', exist_ok=True)
-os.makedirs('data', exist_ok=True)
 
-code='''```iec-st
-FUNCTION_BLOCK FB_TissueMachineMasterControl
-TITLE = 'Tissue Paper Machine Master Control - Yankee, Crepe, Calendar'
-VERSION : '2.4.1'
-AUTHOR : 'Lumina AI Cloud Swarm'
+os.makedirs("data/swarm_raw", exist_ok=True)
 
+prompt = "Write a highly complex control scenario for a Continuous Metal Coil Coating Line in IEC 61131-3 Structured Text. Include chemical pre-treatment spray headers, precision reverse-roll coater applicator gaps, and catenary oven web sag tensioning. It must be a deterministic FUNCTION_BLOCK with complete VAR declarations and physical I/O."
+code = """
+FUNCTION_BLOCK FB_CoilCoatingLineControl
 VAR_INPUT
-    // System Control
-    xEnableSystem          : BOOL;   // Master enable switch
-    xEmergencyStop         : BOOL;   // E-Stop active low
-    xResetFaults           : BOOL;   // Reset alarm latches
+    bEnableLine : BOOL; // Master enable
+    rLineSpeedCmd_mpm : REAL; // Line speed command in meters per minute
+    rCoilWidth_mm : REAL; // Width of the metal coil
+    rCoilThickness_mm : REAL; // Thickness of the metal coil
     
-    // Yankee Dryer Sensors
-    rYankeeSurfaceTemp     : REAL;   // Current Yankee cylinder surface temperature [C]
-    rMainSteamPressure     : REAL;   // Main header steam pressure [bar]
-    rYankeeCondensateLevel : REAL;   // Condensate level inside the Yankee [mm]
+    // Chemical Pre-Treatment
+    rSprayHeader1PressFbk_bar : REAL;
+    rSprayHeader2PressFbk_bar : REAL;
+    rTankTempFbk_degC : REAL;
     
-    // Crepe Doctor Blade Sensors
-    rBladeWearSensor       : REAL;   // Doctor blade wear measurement [mm]
-    rHydraulicSupplyPress  : REAL;   // Hydraulic system supply pressure [bar]
-    rBladeVibrationLevel   : REAL;   // Vibration monitoring for chatter [mm/s]
+    // Reverse-Roll Coater
+    rApplicatorGapFbk_um : REAL; // Applicator roll gap feedback in micrometers
+    rPanLevelFbk_pct : REAL; // Coating pan level feedback
+    rViscosityFbk_cP : REAL; // Coating viscosity feedback
     
-    // Calendar Stack Sensors
-    rWebTension            : REAL;   // Sheet tension entering calendar [N/m]
-    rNipLoadCell1          : REAL;   // Drive side nip load cell [kN/m]
-    rNipLoadCell2          : REAL;   // Tender side nip load cell [kN/m]
-    rTargetCaliper         : REAL;   // Target sheet thickness [microns]
-    
-    // Target Setpoints
-    rTargetYankeeTemp      : REAL;   // Target Yankee temperature [C]
-    rTargetBladeLoad       : REAL;   // Target doctor blade linear load [kN/m]
-    rTargetNipPressure     : REAL;   // Target average nip pressure [kN/m]
+    // Catenary Oven
+    rWebTensionFbk_N : REAL; // Web tension feedback
+    rOvenZone1TempFbk_degC : REAL;
+    rOvenZone2TempFbk_degC : REAL;
+    rOvenZone3TempFbk_degC : REAL;
+    rSagDistanceFbk_mm : REAL; // Web sag measured by laser distance sensor
 END_VAR
 
 VAR_OUTPUT
-    // Actuators - Yankee
-    rSteamValveCommand     : REAL;   // Command to Yankee steam inlet valve [0-100%]
-    rBlowThroughValveCmd   : REAL;   // Command to condensate blow-through valve [0-100%]
-    xCondensatePumpRun     : BOOL;   // Start/Stop for condensate removal pump
+    // Chemical Pre-Treatment
+    rSprayHeader1PumpSpdRef_pct : REAL;
+    rSprayHeader2PumpSpdRef_pct : REAL;
+    rHeaterValveCmd_pct : REAL;
     
-    // Actuators - Crepe Blade
-    rBladeLoadValveDrive   : REAL;   // Proportional valve cmd for drive side blade load [0-100%]
-    rBladeLoadValveTender  : REAL;   // Proportional valve cmd for tender side blade load [0-100%]
-    xBladeOscillatorRun    : BOOL;   // Enable cross-machine blade oscillation
+    // Reverse-Roll Coater
+    rApplicatorGapCmd_um : REAL;
+    rPanPumpSpdRef_pct : REAL;
     
-    // Actuators - Calendar Stack
-    rNipHydraulicCmdDrive  : REAL;   // Calendar loading cylinder drive side [0-100%]
-    rNipHydraulicCmdTender : REAL;   // Calendar loading cylinder tender side [0-100%]
+    // Catenary Oven
+    rTensionMotorTrqRef_Nm : REAL;
+    rOvenZone1HeaterCmd_pct : REAL;
+    rOvenZone2HeaterCmd_pct : REAL;
+    rOvenZone3HeaterCmd_pct : REAL;
     
-    // Status and Alarms
-    xSystemReady           : BOOL;
-    xYankeeTempOK          : BOOL;
-    xBladeChatterAlarm     : BOOL;
-    xWebBreakAlarm         : BOOL;
-    wErrorCode             : WORD;   // Bitmask of active faults
+    // Status
+    bSystemReady : BOOL;
+    bAlarmActive : BOOL;
+    iErrorCode : INT;
 END_VAR
 
 VAR
-    // Internal Control States
-    rTempError             : REAL;
-    rTempIntegral          : REAL := 0.0;
-    rTempDerivative        : REAL := 0.0;
-    rLastTempError         : REAL := 0.0;
+    // Internal States and PID Controllers
+    rTargetSprayPress_bar : REAL;
+    rTargetApplicatorGap_um : REAL;
+    rTargetSagDistance_mm : REAL;
     
-    rPressureSetpoint      : REAL;
-    rPressureError         : REAL;
-    rPressureIntegral      : REAL := 0.0;
+    rPressError1 : REAL;
+    rPressError2 : REAL;
+    rGapError : REAL;
+    rSagError : REAL;
+    rTensionIntegral : REAL := 0.0;
     
-    // Tuning Parameters
-    rKp_Temp               : REAL := 2.5;
-    rKi_Temp               : REAL := 0.15;
-    rKd_Temp               : REAL := 0.05;
-    
-    rKp_Press              : REAL := 5.0;
-    rKi_Press              : REAL := 0.8;
-    
-    // Timers
-    tonCondensateDrain     : TON;
-    tonVibrationFilter     : TON;
-    
-    // Safety Limits
-    rMaxSteamPressure      : REAL := 8.5; // Maximum allowable Yankee steam pressure
-    rMaxBladeVibration     : REAL := 12.0; // Vibration trip limit
-    rMinWebTension         : REAL := 50.0; // Minimum tension before assuming web break
-    
-    // Local flags
-    xFaultActive           : BOOL;
-    
-    // Calcs
-    rCompensatedLoad       : REAL;
-    rNipErrorDrive         : REAL;
-    rNipErrorTender        : REAL;
+    // Constants
+    cKp_Press : REAL := 2.5;
+    cKp_Gap : REAL := 0.8;
+    cKp_Sag : REAL := 1.2;
+    cKi_Sag : REAL := 0.05;
+    cMaxTensionTrq_Nm : REAL := 500.0;
+    cMinSag_mm : REAL := 150.0;
+    cMaxSag_mm : REAL := 800.0;
 END_VAR
 
 // -----------------------------------------------------------------------------
-// FAULT HANDLING AND SAFETY INTERLOCKS
+// Continuous Metal Coil Coating Line Control Algorithm
 // -----------------------------------------------------------------------------
-xFaultActive := FALSE;
-wErrorCode := 0;
 
-IF NOT xEmergencyStop THEN
-    wErrorCode := wErrorCode OR 16#0001;
-    xFaultActive := TRUE;
-END_IF;
-
-IF rMainSteamPressure > rMaxSteamPressure THEN
-    wErrorCode := wErrorCode OR 16#0002;
-    xFaultActive := TRUE;
-END_IF;
-
-tonVibrationFilter(IN := (rBladeVibrationLevel > rMaxBladeVibration), PT := T#2S);
-IF tonVibrationFilter.Q THEN
-    xBladeChatterAlarm := TRUE;
-    wErrorCode := wErrorCode OR 16#0004;
-    xFaultActive := TRUE;
-END_IF;
-
-IF (rWebTension < rMinWebTension) AND xEnableSystem THEN
-    xWebBreakAlarm := TRUE;
-    wErrorCode := wErrorCode OR 16#0008;
-END_IF;
-
-IF xResetFaults THEN
-    xBladeChatterAlarm := FALSE;
-    xWebBreakAlarm := FALSE;
-    xFaultActive := FALSE;
-    wErrorCode := 0;
-END_IF;
-
-// Fast stop on critical fault
-IF xFaultActive THEN
-    rSteamValveCommand := 0.0;
-    rBlowThroughValveCmd := 100.0; // Vent
-    rBladeLoadValveDrive := 0.0;
-    rBladeLoadValveTender := 0.0;
-    xBladeOscillatorRun := FALSE;
-    rNipHydraulicCmdDrive := 0.0;
-    rNipHydraulicCmdTender := 0.0;
-    xSystemReady := FALSE;
+IF NOT bEnableLine THEN
+    rSprayHeader1PumpSpdRef_pct := 0.0;
+    rSprayHeader2PumpSpdRef_pct := 0.0;
+    rHeaterValveCmd_pct := 0.0;
+    rApplicatorGapCmd_um := 0.0;
+    rPanPumpSpdRef_pct := 0.0;
+    rTensionMotorTrqRef_Nm := 0.0;
+    rOvenZone1HeaterCmd_pct := 0.0;
+    rOvenZone2HeaterCmd_pct := 0.0;
+    rOvenZone3HeaterCmd_pct := 0.0;
+    bSystemReady := FALSE;
+    bAlarmActive := FALSE;
+    iErrorCode := 0;
+    rTensionIntegral := 0.0;
     RETURN;
 END_IF;
 
-// -----------------------------------------------------------------------------
-// CASCADE PID: YANKEE DRYER TEMPERATURE TO STEAM PRESSURE
-// -----------------------------------------------------------------------------
-// Outer Loop: Temperature to Pressure Setpoint
-rTempError := rTargetYankeeTemp - rYankeeSurfaceTemp;
-rTempIntegral := rTempIntegral + (rTempError * 0.1); // Assuming 100ms task
-rTempDerivative := (rTempError - rLastTempError) / 0.1;
-rLastTempError := rTempError;
+bSystemReady := TRUE;
+bAlarmActive := FALSE;
+iErrorCode := 0;
 
-// Anti-windup for Outer Loop
-IF rTempIntegral > 50.0 THEN rTempIntegral := 50.0; END_IF;
-IF rTempIntegral < -50.0 THEN rTempIntegral := -50.0; END_IF;
+// 1. Chemical Pre-Treatment Control
+rTargetSprayPress_bar := 1.5 + (rLineSpeedCmd_mpm * 0.02) + (rCoilWidth_mm * 0.001);
 
-rPressureSetpoint := (rKp_Temp * rTempError) + (rKi_Temp * rTempIntegral) + (rKd_Temp * rTempDerivative);
+rPressError1 := rTargetSprayPress_bar - rSprayHeader1PressFbk_bar;
+rSprayHeader1PumpSpdRef_pct := rSprayHeader1PumpSpdRef_pct + (rPressError1 * cKp_Press);
+IF rSprayHeader1PumpSpdRef_pct > 100.0 THEN rSprayHeader1PumpSpdRef_pct := 100.0; END_IF;
+IF rSprayHeader1PumpSpdRef_pct < 0.0 THEN rSprayHeader1PumpSpdRef_pct := 0.0; END_IF;
 
-// Clamp Pressure Setpoint
-IF rPressureSetpoint > (rMaxSteamPressure - 0.5) THEN
-    rPressureSetpoint := rMaxSteamPressure - 0.5;
-ELSIF rPressureSetpoint < 0.0 THEN
-    rPressureSetpoint := 0.0;
+rPressError2 := rTargetSprayPress_bar - rSprayHeader2PressFbk_bar;
+rSprayHeader2PumpSpdRef_pct := rSprayHeader2PumpSpdRef_pct + (rPressError2 * cKp_Press);
+IF rSprayHeader2PumpSpdRef_pct > 100.0 THEN rSprayHeader2PumpSpdRef_pct := 100.0; END_IF;
+IF rSprayHeader2PumpSpdRef_pct < 0.0 THEN rSprayHeader2PumpSpdRef_pct := 0.0; END_IF;
+
+// Tank Temperature Control (Simple Proportional)
+rHeaterValveCmd_pct := (65.0 - rTankTempFbk_degC) * 5.0;
+IF rHeaterValveCmd_pct > 100.0 THEN rHeaterValveCmd_pct := 100.0; END_IF;
+IF rHeaterValveCmd_pct < 0.0 THEN rHeaterValveCmd_pct := 0.0; END_IF;
+
+// 2. Precision Reverse-Roll Coater Applicator Gap Control
+rTargetApplicatorGap_um := 25.0 + (rViscosityFbk_cP * 0.1) - (rLineSpeedCmd_mpm * 0.05);
+IF rTargetApplicatorGap_um < 10.0 THEN rTargetApplicatorGap_um := 10.0; END_IF;
+
+rGapError := rTargetApplicatorGap_um - rApplicatorGapFbk_um;
+rApplicatorGapCmd_um := rApplicatorGapFbk_um + (rGapError * cKp_Gap);
+
+// Pan Level Control
+rPanPumpSpdRef_pct := (50.0 - rPanLevelFbk_pct) * 2.0;
+IF rPanPumpSpdRef_pct > 100.0 THEN rPanPumpSpdRef_pct := 100.0; END_IF;
+IF rPanPumpSpdRef_pct < 0.0 THEN rPanPumpSpdRef_pct := 0.0; END_IF;
+
+// 3. Catenary Oven Web Sag Tensioning
+rTargetSagDistance_mm := 400.0 - (rLineSpeedCmd_mpm * 0.5);
+IF rTargetSagDistance_mm < cMinSag_mm THEN rTargetSagDistance_mm := cMinSag_mm; END_IF;
+
+rSagError := rSagDistanceFbk_mm - rTargetSagDistance_mm;
+rTensionIntegral := rTensionIntegral + (rSagError * cKi_Sag);
+
+// Anti-windup
+IF rTensionIntegral > cMaxTensionTrq_Nm THEN rTensionIntegral := cMaxTensionTrq_Nm; END_IF;
+IF rTensionIntegral < 0.0 THEN rTensionIntegral := 0.0; END_IF;
+
+rTensionMotorTrqRef_Nm := (rSagError * cKp_Sag) + rTensionIntegral;
+IF rTensionMotorTrqRef_Nm > cMaxTensionTrq_Nm THEN rTensionMotorTrqRef_Nm := cMaxTensionTrq_Nm; END_IF;
+IF rTensionMotorTrqRef_Nm < 0.0 THEN rTensionMotorTrqRef_Nm := 0.0; END_IF;
+
+// Oven Temperature Control (Simple Profile Tracking)
+rOvenZone1HeaterCmd_pct := (150.0 - rOvenZone1TempFbk_degC) * 2.5;
+IF rOvenZone1HeaterCmd_pct > 100.0 THEN rOvenZone1HeaterCmd_pct := 100.0; END_IF;
+IF rOvenZone1HeaterCmd_pct < 0.0 THEN rOvenZone1HeaterCmd_pct := 0.0; END_IF;
+
+rOvenZone2HeaterCmd_pct := (250.0 - rOvenZone2TempFbk_degC) * 2.5;
+IF rOvenZone2HeaterCmd_pct > 100.0 THEN rOvenZone2HeaterCmd_pct := 100.0; END_IF;
+IF rOvenZone2HeaterCmd_pct < 0.0 THEN rOvenZone2HeaterCmd_pct := 0.0; END_IF;
+
+rOvenZone3HeaterCmd_pct := (300.0 - rOvenZone3TempFbk_degC) * 2.5;
+IF rOvenZone3HeaterCmd_pct > 100.0 THEN rOvenZone3HeaterCmd_pct := 100.0; END_IF;
+IF rOvenZone3HeaterCmd_pct < 0.0 THEN rOvenZone3HeaterCmd_pct := 0.0; END_IF;
+
+// Safety Checks
+IF rSagDistanceFbk_mm > cMaxSag_mm THEN
+    bAlarmActive := TRUE;
+    iErrorCode := 1001; // Web sag exceeded critical limit
 END_IF;
 
-// Inner Loop: Pressure Setpoint to Valve Command
-rPressureError := rPressureSetpoint - rMainSteamPressure;
-rPressureIntegral := rPressureIntegral + (rPressureError * 0.1);
-
-// Anti-windup for Inner Loop
-IF rPressureIntegral > 100.0 THEN rPressureIntegral := 100.0; END_IF;
-IF rPressureIntegral < 0.0 THEN rPressureIntegral := 0.0; END_IF;
-
-rSteamValveCommand := (rKp_Press * rPressureError) + (rKi_Press * rPressureIntegral);
-IF rSteamValveCommand > 100.0 THEN rSteamValveCommand := 100.0; END_IF;
-IF rSteamValveCommand < 0.0 THEN rSteamValveCommand := 0.0; END_IF;
-
-// Condensate Management
-xCondensatePumpRun := (rYankeeCondensateLevel > 150.0) OR (rMainSteamPressure > 4.0);
-IF rYankeeCondensateLevel > 250.0 THEN
-    rBlowThroughValveCmd := 80.0; // Aggressive blow-through
-ELSE
-    rBlowThroughValveCmd := 20.0; // Baseline DP control
+IF rTankTempFbk_degC > 80.0 THEN
+    bAlarmActive := TRUE;
+    iErrorCode := 1002; // Over-temperature pre-treatment tank
 END_IF;
 
-xYankeeTempOK := ABS(rTempError) < 2.5;
-
-// -----------------------------------------------------------------------------
-// CREPE DOCTOR BLADE HYDRAULIC LOADING
-// -----------------------------------------------------------------------------
-IF xEnableSystem AND NOT xWebBreakAlarm THEN
-    // Compensate target load based on blade wear profile (simple linear scaling)
-    rCompensatedLoad := rTargetBladeLoad * (1.0 + (rBladeWearSensor * 0.02));
-    
-    // Distribute load evenly assuming uniform cross-machine profile, but offset if needed
-    rBladeLoadValveDrive := (rCompensatedLoad / rHydraulicSupplyPress) * 100.0;
-    rBladeLoadValveTender := (rCompensatedLoad / rHydraulicSupplyPress) * 100.0;
-    
-    // Clamp output commands
-    IF rBladeLoadValveDrive > 100.0 THEN rBladeLoadValveDrive := 100.0; END_IF;
-    IF rBladeLoadValveTender > 100.0 THEN rBladeLoadValveTender := 100.0; END_IF;
-    
-    xBladeOscillatorRun := TRUE;
-ELSE
-    rBladeLoadValveDrive := 0.0;
-    rBladeLoadValveTender := 0.0;
-    xBladeOscillatorRun := FALSE;
-END_IF;
-
-// -----------------------------------------------------------------------------
-// CALENDAR STACK NIP PRESSURE
-// -----------------------------------------------------------------------------
-IF xEnableSystem AND NOT xWebBreakAlarm THEN
-    // Target Nip Pressure is split between Drive and Tender sides based on load cells
-    rNipErrorDrive := rTargetNipPressure - rNipLoadCell1;
-    rNipErrorTender := rTargetNipPressure - rNipLoadCell2;
-    
-    // Simple Proportional feedback for Nip Gap
-    rNipHydraulicCmdDrive := rNipHydraulicCmdDrive + (rNipErrorDrive * 0.1);
-    rNipHydraulicCmdTender := rNipHydraulicCmdTender + (rNipErrorTender * 0.1);
-    
-    // Clamping logic
-    IF rNipHydraulicCmdDrive > 100.0 THEN rNipHydraulicCmdDrive := 100.0; END_IF;
-    IF rNipHydraulicCmdDrive < 0.0 THEN rNipHydraulicCmdDrive := 0.0; END_IF;
-    
-    IF rNipHydraulicCmdTender > 100.0 THEN rNipHydraulicCmdTender := 100.0; END_IF;
-    IF rNipHydraulicCmdTender < 0.0 THEN rNipHydraulicCmdTender := 0.0; END_IF;
-ELSE
-    rNipHydraulicCmdDrive := 0.0;
-    rNipHydraulicCmdTender := 0.0;
-END_IF;
-
-xSystemReady := TRUE;
 END_FUNCTION_BLOCK
-```'''
+"""
 
-prompt='Invent a highly complex control scenario for a Tissue Paper Machine (Yankee dryer steam pressure cascading, crepe doctor blade hydraulic loading, and calendar stack nip pressure). Write a deterministic Structured Text (ST) FUNCTION_BLOCK. Include complete VAR declarations and physical I/O.'
-record={'messages':[{'role':'user','content':prompt},{'role':'assistant','content':code}]}
-
-# 1. Save to unique file
-filepath=f'data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json'
-with open(filepath,'w',encoding='utf-8') as f:
-    json.dump(record,f,indent=2)
-    
-# 2. Append to jsonl
-with open('data/synthetic_generation_v3_enterprise.jsonl','a',encoding='utf-8') as f:
-    f.write(json.dumps(record) + "\n")
-    
-print('Success: ' + filepath)
+record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": f"```iec-st\n{code}\n```"}]}
+with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
+    json.dump(record, f)

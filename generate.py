@@ -1,149 +1,131 @@
-import json, uuid
-import os
+import json, uuid, os
 
-code = """```iec-st
-FUNCTION_BLOCK FB_RO_DesalinationControl
+prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 data.
+Your specific domain is: Municipal Solid Waste (MSW) Incinerator.
+Task: Invent a highly complex control scenario for this domain (e.g., walking grate combustion sequencing, flue gas wet scrubber pH cascades, and Selective Non-Catalytic Reduction (SNCR)).
+Write a deterministic Structured Text (ST) FUNCTION_BLOCK. Include complete VAR declarations and physical I/O.
+"""
+
+st_code = """```iec-st
+FUNCTION_BLOCK FB_MSW_Incinerator_Control
+TITLE = 'MSW Incinerator Comprehensive Control'
+VERSION : '2.1'
+AUTHOR : 'Lumina AI'
+
 VAR_INPUT
-    bStartSequence : BOOL;
-    bEmergencyStop : BOOL;
-    rFeedPressure : REAL; (* Bar *)
-    rPermeateFlow : REAL; (* m3/h *)
-    rConcentrateFlow : REAL; (* m3/h *)
-    rFeedConductivity : REAL; (* uS/cm *)
-    rMembraneDiffPressure : REAL; (* Bar *)
-    rAntiScalantTankLevel : REAL; (* % *)
+    bSystemEnable : BOOL; // Main system enable
+    rGrateTemp1 : REAL; // Grate Zone 1 Temperature (C) - Drying
+    rGrateTemp2 : REAL; // Grate Zone 2 Temperature (C) - Combustion
+    rGrateTemp3 : REAL; // Grate Zone 3 Temperature (C) - Burnout
+    rBoilerSteamPress : REAL; // Boiler Steam Pressure (Bar)
+    rFlueGasOxygen : REAL; // Flue Gas O2 Level (%)
+    rScrubberPH : REAL; // Scrubber Effluent pH
+    rFlueGasNOx : REAL; // Flue Gas NOx Concentration (mg/Nm3)
+    bWasteFeedReady : BOOL; // Waste Crane/Feeder ready
 END_VAR
+
 VAR_OUTPUT
-    bHighPressurePumpCmd : BOOL;
-    bERDBoosterPumpCmd : BOOL;
-    rAntiScalantDosingRate : REAL; (* L/h *)
-    rRejectControlValvePos : REAL; (* 0-100% *)
-    bSystemReady : BOOL;
-    bAlarmActive : BOOL;
-    iStateSequence : INT;
+    rGrateSpeed1 : REAL; // Grate Zone 1 Speed (%)
+    rGrateSpeed2 : REAL; // Grate Zone 2 Speed (%)
+    rGrateSpeed3 : REAL; // Grate Zone 3 Speed (%)
+    rPrimaryAirFlow : REAL; // Primary Air Fan Setpoint (%)
+    rSecondaryAirFlow : REAL; // Secondary Air Fan Setpoint (%)
+    rCausticDosingPump : REAL; // NaOH Dosing Pump Speed (%)
+    rAmmoniaInjectionRate : REAL; // NH3 Injection Rate for SNCR (L/h)
+    bSystemAlarm : BOOL;
+    iStateCode : INT;
 END_VAR
+
 VAR
-    TON_StartupDelay : TON;
-    TON_RampUp : TON;
-    rTargetPressure : REAL := 65.0; (* Bar *)
-    rCurrentDosingSetpoint : REAL := 0.0;
-    bMembraneFoulingWarning : BOOL := FALSE;
-    bStartupComplete : BOOL := FALSE;
-    rRecoveryRate : REAL := 0.0;
+    // Internal States and Setpoints
+    rTempSetpoint : REAL := 950.0; // Desired Combustion Temp
+    rO2Setpoint : REAL := 6.0; // Desired O2 %
+    rPHSetpoint : REAL := 7.5; // Scrubber Neutralization
+    rNOxLimit : REAL := 150.0; // Emission Limit
+    
+    // PID Controllers for complex cascades
+    PID_TempZone1 : FB_PID_Advanced;
+    PID_TempZone2 : FB_PID_Advanced;
+    PID_TempZone3 : FB_PID_Advanced;
+    PID_AirO2 : FB_PID_Advanced;
+    PID_ScrubberPH : FB_PID_Advanced;
+    PID_SNCR : FB_PID_Advanced;
+    
+    timerStartUp : TON;
+    bCombustionActive : BOOL;
 END_VAR
 
-(* Control Logic for RO Desalination Plant *)
-
-IF bEmergencyStop THEN
-    bHighPressurePumpCmd := FALSE;
-    bERDBoosterPumpCmd := FALSE;
-    rAntiScalantDosingRate := 0.0;
-    rRejectControlValvePos := 100.0; (* Fully open for safe shutdown *)
-    iStateSequence := 0;
-    bAlarmActive := TRUE;
-    bSystemReady := FALSE;
-    RETURN;
-END_IF;
-
-(* Calculate Recovery Rate *)
-IF (rPermeateFlow + rConcentrateFlow) > 0.0 THEN
-    rRecoveryRate := (rPermeateFlow / (rPermeateFlow + rConcentrateFlow)) * 100.0;
-END_IF;
-
-(* Membrane Fouling Detection *)
-IF rMembraneDiffPressure > 2.5 THEN
-    bMembraneFoulingWarning := TRUE;
+// 1. Grate Sequencing & Combustion Control
+// Walking grate systems require precise staging. Zone 1 dries, Zone 2 burns, Zone 3 extracts remaining energy.
+IF bSystemEnable AND bWasteFeedReady THEN
+    bCombustionActive := TRUE;
+    iStateCode := 10;
 ELSE
-    bMembraneFoulingWarning := FALSE;
+    bCombustionActive := FALSE;
+    rGrateSpeed1 := 0.0;
+    rGrateSpeed2 := 0.0;
+    rGrateSpeed3 := 0.0;
+    rPrimaryAirFlow := 10.0; // Purge flow
+    iStateCode := 0;
 END_IF;
 
-(* Anti-scalant Dosing Control - Flow Proportional *)
-IF bHighPressurePumpCmd AND rFeedPressure > 10.0 THEN
-    (* Base dosing rate on feed flow and setpoint *)
-    rCurrentDosingSetpoint := (rPermeateFlow + rConcentrateFlow) * 0.02; (* 20 ppm *)
-    IF rAntiScalantTankLevel < 10.0 THEN
-        bAlarmActive := TRUE; (* Low level alarm *)
-        rAntiScalantDosingRate := rCurrentDosingSetpoint;
+IF bCombustionActive THEN
+    // Grate Speed Control based on localized temperatures
+    // Zone 1: Drive faster if temp is low to bring in more fuel, but constrained by drying rate.
+    PID_TempZone1(EN := TRUE, PV := rGrateTemp1, SP := rTempSetpoint - 150.0, Kp := 2.5, Ki := 0.1, Kd := 0.5, OUT => rGrateSpeed1);
+    
+    // Zone 2: Main combustion, precise control to maintain 950C.
+    PID_TempZone2(EN := TRUE, PV := rGrateTemp2, SP := rTempSetpoint, Kp := 3.0, Ki := 0.15, Kd := 0.4, OUT => rGrateSpeed2);
+    
+    // Zone 3: Burnout, slowing down if temp is too high to allow complete ash formation.
+    PID_TempZone3(EN := TRUE, PV := rGrateTemp3, SP := rTempSetpoint - 250.0, Kp := 1.5, Ki := 0.05, Kd := 0.2, OUT => rGrateSpeed3);
+    
+    // Primary and Secondary Air Control based on O2 and Boiler Pressure cascade
+    PID_AirO2(EN := TRUE, PV := rFlueGasOxygen, SP := rO2Setpoint, Kp := 5.0, Ki := 0.2, Kd := 1.0);
+    
+    IF rBoilerSteamPress < 40.0 THEN
+        rPrimaryAirFlow := PID_AirO2.OUT + 15.0; // Boost combustion if steam pressure drops
     ELSE
-        rAntiScalantDosingRate := rCurrentDosingSetpoint;
+        rPrimaryAirFlow := PID_AirO2.OUT;
     END_IF;
-ELSE
-    rAntiScalantDosingRate := 0.0;
+    
+    // Secondary air is injected above the grate for turbulence and CO destruction.
+    rSecondaryAirFlow := rPrimaryAirFlow * 0.65; 
+    
+    // 2. Wet Scrubber pH Cascade Control
+    // Neutralizing acid gases (HCl, SO2) with NaOH. Negative Kp due to inverse reaction (higher dosing raises pH).
+    PID_ScrubberPH(EN := TRUE, PV := rScrubberPH, SP := rPHSetpoint, Kp := -12.0, Ki := -0.8, Kd := -0.1, OUT => rCausticDosingPump);
+    
+    // Clamp dosing pump output to physical limits 0-100%
+    IF rCausticDosingPump < 0.0 THEN rCausticDosingPump := 0.0; END_IF;
+    IF rCausticDosingPump > 100.0 THEN rCausticDosingPump := 100.0; END_IF;
+    
+    // 3. Selective Non-Catalytic Reduction (SNCR) - Ammonia Injection
+    // The SNCR process requires a strict temperature window (850C - 1050C) to prevent ammonia slip.
+    IF rGrateTemp2 > 850.0 AND rGrateTemp2 < 1050.0 THEN
+        PID_SNCR(EN := TRUE, PV := rFlueGasNOx, SP := rNOxLimit * 0.85, Kp := 1.2, Ki := 0.05, Kd := 0.2, OUT => rAmmoniaInjectionRate);
+    ELSE
+        // Outside the thermal window, NO reduction is inefficient or causes excessive ammonia slip.
+        rAmmoniaInjectionRate := 0.0; 
+        iStateCode := 99; // SNCR Inhibited Warning
+    END_IF;
+    
+    // Comprehensive Alarming
+    IF rFlueGasNOx > (rNOxLimit * 1.1) OR rScrubberPH < 5.0 OR rScrubberPH > 10.0 THEN
+        bSystemAlarm := TRUE;
+    ELSE
+        bSystemAlarm := FALSE;
+    END_IF;
+    
 END_IF;
-
-(* Sequence Control *)
-CASE iStateSequence OF
-    0: (* Standby *)
-        bSystemReady := TRUE;
-        bHighPressurePumpCmd := FALSE;
-        bERDBoosterPumpCmd := FALSE;
-        rRejectControlValvePos := 100.0; 
-        IF bStartSequence AND NOT bAlarmActive THEN
-            iStateSequence := 10;
-            bSystemReady := FALSE;
-        END_IF;
-        
-    10: (* Pre-checks and ERD Booster Start *)
-        bERDBoosterPumpCmd := TRUE;
-        TON_StartupDelay(IN:=TRUE, PT:=T#5S);
-        IF TON_StartupDelay.Q THEN
-            TON_StartupDelay(IN:=FALSE);
-            iStateSequence := 20;
-        END_IF;
-        
-    20: (* High Pressure Pump Ramp Up *)
-        bHighPressurePumpCmd := TRUE;
-        TON_RampUp(IN:=TRUE, PT:=T#30S);
-        
-        (* Gradually close reject valve to build pressure *)
-        IF rRejectControlValvePos > 40.0 THEN
-            rRejectControlValvePos := rRejectControlValvePos - 0.1;
-        END_IF;
-        
-        IF rFeedPressure >= rTargetPressure OR TON_RampUp.Q THEN
-            iStateSequence := 30;
-            TON_RampUp(IN:=FALSE);
-        END_IF;
-        
-    30: (* Steady State Operation *)
-        bStartupComplete := TRUE;
-        
-        (* Pressure Control via Reject Valve *)
-        IF rFeedPressure < rTargetPressure - 1.0 THEN
-            rRejectControlValvePos := rRejectControlValvePos - 0.05;
-        ELSIF rFeedPressure > rTargetPressure + 1.0 THEN
-            rRejectControlValvePos := rRejectControlValvePos + 0.05;
-        END_IF;
-        
-        (* Limit valve position *)
-        IF rRejectControlValvePos > 100.0 THEN rRejectControlValvePos := 100.0; END_IF;
-        IF rRejectControlValvePos < 10.0 THEN rRejectControlValvePos := 10.0; END_IF;
-        
-        IF NOT bStartSequence THEN
-            iStateSequence := 40; (* Shutdown sequence *)
-        END_IF;
-        
-    40: (* Normal Shutdown *)
-        bHighPressurePumpCmd := FALSE;
-        bStartupComplete := FALSE;
-        rRejectControlValvePos := 100.0; (* Open reject valve *)
-        TON_StartupDelay(IN:=TRUE, PT:=T#10S);
-        IF TON_StartupDelay.Q THEN
-            bERDBoosterPumpCmd := FALSE;
-            TON_StartupDelay(IN:=FALSE);
-            iStateSequence := 0;
-        END_IF;
-END_CASE;
-
 END_FUNCTION_BLOCK
 ```"""
 
-prompt = "Invent a highly complex control scenario for a Reverse Osmosis (RO) Desalination Plant (e.g., high-pressure pump Energy Recovery Device (ERD) sequencing, membrane differential pressure tracking, and anti-scalant dosing). Write a deterministic Structured Text (ST) FUNCTION_BLOCK. Include complete VAR declarations and physical I/O."
+record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": st_code}]}
 
-record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
+os.makedirs("data/swarm_raw", exist_ok=True)
+filename = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
+with open(filename, "w", encoding="utf-8") as f:
+    json.dump(record, f, indent=2)
 
-os.makedirs("data", exist_ok=True)
-jsonl_file = "data/synthetic_generation_v3_enterprise.jsonl"
-with open(jsonl_file, "a", encoding="utf-8") as f:
-    f.write(json.dumps(record) + "\\n")
-print(f"Appended to {jsonl_file}")
+print(f"Success. Saved to {filename}")
