@@ -9,6 +9,15 @@
 
 ---
 
+## 📚 Project Documentation
+
+Detailed technical documentation for the Swarm-based synthetic data engine has been generated:
+- [Architecture Overview](docs/ARCHITECTURE.md): The LLM Swarm strategy and PyTorch fine-tuning framework.
+- [Data Pipeline](docs/DATA_PIPELINE.md): Folder structures, deduplication, and master dataset compilation logic.
+- [Swarm Operations](docs/SWARM_OPERATIONS.md): Cron orchestration, prompt engineering, and safety guardrails.
+
+---
+
 ## 🌟 Core Architectural Features
 
 1. **🌤️ Multi-Machine Plant Fleet & Kinematic Oscilloscope**
