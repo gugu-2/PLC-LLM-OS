@@ -1,165 +1,18 @@
-import json, uuid
-import os
-
-os.makedirs("data/swarm_raw", exist_ok=True)
-os.makedirs("data", exist_ok=True)
-
-prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 data.
-Your specific domain is: Subsea Cable Trenching ROV.
-Task: Invent a highly complex control scenario for this domain (e.g., water jetting sword differential pressure, track slippage odometry compensation, and seabed burial depth profiling).
-Write a deterministic Structured Text (ST) FUNCTION_BLOCK. Include complete VAR declarations and physical I/O."""
-
-iec_st_code = """```iec-st
-FUNCTION_BLOCK FB_SubseaTrenchingROV
-VAR_INPUT
-    bEnable : BOOL;
-    fPortTrackSpeedCmd : REAL; (* m/s *)
-    fStbdTrackSpeedCmd : REAL; (* m/s *)
-    fPortTrackEncoder : REAL; (* pulses/sec *)
-    fStbdTrackEncoder : REAL; (* pulses/sec *)
-    fJetPump1Pressure : REAL; (* bar *)
-    fJetPump2Pressure : REAL; (* bar *)
-    fSwordDepthSensor : REAL; (* mm *)
-    fAltimeterForward : REAL; (* mm *)
-    fAltimeterAft : REAL; (* mm *)
-    fPitchAngle : REAL; (* degrees *)
-    fRollAngle : REAL; (* degrees *)
-END_VAR
-VAR_OUTPUT
-    fPortTrackDriveOut : REAL; (* 0-100% *)
-    fStbdTrackDriveOut : REAL; (* 0-100% *)
-    fJetPump1VFDOut : REAL; (* 0-100% *)
-    fJetPump2VFDOut : REAL; (* 0-100% *)
-    fSwordActuatorOut : REAL; (* -100 to 100% *)
-    bAlarmSlippage : BOOL;
-    bAlarmJetPressure : BOOL;
-    bAlarmBurialDepth : BOOL;
-    fEstimatedBurialDepth : REAL; (* mm *)
-END_VAR
-VAR
-    (* Internal State and Timers *)
-    fPortTrackSpeedAct : REAL;
-    fStbdTrackSpeedAct : REAL;
-    fPortSlipRatio : REAL;
-    fStbdSlipRatio : REAL;
-    fEncoderScaling : REAL := 0.005; (* m/pulse *)
-    
-    (* PI Controllers for Tracks *)
-    fPortKp : REAL := 2.5;
-    fPortKi : REAL := 0.5;
-    fPortError : REAL;
-    fPortErrorInt : REAL;
-    
-    fStbdKp : REAL := 2.5;
-    fStbdKi : REAL := 0.5;
-    fStbdError : REAL;
-    fStbdErrorInt : REAL;
-    
-    (* Jetting Control *)
-    fJetPressureSetPt : REAL := 150.0; (* bar *)
-    fJetKp : REAL := 1.2;
-    fJetError1 : REAL;
-    fJetError2 : REAL;
-    
-    (* Sword and Depth Profiling *)
-    fTargetBurialDepth : REAL := 1500.0; (* mm *)
-    fDepthError : REAL;
-    fSwordKp : REAL := 3.0;
-    
-    (* Timers for Alarms *)
-    tSlipTimer : TON;
-    tJetTimer : TON;
-    tDepthTimer : TON;
-END_VAR
-
-IF NOT bEnable THEN
-    fPortTrackDriveOut := 0.0;
-    fStbdTrackDriveOut := 0.0;
-    fJetPump1VFDOut := 0.0;
-    fJetPump2VFDOut := 0.0;
-    fSwordActuatorOut := 0.0;
-    bAlarmSlippage := FALSE;
-    bAlarmJetPressure := FALSE;
-    bAlarmBurialDepth := FALSE;
-    fPortErrorInt := 0.0;
-    fStbdErrorInt := 0.0;
-    RETURN;
-END_IF;
-
-(* Track Slippage Odometry Compensation *)
-fPortTrackSpeedAct := fPortTrackEncoder * fEncoderScaling;
-fStbdTrackSpeedAct := fStbdTrackEncoder * fEncoderScaling;
-
-IF fPortTrackSpeedCmd > 0.0 THEN
-    fPortSlipRatio := (fPortTrackSpeedCmd - fPortTrackSpeedAct) / fPortTrackSpeedCmd;
-ELSE
-    fPortSlipRatio := 0.0;
-END_IF;
-
-IF fStbdTrackSpeedCmd > 0.0 THEN
-    fStbdSlipRatio := (fStbdTrackSpeedCmd - fStbdTrackSpeedAct) / fStbdTrackSpeedCmd;
-ELSE
-    fStbdSlipRatio := 0.0;
-END_IF;
-
-bAlarmSlippage := (fPortSlipRatio > 0.3) OR (fStbdSlipRatio > 0.3);
-
-(* PI Control for Port Track with Slip Compensation *)
-fPortError := (fPortTrackSpeedCmd * (1.0 + fPortSlipRatio)) - fPortTrackSpeedAct;
-fPortErrorInt := fPortErrorInt + fPortError * 0.1; (* 100ms cycle assumed *)
-IF fPortErrorInt > 100.0 THEN fPortErrorInt := 100.0; END_IF;
-IF fPortErrorInt < -100.0 THEN fPortErrorInt := -100.0; END_IF;
-fPortTrackDriveOut := (fPortKp * fPortError) + (fPortKi * fPortErrorInt);
-
-(* PI Control for Stbd Track with Slip Compensation *)
-fStbdError := (fStbdTrackSpeedCmd * (1.0 + fStbdSlipRatio)) - fStbdTrackSpeedAct;
-fStbdErrorInt := fStbdErrorInt + fStbdError * 0.1;
-IF fStbdErrorInt > 100.0 THEN fStbdErrorInt := 100.0; END_IF;
-IF fStbdErrorInt < -100.0 THEN fStbdErrorInt := -100.0; END_IF;
-fStbdTrackDriveOut := (fStbdKp * fStbdError) + (fStbdKi * fStbdErrorInt);
-
-(* Water Jetting Sword Differential Pressure Control *)
-fJetError1 := fJetPressureSetPt - fJetPump1Pressure;
-fJetPump1VFDOut := fJetPump1VFDOut + (fJetKp * fJetError1 * 0.1);
-
-fJetError2 := fJetPressureSetPt - fJetPump2Pressure;
-fJetPump2VFDOut := fJetPump2VFDOut + (fJetKp * fJetError2 * 0.1);
-
-IF fJetPump1VFDOut > 100.0 THEN fJetPump1VFDOut := 100.0; END_IF;
-IF fJetPump1VFDOut < 0.0 THEN fJetPump1VFDOut := 0.0; END_IF;
-IF fJetPump2VFDOut > 100.0 THEN fJetPump2VFDOut := 100.0; END_IF;
-IF fJetPump2VFDOut < 0.0 THEN fJetPump2VFDOut := 0.0; END_IF;
-
-bAlarmJetPressure := (fJetPump1Pressure < (fJetPressureSetPt * 0.7)) OR (fJetPump2Pressure < (fJetPressureSetPt * 0.7));
-
-(* Seabed Burial Depth Profiling and Sword Control *)
-fEstimatedBurialDepth := fSwordDepthSensor * COS(fPitchAngle * 3.14159 / 180.0) + ((fAltimeterForward + fAltimeterAft) / 2.0);
-
-fDepthError := fTargetBurialDepth - fEstimatedBurialDepth;
-fSwordActuatorOut := fSwordKp * fDepthError;
-
-IF fSwordActuatorOut > 100.0 THEN fSwordActuatorOut := 100.0; END_IF;
-IF fSwordActuatorOut < -100.0 THEN fSwordActuatorOut := -100.0; END_IF;
-
-bAlarmBurialDepth := ABS(fDepthError) > 200.0;
-
-END_FUNCTION_BLOCK
-```"""
+import json, uuid, os
 
 record = {
     "messages": [
-        {"role": "user", "content": prompt},
-        {"role": "assistant", "content": iec_st_code}
+        {"role": "user", "content": "You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 data. Your specific domain is: Ski Resort Snowmaking System. Task: Invent a highly complex control scenario for this domain (e.g., wet-bulb temperature nucleation algorithms, high-pressure hydrant valve cascades, and compressor mass-flow sequencing). Write a deterministic Structured Text (ST) FUNCTION_BLOCK. Include complete VAR declarations and physical I/O."},
+        {"role": "assistant", "content": "```iec-st\nFUNCTION_BLOCK FB_Snowmaking_Control\nVAR_INPUT\n    rAmbientTemp : REAL; (* Ambient Temperature in Celsius *)\n    rRelativeHumidity : REAL; (* Relative Humidity (0.0 to 100.0) *)\n    rWindSpeed : REAL; (* Wind speed in m/s *)\n    rWaterPressure_Bar : REAL; (* Supply water pressure *)\n    rAirPressure_Bar : REAL; (* Supply air pressure *)\n    bSystemEnable : BOOL; (* Master enable for snowmaking *)\n    rTargetSnowDensity : REAL; (* Target snow density parameter *)\n    bHydrantLimitSwitches : ARRAY[1..10] OF BOOL; (* Status of hydrants *)\nEND_VAR\nVAR_OUTPUT\n    bAirCompressorRun : BOOL; (* Command to start/stop air compressors *)\n    rAirCompressorSpeed : REAL; (* Speed reference for VFD (0.0 to 100.0%) *)\n    bWaterPumpRun : BOOL; (* Command to start/stop main water pump *)\n    rWaterPumpSpeed : REAL; (* Speed reference for VFD *)\n    bNucleatorValves : ARRAY[1..10] OF BOOL; (* Nucleator nozzle valves *)\n    bBulkValves : ARRAY[1..10] OF BOOL; (* Bulk water nozzles *)\n    rCalculatedWetBulb : REAL; (* Calculated Wet-Bulb Temperature *)\n    iActiveHydrants : INT; (* Number of active hydrants *)\n    sSystemStatus : STRING[50]; (* Status message *)\n    bSystemAlarm : BOOL;\n    iAlarmCode : INT;\nEND_VAR\nVAR\n    rSaturatedVaporPressure : REAL;\n    rActualVaporPressure : REAL;\n    rWetBulbDepression : REAL;\n    i : INT;\n    rFlowDemand : REAL;\n    tStateTimer : TON;\n    iState : INT;\nEND_VAR\n\n(* Calculate Wet-Bulb Temperature (Stull's Formula approximation for illustration) *)\nrCalculatedWetBulb := rAmbientTemp * ATAN(0.151977 * SQRT(rRelativeHumidity + 8.313659)) \n                    + ATAN(rAmbientTemp + rRelativeHumidity) \n                    - ATAN(rRelativeHumidity - 1.676331) \n                    + 0.00391838 * EXPT(rRelativeHumidity, 1.5) * ATAN(0.023101 * rRelativeHumidity) \n                    - 4.686035;\n\n(* State Machine for Sequencing *)\nIF NOT bSystemEnable THEN\n    iState := 0;\n    bAirCompressorRun := FALSE;\n    bWaterPumpRun := FALSE;\n    rAirCompressorSpeed := 0.0;\n    rWaterPumpSpeed := 0.0;\n    iActiveHydrants := 0;\n    FOR i := 1 TO 10 DO\n        bNucleatorValves[i] := FALSE;\n        bBulkValves[i] := FALSE;\n    END_FOR;\n    sSystemStatus := 'SYSTEM DISABLED';\n    bSystemAlarm := FALSE;\nELSE\n    CASE iState OF\n        0: (* Initialization and check conditions *)\n            IF rCalculatedWetBulb < -2.0 THEN\n                iState := 10;\n                sSystemStatus := 'STARTING COMPRESSORS';\n            ELSE\n                sSystemStatus := 'MARGINAL TEMP - STANDBY';\n            END_IF;\n            \n        10: (* Start Air Compressors *)\n            bAirCompressorRun := TRUE;\n            rAirCompressorSpeed := 50.0 + (ABS(rCalculatedWetBulb) * 2.0);\n            IF rAirCompressorSpeed > 100.0 THEN rAirCompressorSpeed := 100.0; END_IF;\n            \n            IF rAirPressure_Bar > 6.5 THEN\n                iState := 20;\n                sSystemStatus := 'STARTING WATER PUMPS';\n            END_IF;\n            \n        20: (* Start Water Pumps *)\n            bWaterPumpRun := TRUE;\n            rWaterPumpSpeed := 60.0;\n            IF rWaterPressure_Bar > 25.0 THEN\n                iState := 30;\n                sSystemStatus := 'OPENING HYDRANTS';\n            END_IF;\n            \n        30: (* Hydrant Cascade Sequencing *)\n            iActiveHydrants := 0;\n            FOR i := 1 TO 10 DO\n                IF bHydrantLimitSwitches[i] AND rWaterPressure_Bar > 20.0 THEN\n                    bNucleatorValves[i] := TRUE;\n                    (* Only open bulk valves if wet-bulb is low enough to freeze high flow *)\n                    IF rCalculatedWetBulb < -5.0 THEN\n                        bBulkValves[i] := TRUE;\n                    ELSE\n                        bBulkValves[i] := FALSE;\n                    END_IF;\n                    iActiveHydrants := iActiveHydrants + 1;\n                ELSE\n                    bNucleatorValves[i] := FALSE;\n                    bBulkValves[i] := FALSE;\n                END_IF;\n            END_FOR;\n            sSystemStatus := 'MAKING SNOW';\n            \n            (* Adjust pump speed based on active hydrants to maintain mass-flow *)\n            rWaterPumpSpeed := 50.0 + (INT_TO_REAL(iActiveHydrants) * 5.0);\n            IF rWaterPumpSpeed > 100.0 THEN rWaterPumpSpeed := 100.0; END_IF;\n            \n            (* Fault check *)\n            IF rWaterPressure_Bar < 15.0 OR rAirPressure_Bar < 5.0 THEN\n                iState := 99; (* Fault state *)\n            END_IF;\n            \n        99: (* Fault Handling *)\n            bSystemAlarm := TRUE;\n            iAlarmCode := 1001;\n            bWaterPumpRun := FALSE;\n            sSystemStatus := 'PRESSURE FAULT SHUTDOWN';\n            IF NOT bSystemEnable THEN\n                iState := 0; (* Reset on disable *)\n            END_IF;\n    END_CASE;\nEND_IF;\nEND_FUNCTION_BLOCK\n```"}
     ]
 }
 
-# 1. Save to swarm_raw per user prompt
-file_path = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
-with open(file_path, "w", encoding="utf-8") as f:
-    json.dump(record, f, indent=2)
+os.makedirs("c:\\Users\\majip\\Downloads\\LLM REASEARCH\\data\\swarm_raw", exist_ok=True)
+filename = f"c:\\Users\\majip\\Downloads\\LLM REASEARCH\\data\\swarm_raw\\agent_{uuid.uuid4().hex[:8]}.json"
+with open(filename, "w", encoding="utf-8") as f:
+    json.dump(record, f)
 
-# 2. Append to synthetic_generation_v3_enterprise.jsonl per agent system instructions
-with open("data/synthetic_generation_v3_enterprise.jsonl", "a", encoding="utf-8") as f:
-    f.write(json.dumps(record) + "\\n")
-
-print(f"JSON generation completed successfully.")
+jsonl_file = "c:\\Users\\majip\\Downloads\\LLM REASEARCH\\data\\synthetic_generation_v3_enterprise.jsonl"
+os.makedirs(os.path.dirname(jsonl_file), exist_ok=True)
+with open(jsonl_file, "a", encoding="utf-8") as f:
+    f.write(json.dumps(record) + "\n")

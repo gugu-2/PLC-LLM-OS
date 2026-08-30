@@ -1,196 +1,24 @@
 import json, uuid, os
-os.makedirs('data/swarm_raw', exist_ok=True)
-record = {'messages': [{'role': 'user', 'content': 'Design a complex control scenario for a Utility-Scale Biogas Upgrading Plant (membrane separation CO2 stripping, amine scrubbing solvent regeneration, and biomethane grid injection pressure) in Structured Text.'}, {'role': 'assistant', 'content': '''```iec-st
-FUNCTION_BLOCK FB_BiogasUpgradingPlantControl
-VAR_INPUT
-    bEnable                 : BOOL;   (* Enable overall plant control *)
-    bEmergencyStop          : BOOL;   (* Plant emergency stop *)
-    rRawGasFlowRate         : REAL;   (* Raw biogas inlet flow rate [Nm3/h] *)
-    rRawGasCH4              : REAL;   (* Raw biogas CH4 concentration [%] *)
-    rRawGasCO2              : REAL;   (* Raw biogas CO2 concentration [%] *)
-    rAmineSolventLevel      : REAL;   (* Level of amine solvent in regenerator [%] *)
-    rAmineTemperature       : REAL;   (* Temperature of amine solvent [degC] *)
-    rMembranePressure       : REAL;   (* Feed pressure to membrane separation [bar] *)
-    rGridPressure           : REAL;   (* Biomethane grid injection pressure [bar] *)
-    rTargetGridPressure     : REAL;   (* Target grid injection pressure [bar] *)
-    rBiomethaneQualityCH4   : REAL;   (* Output biomethane CH4 concentration [%] *)
-END_VAR
 
-VAR_OUTPUT
-    bInletCompressorCmd     : BOOL;   (* Command to start inlet compressor *)
-    rInletCompressorSpeed   : REAL;   (* Speed setpoint for inlet compressor [%] *)
-    bAminePumpCmd           : BOOL;   (* Command to start amine circulation pump *)
-    rAminePumpSpeed         : REAL;   (* Speed setpoint for amine circulation pump [%] *)
-    bAmineHeaterCmd         : BOOL;   (* Command to activate amine regeneration heater *)
-    rAmineHeaterPower       : REAL;   (* Power setpoint for amine regeneration heater [%] *)
-    bMembraneValveCmd       : BOOL;   (* Command to open membrane feed valve *)
-    rGridInjectionValvePos  : REAL;   (* Position setpoint for grid injection control valve [%] *)
-    bFlareValveCmd          : BOOL;   (* Command to send off-spec gas to flare *)
-    bSystemReady            : BOOL;   (* Plant is ready and operating normally *)
-    bAlarmActive            : BOOL;   (* General alarm active *)
-    iAlarmCode              : INT;    (* Active alarm code *)
-END_VAR
+record = {
+    "messages": [
+        {"role": "user", "content": "You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 data.\nYour specific domain is: Asphalt Batching Plant.\nTask: Invent a highly complex control scenario for this domain (e.g., aggregate cold feed drum drying burner cascade, bitumen gravimetric weighing injection, and pugmill mixer sequencing).\nWrite a deterministic Structured Text (ST) FUNCTION_BLOCK. Include complete VAR declarations and physical I/O."},
+        {"role": "assistant", "content": "```iec-st\nFUNCTION_BLOCK FB_AsphaltBatchingControl\nTITLE = 'Asphalt Batching Plant Main Sequencer'\nVERSION : '1.1'\nAUTHOR : 'Lumina AI'\n\nVAR_INPUT\n    bStartProduction : BOOL;      (* Command to start batching sequence *)\n    bEmergencyStop : BOOL;        (* E-Stop signal *)\n    bResetFault : BOOL;           (* Reset faults *)\n    \n    (* Setpoints *)\n    rTargetAggWeight : REAL;      (* Target aggregate weight [kg] *)\n    rTargetBitWeight : REAL;      (* Target bitumen weight [kg] *)\n    rTargetFillerWeight : REAL;   (* Target filler weight [kg] *)\n    rTargetAsphaltTemp : REAL;    (* Target asphalt discharge temperature [C] *)\n    tDryMixingTime : TIME;        (* Dry mix cycle time *)\n    tWetMixingTime : TIME;        (* Wet mix cycle time *)\n    \n    (* Sensors and Feedback *)\n    rActualAggWeight : REAL;      (* Current aggregate scale weight [kg] *)\n    rActualBitWeight : REAL;      (* Current bitumen scale weight [kg] *)\n    rActualFillerWeight : REAL;   (* Current filler scale weight [kg] *)\n    rDrumTemperature : REAL;      (* Dryer drum temperature sensor [C] *)\n    rPugmillTemperature : REAL;   (* Mixer temperature sensor [C] *)\n    bMixerDoorClosed : BOOL;      (* Mixer discharge door closed limit switch *)\n    bSkipReady : BOOL;            (* Skip hoist is in position for loading *)\n    bBurnerFlameDetected : BOOL;  (* Burner flame sensor *)\nEND_VAR\n\nVAR_OUTPUT\n    (* Actuators and Motors *)\n    bColdFeedFeeder1 : BOOL;      (* Sand feeder *)\n    bColdFeedFeeder2 : BOOL;      (* 10mm feeder *)\n    bColdFeedFeeder3 : BOOL;      (* 14mm feeder *)\n    bColdFeedFeeder4 : BOOL;      (* 20mm feeder *)\n    \n    bDryerDrumMotor : BOOL;       (* Main drum rotation *)\n    bBurnerBlower : BOOL;         (* Burner air blower *)\n    bBurnerIgniter : BOOL;        (* Burner ignition transformer *)\n    rBurnerFuelValve : REAL;      (* Burner fuel modulation 0-100% *)\n    bExhaustFan : BOOL;           (* Exhaust and baghouse fan *)\n    \n    bAggDischargeGate : BOOL;     (* Dump aggregate into mixer *)\n    bBitPumpCommand : BOOL;       (* Pump bitumen to scale *)\n    bBitDischargeValve : BOOL;    (* Inject bitumen into mixer *)\n    bFillerScrewComm : BOOL;      (* Run filler screw conveyor *)\n    bFillerDischargeGate : BOOL;  (* Dump filler into mixer *)\n    \n    bPugmillMotor : BOOL;         (* Main mixer motor *)\n    bMixerDischargeDoor : BOOL;   (* Open mixer discharge door *)\n    \n    (* Status and HMI *)\n    iState : INT;                 (* Current sequence state *)\n    bProductionActive : BOOL;     (* Production running flag *)\n    bFaultActive : BOOL;          (* System fault flag *)\n    iFaultCode : INT;             (* Fault code for diagnostics *)\nEND_VAR\n\nVAR\n    tDryMixTimer : TON;\n    tWetMixTimer : TON;\n    tDischargeTimer : TON;\n    tBurnerPurgeTimer : TON;\n    \n    rPID_Kp : REAL := 1.85;\n    rPID_Ki : REAL := 0.05;\n    rPID_Kd : REAL := 0.12;\n    rError : REAL;\n    rIntegral : REAL;\n    rPrevError : REAL;\n    \n    bAggReady : BOOL;\n    bBitReady : BOOL;\n    bFillerReady : BOOL;\nEND_VAR\n\n(* =========================================================================\n   ASPHALT BATCHING PLANT SEQUENCER & PID CONTROL\n   ========================================================================= *)\n   \n(* Handle Emergency Stop and Faults *)\nIF bEmergencyStop THEN\n    bColdFeedFeeder1 := FALSE; bColdFeedFeeder2 := FALSE;\n    bColdFeedFeeder3 := FALSE; bColdFeedFeeder4 := FALSE;\n    bDryerDrumMotor := FALSE; bBurnerBlower := FALSE;\n    bBurnerIgniter := FALSE; rBurnerFuelValve := 0.0;\n    bExhaustFan := FALSE; bAggDischargeGate := FALSE;\n    bBitPumpCommand := FALSE; bBitDischargeValve := FALSE;\n    bFillerScrewComm := FALSE; bFillerDischargeGate := FALSE;\n    bPugmillMotor := FALSE; bMixerDischargeDoor := FALSE;\n    \n    iState := 999;\n    bFaultActive := TRUE;\n    iFaultCode := 1; (* E-STOP Activated *)\n    bProductionActive := FALSE;\n    RETURN;\nEND_IF;\n\nIF bFaultActive AND bResetFault THEN\n    bFaultActive := FALSE;\n    iFaultCode := 0;\n    iState := 0;\nEND_IF;\n\nIF bFaultActive THEN\n    RETURN;\nEND_IF;\n\n(* Burner PID Control Cascade *)\nIF iState >= 20 AND iState <= 50 THEN\n    rError := rTargetAsphaltTemp - rDrumTemperature;\n    rIntegral := rIntegral + (rError * 0.1); (* 100ms cycle assumption *)\n    \n    (* Anti-windup limit *)\n    IF rIntegral > 100.0 THEN rIntegral := 100.0; END_IF;\n    IF rIntegral < 0.0 THEN rIntegral := 0.0; END_IF;\n    \n    rBurnerFuelValve := (rPID_Kp * rError) + (rPID_Ki * rIntegral) + (rPID_Kd * (rError - rPrevError));\n    \n    IF rBurnerFuelValve > 100.0 THEN rBurnerFuelValve := 100.0; END_IF;\n    IF rBurnerFuelValve < 15.0 THEN rBurnerFuelValve := 15.0; END_IF; (* Minimum fire *)\n    \n    rPrevError := rError;\nELSE\n    rBurnerFuelValve := 0.0;\n    rIntegral := 0.0;\nEND_IF;\n\n(* Main State Machine *)\nCASE iState OF\n    0: (* IDLE *)\n        bProductionActive := FALSE;\n        IF bStartProduction AND bMixerDoorClosed AND bSkipReady THEN\n            iState := 10;\n            bProductionActive := TRUE;\n        END_IF;\n        \n    10: (* PLANT STARTUP & PURGE *)\n        bExhaustFan := TRUE;\n        bDryerDrumMotor := TRUE;\n        bBurnerBlower := TRUE;\n        tBurnerPurgeTimer(IN:=TRUE, PT:=T#15S);\n        IF tBurnerPurgeTimer.Q THEN\n            tBurnerPurgeTimer(IN:=FALSE);\n            iState := 20;\n        END_IF;\n        \n    20: (* BURNER IGNITION *)\n        bBurnerIgniter := TRUE;\n        rBurnerFuelValve := 20.0; (* Light-off position *)\n        IF bBurnerFlameDetected THEN\n            bBurnerIgniter := FALSE;\n            iState := 30;\n        END_IF;\n        (* Add timeout fault logic here in production *)\n        \n    30: (* MATERIAL FEED AND WEIGHING *)\n        bColdFeedFeeder1 := TRUE;\n        bColdFeedFeeder2 := TRUE;\n        \n        (* Aggregate Weighing *)\n        IF rActualAggWeight < rTargetAggWeight THEN\n            (* Elevators running implied *)\n            bAggReady := FALSE;\n        ELSE\n            bColdFeedFeeder1 := FALSE;\n            bColdFeedFeeder2 := FALSE;\n            bAggReady := TRUE;\n        END_IF;\n        \n        (* Bitumen Weighing *)\n        IF rActualBitWeight < rTargetBitWeight THEN\n            bBitPumpCommand := TRUE;\n            bBitReady := FALSE;\n        ELSE\n            bBitPumpCommand := FALSE;\n            bBitReady := TRUE;\n        END_IF;\n        \n        (* Filler Weighing *)\n        IF rActualFillerWeight < rTargetFillerWeight THEN\n            bFillerScrewComm := TRUE;\n            bFillerReady := FALSE;\n        ELSE\n            bFillerScrewComm := FALSE;\n            bFillerReady := TRUE;\n        END_IF;\n        \n        IF bAggReady AND bBitReady AND bFillerReady AND (rDrumTemperature >= rTargetAsphaltTemp - 5.0) THEN\n            iState := 40;\n        END_IF;\n        \n    40: (* DRY MIXING CYCLE *)\n        bPugmillMotor := TRUE;\n        bAggDischargeGate := TRUE;\n        tDryMixTimer(IN:=TRUE, PT:=tDryMixingTime);\n        IF tDryMixTimer.Q THEN\n            bAggDischargeGate := FALSE;\n            tDryMixTimer(IN:=FALSE);\n            iState := 50;\n        END_IF;\n        \n    50: (* WET MIXING CYCLE *)\n        bBitDischargeValve := TRUE;\n        bFillerDischargeGate := TRUE;\n        tWetMixTimer(IN:=TRUE, PT:=tWetMixingTime);\n        IF tWetMixTimer.Q THEN\n            bBitDischargeValve := FALSE;\n            bFillerDischargeGate := FALSE;\n            tWetMixTimer(IN:=FALSE);\n            iState := 60;\n        END_IF;\n        \n    60: (* DISCHARGE TO SKIP *)\n        bMixerDischargeDoor := TRUE;\n        tDischargeTimer(IN:=TRUE, PT:=T#10S);\n        IF tDischargeTimer.Q THEN\n            bMixerDischargeDoor := FALSE;\n            tDischargeTimer(IN:=FALSE);\n            (* Loop back for next batch or shutdown *)\n            IF bStartProduction THEN\n                iState := 30;\n            ELSE\n                iState := 70;\n            END_IF;\n        END_IF;\n        \n    70: (* NORMAL SHUTDOWN *)\n        rBurnerFuelValve := 0.0;\n        bPugmillMotor := FALSE;\n        tBurnerPurgeTimer(IN:=TRUE, PT:=T#30S);\n        IF tBurnerPurgeTimer.Q AND NOT bBurnerFlameDetected THEN\n            bBurnerBlower := FALSE;\n            bDryerDrumMotor := FALSE;\n            bExhaustFan := FALSE;\n            bProductionActive := FALSE;\n            tBurnerPurgeTimer(IN:=FALSE);\n            iState := 0;\n        END_IF;\n        \n    999: (* FAULT STATE *)\n        (* Handled at the top of the block *)\n        ;\n        \nEND_CASE;\n\nEND_FUNCTION_BLOCK\n```"}
+    ]
+}
 
-VAR
-    (* Internal state variables *)
-    nState                  : INT := 0; (* State machine step: 0=Init, 1=Startup, 2=Running, 3=Shutdown, 4=Fault *)
-    tStartupTimer           : TON;
-    tPurgeTimer             : TON;
-    tStabilizationTimer     : TON;
-    
-    (* PI Controllers *)
-    rKpCompressor           : REAL := 2.5;
-    rKiCompressor           : REAL := 0.5;
-    rCompressorError        : REAL;
-    rCompressorIntegral     : REAL;
-    
-    rKpAmineHeater          : REAL := 5.0;
-    rKiAmineHeater          : REAL := 1.2;
-    rAmineHeaterError       : REAL;
-    rAmineHeaterIntegral    : REAL;
-    
-    rKpGridValve            : REAL := 1.5;
-    rKiGridValve            : REAL := 0.3;
-    rGridValveError         : REAL;
-    rGridValveIntegral      : REAL;
-    
-    (* Constants *)
-    rMinAmineTemp           : REAL := 105.0; (* Minimum temp for amine regeneration [degC] *)
-    rMaxAmineTemp           : REAL := 125.0; (* Maximum temp for amine regeneration [degC] *)
-    rMinGridQualityCH4      : REAL := 97.0;  (* Minimum required CH4 quality for grid [%] *)
-    rMaxMembranePress       : REAL := 16.0;  (* Maximum safe membrane pressure [bar] *)
-    
-    tCycleTime              : REAL := 0.1; (* Control loop cycle time [s] *)
-END_VAR
+os.makedirs("data/swarm_raw", exist_ok=True)
+filename = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
+with open(filename, "w", encoding="utf-8") as f:
+    json.dump(record, f, indent=4)
 
-(* EMERGENCY STOP HANDLING *)
-IF bEmergencyStop THEN
-    nState := 4;
-    iAlarmCode := 99;
-END_IF;
+record2 = {
+    "messages": [
+        {"role": "user", "content": "Invent a highly complex control scenario for Asphalt Batching Plant (e.g., aggregate cold feed drum drying burner cascade, bitumen gravimetric weighing injection, and pugmill mixer sequencing). Write a deterministic Structured Text (ST) FUNCTION_BLOCK. Include complete VAR declarations and physical I/O."},
+        record["messages"][1]
+    ]
+}
 
-(* STATE MACHINE *)
-CASE nState OF
-    0: (* INIT *)
-        bInletCompressorCmd := FALSE;
-        rInletCompressorSpeed := 0.0;
-        bAminePumpCmd := FALSE;
-        rAminePumpSpeed := 0.0;
-        bAmineHeaterCmd := FALSE;
-        rAmineHeaterPower := 0.0;
-        bMembraneValveCmd := FALSE;
-        rGridInjectionValvePos := 0.0;
-        bFlareValveCmd := FALSE;
-        bSystemReady := FALSE;
-        bAlarmActive := FALSE;
-        iAlarmCode := 0;
-        
-        IF bEnable AND NOT bEmergencyStop THEN
-            nState := 1;
-            tStartupTimer(IN := FALSE);
-        END_IF;
-        
-    1: (* STARTUP *)
-        bSystemReady := FALSE;
-        bAminePumpCmd := TRUE;
-        rAminePumpSpeed := 50.0;
-        
-        IF rAmineTemperature < rMinAmineTemp THEN
-            bAmineHeaterCmd := TRUE;
-            rAmineHeaterPower := 100.0;
-        ELSE
-            bInletCompressorCmd := TRUE;
-            rInletCompressorSpeed := 20.0;
-            tStartupTimer(IN := TRUE, PT := T#30s);
-            
-            IF tStartupTimer.Q THEN
-                bMembraneValveCmd := TRUE;
-                nState := 2;
-                tStabilizationTimer(IN := FALSE);
-            END_IF;
-        END_IF;
-        
-    2: (* RUNNING *)
-        bSystemReady := TRUE;
-        
-        rCompressorError := rRawGasFlowRate - 500.0;
-        IF rMembranePressure > rMaxMembranePress THEN
-            rCompressorError := -50.0;
-        END_IF;
-        rCompressorIntegral := rCompressorIntegral + (rCompressorError * tCycleTime);
-        IF rCompressorIntegral > 100.0 THEN rCompressorIntegral := 100.0; END_IF;
-        IF rCompressorIntegral < 0.0 THEN rCompressorIntegral := 0.0; END_IF;
-        rInletCompressorSpeed := (rKpCompressor * rCompressorError) + (rKiCompressor * rCompressorIntegral);
-        IF rInletCompressorSpeed > 100.0 THEN rInletCompressorSpeed := 100.0; END_IF;
-        IF rInletCompressorSpeed < 20.0 THEN rInletCompressorSpeed := 20.0; END_IF;
-        
-        rAmineHeaterError := ((rMinAmineTemp + rMaxAmineTemp) / 2.0) - rAmineTemperature;
-        rAmineHeaterIntegral := rAmineHeaterIntegral + (rAmineHeaterError * tCycleTime);
-        IF rAmineHeaterIntegral > 100.0 THEN rAmineHeaterIntegral := 100.0; END_IF;
-        IF rAmineHeaterIntegral < 0.0 THEN rAmineHeaterIntegral := 0.0; END_IF;
-        rAmineHeaterPower := (rKpAmineHeater * rAmineHeaterError) + (rKiAmineHeater * rAmineHeaterIntegral);
-        IF rAmineHeaterPower > 100.0 THEN rAmineHeaterPower := 100.0; END_IF;
-        IF rAmineHeaterPower < 0.0 THEN rAmineHeaterPower := 0.0; END_IF;
-        
-        tStabilizationTimer(IN := TRUE, PT := T#60s);
-        IF tStabilizationTimer.Q THEN
-            IF rBiomethaneQualityCH4 >= rMinGridQualityCH4 THEN
-                bFlareValveCmd := FALSE;
-                rGridValveError := rTargetGridPressure - rGridPressure;
-                rGridValveIntegral := rGridValveIntegral + (rGridValveError * tCycleTime);
-                IF rGridValveIntegral > 100.0 THEN rGridValveIntegral := 100.0; END_IF;
-                IF rGridValveIntegral < 0.0 THEN rGridValveIntegral := 0.0; END_IF;
-                rGridInjectionValvePos := (rKpGridValve * rGridValveError) + (rKiGridValve * rGridValveIntegral);
-                IF rGridInjectionValvePos > 100.0 THEN rGridInjectionValvePos := 100.0; END_IF;
-                IF rGridInjectionValvePos < 0.0 THEN rGridInjectionValvePos := 0.0; END_IF;
-            ELSE
-                bFlareValveCmd := TRUE;
-                rGridInjectionValvePos := 0.0;
-            END_IF;
-        END_IF;
-        
-        IF NOT bEnable THEN
-            nState := 3;
-            tPurgeTimer(IN := FALSE);
-        END_IF;
-        
-    3: (* SHUTDOWN *)
-        bSystemReady := FALSE;
-        bInletCompressorCmd := FALSE;
-        rInletCompressorSpeed := 0.0;
-        rGridInjectionValvePos := 0.0;
-        bFlareValveCmd := TRUE;
-        bAmineHeaterCmd := FALSE;
-        rAmineHeaterPower := 0.0;
-        
-        tPurgeTimer(IN := TRUE, PT := T#120s);
-        IF tPurgeTimer.Q THEN
-            bAminePumpCmd := FALSE;
-            rAminePumpSpeed := 0.0;
-            bMembraneValveCmd := FALSE;
-            bFlareValveCmd := FALSE;
-            nState := 0;
-        END_IF;
-        
-    4: (* FAULT *)
-        bSystemReady := FALSE;
-        bAlarmActive := TRUE;
-        bInletCompressorCmd := FALSE;
-        rInletCompressorSpeed := 0.0;
-        bAminePumpCmd := FALSE;
-        rAminePumpSpeed := 0.0;
-        bAmineHeaterCmd := FALSE;
-        rAmineHeaterPower := 0.0;
-        bMembraneValveCmd := FALSE;
-        rGridInjectionValvePos := 0.0;
-        bFlareValveCmd := TRUE;
-        
-        IF NOT bEmergencyStop AND bEnable = FALSE THEN
-            nState := 0;
-        END_IF;
-        
-END_CASE;
-END_FUNCTION_BLOCK
-```'''}]}
-with open(f'data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json', 'w', encoding='utf-8') as f:
-    json.dump(record, f)
+os.makedirs("data", exist_ok=True)
+with open("data/synthetic_generation_v3_enterprise.jsonl", "a", encoding="utf-8") as f:
+    f.write(json.dumps(record2) + "\\n")

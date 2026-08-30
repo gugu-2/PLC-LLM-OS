@@ -1,207 +1,188 @@
-import json
-import uuid
-import os
-
-user_prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 data.
-Your specific domain is: High-Speed Aluminum Can End Making Press.
-Task: Invent a highly complex control scenario for this domain (e.g., compound liner extrusion nozzle indexing, progressive die punch tonnage signature monitoring, and vacuum scrap removal).
-Write a deterministic Structured Text (ST) FUNCTION_BLOCK. Include complete VAR declarations and physical I/O."""
-
-assistant_response = """```iec-st
-FUNCTION_BLOCK FB_HighSpeedCanEndPressControl
-TITLE = 'High-Speed Aluminum Can End Press Controller'
-VERSION : '1.5'
-AUTHOR : 'Lumina AI Swarm'
-
-// -----------------------------------------------------------------------------
-// DESCRIPTION:
-// This function block orchestrates the high-speed stamping, compound liner 
-// extrusion, and scrap removal for a multi-lane aluminum can end making press.
-// It features high-resolution tonnage signature monitoring, precision nozzle 
-// indexing, and vacuum-assisted scrap ejection tracking.
-// -----------------------------------------------------------------------------
-
+﻿import os, json, uuid
+os.makedirs('data/swarm_raw', exist_ok=True)
+code = '''`iec-st
+FUNCTION_BLOCK FB_Ecoat_Cathodic_Process
 VAR_INPUT
-    bSystemEnable           : BOOL;     // Master enable for the press system
-    bEmergencyStop          : BOOL;     // Active LOW Emergency Stop circuit
-    bSafetyGuardsClosed     : BOOL;     // Door switches and light curtains
-    rTargetSpeedCPM         : REAL;     // Desired operational speed (Cans Per Minute)
-    rResolverAngle          : REAL;     // Absolute press angle (0.0 to 359.9 degrees)
-    arrTonnageSensors       : ARRAY[1..8] OF REAL; // Analog tonnage from strain gauges (kN)
-    bVacuumScrapSensor      : BOOL;     // Optical/Vacuum sensor for scrap clearance
-    bCompoundLinerReady     : BOOL;     // Extrusion subsystem ready signal
-    bResetFaults            : BOOL;     // Operator fault reset pushbutton
+    bStartProcess : BOOL; (* Start the e-coat process *)
+    bEmergencyStop : BOOL; (* Emergency stop active *)
+    rTankLevel : REAL; (* Main ED tank level in mm *)
+    rBathTemperature : REAL; (* ED bath temperature in Celsius *)
+    rBathConductivity : REAL; (* Bath conductivity in uS/cm *)
+    rConveyorSpeed : REAL; (* Conveyor speed in m/min *)
+    rPartSurfaceArea : REAL; (* Estimated surface area of the current body in m2 *)
+    bPartInTank : BOOL; (* Proximity sensor for part presence in the ED tank *)
+    rUF1_PermeateFlow : REAL; (* Ultrafiltration 1 flow rate L/min *)
+    rUF2_PermeateFlow : REAL; (* Ultrafiltration 2 flow rate L/min *)
+    bRO_RinseActive : BOOL; (* Reverse Osmosis rinse zone active flag *)
 END_VAR
 
 VAR_OUTPUT
-    bPressClutchEngage      : BOOL;     // Output to main press clutch solenoid
-    bPressBrakeEngage       : BOOL;     // Output to main press brake solenoid
-    bVacuumValveControl     : BOOL;     // Output to scrap removal vacuum blast
-    arrLinerNozzleTriggers  : ARRAY[1..8] OF BOOL; // High-speed outputs to extrusion nozzles
-    arrTonnageAlarms        : ARRAY[1..8] OF BOOL; // Over-tonnage indicators per lane
-    rTotalCalculatedTonnage : REAL;     // Summed instantaneous tonnage
-    bSystemFaulted          : BOOL;     // General fault flag
-    iActiveFaultCode        : INT;      // Diagnostic fault code
-    rCurrentCPM             : REAL;     // Calculated actual machine speed
+    bRectifierEnable : BOOL; (* Enable rectifier for voltage application *)
+    rRectifierVoltageTarget : REAL; (* Voltage setpoint for the rectifier *)
+    rRectifierCurrentLimit : REAL; (* Current limit based on surface area *)
+    bUF1_PumpEnable : BOOL; (* Enable Ultrafiltration pump 1 *)
+    bUF2_PumpEnable : BOOL; (* Enable Ultrafiltration pump 2 *)
+    bRO_ZoneIsolationValve : BOOL; (* Valve to isolate RO rinse zone *)
+    bChillerEnable : BOOL; (* Enable bath chiller *)
+    bHeaterEnable : BOOL; (* Enable bath heater *)
+    iProcessState : INT; (* Current state of the electrodeposition process *)
+    bAlarmActive : BOOL; (* General alarm flag *)
+    sAlarmMessage : STRING(80); (* Detailed alarm message *)
 END_VAR
 
 VAR
-    iLaneIndex              : INT;
-    rMaxTonnageLimit        : ARRAY[1..8] OF REAL := [45.5, 45.5, 45.5, 45.5, 45.5, 45.5, 45.5, 45.5]; 
-    rMinTonnageLimit        : ARRAY[1..8] OF REAL := [30.0, 30.0, 30.0, 30.0, 30.0, 30.0, 30.0, 30.0];
+    rVoltageRampRate : REAL := 15.0; (* V/s ramp rate *)
+    rMaxVoltage : REAL := 350.0; (* Maximum coating voltage *)
+    rTargetCoatingVoltage : REAL;
+    rCurrentVoltage : REAL := 0.0;
     
-    // Timing and Angle Windows
-    rLinerStartAngle        : REAL := 110.5;
-    rLinerEndAngle          : REAL := 145.0;
-    rVacuumStartAngle       : REAL := 220.0;
-    rVacuumEndAngle         : REAL := 310.0;
-    rTonnageWindowStart     : REAL := 175.0;
-    rTonnageWindowEnd       : REAL := 185.0;
+    tProcessTimer : TON;
+    tDwellTimer : TON;
     
-    bInternalFaultActive    : BOOL;
-    bTonnageSampleTaken     : BOOL;
-    rPreviousAngle          : REAL;
+    (* State Machine Constants *)
+    STATE_IDLE : INT := 0;
+    STATE_PRE_CHECK : INT := 10;
+    STATE_PART_ENTRY : INT := 20;
+    STATE_VOLTAGE_RAMP_UP : INT := 30;
+    STATE_COATING_DWELL : INT := 40;
+    STATE_VOLTAGE_RAMP_DOWN : INT := 50;
+    STATE_PART_EXIT : INT := 60;
+    STATE_FAULT : INT := 99;
     
-    // Speed calculation variables
-    tScanCycleTime          : TIME := T#5MS; // Assumed PLC scan time
-    rDeltaAngle             : REAL;
+    rTempSetpoint : REAL := 28.0; (* 28 Celsius target *)
+    rTempHysteresis : REAL := 1.0;
 END_VAR
 
-// =============================================================================
-// SAFETY AND ENABLE LOGIC
-// =============================================================================
-IF NOT bEmergencyStop OR NOT bSafetyGuardsClosed THEN
-    bPressClutchEngage := FALSE;
-    bPressBrakeEngage := TRUE;
-    bVacuumValveControl := FALSE;
-    bSystemFaulted := TRUE;
-    bInternalFaultActive := TRUE;
-    
-    IF NOT bEmergencyStop THEN
-        iActiveFaultCode := 9001; // E-Stop Activated
-    ELSE
-        iActiveFaultCode := 9002; // Safety Guard Open
-    END_IF;
-    
-    FOR iLaneIndex := 1 TO 8 DO
-        arrLinerNozzleTriggers[iLaneIndex] := FALSE;
-    END_FOR;
-    RETURN;
+(* E-Coat Control Logic *)
+
+IF bEmergencyStop THEN
+    iProcessState := STATE_FAULT;
+    sAlarmMessage := 'EMERGENCY STOP TRIGGERED';
 END_IF;
 
-// Fault Reset Handling
-IF bResetFaults AND bInternalFaultActive THEN
-    bInternalFaultActive := FALSE;
-    iActiveFaultCode := 0;
-    FOR iLaneIndex := 1 TO 8 DO
-        arrTonnageAlarms[iLaneIndex] := FALSE;
-    END_FOR;
+(* Temperature Control *)
+IF rBathTemperature > (rTempSetpoint + rTempHysteresis) THEN
+    bChillerEnable := TRUE;
+    bHeaterEnable := FALSE;
+ELSIF rBathTemperature < (rTempSetpoint - rTempHysteresis) THEN
+    bChillerEnable := FALSE;
+    bHeaterEnable := TRUE;
+ELSE
+    bChillerEnable := FALSE;
+    bHeaterEnable := FALSE;
 END_IF;
 
-// System Not Enabled
-IF NOT bSystemEnable OR bInternalFaultActive THEN
-    bPressClutchEngage := FALSE;
-    bPressBrakeEngage := TRUE;
-    bSystemFaulted := bInternalFaultActive;
-    RETURN;
+(* Ultrafiltration Cascade Control *)
+IF iProcessState <> STATE_FAULT AND iProcessState <> STATE_IDLE THEN
+    (* Maintain permeate flow *)
+    bUF1_PumpEnable := (rUF1_PermeateFlow < 50.0); 
+    bUF2_PumpEnable := (rUF1_PermeateFlow > 45.0) AND (rUF2_PermeateFlow < 50.0);
+ELSE
+    bUF1_PumpEnable := FALSE;
+    bUF2_PumpEnable := FALSE;
 END_IF;
 
-// Normal Run Condition
-bPressClutchEngage := TRUE;
-bPressBrakeEngage := FALSE;
-bSystemFaulted := FALSE;
-
-// =============================================================================
-// SPEED CALCULATION (Cans Per Minute)
-// =============================================================================
-rDeltaAngle := rResolverAngle - rPreviousAngle;
-IF rDeltaAngle < 0.0 THEN
-    rDeltaAngle := rDeltaAngle + 360.0; // Handle rollover
+(* RO Rinse Zone Isolation *)
+IF bRO_RinseActive AND NOT bPartInTank THEN
+    bRO_ZoneIsolationValve := TRUE; (* Isolate to save RO water *)
+ELSE
+    bRO_ZoneIsolationValve := FALSE;
 END_IF;
-rPreviousAngle := rResolverAngle;
 
-// (Degrees / ms) * (1000 ms / 1 s) * (60 s / 1 min) / (360 Degrees / 1 rev)
-rCurrentCPM := (rDeltaAngle / 5.0) * 1000.0 * 60.0 / 360.0;
-
-// =============================================================================
-// PROGRESSIVE DIE PUNCH TONNAGE SIGNATURE MONITORING
-// =============================================================================
-rTotalCalculatedTonnage := 0.0;
-
-IF (rResolverAngle >= rTonnageWindowStart) AND (rResolverAngle <= rTonnageWindowEnd) THEN
-    bTonnageSampleTaken := TRUE;
-    FOR iLaneIndex := 1 TO 8 DO
-        rTotalCalculatedTonnage := rTotalCalculatedTonnage + arrTonnageSensors[iLaneIndex];
+(* Main State Machine *)
+CASE iProcessState OF
+    STATE_IDLE:
+        bRectifierEnable := FALSE;
+        rRectifierVoltageTarget := 0.0;
+        rCurrentVoltage := 0.0;
+        bAlarmActive := FALSE;
         
-        // Check for Hard Over-Tonnage (Die Crash) or Under-Tonnage (Missing Material)
-        IF arrTonnageSensors[iLaneIndex] > rMaxTonnageLimit[iLaneIndex] THEN
-            arrTonnageAlarms[iLaneIndex] := TRUE;
-            bInternalFaultActive := TRUE;
-            iActiveFaultCode := 2000 + iLaneIndex; // Over-Tonnage Fault per lane
-        ELSIF arrTonnageSensors[iLaneIndex] < rMinTonnageLimit[iLaneIndex] THEN
-            arrTonnageAlarms[iLaneIndex] := TRUE;
-            bInternalFaultActive := TRUE;
-            iActiveFaultCode := 3000 + iLaneIndex; // Under-Tonnage Fault per lane
+        IF bStartProcess AND NOT bEmergencyStop THEN
+            iProcessState := STATE_PRE_CHECK;
         END_IF;
-    END_FOR;
-ELSE
-    // Reset sampling flag once outside the window
-    IF rResolverAngle < rTonnageWindowStart THEN
-        bTonnageSampleTaken := FALSE;
-    END_IF;
-END_IF;
-
-// =============================================================================
-// COMPOUND LINER EXTRUSION NOZZLE INDEXING
-// =============================================================================
-IF bCompoundLinerReady AND (rResolverAngle >= rLinerStartAngle) AND (rResolverAngle <= rLinerEndAngle) THEN
-    FOR iLaneIndex := 1 TO 8 DO
-        arrLinerNozzleTriggers[iLaneIndex] := TRUE;
-    END_FOR;
-ELSE
-    FOR iLaneIndex := 1 TO 8 DO
-        arrLinerNozzleTriggers[iLaneIndex] := FALSE;
-    END_FOR;
-END_IF;
-
-IF (rResolverAngle >= rLinerStartAngle) AND NOT bCompoundLinerReady THEN
-    bInternalFaultActive := TRUE;
-    iActiveFaultCode := 4001; // Liner System Not Ready during cycle
-END_IF;
-
-// =============================================================================
-// VACUUM SCRAP REMOVAL & CLEARANCE VERIFICATION
-// =============================================================================
-IF (rResolverAngle >= rVacuumStartAngle) AND (rResolverAngle <= rVacuumEndAngle) THEN
-    bVacuumValveControl := TRUE;
-    
-    // Verify scrap clears at the end of the vacuum window
-    IF (rResolverAngle >= (rVacuumEndAngle - 10.0)) AND NOT bVacuumScrapSensor THEN
-        bInternalFaultActive := TRUE;
-        iActiveFaultCode := 5001; // Scrap Clearance Failure (Die Protection)
-    END_IF;
-ELSE
-    bVacuumValveControl := FALSE;
-END_IF;
+        
+    STATE_PRE_CHECK:
+        IF rTankLevel < 1500.0 THEN
+            iProcessState := STATE_FAULT;
+            sAlarmMessage := 'TANK LEVEL TOO LOW';
+        ELSIF rBathConductivity < 1000.0 OR rBathConductivity > 2000.0 THEN
+            iProcessState := STATE_FAULT;
+            sAlarmMessage := 'CONDUCTIVITY OUT OF RANGE';
+        ELSE
+            iProcessState := STATE_PART_ENTRY;
+        END_IF;
+        
+    STATE_PART_ENTRY:
+        IF bPartInTank THEN
+            (* Calculate target voltage based on conveyor speed and area *)
+            rTargetCoatingVoltage := rMaxVoltage * (rConveyorSpeed / 2.0);
+            IF rTargetCoatingVoltage > rMaxVoltage THEN
+                rTargetCoatingVoltage := rMaxVoltage;
+            END_IF;
+            
+            (* Set current limit based on rule of thumb: 3A per m2 *)
+            rRectifierCurrentLimit := rPartSurfaceArea * 3.0;
+            
+            iProcessState := STATE_VOLTAGE_RAMP_UP;
+        END_IF;
+        
+    STATE_VOLTAGE_RAMP_UP:
+        bRectifierEnable := TRUE;
+        (* In a real PLC this would be tied to a cycle time, simplifying for FB: *)
+        rCurrentVoltage := rCurrentVoltage + rVoltageRampRate;
+        
+        IF rCurrentVoltage >= rTargetCoatingVoltage THEN
+            rCurrentVoltage := rTargetCoatingVoltage;
+            tDwellTimer(IN := FALSE); (* Reset timer *)
+            iProcessState := STATE_COATING_DWELL;
+        END_IF;
+        rRectifierVoltageTarget := rCurrentVoltage;
+        
+    STATE_COATING_DWELL:
+        bRectifierEnable := TRUE;
+        rRectifierVoltageTarget := rTargetCoatingVoltage;
+        
+        tDwellTimer(IN := TRUE, PT := T#120S);
+        
+        IF tDwellTimer.Q THEN
+            tDwellTimer(IN := FALSE);
+            iProcessState := STATE_VOLTAGE_RAMP_DOWN;
+        END_IF;
+        
+    STATE_VOLTAGE_RAMP_DOWN:
+        rCurrentVoltage := rCurrentVoltage - (rVoltageRampRate * 2.0); (* Faster ramp down *)
+        IF rCurrentVoltage <= 0.0 THEN
+            rCurrentVoltage := 0.0;
+            bRectifierEnable := FALSE;
+            iProcessState := STATE_PART_EXIT;
+        END_IF;
+        rRectifierVoltageTarget := rCurrentVoltage;
+        
+    STATE_PART_EXIT:
+        IF NOT bPartInTank THEN
+            iProcessState := STATE_IDLE;
+        END_IF;
+        
+    STATE_FAULT:
+        bRectifierEnable := FALSE;
+        rRectifierVoltageTarget := 0.0;
+        bUF1_PumpEnable := FALSE;
+        bUF2_PumpEnable := FALSE;
+        bAlarmActive := TRUE;
+        
+        IF NOT bEmergencyStop AND bStartProcess THEN
+            (* Manual reset attempt *)
+            iProcessState := STATE_IDLE;
+        END_IF;
+        
+    ELSE
+        iProcessState := STATE_FAULT;
+        sAlarmMessage := 'INVALID STATE';
+END_CASE;
 
 END_FUNCTION_BLOCK
-```"""
-
-record = {
-    "messages": [
-        {"role": "user", "content": user_prompt},
-        {"role": "assistant", "content": assistant_response}
-    ]
-}
-
-os.makedirs('data/swarm_raw', exist_ok=True)
-os.makedirs('data', exist_ok=True)
-
-with open('data/synthetic_generation_v3_enterprise.jsonl', 'a', encoding='utf-8') as f:
-    f.write(json.dumps(record) + '\\n')
-    
-file_name = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
-with open(file_name, 'w', encoding='utf-8') as f:
+`'''
+record = {"messages": [{"role": "user", "content": "You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 data.\nYour specific domain is: Automated E-Coat (Electrodeposition) Line.\nTask: Invent a highly complex control scenario for this domain (e.g., cathodic electrodeposition voltage ramping, ultrafiltration permeate cascades, and reverse osmosis rinse zone isolation).\nWrite a deterministic Structured Text (ST) FUNCTION_BLOCK. Include complete VAR declarations and physical I/O."}, {"role": "assistant", "content": code}]}
+with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
     json.dump(record, f)
-
-print(f"Success: {file_name}")
+print("File generated successfully.")

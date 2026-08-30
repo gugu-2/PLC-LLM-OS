@@ -1,134 +1,185 @@
-import json, uuid, os
+import json
+import uuid
+import os
+
+prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 data.
+Your specific domain is: Utility-Scale Synchronous Condenser.
+Task: Invent a highly complex control scenario for this domain (e.g., stator hydrogen cooling cascades, Automatic Voltage Regulator (AVR) reactive power excitation limits, and flywheel kinetic inertia mapping).
+Write a deterministic Structured Text (ST) FUNCTION_BLOCK. Include complete VAR declarations and physical I/O."""
 
 st_code = """```iec-st
-FUNCTION_BLOCK FB_CBW_Controller
-(*
-    Continuous Batch Washer (CBW) Industrial Laundry Controller
-    Manages multi-compartment counterflow water cascading, 
-    variable chemical dosing integration, and hydraulic cake press.
-*)
+FUNCTION_BLOCK FB_SyncCondenser_MasterControl
+TITLE = 'Utility-Scale Synchronous Condenser Master Controller'
+VERSION : '2.1'
+AUTHOR : 'Lumina Elite Data Architect'
+
 VAR_INPUT
-    bEnable                 : BOOL; // System enable
-    bEStop                  : BOOL; // Emergency stop
-    rMainWaterTemp          : REAL; // Incoming water temperature (C)
-    rMainWaterPressure      : REAL; // Main water pressure (Bar)
-    arrCompartmentTemp      : ARRAY[1..12] OF REAL; // Temp per compartment
-    arrCompartmentPh        : ARRAY[1..12] OF REAL; // pH per compartment
-    arrLoadWeight           : ARRAY[1..12] OF REAL; // Load weight per compartment (kg)
-    bCakePressReady         : BOOL; // Press ready signal
-    rCakePressPressure      : REAL; // Current press pressure
+    Enable : BOOL; // System Master Enable
+    Grid_Voltage_pu : REAL; // Grid voltage in per-unit (0.0 to 1.2)
+    Grid_Frequency_Hz : REAL; // Grid frequency in Hz
+    ActivePower_MW : REAL; // Active power in MW (losses)
+    ReactivePower_MVAR : REAL; // Reactive power in MVAR
+    
+    // Hydrogen Cooling System
+    H2_Pressure_kPa : REAL; // Hydrogen pressure in kPa
+    H2_Purity_Pct : REAL; // Hydrogen purity percentage
+    Stator_Temp_C : REAL; // Stator winding temperature
+    CoolingWater_Flow_Lps : REAL; // Primary cooling water flow
+    
+    // Flywheel & Inertia
+    Rotor_Speed_RPM : REAL; // Current rotor speed
+    Vibration_mm_s : REAL; // Shaft vibration level
+    
+    // AVR & Excitation
+    Excitation_Current_A : REAL; // Field current
+    Exciter_Temp_C : REAL; // Exciter temperature
+    AVR_Setpoint_pu : REAL; // AVR voltage setpoint
 END_VAR
 
 VAR_OUTPUT
-    bSystemReady            : BOOL; // System ready for next batch
-    arrHeaterValves         : ARRAY[1..12] OF BOOL; // Steam valves for heating
-    arrWaterTransfer        : ARRAY[1..11] OF BOOL; // Transfer pumps/valves between compartments
-    arrChemicalDoseValves   : ARRAY[1..4] OF BOOL; // Alkali, Detergent, Bleach, Sour
-    rChemicalDoseRate       : ARRAY[1..4] OF REAL; // Dose rates (ml/min)
-    bCakePressStart         : BOOL; // Start press cycle
-    nActiveAlarms           : INT; // Number of active alarms
+    System_Ready : BOOL;
+    System_Fault : BOOL;
+    
+    // AVR Control
+    Excitation_Target_A : REAL; // Calculated field current target
+    AVR_OEL_Active : BOOL; // Over-Excitation Limit active
+    AVR_UEL_Active : BOOL; // Under-Excitation Limit active
+    
+    // Cooling Control
+    H2_Makeup_Valve_Open : BOOL; // Hydrogen makeup valve
+    Water_Pump_Speed_Pct : REAL; // Cooling water pump VFD command
+    
+    // Diagnostics
+    Inertial_Response_MWs : REAL; // Calculated kinetic energy available
+    Fault_Code : INT;
 END_VAR
 
 VAR
-    i                       : INT;
-    rTargetTemp             : ARRAY[1..12] OF REAL := [30.0, 40.0, 50.0, 60.0, 70.0, 75.0, 75.0, 65.0, 50.0, 40.0, 30.0, 25.0];
-    rTargetPh               : ARRAY[1..12] OF REAL := [7.0, 8.5, 9.5, 10.5, 11.0, 11.0, 10.5, 9.0, 8.0, 7.0, 6.0, 5.5];
-    tStateTimer             : TON;
-    nState                  : INT := 0; // 0: Idle, 1: Fill, 2: Wash/Dose, 3: Transfer, 4: Press
-    bAlarmState             : BOOL;
+    // Internal States
+    State_Machine : INT; // 0=Off, 1=Startup, 2=Sync, 3=Run, 4=Fault
+    Timer_Startup : TON;
+    Timer_Cooling : TON;
+    
+    // AVR Constants
+    K_p_AVR : REAL := 2.5;
+    K_i_AVR : REAL := 0.5;
+    Error_Int : REAL; // Integral accumulator
+    OEL_Threshold_A : REAL := 3500.0;
+    UEL_Threshold_A : REAL := -1200.0;
+    
+    // Cooling Constants
+    H2_Min_Pressure : REAL := 300.0; // kPa
+    H2_Min_Purity : REAL := 95.0; // %
+    Stator_Max_Temp : REAL := 120.0; // C
+    
+    // Inertia Constants
+    J_Flywheel : REAL := 45000.0; // kg*m^2
+    Omega_Nominal : REAL := 377.0; // rad/s for 60Hz
 END_VAR
 
-// Main Logic
-IF bEStop THEN
-    nState := 0;
-    bSystemReady := FALSE;
-    bCakePressStart := FALSE;
-    FOR i := 1 TO 12 DO
-        arrHeaterValves[i] := FALSE;
-        IF i < 12 THEN arrWaterTransfer[i] := FALSE; END_IF
-    END_FOR
-    FOR i := 1 TO 4 DO
-        arrChemicalDoseValves[i] := FALSE;
-        rChemicalDoseRate[i] := 0.0;
-    END_FOR
-    RETURN;
+// ====================================================================
+// SYNCHRONOUS CONDENSER CONTROL LOGIC
+// ====================================================================
+
+// Fault Detection
+System_Fault := FALSE;
+Fault_Code := 0;
+
+IF H2_Purity_Pct < H2_Min_Purity THEN
+    System_Fault := TRUE;
+    Fault_Code := 101; // Hydrogen purity critical
 END_IF;
 
-IF bEnable THEN
-    CASE nState OF
-        0: // Idle
-            bSystemReady := TRUE;
-            IF rMainWaterPressure > 2.0 AND bCakePressReady THEN
-                nState := 1;
-            END_IF;
-            
-        1: // Temp Control & Counterflow Water Cascade
-            bSystemReady := FALSE;
-            FOR i := 1 TO 12 DO
-                // Bang-bang temp control with hysteresis
-                IF arrCompartmentTemp[i] < (rTargetTemp[i] - 2.0) THEN
-                    arrHeaterValves[i] := TRUE;
-                ELSIF arrCompartmentTemp[i] >= rTargetTemp[i] THEN
-                    arrHeaterValves[i] := FALSE;
-                END_IF;
-            END_FOR;
-            // Activate cascading pumps
-            FOR i := 2 TO 12 DO
-                arrWaterTransfer[i-1] := TRUE;
-            END_FOR;
-            
-            tStateTimer(IN:=TRUE, PT:=T#60S);
-            IF tStateTimer.Q THEN
-                tStateTimer(IN:=FALSE);
-                nState := 2;
-            END_IF;
-            
-        2: // Chemical Dosing based on pH and weight
-            FOR i := 1 TO 4 DO
-                arrChemicalDoseValves[i] := TRUE;
-                // Calculate rate based on load weight in primary wash (e.g. comp 4)
-                rChemicalDoseRate[i] := arrLoadWeight[4] * 0.5; 
-            END_FOR;
-            
-            tStateTimer(IN:=TRUE, PT:=T#120S);
-            IF tStateTimer.Q THEN
-                tStateTimer(IN:=FALSE);
-                FOR i := 1 TO 4 DO
-                    arrChemicalDoseValves[i] := FALSE;
-                    rChemicalDoseRate[i] := 0.0;
-                END_FOR;
-                nState := 3;
-            END_IF;
-            
-        3: // Load Transfer
-            // Simulated load transfer delay
-            tStateTimer(IN:=TRUE, PT:=T#30S);
-            IF tStateTimer.Q THEN
-                tStateTimer(IN:=FALSE);
-                nState := 4;
-            END_IF;
-            
-        4: // Cake Press integration
-            IF bCakePressReady THEN
-                bCakePressStart := TRUE;
-                IF rCakePressPressure >= 40.0 THEN // Max pressure reached
-                    bCakePressStart := FALSE;
-                    nState := 0; // Return to idle
-                END_IF;
-            END_IF;
-    END_CASE;
-ELSE
-    bSystemReady := FALSE;
-    nState := 0;
+IF Stator_Temp_C > Stator_Max_Temp THEN
+    System_Fault := TRUE;
+    Fault_Code := 102; // Stator over-temperature
 END_IF;
+
+IF Vibration_mm_s > 15.0 THEN
+    System_Fault := TRUE;
+    Fault_Code := 103; // High vibration
+END_IF;
+
+// Hydrogen Cooling Cascade
+IF H2_Pressure_kPa < H2_Min_Pressure AND NOT System_Fault THEN
+    H2_Makeup_Valve_Open := TRUE;
+ELSE
+    H2_Makeup_Valve_Open := FALSE;
+END_IF;
+
+// Dynamic Cooling Water Control based on Stator Temperature
+IF Stator_Temp_C > 80.0 THEN
+    Water_Pump_Speed_Pct := 50.0 + (Stator_Temp_C - 80.0) * 1.25;
+    IF Water_Pump_Speed_Pct > 100.0 THEN Water_Pump_Speed_Pct := 100.0; END_IF;
+ELSE
+    Water_Pump_Speed_Pct := 30.0; // Base cooling flow
+END_IF;
+
+// Flywheel Kinetic Inertia Mapping
+// KE = 0.5 * J * w^2
+Inertial_Response_MWs := 0.5 * J_Flywheel * (Rotor_Speed_RPM * 0.104719755) * (Rotor_Speed_RPM * 0.104719755) / 1000000.0;
+
+// Automatic Voltage Regulator (AVR) with Limits
+IF Enable AND NOT System_Fault THEN
+    System_Ready := TRUE;
+    
+    // PI Control for Voltage
+    VAR
+        V_Error : REAL;
+        P_Term : REAL;
+    END_VAR
+    
+    V_Error := AVR_Setpoint_pu - Grid_Voltage_pu;
+    P_Term := K_p_AVR * V_Error;
+    Error_Int := Error_Int + (K_i_AVR * V_Error * 0.1); // Assuming 100ms task cycle
+    
+    Excitation_Target_A := P_Term + Error_Int;
+    
+    // Over-Excitation Limit (OEL)
+    IF Excitation_Target_A > OEL_Threshold_A THEN
+        Excitation_Target_A := OEL_Threshold_A;
+        AVR_OEL_Active := TRUE;
+        // Anti-windup
+        Error_Int := Error_Int - (K_i_AVR * V_Error * 0.1);
+    ELSE
+        AVR_OEL_Active := FALSE;
+    END_IF;
+    
+    // Under-Excitation Limit (UEL)
+    IF Excitation_Target_A < UEL_Threshold_A THEN
+        Excitation_Target_A := UEL_Threshold_A;
+        AVR_UEL_Active := TRUE;
+        // Anti-windup
+        Error_Int := Error_Int - (K_i_AVR * V_Error * 0.1);
+    ELSE
+        AVR_UEL_Active := FALSE;
+    END_IF;
+
+ELSE
+    System_Ready := FALSE;
+    Excitation_Target_A := 0.0;
+    Error_Int := 0.0;
+    AVR_OEL_Active := FALSE;
+    AVR_UEL_Active := FALSE;
+    Water_Pump_Speed_Pct := 0.0;
+    H2_Makeup_Valve_Open := FALSE;
+END_IF;
+
 END_FUNCTION_BLOCK
 ```"""
 
-prompt = "Invent a highly complex control scenario for Continuous Batch Washer (CBW) Industrial Laundry."
+record = {'messages': [{'role': 'user', 'content': prompt}, {'role': 'assistant', 'content': st_code}]}
 
 os.makedirs('data/swarm_raw', exist_ok=True)
-record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": st_code}]}
-filename = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
-with open(filename, "w", encoding="utf-8") as f:
-    json.dump(record, f, indent=2)
-print(f"Saved to {filename}")
+os.makedirs('data', exist_ok=True)
+
+agent_id = uuid.uuid4().hex[:8]
+filename = f'data/swarm_raw/agent_{agent_id}.json'
+
+with open(filename, 'w', encoding='utf-8') as f:
+    json.dump(record, f)
+
+with open('data/synthetic_generation_v3_enterprise.jsonl', 'a', encoding='utf-8') as f:
+    f.write(json.dumps(record) + '\\n')
+    
+print('Success')

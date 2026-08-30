@@ -1,147 +1,210 @@
-import json, uuid, os
+import json
+import os
+import uuid
 
-prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 data.
-Your specific domain is: Concentrated Solar Power (CSP) Parabolic Trough.
-Task: Invent a highly complex control scenario for this domain (e.g., Synthetic Oil Heat Transfer Fluid (HTF) mass flow balancing, precise solar tracking actuator kinematics, and steam generator thermal cascades).
-Write a deterministic Structured Text (ST) FUNCTION_BLOCK. Include complete VAR declarations and physical I/O."""
+prompt = "Invent a highly complex control scenario for a Laser Tube Cutting Machine, including chuck rotary axis interpolation, capacitive height sensor dynamic tracking, and assist gas proportional valve loops. Write a deterministic Structured Text (ST) FUNCTION_BLOCK. Include complete VAR declarations and physical I/O."
 
-response = """```iec-st
-FUNCTION_BLOCK FB_CSP_Parabolic_Trough_Controller
-TITLE = 'Concentrated Solar Power (CSP) Parabolic Trough Advanced Controller'
-VERSION : '2.1'
-AUTHOR : 'Lumina AI Cloud Swarm'
+code = """FUNCTION_BLOCK FB_LaserTubeCutter_Core
+TITLE = 'Laser Tube Cutting Control Core'
+VERSION : '1.0'
 
 VAR_INPUT
-    rSunAzimuth_deg         : REAL;   // Current solar azimuth angle in degrees
-    rSunElevation_deg       : REAL;   // Current solar elevation angle in degrees
-    rDNI_W_m2               : REAL;   // Direct Normal Irradiance (W/m^2)
-    rWindSpeed_m_s          : REAL;   // Wind speed (m/s)
-    rInletTemp_HTF_C        : REAL;   // Inlet Heat Transfer Fluid temperature (Celsius)
-    rOutletTemp_HTF_C       : REAL;   // Outlet Heat Transfer Fluid temperature (Celsius)
-    rPressure_HTF_bar       : REAL;   // HTF system pressure (bar)
-    rFlowRate_HTF_kg_s      : REAL;   // Current HTF mass flow rate (kg/s)
-    bSystemEnable           : BOOL;   // Global system enable flag
-    bEmergencyStow          : BOOL;   // Emergency stow command (e.g., high wind, alarm)
-    rTargetOutletTemp_C     : REAL;   // Target HTF outlet temperature (Celsius)
+    bEnable : BOOL; // System enable
+    bStartCut : BOOL; // Start cutting sequence
+    rTargetPositionX : REAL; // Linear axis target (mm)
+    rTargetAngleC : REAL; // Rotary axis target (deg)
+    rFeedRate : REAL; // Cutting feed rate (mm/min)
+    rMaterialThickness : REAL; // Tube wall thickness (mm)
+    
+    // Sensor Inputs
+    rCapacitiveHeight : REAL; // Actual standoff distance from nozzle to tube (mm)
+    rGasPressureAct : REAL; // Actual assist gas pressure (bar)
+    rLaserPowerAct : REAL; // Actual laser power (W)
+    
+    // Safety & Limits
+    bChillerOk : BOOL;
+    bGasSupplyOk : BOOL;
+    bSafetyGuardsClosed : BOOL;
 END_VAR
 
 VAR_OUTPUT
-    rTargetTrackingAngle_deg: REAL;   // Target angle for the parabolic trough actuators
-    rTrackingSpeed_deg_s    : REAL;   // Kinematic speed for the actuator movement
-    rPumpSpeed_RPM          : REAL;   // HTF pump speed command (RPM)
-    rTargetFlowRate_kg_s    : REAL;   // Calculated optimal HTF mass flow rate
-    bValveBypass_Open       : BOOL;   // Steam generator bypass valve command
-    bTrackingActive         : BOOL;   // Indicates if active tracking is engaged
-    bStowed                 : BOOL;   // Indicates if trough is in safe stow position
-    wAlarmWord              : WORD;   // System alarms and diagnostics
+    bReady : BOOL;
+    bActive : BOOL;
+    bError : BOOL;
+    nErrorID : WORD;
+    
+    // Actuator Commands
+    rCmdVelocityX : REAL; // Linear axis command
+    rCmdVelocityC : REAL; // Rotary axis command
+    rCmdHeightZ : REAL; // Height control Z axis command
+    
+    // Laser & Gas Commands
+    rCmdLaserPower : REAL; // Commanded laser power (W)
+    bLaserEmissionOn : BOOL;
+    rCmdGasValve : REAL; // Proportional gas valve command (0-10V or 0-100%)
 END_VAR
 
 VAR
-    rTrackingError_deg      : REAL;   // Internal tracking error calculation
-    rTempError_C            : REAL;   // Internal temperature error
-    rTempErrorIntegral      : REAL;   // Integral part of temperature PID
-    rTempErrorDerivative    : REAL;   // Derivative part of temperature PID
-    rPrevTempError_C        : REAL;   // Previous temperature error for PID
-    rDeltaTime_s            : REAL := 0.1; // Execution cycle time (100ms)
+    // State Machine
+    eState : (INIT, IDLE, PIERCE, CUTTING, RETRACT, FAULT);
     
-    rKp_Flow                : REAL := 2.5;
-    rKi_Flow                : REAL := 0.05;
-    rKd_Flow                : REAL := 0.1;
+    // Height Control PID
+    rHeightSetpoint : REAL := 1.0; // 1mm standoff
+    rHeightError : REAL;
+    rHeightIntegral : REAL;
+    rHeightKp : REAL := 5.5;
+    rHeightKi : REAL := 0.2;
     
-    rMaxFlowRate_kg_s       : REAL := 150.0;
-    rMinFlowRate_kg_s       : REAL := 15.0;
-    rStowAngle_deg          : REAL := -90.0;
+    // Gas Control PID
+    rGasSetpoint : REAL;
+    rGasError : REAL;
+    rGasIntegral : REAL;
+    rGasKp : REAL := 2.0;
+    rGasKi : REAL := 0.5;
     
-    timerDefocus            : TON;    // Timer for temporary defocusing during high DNI transients
+    // Interpolation
+    rCurrentX : REAL;
+    rCurrentC : REAL;
+    rPathLength : REAL;
+    
+    // Timers
+    tPierceTimer : TON;
+    tSettleTimer : TON;
 END_VAR
 
-// Control Logic Implementation
-IF NOT bSystemEnable OR bEmergencyStow OR rWindSpeed_m_s > 15.0 THEN
-    // Safe mode / Emergency stow
-    bTrackingActive := FALSE;
-    rTargetTrackingAngle_deg := rStowAngle_deg;
-    rTrackingSpeed_deg_s := 2.0; // Fast movement to stow
-    rTargetFlowRate_kg_s := rMinFlowRate_kg_s;
-    bValveBypass_Open := TRUE;
+// Control Logic
+IF NOT bEnable OR NOT bSafetyGuardsClosed OR NOT bChillerOk OR NOT bGasSupplyOk THEN
+    eState := FAULT;
+    nErrorID := 16#1001;
+END_VAR;
+
+CASE eState OF
+    INIT:
+        bReady := FALSE;
+        bActive := FALSE;
+        bError := FALSE;
+        nErrorID := 0;
+        bLaserEmissionOn := FALSE;
+        rCmdVelocityX := 0.0;
+        rCmdVelocityC := 0.0;
+        rCmdHeightZ := 0.0;
+        rCmdLaserPower := 0.0;
+        rCmdGasValve := 0.0;
+        IF bEnable THEN
+            eState := IDLE;
+        END_IF;
+        
+    IDLE:
+        bReady := TRUE;
+        bActive := FALSE;
+        IF bStartCut THEN
+            bReady := FALSE;
+            bActive := TRUE;
+            eState := PIERCE;
+            tPierceTimer(IN := FALSE); // Reset timer
+        END_IF;
+        
+    PIERCE:
+        // Set piercing parameters
+        rHeightSetpoint := 2.5; // Higher standoff for piercing
+        rCmdLaserPower := 1500.0; // Piercing power
+        rGasSetpoint := 3.0; // Low pressure for piercing
+        
+        bLaserEmissionOn := TRUE;
+        
+        tPierceTimer(IN := TRUE, PT := T#500MS);
+        IF tPierceTimer.Q THEN
+            eState := CUTTING;
+        END_IF;
+        
+    CUTTING:
+        // Cutting parameters
+        rHeightSetpoint := 1.0; // Optimal cutting standoff
+        rCmdLaserPower := 3000.0; // Cutting power
+        rGasSetpoint := 12.0; // High pressure for cutting
+        
+        // Chuck and Linear Interpolation (Simplified Outline)
+        // Ensure constant surface speed considering rotary axis C and linear X
+        rPathLength := SQRT((rTargetPositionX - rCurrentX)*(rTargetPositionX - rCurrentX) + 
+                            (rTargetAngleC - rCurrentC)*(rTargetAngleC - rCurrentC)); // Simplified
+                            
+        IF rPathLength > 0.1 THEN
+            rCmdVelocityX := (rTargetPositionX - rCurrentX) / rPathLength * rFeedRate;
+            rCmdVelocityC := (rTargetAngleC - rCurrentC) / rPathLength * rFeedRate;
+        ELSE
+            rCmdVelocityX := 0.0;
+            rCmdVelocityC := 0.0;
+            eState := RETRACT;
+        END_IF;
+        
+    RETRACT:
+        bLaserEmissionOn := FALSE;
+        rCmdLaserPower := 0.0;
+        rGasSetpoint := 0.0;
+        rHeightSetpoint := 10.0; // Retract Z
+        
+        IF rCapacitiveHeight > 9.5 THEN
+            eState := IDLE;
+        END_IF;
+        
+    FAULT:
+        bError := TRUE;
+        bReady := FALSE;
+        bActive := FALSE;
+        bLaserEmissionOn := FALSE;
+        rCmdLaserPower := 0.0;
+        rCmdVelocityX := 0.0;
+        rCmdVelocityC := 0.0;
+        rCmdGasValve := 0.0;
+        rCmdHeightZ := 0.0;
+        
+        IF NOT bEnable THEN
+            bError := FALSE;
+            eState := INIT;
+        END_IF;
+END_CASE;
+
+// Capacitive Height Sensor Dynamic Tracking (PI Control)
+rHeightError := rHeightSetpoint - rCapacitiveHeight;
+IF bActive THEN
+    rHeightIntegral := rHeightIntegral + (rHeightError * 0.01); // Assuming 10ms cycle
+    rCmdHeightZ := (rHeightKp * rHeightError) + (rHeightKi * rHeightIntegral);
     
-    IF ABS(rTargetTrackingAngle_deg - rStowAngle_deg) < 1.0 THEN
-        bStowed := TRUE;
-    ELSE
-        bStowed := FALSE;
-    END_IF;
-    
-    // Reset PID
-    rTempErrorIntegral := 0.0;
-    rPrevTempError_C := 0.0;
-    
-    wAlarmWord := 16#0001; // Set stow alarm bit
-    
+    // Anti-windup
+    IF rCmdHeightZ > 100.0 THEN rCmdHeightZ := 100.0; rHeightIntegral := rHeightIntegral - (rHeightError * 0.01); END_IF;
+    IF rCmdHeightZ < -100.0 THEN rCmdHeightZ := -100.0; rHeightIntegral := rHeightIntegral - (rHeightError * 0.01); END_IF;
 ELSE
-    // Normal Operation Mode
-    bStowed := FALSE;
-    bValveBypass_Open := FALSE;
-    wAlarmWord := 16#0000;
-    
-    // 1. Solar Tracking Kinematics
-    IF rSunElevation_deg > 5.0 THEN
-        bTrackingActive := TRUE;
-        // Simplified incidence angle calculation for North-South aligned trough
-        rTargetTrackingAngle_deg := ATAN(TAN(rSunElevation_deg * 3.14159 / 180.0) / COS(rSunAzimuth_deg * 3.14159 / 180.0)) * 180.0 / 3.14159;
-        rTrackingSpeed_deg_s := 0.1; // Slow precise tracking
-    ELSE
-        // Sun below operational horizon
-        bTrackingActive := FALSE;
-        rTargetTrackingAngle_deg := rStowAngle_deg;
-        rTrackingSpeed_deg_s := 1.0;
-    END_IF;
-    
-    // 2. High DNI Defocusing Logic (Avoid HTF degradation)
-    timerDefocus(IN := (rDNI_W_m2 > 1100.0 AND rOutletTemp_HTF_C > 395.0), PT := T#10s);
-    IF timerDefocus.Q THEN
-        // Introduce artificial tracking error to shed thermal load
-        rTargetTrackingAngle_deg := rTargetTrackingAngle_deg + 3.0; 
-        wAlarmWord.1 := 1; // High thermal load warning bit
-    END_IF;
+    rHeightIntegral := 0.0;
+END_IF;
 
-    // 3. HTF Mass Flow Balancing (PID Control for Outlet Temperature)
-    rTempError_C := rOutletTemp_HTF_C - rTargetOutletTemp_C;
+// Assist Gas Proportional Valve Loop (PI Control)
+rGasError := rGasSetpoint - rGasPressureAct;
+IF bActive THEN
+    rGasIntegral := rGasIntegral + (rGasError * 0.01);
+    rCmdGasValve := (rGasKp * rGasError) + (rGasKi * rGasIntegral);
     
-    // Anti-windup for integral term
-    IF (rTargetFlowRate_kg_s < rMaxFlowRate_kg_s AND rTargetFlowRate_kg_s > rMinFlowRate_kg_s) THEN
-        rTempErrorIntegral := rTempErrorIntegral + (rTempError_C * rDeltaTime_s);
-    END_IF;
-    
-    rTempErrorDerivative := (rTempError_C - rPrevTempError_C) / rDeltaTime_s;
-    rPrevTempError_C := rTempError_C;
-    
-    // Calculate new target flow rate based on error (Inverted response: higher temp -> higher flow)
-    rTargetFlowRate_kg_s := (rKp_Flow * rTempError_C) + (rKi_Flow * rTempErrorIntegral) + (rKd_Flow * rTempErrorDerivative) + rFlowRate_HTF_kg_s;
-    
-    // Limit flow rate output
-    IF rTargetFlowRate_kg_s > rMaxFlowRate_kg_s THEN
-        rTargetFlowRate_kg_s := rMaxFlowRate_kg_s;
-    ELSIF rTargetFlowRate_kg_s < rMinFlowRate_kg_s THEN
-        rTargetFlowRate_kg_s := rMinFlowRate_kg_s;
-    END_IF;
-    
-    // Convert target mass flow to Pump RPM (assuming linear correlation for simulation)
-    rPumpSpeed_RPM := (rTargetFlowRate_kg_s / rMaxFlowRate_kg_s) * 3000.0;
-    
-    // Thermal cascade steam generator checks
-    IF rInletTemp_HTF_C < 250.0 THEN
-        // If return temp from steam generator is too low, slow down flow slightly to maintain boiler pressure
-        rTargetFlowRate_kg_s := rTargetFlowRate_kg_s * 0.9;
-        wAlarmWord.2 := 1; // Cold return warning
-    END_IF;
-
+    // Anti-windup limits 0-100%
+    IF rCmdGasValve > 100.0 THEN rCmdGasValve := 100.0; rGasIntegral := rGasIntegral - (rGasError * 0.01); END_IF;
+    IF rCmdGasValve < 0.0 THEN rCmdGasValve := 0.0; rGasIntegral := 0.0; END_IF;
+ELSE
+    rGasIntegral := 0.0;
 END_IF;
 
 END_FUNCTION_BLOCK
-```"""
+"""
 
-os.makedirs('data/swarm_raw', exist_ok=True)
-record = {'messages': [{'role': 'user', 'content': prompt}, {'role': 'assistant', 'content': response}]}
-file_path = f'data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json'
-with open(file_path, 'w', encoding='utf-8') as f:
-    json.dump(record, f, indent=2)
-print(f'Wrote to {file_path}')
+msg = {
+    "messages": [
+        {"role": "user", "content": prompt},
+        {"role": "assistant", "content": f"```iec-st\n{code}\n```"}
+    ]
+}
+
+os.makedirs("c:/Users/majip/Downloads/LLM REASEARCH/data", exist_ok=True)
+with open("c:/Users/majip/Downloads/LLM REASEARCH/data/synthetic_generation_v3_enterprise.jsonl", "a", encoding="utf-8") as f:
+    f.write(json.dumps(msg) + "\n")
+
+os.makedirs("c:/Users/majip/Downloads/LLM REASEARCH/data/swarm_raw", exist_ok=True)
+file_id = uuid.uuid4().hex[:8]
+with open(f"c:/Users/majip/Downloads/LLM REASEARCH/data/swarm_raw/agent_{file_id}.json", "w", encoding="utf-8") as f:
+    json.dump(msg, f)

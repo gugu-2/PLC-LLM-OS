@@ -1,242 +1,201 @@
-import os, json, uuid
-os.makedirs('data/swarm_raw', exist_ok=True)
-os.makedirs('data', exist_ok=True)
+import os
+import json
+import uuid
+
+os.makedirs("data/swarm_raw", exist_ok=True)
 
 prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 data.
-Your specific domain is: Industrial Coffee Roaster.
-Task: Invent a highly complex control scenario for this domain (e.g., PID drum temperature roast profiling, chaff cyclone extraction pressure, and emergency water quenching cascades).
+Your specific domain is: Textile Ring Spinning Frame.
+Task: Invent a highly complex control scenario for this domain (e.g., spindle RPM acceleration curves, traveler ring rail traverse profiles, and yarn breakage optical detection).
 Write a deterministic Structured Text (ST) FUNCTION_BLOCK. Include complete VAR declarations and physical I/O."""
 
-st_code = """```iec-st
-FUNCTION_BLOCK FB_CoffeeRoasterControl
+code = """```iec-st
+FUNCTION_BLOCK FB_RingSpinningFrame_Control
+TITLE = 'Textile Ring Spinning Frame Master Control'
+VERSION : '2.1'
+
+(* 
+   This function block controls the highly complex kinematics and state logic 
+   of a Textile Ring Spinning Frame, including spindle RPM acceleration profiles, 
+   traveler ring rail traverse sequencing, and high-speed optical yarn breakage detection.
+*)
+
 VAR_INPUT
-    bEnable : BOOL; // System enable
-    bStartRoast : BOOL; // Start roasting cycle
-    bEStop : BOOL; // Emergency stop
-    rDrumTempActual : REAL; // Actual drum temperature (C)
-    rExhaustTempActual : REAL; // Actual exhaust temperature (C)
-    rCyclonePressure : REAL; // Cyclone extraction pressure (mbar)
-    rBeanTempActual : REAL; // Actual bean temperature (C)
-    iRecipeID : INT; // Current recipe profile ID
-    rGasPressure : REAL; // Inlet gas pressure (mbar)
+    bEnable : BOOL; (* System Enable *)
+    bStart : BOOL; (* Start Production *)
+    bStop : BOOL; (* Normal Stop *)
+    bEmergencyStop : BOOL; (* E-Stop *)
+    rTargetYarnCount : REAL; (* Ne or Nm value for target yarn count *)
+    rTargetSpindleSpeed : REAL; (* RPM, typically 15000 to 25000 *)
+    rDraftingRatio : REAL; (* Ratio between front and back rollers *)
+    arrOpticalSensors : ARRAY[1..1000] OF BOOL; (* High-speed optical yarn break sensors *)
+    rTraverseStrokeLength : REAL; (* mm *)
+    rCopBuildParameters : ARRAY[1..10] OF REAL; (* Complex cam profiles for cop building *)
 END_VAR
 
 VAR_OUTPUT
-    bBurnerIgnition : BOOL; // Command to ignite burner
-    rGasValvePos : REAL; // Gas proportional valve (0-100%)
-    rDrumMotorSpeed : REAL; // Drum motor VFD speed (0-100%)
-    rExhaustFanSpeed : REAL; // Exhaust fan VFD speed (0-100%)
-    bCoolingTrayFan : BOOL; // Cooling tray fan
-    bCoolingTrayStirrer : BOOL; // Cooling tray stirrer
-    bQuenchValve : BOOL; // Emergency water quench valve
-    bChaffRotaryValve : BOOL; // Chaff collection rotary valve
-    eSystemState : INT; // Current state of the roasting system
-    bAlarmActive : BOOL; // Any alarm active
+    bRunning : BOOL; (* System is active and producing *)
+    bFault : BOOL; (* General fault indicator *)
+    iFaultCode : INT; (* Specific error code *)
+    rCurrentSpindleSpeed : REAL; (* Actual Spindle RPM *)
+    rCurrentRingRailPos : REAL; (* Actual Ring Rail Position (mm) *)
+    iBrokenYarnCount : INT; (* Number of active yarn breaks *)
+    arrBrokenSpindles : ARRAY[1..1000] OF BOOL; (* Flag array for broken spindles *)
+    rFrontRollerSpeed : REAL; (* RPM *)
 END_VAR
 
 VAR
-    // PID for Drum Temperature
-    PID_DrumTemp : PID;
-    rDrumTempSetpoint : REAL;
+    (* State Machine *)
+    iState : INT; (* 0=Init, 1=Idle, 2=Acceleration, 3=Production, 4=Deceleration, 5=Fault *)
     
-    // PID for Cyclone Pressure
-    PID_Cyclone : PID;
-    rCyclonePressureSP : REAL := -12.5; // Target mbar
+    (* Kinematics and Timers *)
+    tAccelTimer : TON;
+    tTraverseCycle : TON;
+    rAccelRampRate : REAL := 150.0; (* RPM/s *)
+    rTraverseSpeed : REAL;
+    bTraverseDirectionUp : BOOL;
     
-    // Timers
-    TMR_RoastDuration : TON;
-    TMR_Ignition : TON;
-    TMR_QuenchDuration : TON;
-    TMR_CoolingDuration : TON;
+    (* Spindle Drive *)
+    rInternalSpindleSetp : REAL;
     
-    // Internal States
-    STATE_IDLE : INT := 0;
-    STATE_PURGE : INT := 10;
-    STATE_IGNITION : INT := 20;
-    STATE_PREHEAT : INT := 30;
-    STATE_CHARGE : INT := 40;
-    STATE_DRYING : INT := 50;
-    STATE_MAILLARD : INT := 60;
-    STATE_FIRST_CRACK : INT := 70;
-    STATE_DEVELOPMENT : INT := 80;
-    STATE_DROP : INT := 90;
-    STATE_COOLING : INT := 100;
-    STATE_QUENCH : INT := 999;
+    (* Cop Building Logic *)
+    rBaseLiftPosition : REAL;
+    rChaseLength : REAL;
+    iChaseCycleCounter : DINT;
     
-    iCurrentState : INT := 0;
-    
-    // Alarms and Limits
-    rMaxDrumTemp : REAL := 280.0;
-    rMaxBeanTemp : REAL := 250.0;
-    rMinGasPressure : REAL := 20.0;
-    
-    bOverTempAlarm : BOOL;
-    bGasPressureAlarm : BOOL;
+    (* Loop Counters *)
+    iIndex : INT;
 END_VAR
 
-// Alarm Monitoring
-bOverTempAlarm := (rDrumTempActual > rMaxDrumTemp) OR (rBeanTempActual > rMaxBeanTemp);
-bGasPressureAlarm := rGasPressure < rMinGasPressure;
-bAlarmActive := bOverTempAlarm OR bGasPressureAlarm OR bEStop;
+(* Implementation *)
 
-IF bAlarmActive OR bEStop THEN
-    iCurrentState := STATE_QUENCH;
+(* Emergency Stop Handling *)
+IF bEmergencyStop THEN
+    iState := 5;
+    iFaultCode := 999;
+    bRunning := FALSE;
+    rInternalSpindleSetp := 0.0;
+    rCurrentSpindleSpeed := 0.0;
+    rCurrentRingRailPos := 0.0;
+    RETURN;
 END_IF;
 
-// State Machine
-CASE iCurrentState OF
-    STATE_IDLE:
-        bBurnerIgnition := FALSE;
-        rGasValvePos := 0.0;
-        rDrumMotorSpeed := 0.0;
-        rExhaustFanSpeed := 0.0;
-        bCoolingTrayFan := FALSE;
-        bCoolingTrayStirrer := FALSE;
-        bQuenchValve := FALSE;
-        bChaffRotaryValve := FALSE;
-        
-        IF bEnable AND bStartRoast AND NOT bAlarmActive THEN
-            iCurrentState := STATE_PURGE;
-            TMR_Ignition(IN := FALSE);
+(* Main State Machine *)
+CASE iState OF
+    0: (* Initialization *)
+        IF bEnable THEN
+            iState := 1;
+            bFault := FALSE;
+            iFaultCode := 0;
+            iBrokenYarnCount := 0;
+            rCurrentSpindleSpeed := 0.0;
+            rCurrentRingRailPos := 0.0;
+            rInternalSpindleSetp := 0.0;
+            rBaseLiftPosition := 0.0;
+            rChaseLength := rCopBuildParameters[1];
         END_IF;
         
-    STATE_PURGE:
-        rExhaustFanSpeed := 100.0;
-        rDrumMotorSpeed := 50.0;
-        TMR_Ignition(IN := TRUE, PT := T#30s);
-        
-        IF TMR_Ignition.Q THEN
-            iCurrentState := STATE_IGNITION;
-            TMR_Ignition(IN := FALSE);
+    1: (* Idle *)
+        bRunning := FALSE;
+        IF bStart AND NOT bStop AND NOT bFault THEN
+            iState := 2;
         END_IF;
         
-    STATE_IGNITION:
-        bBurnerIgnition := TRUE;
-        rGasValvePos := 20.0; // Low fire
-        TMR_Ignition(IN := TRUE, PT := T#5s);
+    2: (* Acceleration Profile *)
+        bRunning := TRUE;
+        (* Execute Non-linear Spindle RPM Acceleration Curve *)
+        rInternalSpindleSetp := rInternalSpindleSetp + (rAccelRampRate * 0.01); (* Assuming 10ms cycle *)
         
-        IF TMR_Ignition.Q THEN
-            iCurrentState := STATE_PREHEAT;
+        IF rInternalSpindleSetp >= rTargetSpindleSpeed THEN
+            rInternalSpindleSetp := rTargetSpindleSpeed;
+            iState := 3; (* Transition to production *)
         END_IF;
         
-    STATE_PREHEAT:
-        // Ramp to target charge temp based on recipe
-        rDrumTempSetpoint := 200.0; // Example static, would be recipe driven
-        PID_DrumTemp(ACT := rDrumTempActual, SET := rDrumTempSetpoint, KP := 2.5, TN := T#10s, TV := T#2s);
-        rGasValvePos := PID_DrumTemp.OUT;
+        rCurrentSpindleSpeed := rInternalSpindleSetp;
         
-        IF rDrumTempActual >= 195.0 THEN
-            iCurrentState := STATE_CHARGE;
+        IF bStop THEN
+            iState := 4;
         END_IF;
         
-    STATE_CHARGE:
-        // Wait for beans to drop into drum
-        // Simulating charge phase
-        rGasValvePos := 0.0; // Cut gas briefly
-        iCurrentState := STATE_DRYING;
-        TMR_RoastDuration(IN := FALSE);
+    3: (* Steady State Production *)
+        bRunning := TRUE;
+        rCurrentSpindleSpeed := rTargetSpindleSpeed;
         
-    STATE_DRYING:
-        TMR_RoastDuration(IN := TRUE, PT := T#20m);
-        rDrumTempSetpoint := 150.0;
-        PID_DrumTemp(ACT := rBeanTempActual, SET := rDrumTempSetpoint, KP := 1.8, TN := T#15s);
-        rGasValvePos := PID_DrumTemp.OUT;
-        
-        IF rBeanTempActual >= 150.0 THEN
-            iCurrentState := STATE_MAILLARD;
-        END_IF;
-        
-    STATE_MAILLARD:
-        rDrumTempSetpoint := 200.0;
-        PID_DrumTemp(ACT := rBeanTempActual, SET := rDrumTempSetpoint, KP := 2.0, TN := T#12s);
-        rGasValvePos := PID_DrumTemp.OUT;
-        
-        IF rBeanTempActual >= 195.0 THEN
-            iCurrentState := STATE_FIRST_CRACK;
-        END_IF;
-        
-    STATE_FIRST_CRACK:
-        // Modulate heat to avoid crashing the roast
-        rGasValvePos := rGasValvePos * 0.8;
-        IF rBeanTempActual >= 205.0 THEN
-            iCurrentState := STATE_DEVELOPMENT;
-        END_IF;
-        
-    STATE_DEVELOPMENT:
-        // Final development phase
-        rGasValvePos := 15.0; // Low fire
-        IF rBeanTempActual >= 215.0 THEN // Drop temp
-            iCurrentState := STATE_DROP;
-        END_IF;
-        
-    STATE_DROP:
-        bBurnerIgnition := FALSE;
-        rGasValvePos := 0.0;
-        rDrumMotorSpeed := 100.0; // Eject beans
-        bCoolingTrayFan := TRUE;
-        bCoolingTrayStirrer := TRUE;
-        iCurrentState := STATE_COOLING;
-        TMR_CoolingDuration(IN := FALSE);
-        
-    STATE_COOLING:
-        TMR_CoolingDuration(IN := TRUE, PT := T#4m);
-        IF TMR_CoolingDuration.Q THEN
-            bCoolingTrayFan := FALSE;
-            bCoolingTrayStirrer := FALSE;
-            rDrumMotorSpeed := 0.0;
-            rExhaustFanSpeed := 0.0;
-            iCurrentState := STATE_IDLE;
-        END_IF;
-        
-    STATE_QUENCH:
-        // Emergency cascade
-        bBurnerIgnition := FALSE;
-        rGasValvePos := 0.0;
-        rExhaustFanSpeed := 100.0; // Full exhaust
-        rDrumMotorSpeed := 0.0;
-        
-        // If overtemp, activate quench valve
-        IF bOverTempAlarm THEN
-            bQuenchValve := TRUE;
-            TMR_QuenchDuration(IN := TRUE, PT := T#1m);
-            IF TMR_QuenchDuration.Q THEN
-                bQuenchValve := FALSE;
+        (* Complex Ring Rail Traverse Profile (Cop Building) *)
+        IF bTraverseDirectionUp THEN
+            rCurrentRingRailPos := rCurrentRingRailPos + rTraverseSpeed * 0.01;
+            IF rCurrentRingRailPos >= (rBaseLiftPosition + rChaseLength) THEN
+                bTraverseDirectionUp := FALSE;
+                rTraverseSpeed := rCopBuildParameters[3]; (* Fast down stroke *)
+            END_IF;
+        ELSE
+            rCurrentRingRailPos := rCurrentRingRailPos - rTraverseSpeed * 0.01;
+            IF rCurrentRingRailPos <= rBaseLiftPosition THEN
+                bTraverseDirectionUp := TRUE;
+                rTraverseSpeed := rCopBuildParameters[2]; (* Slow up stroke *)
+                (* Increment base lift for cop build *)
+                rBaseLiftPosition := rBaseLiftPosition + rCopBuildParameters[4]; 
+                iChaseCycleCounter := iChaseCycleCounter + 1;
             END_IF;
         END_IF;
         
-        IF NOT bAlarmActive AND NOT bEStop THEN
-            iCurrentState := STATE_IDLE;
+        (* Draft Roller Speed Sync *)
+        rFrontRollerSpeed := rCurrentSpindleSpeed / (rDraftingRatio * 3.14159);
+        
+        IF bStop THEN
+            iState := 4;
         END_IF;
+        
+    4: (* Deceleration Profile *)
+        bRunning := TRUE;
+        rInternalSpindleSetp := rInternalSpindleSetp - (rAccelRampRate * 0.02); (* Faster decel *)
+        IF rInternalSpindleSetp <= 0.0 THEN
+            rInternalSpindleSetp := 0.0;
+            bRunning := FALSE;
+            iState := 1;
+        END_IF;
+        rCurrentSpindleSpeed := rInternalSpindleSetp;
+        
+    5: (* Fault State *)
+        bRunning := FALSE;
+        rCurrentSpindleSpeed := 0.0;
+        IF NOT bFault THEN
+            iState := 1;
+        END_IF;
+        
 END_CASE;
 
-// Cyclone extraction pressure control (runs parallel to state machine)
-IF iCurrentState >= STATE_PURGE AND iCurrentState <= STATE_DROP THEN
-    PID_Cyclone(ACT := rCyclonePressure, SET := rCyclonePressureSP, KP := 1.0, TN := T#5s);
-    rExhaustFanSpeed := PID_Cyclone.OUT;
-    bChaffRotaryValve := TRUE; // Run rotary valve during roasting
-ELSE
-    bChaffRotaryValve := FALSE;
-END_IF;
+(* High-Speed Optical Yarn Breakage Detection Array Processing *)
+iBrokenYarnCount := 0;
+FOR iIndex := 1 TO 1000 DO
+    (* Sensor logic: TRUE means break detected *)
+    IF arrOpticalSensors[iIndex] THEN
+        arrBrokenSpindles[iIndex] := TRUE;
+        iBrokenYarnCount := iBrokenYarnCount + 1;
+    ELSE
+        arrBrokenSpindles[iIndex] := FALSE;
+    END_IF;
+END_FOR;
 
-eSystemState := iCurrentState;
+(* Fault Triggers *)
+IF iBrokenYarnCount > 50 THEN
+    bFault := TRUE;
+    iFaultCode := 101; (* Too many yarn breaks, halt frame *)
+    iState := 4; (* Initiate controlled stop *)
+END_IF;
 
 END_FUNCTION_BLOCK
 ```"""
 
 record = {
-    'messages': [
-        {'role': 'user', 'content': prompt},
-        {'role': 'assistant', 'content': st_code}
+    "messages": [
+        {"role": "user", "content": prompt},
+        {"role": "assistant", "content": code}
     ]
 }
 
-# Write to swarm dir
-filepath = f'data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json'
-with open(filepath, 'w', encoding='utf-8') as f:
-    json.dump(record, f)
+filename = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
+with open(filename, "w", encoding="utf-8") as f:
+    json.dump(record, f, indent=2)
 
-# Also append to the jsonl file as per system instructions
-with open('data/synthetic_generation_v3_enterprise.jsonl', 'a', encoding='utf-8') as f:
-    f.write(json.dumps(record) + '\n')
-    
-print('Successfully wrote JSON payload')
+print(f"Successfully wrote {filename}")
