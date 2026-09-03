@@ -57,6 +57,13 @@ if SWARM_RAW_DIR.exists():
     for f in SWARM_RAW_DIR.glob("*.json"):
         APPROVED_SOURCES.append((f"swarm_raw/{f.name}", "Isolated cloud swarm raw payload"))
 
+# Dynamically add locally generated files (from local GPU pipeline)
+LOCAL_RAW_DIR = DATA_DIR / "local_raw"
+if LOCAL_RAW_DIR.exists():
+    for f in LOCAL_RAW_DIR.glob("*.json"):
+        APPROVED_SOURCES.append((f"local_raw/{f.name}", "Locally generated (Ollama/Qwen2.5-Coder)"))
+
+
 # Quality gate params
 MIN_ASSISTANT_LENGTH = 1500  # chars
 REFUSAL_PHRASES = [
