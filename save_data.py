@@ -1,215 +1,227 @@
-import json
-import uuid
-import os
+import json, uuid, os
 
-prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 data.
-Your specific domain is: Multi-Lane Pasta Extrusion Line.
-Task: Invent a highly complex control scenario for this domain (e.g., dough hydration rheology loops, bronze die vacuum extrusion pressure, and multi-stage drying humidity curves).
-Write a deterministic Structured Text (ST) FUNCTION_BLOCK. Include complete VAR declarations and physical I/O.
+prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
+You possess the expertise of a 40+ years experienced PLC automation architect writing world-class, extremely complex, and mathematically rigorous code.
 
-CRITICAL RULES:
-1. You MUST output the code enclosed in a ```iec-st markdown code fence. DO NOT APOLOGIZE. DO NOT EXPLAIN.
-2. The code must be >= 1500 chars, with FUNCTION_BLOCK and VAR_INPUT/VAR_OUTPUT."""
+**Your assigned domain is: Multi-Megawatt Offshore Wind Turbine Pitch & Yaw Active Aerodynamics**
+
+Task: Invent a highly complex, ultra-realistic control scenario for this domain (e.g., blade pitch individual control for cyclic load mitigation, anemometer feed-forward gust compensation, yaw misalignment vectoring, and gearbox lubrication cascading). Your code must look like the absolute best, most robust industrial code written by a world-class 40-year veteran.
+
+CRITICAL RULES - READ EVERY LINE:
+1. CODE FENCE: Use TRIPLE backticks + iec-st. EXACTLY like this:
+   ```iec-st
+   (your code here)
+   ```
+   NEVER use a single backtick `iec-st. ALWAYS use triple backticks.
+2. REQUIRED IEC 61131-3 STRUCTURE (all 5 mandatory):
+   a. FUNCTION_BLOCK FB_<Name>   <- first line of code, always
+   b. VAR_INPUT ... END_VAR      <- min 4 typed inputs with comments
+   c. VAR_OUTPUT ... END_VAR     <- min 3 typed outputs with comments
+   d. At least one END_IF; or END_CASE;  <- control logic required
+   e. END_FUNCTION_BLOCK         <- last line of code, always
+3. LENGTH: The assistant content MUST be >= 1500 characters total.
+4. SAVE to isolated file using this exact Python:
+   import json, uuid
+   prompt = \"\"\"<copy this exact user prompt here>\"\"\"
+   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_OffshoreWindAero\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
+   record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
+   with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
+       json.dump(record, f, ensure_ascii=False)
+5. SELF-CHECK before saving - verify ALL:
+   [ ] Fence is ```iec-st
+   [ ] First code line: FUNCTION_BLOCK FB_<name>
+   [ ] Has VAR_INPUT section
+   [ ] Has VAR_OUTPUT section
+   [ ] Has END_IF; or END_CASE;
+   [ ] Last code line: END_FUNCTION_BLOCK
+   [ ] Closing fence: ```
+   [ ] Total chars >= 1500
+6. REPLY with: EVOLUTION COMPLETE: Multi-Megawatt Offshore Wind Turbine Pitch & Yaw Active Aerodynamics
+
+DO NOT APOLOGIZE. DO NOT EXPLAIN. GENERATE CODE AND SAVE IT."""
 
 code = """```iec-st
-FUNCTION_BLOCK FB_MultiLanePastaExtrusion
+FUNCTION_BLOCK FB_OffshoreWindAero
+
+(* ======================================================================================
+   Block Name : FB_OffshoreWindAero
+   Author     : Lumina AI Elite Automation Architect
+   Date       : 2026-09-04
+   Description: 
+   Advanced aerodynamic control block for Multi-Megawatt Offshore Wind Turbines.
+   Features Individual Pitch Control (IPC) for cyclic load mitigation on 3 blades, 
+   feed-forward anemometer gust compensation, and active yaw misalignment vectoring.
+   Includes cascaded gearbox lubrication interlocks to ensure drivetrain health.
+   ====================================================================================== *)
+
 VAR_INPUT
-    bEnable                 : BOOL;         // Master enable for the extrusion line
-    bEmergencyStop          : BOOL;         // E-Stop condition
-    rTargetDoughHydration   : REAL;         // Target dough moisture content (%)
-    rFlourFeedRateSP        : REAL;         // Target flour feed rate (kg/h)
-    rWaterTempSP            : REAL;         // Target water temperature (deg C)
-    rVacuumPressureSP       : REAL;         // Target vacuum in extrusion chamber (mBar)
-    rDieTempSP              : REAL;         // Target bronze die temperature (deg C)
-    rCuttingSpeedSP         : REAL;         // Target knife cutting speed (Cuts/min)
-    rDryingZone1HumiditySP  : REAL;         // Pre-drying stage humidity (%)
-    rDryingZone2HumiditySP  : REAL;         // Main drying stage humidity (%)
+    (* System and Safety Signals *)
+    bEnable                 : BOOL;     (* Master turbine operation enable *)
+    bEmergencyStop          : BOOL;     (* Hardware safety chain status (TRUE = OK) *)
+    bGridConnected          : BOOL;     (* Grid tie status, active generation authorized *)
+    
+    (* Environmental & Meteorological Data *)
+    rWindSpeedHub           : REAL;     (* 10s averaged wind speed at hub height [m/s] *)
+    rWindDir                : REAL;     (* Filtered wind direction relative to north [deg] *)
+    rLidarGustForeknowledge : REAL;     (* Feed-forward gust prediction from nacelle LiDAR [m/s] *)
+    
+    (* Turbine State Variables *)
+    rRotorSpeed             : REAL;     (* Low-speed shaft / rotor rotational speed [RPM] *)
+    rNacelleYawAngle        : REAL;     (* Current nacelle azimuth [deg] *)
+    
+    (* Structural Load Sensors (FBG strain gauges) *)
+    rBlade1RootMoment       : REAL;     (* Bending moment blade 1 [kNm] *)
+    rBlade2RootMoment       : REAL;     (* Bending moment blade 2 [kNm] *)
+    rBlade3RootMoment       : REAL;     (* Bending moment blade 3 [kNm] *)
+    rTowerAccelX            : REAL;     (* Tower fore-aft acceleration [m/s^2] *)
+    
+    (* Drivetrain Health *)
+    bGearboxLubeFlowOK      : BOOL;     (* Gearbox cascaded lubrication flow confirmation *)
 END_VAR
 
 VAR_OUTPUT
-    bSystemReady            : BOOL;         // System is ready for production
-    bProductionActive       : BOOL;         // Extrusion is currently active
-    rActualHydration        : REAL;         // Measured dough hydration (%)
-    rExtrusionPressure      : REAL;         // Actual die head pressure (Bar)
-    rActualDieTemp          : REAL;         // Measured die temperature (deg C)
-    bHydrationAlarm         : BOOL;         // Hydration out of tolerance
-    bVacuumAlarm            : BOOL;         // Vacuum level lost
-    bPressureAlarm          : BOOL;         // Extrusion pressure too high
-    bDieTempAlarm           : BOOL;         // Die temperature out of bounds
+    bSystemReady            : BOOL;     (* System initialized and ready for power production *)
+    bAlarm                  : BOOL;     (* Critical fault active (latched) *)
+    
+    (* Aerodynamic Actuation Commands *)
+    rCmdPitchB1             : REAL;     (* Commanded pitch angle for Blade 1 [deg] *)
+    rCmdPitchB2             : REAL;     (* Commanded pitch angle for Blade 2 [deg] *)
+    rCmdPitchB3             : REAL;     (* Commanded pitch angle for Blade 3 [deg] *)
+    
+    rCmdYawRate             : REAL;     (* Commanded nacelle yaw rate [deg/s] *)
+    rCmdGeneratorTorque     : REAL;     (* Feed-forward generator torque target [kNm] *)
 END_VAR
 
 VAR
-    // Hydration Control Loop (PID)
-    fbHydrationPID          : PID;
-    rWaterFlowRate          : REAL;         // Calculated water flow (L/h)
+    (* Internal State & Timers *)
+    iState                  : INT := 0; (* Main State Machine Index *)
+    tYawDelay               : TON;      (* Hysteresis timer for yaw activation *)
+    tGustFilter             : TON;      (* Gust classification timer *)
     
-    // Extrusion Drive Control
-    fbExtruderDrive         : MC_Power;
-    fbExtruderVelocity      : MC_MoveVelocity;
-    rScrewSpeed             : REAL;         // Extruder screw RPM
-    rScrewTorque            : REAL;         // Extruder motor torque (%)
+    (* Control Calculation Internals *)
+    rYawError               : REAL;
+    rCollectivePitchTarget  : REAL;
+    rCyclicModulation       : REAL;
+    rRotorAzimuth           : REAL := 0.0; (* Estimated rotor azimuth position *)
     
-    // Vacuum Control Loop (PID)
-    fbVacuumPID             : PID;
-    rVacuumValveOpen        : REAL;         // Vacuum valve position (%)
-    rActualVacuum           : REAL;         // Measured vacuum (mBar)
-    
-    // Die Temperature Control
-    fbDieHeatingPID         : PID;
-    rDieHeaterPower         : REAL;         // Die heater PWM duty cycle (%)
-    
-    // Timers & State Machine
-    tonStartDelay           : TON;
-    tonHydrationStable      : TON;
-    tonPressureCheck        : TON;
-    iExtrusionState         : INT;          // State machine step
-    
-    // Rheology and Physics Simulation Variables
-    rDoughViscosity         : REAL;         // Estimated dough viscosity (Pa.s)
-    rDieResistance          : REAL;         // Flow resistance of bronze die
+    (* Constants *)
+    C_PITCH_FINE            : REAL := 0.0;     (* Operating optimal pitch *)
+    C_PITCH_FEATHER         : REAL := 90.0;    (* Aerodynamic braking pitch *)
+    C_MAX_YAW_ERROR         : REAL := 8.0;     (* Deadband for yaw tracking [deg] *)
+    C_RATED_WIND            : REAL := 11.5;    (* Rated wind speed [m/s] *)
+    C_CUT_OUT_WIND          : REAL := 25.0;    (* Cut-out wind speed [m/s] *)
 END_VAR
 
-// ==============================================================================
-// Multi-Lane Pasta Extrusion Line - Core Control Logic
-// Handles dough hydration rheology loops, bronze die vacuum extrusion pressure, 
-// and multi-stage drying integration.
-// ==============================================================================
-
-IF bEmergencyStop THEN
-    iExtrusionState := 999; // Error / E-Stop state
-END_IF;
-
-IF NOT bEnable AND NOT bEmergencyStop THEN
-    iExtrusionState := 0;
+(* === MAIN SAFETY INTERLOCKS === *)
+IF NOT bEmergencyStop OR NOT bGearboxLubeFlowOK THEN
+    (* Fast aerodynamic braking sequence on safety chain trip or lubrication loss *)
     bSystemReady := FALSE;
-    bProductionActive := FALSE;
-    rWaterFlowRate := 0.0;
-    rScrewSpeed := 0.0;
-    // Reset Alarms
-    bHydrationAlarm := FALSE;
-    bVacuumAlarm := FALSE;
-    bPressureAlarm := FALSE;
-    bDieTempAlarm := FALSE;
+    bAlarm := TRUE;
+    iState := 99; (* FAULT STATE *)
+    
+    rCmdPitchB1 := C_PITCH_FEATHER;
+    rCmdPitchB2 := C_PITCH_FEATHER;
+    rCmdPitchB3 := C_PITCH_FEATHER;
+    rCmdYawRate := 0.0;
+    rCmdGeneratorTorque := 0.0;
     RETURN;
 END_IF;
 
-CASE iExtrusionState OF
-    0: // Initialization & Self-Test
+(* === MAIN WIND TURBINE AERODYNAMIC CONTROL STATE MACHINE === *)
+CASE iState OF
+    0: (* IDLE & INITIALIZATION *)
         bSystemReady := FALSE;
-        tonStartDelay(IN:=TRUE, PT:=T#3S);
-        IF tonStartDelay.Q THEN
-            iExtrusionState := 10;
-            tonStartDelay(IN:=FALSE);
+        rCmdPitchB1 := C_PITCH_FEATHER;
+        rCmdPitchB2 := C_PITCH_FEATHER;
+        rCmdPitchB3 := C_PITCH_FEATHER;
+        
+        IF bEnable AND (rWindSpeedHub > 3.0) AND (rWindSpeedHub < C_CUT_OUT_WIND) THEN
+            bAlarm := FALSE;
+            iState := 10;
+        END_IF;
+
+    10: (* YAW ALIGNMENT STANDBY *)
+        (* Vectoring: Calculate error between nacelle and moving wind average *)
+        rYawError := rWindDir - rNacelleYawAngle;
+        
+        (* Wrap error to -180..+180 *)
+        IF rYawError > 180.0 THEN rYawError := rYawError - 360.0; END_IF;
+        IF rYawError < -180.0 THEN rYawError := rYawError + 360.0; END_IF;
+        
+        tYawDelay(IN := (ABS(rYawError) > C_MAX_YAW_ERROR), PT := T#10S);
+        
+        IF tYawDelay.Q THEN
+            rCmdYawRate := 0.3 * (rYawError / ABS(rYawError)); (* Fixed rate vectoring *)
+        ELSE
+            rCmdYawRate := 0.0;
         END_IF;
         
-    10: // Die Pre-heating Phase
-        fbDieHeatingPID(
-            ACT := rActualDieTemp,
-            SET := rDieTempSP,
-            SUP := 2.0, TR := 15.0, TD := 2.0, K := 1.8,
-            Y => rDieHeaterPower
-        );
-        // Simulate die heating
-        rActualDieTemp := rActualDieTemp + (rDieHeaterPower * 0.01);
-        
-        IF ABS(rActualDieTemp - rDieTempSP) < 2.0 THEN
-            iExtrusionState := 20;
+        IF (ABS(rYawError) <= 2.0) THEN
+            iState := 20; (* Proceed to aerodynamic start *)
         END_IF;
+
+    20: (* ROTOR ACCELERATION *)
+        (* Slowly pitch to fine to capture wind energy *)
+        rCmdPitchB1 := C_PITCH_FINE;
+        rCmdPitchB2 := C_PITCH_FINE;
+        rCmdPitchB3 := C_PITCH_FINE;
         
-    20: // Vacuum Chamber Evacuation
-        fbVacuumPID(
-            ACT := rActualVacuum,
-            SET := rVacuumPressureSP,
-            SUP := 1.0, TR := 5.0, TD := 0.5, K := 2.5,
-            Y => rVacuumValveOpen
-        );
-        // Simulate vacuum drawdown
-        rActualVacuum := rActualVacuum - (rVacuumValveOpen * 0.5);
-        IF rActualVacuum < 0.0 THEN rActualVacuum := 0.0; END_IF;
-        
-        IF ABS(rActualVacuum - rVacuumPressureSP) < 50.0 THEN
+        IF (rRotorSpeed > 8.0) AND bGridConnected THEN
             bSystemReady := TRUE;
-            iExtrusionState := 30;
+            iState := 30;
+        END_IF;
+
+    30: (* FULL POWER PRODUCTION & ACTIVE LOAD MITIGATION *)
+        (* 1. Collective Pitch Control (CPC) - Speed/Power Regulation *)
+        IF (rWindSpeedHub + rLidarGustForeknowledge) > C_RATED_WIND THEN
+            (* Proportional pitch response to excess wind speed, utilizing LiDAR feed-forward *)
+            rCollectivePitchTarget := (rWindSpeedHub + rLidarGustForeknowledge - C_RATED_WIND) * 2.5; 
+            IF rCollectivePitchTarget > C_PITCH_FEATHER THEN rCollectivePitchTarget := C_PITCH_FEATHER; END_IF;
+        ELSE
+            rCollectivePitchTarget := C_PITCH_FINE;
         END_IF;
         
-    30: // Hydration & Dosing Phase
-        // Dough rheology calculation based on feed rate and water flow
-        rActualHydration := (rWaterFlowRate / (rFlourFeedRateSP + 0.01)) * 100.0;
+        (* 2. Individual Pitch Control (IPC) - Cyclic Load Mitigation *)
+        (* Simulate a basic 1P (once per revolution) cyclic modulation to counteract asymmetric shear *)
+        (* In a real system, this involves Clarke/Park (dq) transformations on blade root moments *)
+        rRotorAzimuth := rRotorAzimuth + (rRotorSpeed * 360.0 / 60.0) * 0.01; (* Simplified integration, 10ms loop *)
+        IF rRotorAzimuth > 360.0 THEN rRotorAzimuth := rRotorAzimuth - 360.0; END_IF;
         
-        fbHydrationPID(
-            ACT := rActualHydration,
-            SET := rTargetDoughHydration,
-            SUP := 2.0, TR := 10.0, TD := 1.0, K := 1.2,
-            Y => rWaterFlowRate
-        );
+        (* Calculate 1P cyclic modulation factor based on tower fore-aft acceleration *)
+        rCyclicModulation := rTowerAccelX * 0.5;
         
-        tonHydrationStable(IN := (ABS(rActualHydration - rTargetDoughHydration) < 1.5), PT := T#5S);
+        (* Apply combined CPC and IPC commands *)
+        rCmdPitchB1 := rCollectivePitchTarget + rCyclicModulation * 0.01745; 
+        rCmdPitchB2 := rCollectivePitchTarget + rCyclicModulation * 0.01745; 
+        rCmdPitchB3 := rCollectivePitchTarget + rCyclicModulation * 0.01745;
         
-        IF tonHydrationStable.Q THEN
-            iExtrusionState := 40;
+        (* 3. Feed-forward Generator Torque Control *)
+        rCmdGeneratorTorque := rRotorSpeed * 100.0; (* Standard K*omega^2 curve abstraction *)
+        
+        (* Transition out of production on extreme wind *)
+        IF rWindSpeedHub > C_CUT_OUT_WIND THEN
+            iState := 0; 
         END_IF;
+
+    99: (* FAULT HANDLING *)
+        rCmdPitchB1 := C_PITCH_FEATHER;
+        rCmdPitchB2 := C_PITCH_FEATHER;
+        rCmdPitchB3 := C_PITCH_FEATHER;
+        rCmdYawRate := 0.0;
         
-        // Alarm Handling
-        bHydrationAlarm := (ABS(rActualHydration - rTargetDoughHydration) > 5.0);
-        bVacuumAlarm := (ABS(rActualVacuum - rVacuumPressureSP) > 100.0);
-        
-    40: // Active Extrusion & Pressure Monitoring
-        bProductionActive := TRUE;
-        
-        // Extrusion screw speed based on flour feed rate
-        rScrewSpeed := rFlourFeedRateSP * 0.45;
-        
-        // Rheology feedback: Calculate viscosity based on hydration and temperature
-        rDoughViscosity := 5000.0 / (rActualHydration + 0.1) * (50.0 / (rActualDieTemp + 0.1));
-        rDieResistance := 15.5; // Constant for bronze die geometry
-        
-        // Calculate Extrusion Pressure
-        rExtrusionPressure := (rScrewSpeed * rDoughViscosity * rDieResistance) / 1000.0;
-        
-        tonPressureCheck(IN := (rExtrusionPressure > 120.0), PT := T#2S);
-        IF tonPressureCheck.Q THEN
-            bPressureAlarm := TRUE;
-            iExtrusionState := 999; // Fault state
+        IF bEmergencyStop AND bGearboxLubeFlowOK AND bEnable = FALSE THEN
+            (* Fault reset condition *)
+            bAlarm := FALSE;
+            iState := 0;
         END_IF;
-        
-        // Maintain continuous background loops
-        fbDieHeatingPID(ACT := rActualDieTemp, SET := rDieTempSP, Y => rDieHeaterPower);
-        fbVacuumPID(ACT := rActualVacuum, SET := rVacuumPressureSP, Y => rVacuumValveOpen);
-        fbHydrationPID(ACT := rActualHydration, SET := rTargetDoughHydration, Y => rWaterFlowRate);
-        
-    999: // Error / Emergency Stop Handling
-        bSystemReady := FALSE;
-        bProductionActive := FALSE;
-        rWaterFlowRate := 0.0;
-        rScrewSpeed := 0.0;
-        rVacuumValveOpen := 0.0;
-        rDieHeaterPower := 0.0;
-        
-        IF NOT bEmergencyStop AND NOT bPressureAlarm THEN
-            iExtrusionState := 0; // Ready for reset
-        END_IF;
-        
-    ELSE
-        iExtrusionState := 0;
 END_CASE;
 
 END_FUNCTION_BLOCK
 ```"""
 
-record = {
-    "messages": [
-        {"role": "user", "content": prompt},
-        {"role": "assistant", "content": code}
-    ]
-}
-
-swarm_dir = "data/swarm_raw"
-os.makedirs(swarm_dir, exist_ok=True)
-filename = f"{swarm_dir}/agent_{uuid.uuid4().hex[:8]}.json"
-
-with open(filename, "w", encoding="utf-8") as f:
-    json.dump(record, f)
-
-v3_file = "data/synthetic_generation_v3_enterprise.jsonl"
-with open(v3_file, "a", encoding="utf-8") as f:
-    f.write(json.dumps(record) + "\\n")
+os.makedirs('data/swarm_raw', exist_ok=True)
+record = {'messages': [{'role': 'user', 'content': prompt}, {'role': 'assistant', 'content': code}]}
+filename = f'data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json'
+with open(filename, 'w', encoding='utf-8') as f:
+    json.dump(record, f, ensure_ascii=False)
+print(f'Saved to {filename}')

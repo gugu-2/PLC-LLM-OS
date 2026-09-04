@@ -1,196 +1,252 @@
-import json, uuid, os
+import os
+import json
+import uuid
 
-prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 data.
-Your specific domain is: Utility-Scale BESS (Battery Energy Storage System).
-Task: Invent a highly complex control scenario for this domain (e.g., multi-rack State of Charge (SOC) active balancing, thermal liquid cooling zone profiling, and bi-directional inverter micro-grid islanding).
-Write a deterministic Structured Text (ST) FUNCTION_BLOCK. Include complete VAR declarations and physical I/O.
+os.makedirs("data/swarm_raw", exist_ok=True)
 
-CRITICAL RULES:
-1. You MUST output the code enclosed in a ```iec-st markdown code fence. DO NOT APOLOGIZE. DO NOT EXPLAIN.
-2. The code must be >= 1500 chars, with FUNCTION_BLOCK and VAR_INPUT/VAR_OUTPUT.
-3. You MUST save your JSON payload to a uniquely named file in the swarm directory using python."""
+prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
+You possess the expertise of a 40+ years experienced PLC automation architect writing world-class, extremely complex, and mathematically rigorous code.
+
+**Your assigned domain is: Molten Salt Solar Thermal Tower Central Receiver**
+
+Task: Invent a highly complex, ultra-realistic control scenario for this domain (e.g., 565°C molten salt receiver temperature gradient control, cold/hot storage tank volume balancing, rapid transient cloud cover flow-rate adaptation, and anti-freeze trace heating interlocks). Your code must look like the absolute best, most robust industrial code written by a world-class 40-year veteran.
+
+CRITICAL RULES - READ EVERY LINE:
+1. CODE FENCE: Use TRIPLE backticks + iec-st. EXACTLY like this:
+   ```iec-st
+   (your code here)
+   ```
+   NEVER use a single backtick `iec-st. ALWAYS use triple backticks.
+2. REQUIRED IEC 61131-3 STRUCTURE (all 5 mandatory):
+   a. FUNCTION_BLOCK FB_<Name>   <- first line of code, always
+   b. VAR_INPUT ... END_VAR      <- min 4 typed inputs with comments
+   c. VAR_OUTPUT ... END_VAR     <- min 3 typed outputs with comments
+   d. At least one END_IF; or END_CASE;  <- control logic required
+   e. END_FUNCTION_BLOCK         <- last line of code, always
+3. LENGTH: The assistant content MUST be >= 1500 characters total.
+4. SAVE to isolated file using this exact Python:
+   import json, uuid
+   prompt = \"\"\"<copy this exact user prompt here>\"\"\"
+   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_SolarThermalReceiver\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
+   record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
+   with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
+       json.dump(record, f, ensure_ascii=False)
+5. SELF-CHECK before saving - verify ALL:
+   [ ] Fence is ```iec-st
+   [ ] First code line: FUNCTION_BLOCK FB_<name>
+   [ ] Has VAR_INPUT section
+   [ ] Has VAR_OUTPUT section
+   [ ] Has END_IF; or END_CASE;
+   [ ] Last code line: END_FUNCTION_BLOCK
+   [ ] Closing fence: ```
+   [ ] Total chars >= 1500
+6. REPLY with: EVOLUTION COMPLETE: Molten Salt Solar Thermal Tower Central Receiver
+
+DO NOT APOLOGIZE. DO NOT EXPLAIN. GENERATE CODE AND SAVE IT."""
 
 code = """```iec-st
-FUNCTION_BLOCK FB_BESS_MasterController
-    VAR_INPUT
-        Enable : BOOL; // Global Enable
-        GridVoltage_L1 : REAL; // Grid Voltage L1 (V)
-        GridVoltage_L2 : REAL; // Grid Voltage L2 (V)
-        GridVoltage_L3 : REAL; // Grid Voltage L3 (V)
-        GridFreq : REAL; // Grid Frequency (Hz)
-        IslandingRequest : BOOL; // Request to decouple from grid
-        
-        Rack1_SOC : REAL; // Rack 1 State of Charge (%)
-        Rack1_Temp : REAL; // Rack 1 Average Temperature (C)
-        Rack2_SOC : REAL; // Rack 2 State of Charge (%)
-        Rack2_Temp : REAL; // Rack 2 Average Temperature (C)
-        Rack3_SOC : REAL; // Rack 3 State of Charge (%)
-        Rack3_Temp : REAL; // Rack 3 Average Temperature (C)
-        Rack4_SOC : REAL; // Rack 4 State of Charge (%)
-        Rack4_Temp : REAL; // Rack 4 Average Temperature (C)
-        
-        CoolantInletTemp : REAL; // Liquid coolant inlet temperature
-        CoolantFlowRate : REAL; // L/min
-    END_VAR
+FUNCTION_BLOCK FB_MoltenSaltCentralReceiverCtrl
+VAR_INPUT
+    (* System operation signals *)
+    bEnable                 : BOOL;     (* System master enable signal *)
+    bEmergencyStop          : BOOL;     (* Hardwired emergency stop and safety loop OK (Active High) *)
+    bCloudTransientFlag     : BOOL;     (* Advanced sky imager detection of incoming cloud cover *)
     
-    VAR_OUTPUT
-        SystemReady : BOOL;
-        InverterMode : INT; // 0=Off, 1=Grid-Following, 2=Grid-Forming (Islanding)
-        ActivePowerCmd : REAL; // kW commanded
-        ReactivePowerCmd : REAL; // kVAR commanded
-        
-        Rack1_CurrentCmd : REAL; // A
-        Rack2_CurrentCmd : REAL; // A
-        Rack3_CurrentCmd : REAL; // A
-        Rack4_CurrentCmd : REAL; // A
-        
-        CoolingPumpSpeed : REAL; // % 0-100
-        ChillerEnable : BOOL;
-        
-        GridBreakerOpen : BOOL; // Open main breaker
-    END_VAR
+    (* Process measurements *)
+    rSaltInletTemp          : REAL;     (* Receiver cold salt inlet temperature (deg C) *)
+    rSaltOutletTemp         : REAL;     (* Receiver hot salt outlet temperature (deg C) *)
+    rDniSensor              : REAL;     (* Direct Normal Irradiance from weather station (W/m^2) *)
+    rColdTankLevel          : REAL;     (* Cold salt storage tank level (%) *)
+    rHotTankLevel           : REAL;     (* Hot salt storage tank level (%) *)
+    rReceiverFlowRate       : REAL;     (* Current molten salt mass flow rate (kg/s) *)
+END_VAR
+VAR_OUTPUT
+    (* System Status *)
+    bSystemReady            : BOOL;     (* Interlocks met, receiver ready for flux *)
+    bAlarm                  : BOOL;     (* General fault or alarm active *)
+    iCurrentState           : INT;      (* Current state machine step *)
     
-    VAR
-        AvgSOC : REAL;
-        MaxTemp : REAL;
-        BalancingFactor : REAL := 0.05; // 5% correction per % deviation
-        TotalTargetPower : REAL; 
-        
-        State : INT := 0; // 0=Init, 1=Grid-Connected, 2=Transition, 3=Islanding
-        Timer_Transition : TON;
-        
-        TempSetpoint : REAL := 25.0;
-        TempHysteresis : REAL := 2.0;
-        
-        // Internal variables for PI control
-        P_Gain_Cooling : REAL := 5.0;
-        I_Gain_Cooling : REAL := 0.1;
-        TempError : REAL;
-        CoolingIntegral : REAL := 0.0;
-        
-        // Phase-Locked Loop pseudo-vars
-        PLL_LossOfSync : BOOL;
-    END_VAR
+    (* Actuator Commands *)
+    rReceiverPumpSpeedCmd   : REAL;     (* Commanded VFD frequency for cold salt pump (Hz, 0-60) *)
+    bHeliostatDefocusCmd    : BOOL;     (* Command to heliostat field controller to execute emergency defocus *)
+    bTraceHeatingCmd        : BOOL;     (* Activate electrical trace heating to prevent salt freeze *)
+    bDrainValveCmd          : BOOL;     (* Command to open receiver drain valves (failsafe open) *)
+END_VAR
+VAR
+    (* Internal State & Timers *)
+    iState                  : INT := 0; 
+    tPreheatTimer           : TON;
+    tTransientTimer         : TON;
+    tShutdownTimer          : TON;
     
-    // Safety and Enable Check
-    IF NOT Enable THEN
-        SystemReady := FALSE;
-        InverterMode := 0;
-        ActivePowerCmd := 0.0;
-        ReactivePowerCmd := 0.0;
-        Rack1_CurrentCmd := 0.0;
-        Rack2_CurrentCmd := 0.0;
-        Rack3_CurrentCmd := 0.0;
-        Rack4_CurrentCmd := 0.0;
-        CoolingPumpSpeed := 0.0;
-        ChillerEnable := FALSE;
-        GridBreakerOpen := TRUE; // Safe state
-        RETURN;
-    END_IF;
+    (* Control Constants & Internal Variables *)
+    rTargetOutletTemp       : REAL := 565.0; (* Optimal molten salt design temperature *)
+    rMaxSafeTemp            : REAL := 595.0; (* Structural limit of receiver tubes *)
+    rFreezingLimitTemp      : REAL := 290.0; (* Freezing point of nitrate salt mixture + safety margin *)
     
-    SystemReady := TRUE;
+    rCalculatedSetPoint     : REAL;
+    rFlowError              : REAL;
+    rKp                     : REAL := 1.25;
+    rKi                     : REAL := 0.05;
+    rIntegralAccumulator    : REAL := 0.0;
     
-    // --- 1. Thermal Management (Liquid Cooling Zone Profiling) ---
-    MaxTemp := Rack1_Temp;
-    IF Rack2_Temp > MaxTemp THEN MaxTemp := Rack2_Temp; END_IF;
-    IF Rack3_Temp > MaxTemp THEN MaxTemp := Rack3_Temp; END_IF;
-    IF Rack4_Temp > MaxTemp THEN MaxTemp := Rack4_Temp; END_IF;
-    
-    IF MaxTemp > (TempSetpoint + TempHysteresis) THEN
-        ChillerEnable := TRUE;
-    ELSIF MaxTemp < (TempSetpoint - TempHysteresis) THEN
-        ChillerEnable := FALSE;
-    END_IF;
-    
-    // PI Control for Pump Speed based on MaxTemp
-    TempError := MaxTemp - TempSetpoint;
-    IF TempError > 0.0 THEN
-        CoolingIntegral := CoolingIntegral + (TempError * 0.1); // Assuming 100ms task
-        IF CoolingIntegral > 50.0 THEN CoolingIntegral := 50.0; END_IF; // Anti-windup
-        CoolingPumpSpeed := (P_Gain_Cooling * TempError) + (I_Gain_Cooling * CoolingIntegral);
-    ELSE
-        CoolingIntegral := 0.0;
-        CoolingPumpSpeed := 20.0; // Minimum circulation
-    END_IF;
-    
-    IF CoolingPumpSpeed > 100.0 THEN
-        CoolingPumpSpeed := 100.0;
-    END_IF;
-    
-    // --- 2. Multi-rack SOC Active Balancing ---
-    AvgSOC := (Rack1_SOC + Rack2_SOC + Rack3_SOC + Rack4_SOC) / 4.0;
-    
-    // Base current calculated from total active power demand (simplified logic for demonstration)
-    TotalTargetPower := ActivePowerCmd; 
-    
-    // Let's assume nominal base current per rack is BaseI
-    VAR
-        BaseI : REAL;
-    END_VAR
-    BaseI := (TotalTargetPower * 1000.0) / (4.0 * 1000.0); // Simple assumption
-    
-    Rack1_CurrentCmd := BaseI * (1.0 + (Rack1_SOC - AvgSOC) * BalancingFactor * SIGN(BaseI));
-    Rack2_CurrentCmd := BaseI * (1.0 + (Rack2_SOC - AvgSOC) * BalancingFactor * SIGN(BaseI));
-    Rack3_CurrentCmd := BaseI * (1.0 + (Rack3_SOC - AvgSOC) * BalancingFactor * SIGN(BaseI));
-    Rack4_CurrentCmd := BaseI * (1.0 + (Rack4_SOC - AvgSOC) * BalancingFactor * SIGN(BaseI));
-    
-    // Limiters
-    IF Rack1_CurrentCmd > 200.0 THEN Rack1_CurrentCmd := 200.0; ELSIF Rack1_CurrentCmd < -200.0 THEN Rack1_CurrentCmd := -200.0; END_IF;
-    IF Rack2_CurrentCmd > 200.0 THEN Rack2_CurrentCmd := 200.0; ELSIF Rack2_CurrentCmd < -200.0 THEN Rack2_CurrentCmd := -200.0; END_IF;
-    IF Rack3_CurrentCmd > 200.0 THEN Rack3_CurrentCmd := 200.0; ELSIF Rack3_CurrentCmd < -200.0 THEN Rack3_CurrentCmd := -200.0; END_IF;
-    IF Rack4_CurrentCmd > 200.0 THEN Rack4_CurrentCmd := 200.0; ELSIF Rack4_CurrentCmd < -200.0 THEN Rack4_CurrentCmd := -200.0; END_IF;
+    bFreezeWarning          : BOOL;
+    bOverTempWarning        : BOOL;
+END_VAR
 
-    // --- 3. Bi-directional Inverter Micro-grid Islanding ---
-    // Grid monitoring
-    PLL_LossOfSync := (GridFreq < 49.5) OR (GridFreq > 50.5) OR (GridVoltage_L1 < 380.0);
-    
-    CASE State OF
-        0: // Init
-            GridBreakerOpen := TRUE;
-            InverterMode := 0; // Off
-            IF GridVoltage_L1 > 390.0 AND GridFreq > 49.8 AND NOT IslandingRequest THEN
-                State := 1;
-            END_IF;
-            
-        1: // Grid-Connected
-            GridBreakerOpen := FALSE;
-            InverterMode := 1; // Grid-Following
-            
-            IF IslandingRequest OR PLL_LossOfSync THEN
-                State := 2; 
-                Timer_Transition(IN:=FALSE);
-            END_IF;
-            
-        2: // Transition
-            GridBreakerOpen := TRUE;
-            InverterMode := 0; // Temporary float
-            Timer_Transition(IN:=TRUE, PT:=T#100ms);
-            
-            IF Timer_Transition.Q THEN
-                State := 3;
-            END_IF;
-            
-        3: // Islanding (Grid-Forming)
-            GridBreakerOpen := TRUE;
-            InverterMode := 2; // Grid-Forming
-            
-            IF NOT IslandingRequest AND NOT PLL_LossOfSync THEN
-                State := 1;
-            END_IF;
-    END_CASE;
+(* === MAIN LOGIC AND SAFETY INTERLOCKS === *)
+
+(* Check for Emergency Stop or Critical Safety Faults *)
+IF NOT bEmergencyStop THEN
+    bSystemReady := FALSE;
+    bAlarm := TRUE;
+    bHeliostatDefocusCmd := TRUE; 
+    rReceiverPumpSpeedCmd := 0.0;
+    bDrainValveCmd := TRUE; (* Drain salt back to cold tank immediately *)
+    bTraceHeatingCmd := TRUE; (* Maintain temp for residual salt *)
+    iState := 999; (* FAULT STATE *)
+    RETURN;
+END_IF;
+
+(* Continuous Monitoring for Freeze Risk *)
+IF rSaltInletTemp < rFreezingLimitTemp OR rSaltOutletTemp < rFreezingLimitTemp THEN
+    bFreezeWarning := TRUE;
+    bTraceHeatingCmd := TRUE;
+ELSE
+    bFreezeWarning := FALSE;
+    (* Keep trace heating active only if state requires it or during freeze warning *)
+END_IF;
+
+(* Continuous Monitoring for Over-temperature Risk *)
+IF rSaltOutletTemp > rMaxSafeTemp THEN
+    bOverTempWarning := TRUE;
+    bHeliostatDefocusCmd := TRUE;
+    bAlarm := TRUE;
+ELSE
+    bOverTempWarning := FALSE;
+END_IF;
+
+(* Core Central Receiver State Machine *)
+CASE iState OF
+    0: (* IDLE & STANDBY *)
+        bSystemReady := FALSE;
+        rReceiverPumpSpeedCmd := 0.0;
+        bHeliostatDefocusCmd := TRUE; (* Field parked *)
+        bDrainValveCmd := TRUE; (* Receiver drained *)
+        bAlarm := FALSE;
+        
+        IF bEnable AND rColdTankLevel > 10.0 AND NOT bFreezeWarning THEN
+            iState := 10; (* Transition to Pre-heat *)
+        END_IF;
+
+    10: (* PRE-HEAT SEQUENCE *)
+        bSystemReady := FALSE;
+        bDrainValveCmd := FALSE; (* Close drain valves to establish flow *)
+        bTraceHeatingCmd := TRUE; (* Engage heaters *)
+        
+        (* Start pump at minimum speed to establish circulation *)
+        rReceiverPumpSpeedCmd := 15.0; 
+        
+        tPreheatTimer(IN := TRUE, PT := T#5M);
+        IF tPreheatTimer.Q AND (rSaltInletTemp > 300.0) THEN
+            tPreheatTimer(IN := FALSE);
+            iState := 20; (* Transition to Ready *)
+        END_IF;
+        
+        IF NOT bEnable THEN
+            tPreheatTimer(IN := FALSE);
+            iState := 100; (* SHUTDOWN *)
+        END_IF;
+
+    20: (* READY FOR FLUX *)
+        bSystemReady := TRUE;
+        bTraceHeatingCmd := FALSE;
+        bHeliostatDefocusCmd := FALSE; (* Permit field to focus on receiver *)
+        
+        (* Maintain minimum flow *)
+        rReceiverPumpSpeedCmd := 20.0;
+        
+        IF rDniSensor > 250.0 AND rSaltOutletTemp > 350.0 THEN
+            iState := 30; (* ACTIVE TRACKING AND HEATING *)
+        END_IF;
+        
+        IF NOT bEnable THEN
+            iState := 100;
+        END_IF;
+
+    30: (* ACTIVE TRACKING - ADVANCED PID FLOW CONTROL *)
+        (* In this state, we modulate pump speed to maintain exactly 565C outlet *)
+        
+        rFlowError := rSaltOutletTemp - rTargetOutletTemp;
+        
+        (* Anti-windup for integral component *)
+        IF rReceiverPumpSpeedCmd > 10.0 AND rReceiverPumpSpeedCmd < 60.0 THEN
+            rIntegralAccumulator := rIntegralAccumulator + (rFlowError * rKi);
+        END_IF;
+        
+        (* Proportional + Integral logic - Inverse acting because hotter temp needs MORE flow to cool *)
+        rReceiverPumpSpeedCmd := 30.0 + (rFlowError * rKp) + rIntegralAccumulator;
+        
+        (* Clamp pump limits *)
+        IF rReceiverPumpSpeedCmd < 15.0 THEN
+            rReceiverPumpSpeedCmd := 15.0;
+        ELSIF rReceiverPumpSpeedCmd > 60.0 THEN
+            rReceiverPumpSpeedCmd := 60.0;
+        END_IF;
+        
+        (* Handle DNI transients (Cloud cover prediction) *)
+        IF bCloudTransientFlag THEN
+            iState := 40;
+        END_IF;
+        
+        IF NOT bEnable OR rHotTankLevel > 98.0 THEN
+            iState := 100;
+        END_IF;
+        
+    40: (* TRANSIENT MITIGATION (CLOUD COVER) *)
+        (* Cloud shadow expected. Ramp down flow predictively to avoid temperature crashes *)
+        rReceiverPumpSpeedCmd := 15.0; (* Drop to minimum safe circulation *)
+        
+        tTransientTimer(IN := TRUE, PT := T#30S);
+        IF NOT bCloudTransientFlag AND tTransientTimer.Q THEN
+            tTransientTimer(IN := FALSE);
+            iState := 30; (* Resume normal operation *)
+        END_IF;
+
+    100: (* SHUTDOWN SEQUENCE *)
+        bHeliostatDefocusCmd := TRUE;
+        rReceiverPumpSpeedCmd := 60.0; (* Flush the receiver at high speed briefly *)
+        
+        tShutdownTimer(IN := TRUE, PT := T#2M);
+        IF tShutdownTimer.Q THEN
+            tShutdownTimer(IN := FALSE);
+            bDrainValveCmd := TRUE; (* Open drains *)
+            rReceiverPumpSpeedCmd := 0.0;
+            iState := 0;
+        END_IF;
+
+    999: (* FAULT HANDLING *)
+        (* Requires manual reset via bEnable toggle after emergency stop clears *)
+        IF bEmergencyStop AND NOT bEnable THEN
+            iState := 0;
+        END_IF;
+        
+END_CASE;
+
+iCurrentState := iState;
 
 END_FUNCTION_BLOCK
 ```"""
 
-record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
+record = {
+    "messages": [
+        {"role": "user", "content": prompt},
+        {"role": "assistant", "content": code}
+    ]
+}
 
-os.makedirs("data/swarm_raw", exist_ok=True)
-filepath = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
-with open(filepath, "w", encoding="utf-8") as f:
-    json.dump(record, f, indent=2)
+filename = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
+with open(filename, "w", encoding="utf-8") as f:
+    json.dump(record, f, ensure_ascii=False)
 
-os.makedirs("data", exist_ok=True)
-with open("data/synthetic_generation_v3_enterprise.jsonl", "a", encoding="utf-8") as f:
-    f.write(json.dumps(record) + "\\n")
-
-print(f"Success, saved to {filepath} and appended to JSONL")
+print(f"Saved to {filename}")
