@@ -1,10 +1,11 @@
 import json, uuid, os
-prompt = '''You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
+
+prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
 You possess the expertise of a 40+ years experienced PLC automation architect writing world-class, extremely complex, and mathematically rigorous code.
 
-**Your assigned domain is: High-Speed Maglev Superconducting Magnet Cooling System**
+**Your assigned domain is: High-Speed Maglev Train Superconducting Electromagnetic Levitation**
 
-Task: Invent a highly complex, ultra-realistic control scenario for this domain (e.g., Liquid helium/nitrogen cryogenic cascade, quench detection ultra-fast fault logic, and redundant compressor active load balancing). Your code must look like the absolute best, most robust industrial code written by a world-class 40-year veteran.
+Task: Invent a highly complex, ultra-realistic control scenario for this domain (e.g., Cryocooler absolute zero thermal profiling, active guideway multi-axis gap clearance (millimeters at 600km/h), and quenching fault-tolerance cascading logic). Your code must look like the absolute best, most robust industrial code written by a world-class 40-year veteran.
 
 CRITICAL RULES - READ EVERY LINE:
 1. CODE FENCE: Use TRIPLE backticks + iec-st. EXACTLY like this:
@@ -21,10 +22,10 @@ CRITICAL RULES - READ EVERY LINE:
 3. LENGTH: The assistant content MUST be >= 1500 characters total.
 4. SAVE to isolated file using this exact Python:
    import json, uuid
-   prompt = """<copy this exact user prompt here>"""
-   code = """```iec-st\nFUNCTION_BLOCK FB_MaglevCryoCooling\n//...\nEND_FUNCTION_BLOCK\n```"""
-   record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
-   with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
+   prompt = \"\"\"<copy this exact user prompt here>\"\"\"
+   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_MaglevLevitation\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
+   record = {\"messages\": [{\"role\": \"user\", \"content\": prompt}, {\"role\": \"assistant\", \"content\": code}]}
+   with open(f\"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json\", \"w\", encoding=\"utf-8\") as f:
        json.dump(record, f, ensure_ascii=False)
 5. SELF-CHECK before saving - verify ALL:
    [ ] Fence is ```iec-st
@@ -35,199 +36,178 @@ CRITICAL RULES - READ EVERY LINE:
    [ ] Last code line: END_FUNCTION_BLOCK
    [ ] Closing fence: ```
    [ ] Total chars >= 1500
-6. REPLY with: EVOLUTION COMPLETE: High-Speed Maglev Superconducting Magnet Cooling System
+6. REPLY with: EVOLUTION COMPLETE: High-Speed Maglev Train Superconducting Electromagnetic Levitation
 
-DO NOT APOLOGIZE. DO NOT EXPLAIN. GENERATE CODE AND SAVE IT.'''
+DO NOT APOLOGIZE. DO NOT EXPLAIN. GENERATE CODE AND SAVE IT."""
 
-code = '''```iec-st
-FUNCTION_BLOCK FB_MaglevCryoCooling
+code = """```iec-st
+FUNCTION_BLOCK FB_MaglevSuperconductingLevitationControl
 VAR_INPUT
-    (* Physical Inputs for Superconducting Magnet Cooling System *)
-    bSystemEnable           : BOOL;     (* System master enable signal *)
-    bQuenchDetect           : BOOL;     (* Superconducting quench detection relay OK (Active High) *)
-    rHeLevel                : REAL;     (* Liquid Helium vessel level (0.0 to 100.0 %) *)
-    rN2Level                : REAL;     (* Liquid Nitrogen thermal shield vessel level (0.0 to 100.0 %) *)
-    rHeTemp1                : REAL;     (* Helium stage 1 temp (Kelvin) *)
-    rHeTemp2                : REAL;     (* Helium stage 2 temp (Kelvin) *)
-    rCompPressure           : REAL;     (* Compressor discharge pressure (Bar) *)
-    bFlowSensorOK           : BOOL;     (* Helium flow verification *)
+    bSystemEnable           : BOOL;     (* Main safety enable signal for the levitation control subsystem *)
+    bEmergencyStop          : BOOL;     (* Hardware E-stop circuit OK signal (active high) *)
+    rGapClearanceZ          : REAL;     (* Measured vertical guideway gap in millimeters (resolution: 0.01mm) *)
+    rGapClearanceY          : REAL;     (* Measured lateral guideway gap in millimeters (resolution: 0.01mm) *)
+    rTrainVelocity          : REAL;     (* Train instantaneous velocity in km/h *)
+    rCryostatTemp           : REAL;     (* Absolute temperature of superconducting coil cryostat in Kelvin *)
+    rLiquidHeliumLevel      : REAL;     (* Percentage of liquid helium remaining in primary cooling bath *)
+    rSuperconductorCurrent  : REAL;     (* Real-time excitation current passing through SC coils in Amperes *)
 END_VAR
+
 VAR_OUTPUT
-    (* Physical Outputs for Actuators and Status *)
-    bSystemReady            : BOOL;     (* Cryo system is ready and stable for maglev operation *)
-    rHeValveCmd             : REAL;     (* LHe flow control valve command (0.0 to 100.0 %) *)
-    rN2ValveCmd             : REAL;     (* LN2 thermal shield valve command (0.0 to 100.0 %) *)
-    bCompRunCmd             : BOOL;     (* Compressor run command *)
-    bQuenchDumpVlv          : BOOL;     (* Quench emergency vent dump valve (Active High = dump) *)
-    bCriticalAlarm          : BOOL;     (* Critical fault alarm output *)
-    iOperatingState         : INT;      (* Current state of the cooling machine *)
+    bLevitationReady        : BOOL;     (* Indicates system is fully cooled, stable, and ready for levitation *)
+    rCoilVoltageCommand     : REAL;     (* Commanded control voltage to main superconducting coil power supply *)
+    bQuenchAlarm            : BOOL;     (* Critical alarm indicating incipient or active superconducting quench *)
+    bCryoFault              : BOOL;     (* Alarm indicating cooling system failure or low helium levels *)
+    iOperatingState         : INT;      (* Current state machine step of the levitation controller *)
+    rActiveDampingY         : REAL;     (* Lateral electromagnetic damping force command in kN *)
 END_VAR
+
 VAR
-    (* Internal state and timers *)
-    iState                  : INT := 0;
-    tStartupDelay           : TON;
+    (* Internal State and Timers *)
+    iState                  : INT := 0; (* 0: Power-Off/Fault, 10: Cooling, 20: Pre-Excitation, 30: Levitating, 99: Quench/Fault *)
+    tCoolingTimer           : TON;
     tStabilityTimer         : TON;
-    tQuenchLatch            : TOF;
-    rIntegralErrorHe        : REAL := 0.0;
-    rIntegralErrorN2        : REAL := 0.0;
-    rKp_He                  : REAL := 2.5;
-    rKi_He                  : REAL := 0.05;
-    rKp_N2                  : REAL := 1.8;
-    rKi_N2                  : REAL := 0.02;
-    rHeSetpoint             : REAL := 85.0; (* 85% fill level *)
-    rN2Setpoint             : REAL := 80.0; (* 80% fill level *)
-    rErrorHe                : REAL;
-    rErrorN2                : REAL;
-    bFirstCycle             : BOOL := TRUE;
+    tQuenchMonitor          : TON;
+
+    (* Constants and Limits *)
+    c_rTargetGapZ           : REAL := 12.0;     (* Target vertical levitation gap (mm) *)
+    c_rMaxGapDeviation      : REAL := 2.5;      (* Maximum allowable vertical deviation before fault (mm) *)
+    c_rCriticalTemp         : REAL := 4.2;      (* Critical superconducting threshold temperature (K) *)
+    c_rMaxTempWarning       : REAL := 4.5;      (* Temperature warning threshold indicating cooling stress (K) *)
+    c_rCriticalCurrentMax   : REAL := 5000.0;   (* Maximum allowable operating current before quench risk (A) *)
+    
+    (* Control Variables *)
+    rErrorZ                 : REAL := 0.0;
+    rDerivativeZ            : REAL := 0.0;
+    rIntegralZ              : REAL := 0.0;
+    rPrevErrorZ             : REAL := 0.0;
+    
+    (* PID Gains - Gain Scheduled based on velocity *)
+    rKp_Z                   : REAL := 250.0;
+    rKi_Z                   : REAL := 50.0;
+    rKd_Z                   : REAL := 120.0;
 END_VAR
 
-(* === MAIN LOGIC === *)
-
-(* Initialize / Reset logic *)
-IF bFirstCycle THEN
+(* === MAIN SAFETY AND INTERLOCK LOGIC === *)
+IF NOT bEmergencyStop THEN
+    bLevitationReady := FALSE;
+    bQuenchAlarm := FALSE;
     iState := 0;
-    bFirstCycle := FALSE;
-END_IF;
-
-(* Ultra-fast Quench Fault Protection (Hard Interlock) *)
-IF NOT bQuenchDetect THEN
-    (* Immediate dump, stop compressor, drop ready signal *)
-    bSystemReady := FALSE;
-    bQuenchDumpVlv := TRUE; 
-    bCompRunCmd := FALSE;
-    rHeValveCmd := 0.0;
-    rN2ValveCmd := 0.0;
-    bCriticalAlarm := TRUE;
-    iState := 999; (* Quench State *)
+    rCoilVoltageCommand := 0.0;
+    rActiveDampingY := 0.0;
     RETURN;
+END_IF;
+
+(* Continuous Quench Protection Monitoring *)
+IF (rCryostatTemp > c_rCriticalTemp AND rSuperconductorCurrent > 100.0) OR (rSuperconductorCurrent > c_rCriticalCurrentMax) THEN
+    bQuenchAlarm := TRUE;
+    iState := 99; (* Force fault state *)
+END_IF;
+
+(* Continuous Cryo Diagnostics *)
+IF rLiquidHeliumLevel < 15.0 OR rCryostatTemp > c_rMaxTempWarning THEN
+    bCryoFault := TRUE;
 ELSE
-    bQuenchDumpVlv := FALSE;
+    bCryoFault := FALSE;
 END_IF;
 
-(* Master Enable Interlock *)
-IF NOT bSystemEnable AND iState <> 999 THEN
-    iState := 0;
-END_IF;
-
-(* State Machine for Cooling Cascade *)
+(* === MAIN STATE MACHINE === *)
 CASE iState OF
-    0: (* IDLE *)
-        bSystemReady := FALSE;
-        bCompRunCmd := FALSE;
-        rHeValveCmd := 0.0;
-        rN2ValveCmd := 0.0;
-        bCriticalAlarm := FALSE;
-        rIntegralErrorHe := 0.0;
-        rIntegralErrorN2 := 0.0;
-        iOperatingState := 0;
+    0: (* IDLE / POWER OFF *)
+        bLevitationReady := FALSE;
+        rCoilVoltageCommand := 0.0;
+        rActiveDampingY := 0.0;
         
-        IF bSystemEnable THEN
+        IF bSystemEnable AND NOT bQuenchAlarm AND NOT bCryoFault THEN
             iState := 10;
         END_IF;
 
-    10: (* COMPRESSOR START *)
-        bCompRunCmd := TRUE;
-        iOperatingState := 10;
+    10: (* COOLING AND THERMAL STABILIZATION *)
+        (* Wait for absolute zero profiling to ensure coil is fully superconducting *)
+        tCoolingTimer(IN := (rCryostatTemp <= c_rCriticalTemp), PT := T#30S);
         
-        tStartupDelay(IN := TRUE, PT := T#15S);
-        IF tStartupDelay.Q THEN
-            tStartupDelay(IN := FALSE);
-            (* Verify pressure before moving to next stage *)
-            IF rCompPressure > 12.0 THEN
-                iState := 20;
-            ELSE
-                bCriticalAlarm := TRUE;
-                iState := 0;
-            END_IF;
+        IF tCoolingTimer.Q THEN
+            tCoolingTimer(IN := FALSE);
+            iState := 20;
+        ELSIF NOT (rCryostatTemp <= c_rCriticalTemp) THEN
+            tCoolingTimer(IN := FALSE);
+        END_IF;
+        
+        IF NOT bSystemEnable THEN
+            iState := 0;
         END_IF;
 
-    20: (* LN2 SHIELD PRE-COOLING *)
-        iOperatingState := 20;
+    20: (* PRE-EXCITATION / FIELD RAMP-UP *)
+        (* Slowly ramp up coil current while resting on physical support guideway *)
+        bLevitationReady := TRUE;
         
-        (* PI Control for N2 Level *)
-        rErrorN2 := rN2Setpoint - rN2Level;
-        rIntegralErrorN2 := rIntegralErrorN2 + (rErrorN2 * 0.1); 
-        rN2ValveCmd := (rKp_N2 * rErrorN2) + (rKi_N2 * rIntegralErrorN2);
+        IF rTrainVelocity > 1.0 THEN
+            iState := 30; (* Train is beginning to move, switch to active levitation *)
+        END_IF;
         
-        (* Limit valve output *)
-        IF rN2ValveCmd > 100.0 THEN rN2ValveCmd := 100.0; END_IF;
-        IF rN2ValveCmd < 0.0 THEN rN2ValveCmd := 0.0; END_IF;
-        
-        IF rN2Level > 75.0 THEN
-            iState := 30;
+        IF NOT bSystemEnable THEN
+            iState := 0;
         END_IF;
 
-    30: (* LHe PRIMARY COOLING *)
-        iOperatingState := 30;
+    30: (* ACTIVE LEVITATION AND GAP CLEARANCE CONTROL *)
+        (* High-Speed Multi-Axis PID Control *)
+        rErrorZ := c_rTargetGapZ - rGapClearanceZ;
+        rDerivativeZ := rErrorZ - rPrevErrorZ;
+        rIntegralZ := rIntegralZ + rErrorZ;
         
-        (* PI Control for N2 Level - ongoing *)
-        rErrorN2 := rN2Setpoint - rN2Level;
-        rIntegralErrorN2 := rIntegralErrorN2 + (rErrorN2 * 0.1); 
-        rN2ValveCmd := (rKp_N2 * rErrorN2) + (rKi_N2 * rIntegralErrorN2);
-        IF rN2ValveCmd > 100.0 THEN rN2ValveCmd := 100.0; END_IF;
-        IF rN2ValveCmd < 0.0 THEN rN2ValveCmd := 0.0; END_IF;
+        (* Gain Scheduling: Stiffen control at higher speeds (600 km/h) *)
+        IF rTrainVelocity > 300.0 THEN
+            rKp_Z := 400.0;
+            rKd_Z := 200.0;
+        ELSE
+            rKp_Z := 250.0;
+            rKd_Z := 120.0;
+        END_IF;
+
+        (* Calculate commanded coil voltage (actuation) *)
+        rCoilVoltageCommand := (rKp_Z * rErrorZ) + (rKi_Z * rIntegralZ) + (rKd_Z * rDerivativeZ);
+        rPrevErrorZ := rErrorZ;
         
-        (* PI Control for He Level *)
-        rErrorHe := rHeSetpoint - rHeLevel;
-        rIntegralErrorHe := rIntegralErrorHe + (rErrorHe * 0.1);
-        rHeValveCmd := (rKp_He * rErrorHe) + (rKi_He * rIntegralErrorHe);
-        IF rHeValveCmd > 100.0 THEN rHeValveCmd := 100.0; END_IF;
-        IF rHeValveCmd < 0.0 THEN rHeValveCmd := 0.0; END_IF;
+        (* Lateral Active Damping calculation (simplified proportional) *)
+        rActiveDampingY := rGapClearanceY * (-150.0);
         
-        (* Check stability conditions: Temp and Flow *)
-        IF (rHeLevel >= 80.0) AND (rHeTemp1 < 4.5) AND bFlowSensorOK THEN
-            tStabilityTimer(IN := TRUE, PT := T#30S);
+        (* Fault detection for mechanical gap violation *)
+        IF ABS(rErrorZ) > c_rMaxGapDeviation THEN
+            tStabilityTimer(IN := TRUE, PT := T#100MS);
             IF tStabilityTimer.Q THEN
-                iState := 40;
+                iState := 99; (* Loss of levitation stability *)
             END_IF;
         ELSE
             tStabilityTimer(IN := FALSE);
         END_IF;
 
-    40: (* SYSTEM READY - MAGLEV STABLE *)
-        iOperatingState := 40;
-        bSystemReady := TRUE;
+    99: (* FAULT / QUENCH / SHUTDOWN *)
+        (* Safe cascade shutdown of energy in the superconducting coil *)
+        bLevitationReady := FALSE;
+        rCoilVoltageCommand := -100.0; (* Active fast discharge *)
+        rActiveDampingY := 0.0;
         
-        (* Continual PI Control for He and N2 *)
-        rErrorN2 := rN2Setpoint - rN2Level;
-        rIntegralErrorN2 := rIntegralErrorN2 + (rErrorN2 * 0.1); 
-        rN2ValveCmd := (rKp_N2 * rErrorN2) + (rKi_N2 * rIntegralErrorN2);
-        IF rN2ValveCmd > 100.0 THEN rN2ValveCmd := 100.0; END_IF;
-        IF rN2ValveCmd < 0.0 THEN rN2ValveCmd := 0.0; END_IF;
-        
-        rErrorHe := rHeSetpoint - rHeLevel;
-        rIntegralErrorHe := rIntegralErrorHe + (rErrorHe * 0.1);
-        rHeValveCmd := (rKp_He * rErrorHe) + (rKi_He * rIntegralErrorHe);
-        IF rHeValveCmd > 100.0 THEN rHeValveCmd := 100.0; END_IF;
-        IF rHeValveCmd < 0.0 THEN rHeValveCmd := 0.0; END_IF;
-        
-        (* Drop ready if parameters drift *)
-        IF rHeTemp1 > 5.0 OR rHeLevel < 70.0 OR NOT bFlowSensorOK THEN
-            bSystemReady := FALSE;
-            iState := 30;
-        END_IF;
-        
-    999: (* QUENCH RECOVERY / LOCKOUT *)
-        iOperatingState := 999;
-        bSystemReady := FALSE;
-        bCriticalAlarm := TRUE;
-        bCompRunCmd := FALSE;
-        rHeValveCmd := 0.0;
-        rN2ValveCmd := 0.0;
-        
-        (* Require manual reset by dropping SystemEnable *)
-        IF NOT bSystemEnable THEN
-            iState := 0;
+        IF rSuperconductorCurrent < 10.0 AND NOT bQuenchAlarm AND bSystemEnable THEN
+            iState := 0; (* Allowed to reset if fault cleared *)
         END_IF;
 
 END_CASE;
 
-END_FUNCTION_BLOCK
-```'''
+iOperatingState := iState;
 
-os.makedirs('data/swarm_raw', exist_ok=True)
-record = {'messages': [{'role': 'user', 'content': prompt}, {'role': 'assistant', 'content': code}]}
-filename = f'data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json'
-with open(filename, 'w', encoding='utf-8') as f:
+END_FUNCTION_BLOCK
+```"""
+
+record = {
+    "messages": [
+        {"role": "user", "content": prompt},
+        {"role": "assistant", "content": code}
+    ]
+}
+
+os.makedirs("c:/Users/majip/Downloads/LLM REASEARCH/data/swarm_raw", exist_ok=True)
+filename = f"c:/Users/majip/Downloads/LLM REASEARCH/data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
+with open(filename, "w", encoding="utf-8") as f:
     json.dump(record, f, ensure_ascii=False)
-print(f'Saved to {filename}')
+
+print(f"Saved to {filename}")

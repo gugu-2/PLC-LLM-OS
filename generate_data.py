@@ -1,11 +1,11 @@
 import json, uuid, os
-
-prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
+prompt = """<USER_REQUEST>
+You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
 You possess the expertise of a 40+ years experienced PLC automation architect writing world-class, extremely complex, and mathematically rigorous code.
 
-**Your assigned domain is: Semiconductor Deep Reactive-Ion Etching (DRIE) Bosch Process Chamber**
+**Your assigned domain is: Deep-Sea Acoustic Doppler Current Profiler (ADCP) Calibration Tank**
 
-Task: Invent a highly complex, ultra-realistic control scenario for this domain (e.g., ultra-fast SF6/C4F8 gas switching cycles, inductively coupled plasma (ICP) RF matching network, and wafer backside helium cooling pressure regulation). Your code must look like the absolute best, most robust industrial code written by a world-class 40-year veteran.
+Task: Invent a highly complex, ultra-realistic control scenario for this domain (e.g., Transducer multi-frequency chirped acoustic generation, anechoic test tank multi-axis robotic carriage synchronization, and phased-array beamforming mapping). Your code must look like the absolute best, most robust industrial code written by a world-class 40-year veteran.
 
 CRITICAL RULES - READ EVERY LINE:
 1. CODE FENCE: Use TRIPLE backticks + iec-st. EXACTLY like this:
@@ -23,7 +23,7 @@ CRITICAL RULES - READ EVERY LINE:
 4. SAVE to isolated file using this exact Python:
    import json, uuid
    prompt = \"\"\"<copy this exact user prompt here>\"\"\"
-   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_DRIE_Chamber\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
+   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_ADCP_CalibrationTank\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
    record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
    with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
        json.dump(record, f, ensure_ascii=False)
@@ -36,161 +36,126 @@ CRITICAL RULES - READ EVERY LINE:
    [ ] Last code line: END_FUNCTION_BLOCK
    [ ] Closing fence: ```
    [ ] Total chars >= 1500
-6. REPLY with: EVOLUTION COMPLETE: Semiconductor Deep Reactive-Ion Etching (DRIE) Bosch Process Chamber
+6. REPLY with: EVOLUTION COMPLETE: Deep-Sea Acoustic Doppler Current Profiler (ADCP) Calibration Tank
 
-DO NOT APOLOGIZE. DO NOT EXPLAIN. GENERATE CODE AND SAVE IT."""
+DO NOT APOLOGIZE. DO NOT EXPLAIN. GENERATE CODE AND SAVE IT.
+</USER_REQUEST>"""
 
 code = """```iec-st
-FUNCTION_BLOCK FB_DRIE_Bosch_Process_Chamber
-(* 
-   =============================================================================
-   Block Name    : FB_DRIE_Bosch_Process_Chamber
-   Description   : Advanced Deep Reactive-Ion Etching (DRIE) Control Block
-                   Executes the Bosch process with ultra-fast gas switching
-                   (SF6 for etching, C4F8 for passivation), manages the ICP RF 
-                   matching network, and regulates wafer backside helium cooling
-                   pressure to strictly maintain wafer temperature.
-   =============================================================================
-*)
+FUNCTION_BLOCK FB_ADCP_Calibration_Tank
 VAR_INPUT
-    bEnableProc     : BOOL;  (* System enable signal for the DRIE process *)
-    bEmergencyStop  : BOOL;  (* Safety interlock / Emergency Stop signal (Active HIGH OK) *)
-    rChamberPress   : REAL;  (* Chamber pressure measurement (mTorr) *)
-    rHeBacksidePress: REAL;  (* Wafer backside Helium cooling pressure (Torr) *)
-    rICPFwdPower    : REAL;  (* Inductively Coupled Plasma Forward Power (Watts) *)
-    rICPRflPower    : REAL;  (* Inductively Coupled Plasma Reflected Power (Watts) *)
-    bRecipeLoaded   : BOOL;  (* True if a valid Bosch process recipe is loaded *)
+    (* Required: at least 4-8 physical inputs with types and comments *)
+    bSystemEnable           : BOOL;     (* Main system enable interlock *)
+    bEstopSafetyRelay       : BOOL;     (* Safety relay OK / E-Stop circuit healthy *)
+    rTankTemperature        : REAL;     (* Water temperature in anechoic tank (deg C) *)
+    rTankSalinity           : REAL;     (* Water salinity in PSU (Practical Salinity Unit) *)
+    rCarriagePosX           : LREAL;    (* Multi-axis carriage X position (meters) *)
+    rCarriagePosY           : LREAL;    (* Multi-axis carriage Y position (meters) *)
+    rCarriagePosZ           : LREAL;    (* Multi-axis carriage Z position (meters) *)
+    rAcousticRefInput       : REAL;     (* Reference hydrophone acoustic pressure input (Pa) *)
 END_VAR
-
 VAR_OUTPUT
-    bSystemReady    : BOOL;  (* System ready status / No active faults *)
-    bProcRunning    : BOOL;  (* Process is actively running *)
-    rSF6_ValveCmd   : REAL;  (* Control signal for SF6 MFC (0-100%) *)
-    rC4F8_ValveCmd  : REAL;  (* Control signal for C4F8 MFC (0-100%) *)
-    rICP_PowerCmd   : REAL;  (* Commanded ICP generator output power (Watts) *)
-    bAlarm          : BOOL;  (* Fault alarm output *)
-    iErrorCode      : INT;   (* Specific error code if an alarm is triggered *)
+    (* Required: at least 3-6 outputs with types and comments *)
+    bSystemReady            : BOOL;     (* System is initialized and ready for acoustic sweep *)
+    bCalibrationActive      : BOOL;     (* Calibration sequence is actively running *)
+    rCalculatedSoundSpeed   : REAL;     (* Calculated speed of sound in water (m/s) based on Temp/Salinity *)
+    rTxDriveVoltage         : REAL;     (* Output drive voltage for ADCP transducer array (V) *)
+    rTxDriveFrequency       : REAL;     (* Output frequency for chirped acoustic generation (Hz) *)
+    bErrorFault             : BOOL;     (* General fault or error state *)
+    iErrorCode              : INT;      (* Specific fault code for diagnostics *)
 END_VAR
-
 VAR
-    iState          : INT := 0;      (* Internal state machine step *)
-    iCycleCount     : INT := 0;      (* Counter for total etched cycles *)
-    tEtchTimer      : TON;           (* Timer for SF6 etching phase *)
-    tPassTimer      : TON;           (* Timer for C4F8 passivation phase *)
-    tPurgeTimer     : TON;           (* Timer for intermediate purge step *)
+    (* Internal state variables *)
+    iSeqState               : INT := 0; 
+    tStabilizeTimer         : TON;
+    tChirpTimer             : TON;
     
-    (* Process Parameters (could be linked to recipe) *)
-    rTargetHePress  : REAL := 10.0;  (* Target He pressure in Torr *)
-    rMaxReflectedPwr: REAL := 50.0;  (* Maximum allowed reflected power (Watts) *)
-    iMaxCycles      : INT := 1000;   (* Target number of Bosch cycles to execute *)
+    (* Kinematics and Acoustic variables *)
+    rTargetX                : LREAL := 0.0;
+    rTargetY                : LREAL := 0.0;
+    rTargetZ                : LREAL := -2.5; (* Default submersion depth *)
+    rTolerance              : LREAL := 0.005;
+    
+    rBaseFreq               : REAL := 300000.0; (* 300 kHz base frequency *)
+    rFreqSweepBand          : REAL := 25000.0;  (* +/- 25 kHz sweep *)
 END_VAR
 
 (* === MAIN LOGIC === *)
-
-(* Safety and Interlock Check *)
-IF NOT bEmergencyStop THEN
-    bSystemReady   := FALSE;
-    bProcRunning   := FALSE;
-    rSF6_ValveCmd  := 0.0;
-    rC4F8_ValveCmd := 0.0;
-    rICP_PowerCmd  := 0.0;
-    bAlarm         := TRUE;
-    iErrorCode     := 999; (* 999: E-Stop triggered *)
-    iState         := 0;
+(* Immediate safety interlock check *)
+IF NOT bEstopSafetyRelay THEN
+    bSystemReady := FALSE;
+    bCalibrationActive := FALSE;
+    bErrorFault := TRUE;
+    iErrorCode := 999; (* 999: Emergency Stop Active *)
+    rTxDriveVoltage := 0.0;
+    rTxDriveFrequency := 0.0;
     RETURN;
 END_IF;
 
-(* Continuous Monitoring *)
-IF rICPRflPower > rMaxReflectedPwr THEN
-    bAlarm := TRUE;
-    iErrorCode := 101; (* 101: RF Match Fault *)
-    iState := 99;      (* Move to fault state *)
+(* Clear error if system is disabled normally without estop *)
+IF NOT bSystemEnable AND NOT bErrorFault THEN
+    iSeqState := 0;
 END_IF;
 
-IF (rHeBacksidePress < rTargetHePress * 0.8) OR (rHeBacksidePress > rTargetHePress * 1.2) THEN
-    (* Minor He pressure deviation can trigger a warning, major deviation a fault *)
-    bAlarm := TRUE;
-    iErrorCode := 102; (* 102: He cooling pressure out of bounds *)
-END_IF;
+(* Environmental Calculations: Chen-Millero Speed of Sound in Seawater Approx *)
+(* Simplified for PLC execution context, typical valid range for calibration tank *)
+rCalculatedSoundSpeed := 1449.2 + (4.6 * rTankTemperature) - (0.055 * (rTankTemperature * rTankTemperature)) + (0.00029 * (rTankTemperature * rTankTemperature * rTankTemperature)) + (1.34 - 0.01 * rTankTemperature) * (rTankSalinity - 35.0) + 0.016 * 2.5;
 
-(* Bosch Process State Machine *)
-CASE iState OF
-    0: (* IDLE - Wait for recipe and enable *)
-        bSystemReady := TRUE;
-        bProcRunning := FALSE;
-        rSF6_ValveCmd := 0.0;
-        rC4F8_ValveCmd := 0.0;
-        rICP_PowerCmd := 0.0;
-        
-        IF bEnableProc AND bRecipeLoaded AND NOT bAlarm THEN
-            iState := 10; (* Start process *)
-            iCycleCount := 0;
-        END_IF;
-
-    10: (* IGNITE PLASMA & STABILIZE *)
-        bProcRunning := TRUE;
-        rICP_PowerCmd := 1500.0; (* Pre-strike power *)
-        
-        (* Wait for chamber pressure and RF forward power to reach thresholds *)
-        IF (rChamberPress > 15.0) AND (rICPFwdPower > 1400.0) THEN
-            iState := 20; (* Enter Etch Phase *)
-        END_IF;
-
-    20: (* ETCH PHASE (SF6 ON, C4F8 OFF) *)
-        rSF6_ValveCmd := 100.0;
-        rC4F8_ValveCmd := 0.0;
-        
-        tEtchTimer(IN := TRUE, PT := T#2S); (* 2-second ultra-fast etch step *)
-        IF tEtchTimer.Q THEN
-            tEtchTimer(IN := FALSE);
-            iState := 30;
-        END_IF;
-
-    30: (* PASSIVATION PHASE (C4F8 ON, SF6 OFF) *)
-        rSF6_ValveCmd := 0.0;
-        rC4F8_ValveCmd := 100.0;
-        
-        tPassTimer(IN := TRUE, PT := T#1S); (* 1-second ultra-fast passivation step *)
-        IF tPassTimer.Q THEN
-            tPassTimer(IN := FALSE);
-            iCycleCount := iCycleCount + 1;
-            
-            IF iCycleCount >= iMaxCycles THEN
-                iState := 40; (* Process complete *)
-            ELSE
-                iState := 20; (* Next cycle *)
-            END_IF;
-        END_IF;
-
-    40: (* COMPLETE / PURGE *)
-        rSF6_ValveCmd := 0.0;
-        rC4F8_ValveCmd := 0.0;
-        rICP_PowerCmd := 0.0;
-        
-        tPurgeTimer(IN := TRUE, PT := T#10S);
-        IF tPurgeTimer.Q THEN
-            tPurgeTimer(IN := FALSE);
-            bProcRunning := FALSE;
-            
-            IF NOT bEnableProc THEN
-                iState := 0; (* Reset to IDLE *)
-            END_IF;
-        END_IF;
-
-    99: (* FAULT HANDLING *)
-        rSF6_ValveCmd := 0.0;
-        rC4F8_ValveCmd := 0.0;
-        rICP_PowerCmd := 0.0;
-        bProcRunning := FALSE;
+CASE iSeqState OF
+    0: (* IDLE & STANDBY *)
         bSystemReady := FALSE;
+        bCalibrationActive := FALSE;
+        bErrorFault := FALSE;
+        iErrorCode := 0;
+        rTxDriveVoltage := 0.0;
         
-        IF NOT bEnableProc THEN
-            (* Wait for operator to clear enable before attempting reset *)
-            bAlarm := FALSE;
-            iErrorCode := 0;
-            iState := 0;
+        IF bSystemEnable THEN
+            iSeqState := 10; (* Transition to Initialization *)
         END_IF;
 
+    10: (* INITIALIZATION & POSITIONING *)
+        (* Wait for multi-axis carriage to reach target center coordinates *)
+        IF (ABS(rCarriagePosX - rTargetX) < rTolerance) AND 
+           (ABS(rCarriagePosY - rTargetY) < rTolerance) AND 
+           (ABS(rCarriagePosZ - rTargetZ) < rTolerance) THEN
+            
+            tStabilizeTimer(IN := TRUE, PT := T#10S);
+            IF tStabilizeTimer.Q THEN
+                tStabilizeTimer(IN := FALSE);
+                bSystemReady := TRUE;
+                iSeqState := 20; (* Ready for Sweep *)
+            END_IF;
+        ELSE
+            tStabilizeTimer(IN := FALSE);
+        END_IF;
+
+    20: (* READY FOR CALIBRATION SWEEP *)
+        IF bSystemEnable THEN
+            bCalibrationActive := TRUE;
+            tChirpTimer(IN := TRUE, PT := T#2S);
+            iSeqState := 30;
+        END_IF;
+        
+    30: (* CHIRP GENERATION & BEAMFORMING MAPPING *)
+        (* Generate a linear frequency chirp *)
+        IF tChirpTimer.IN THEN
+            (* Scale frequency over the 2-second timer *)
+            rTxDriveFrequency := rBaseFreq - rFreqSweepBand + ((rFreqSweepBand * 2.0) * (TIME_TO_REAL(tChirpTimer.ET) / 2000.0));
+            rTxDriveVoltage := 48.0; (* 48V Drive for ADCP *)
+        END_IF;
+        
+        IF tChirpTimer.Q THEN
+            tChirpTimer(IN := FALSE);
+            rTxDriveVoltage := 0.0;
+            bCalibrationActive := FALSE;
+            iSeqState := 20; (* Return to ready *)
+        END_IF;
+
+    ELSE
+        (* Invalid state fallback *)
+        iSeqState := 0;
+        bErrorFault := TRUE;
+        iErrorCode := 500; (* State machine fault *)
 END_CASE;
 
 END_FUNCTION_BLOCK
@@ -198,6 +163,12 @@ END_FUNCTION_BLOCK
 
 os.makedirs("data/swarm_raw", exist_ok=True)
 filename = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
+record = {
+    "messages": [
+        {"role": "user", "content": prompt},
+        {"role": "assistant", "content": code}
+    ]
+}
 with open(filename, "w", encoding="utf-8") as f:
-    json.dump({"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}, f, ensure_ascii=False)
+    json.dump(record, f, ensure_ascii=False)
 print(f"Saved to {filename}")

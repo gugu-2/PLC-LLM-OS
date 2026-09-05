@@ -1,24 +1,195 @@
 import json, uuid, os
+prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
+You possess the expertise of a 40+ years experienced PLC automation architect writing world-class, extremely complex, and mathematically rigorous code.
 
-record = {
-    "messages": [
-        {"role": "user", "content": "You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 data.\nYour specific domain is: Asphalt Batching Plant.\nTask: Invent a highly complex control scenario for this domain (e.g., aggregate cold feed drum drying burner cascade, bitumen gravimetric weighing injection, and pugmill mixer sequencing).\nWrite a deterministic Structured Text (ST) FUNCTION_BLOCK. Include complete VAR declarations and physical I/O."},
-        {"role": "assistant", "content": "```iec-st\nFUNCTION_BLOCK FB_AsphaltBatchingControl\nTITLE = 'Asphalt Batching Plant Main Sequencer'\nVERSION : '1.1'\nAUTHOR : 'Lumina AI'\n\nVAR_INPUT\n    bStartProduction : BOOL;      (* Command to start batching sequence *)\n    bEmergencyStop : BOOL;        (* E-Stop signal *)\n    bResetFault : BOOL;           (* Reset faults *)\n    \n    (* Setpoints *)\n    rTargetAggWeight : REAL;      (* Target aggregate weight [kg] *)\n    rTargetBitWeight : REAL;      (* Target bitumen weight [kg] *)\n    rTargetFillerWeight : REAL;   (* Target filler weight [kg] *)\n    rTargetAsphaltTemp : REAL;    (* Target asphalt discharge temperature [C] *)\n    tDryMixingTime : TIME;        (* Dry mix cycle time *)\n    tWetMixingTime : TIME;        (* Wet mix cycle time *)\n    \n    (* Sensors and Feedback *)\n    rActualAggWeight : REAL;      (* Current aggregate scale weight [kg] *)\n    rActualBitWeight : REAL;      (* Current bitumen scale weight [kg] *)\n    rActualFillerWeight : REAL;   (* Current filler scale weight [kg] *)\n    rDrumTemperature : REAL;      (* Dryer drum temperature sensor [C] *)\n    rPugmillTemperature : REAL;   (* Mixer temperature sensor [C] *)\n    bMixerDoorClosed : BOOL;      (* Mixer discharge door closed limit switch *)\n    bSkipReady : BOOL;            (* Skip hoist is in position for loading *)\n    bBurnerFlameDetected : BOOL;  (* Burner flame sensor *)\nEND_VAR\n\nVAR_OUTPUT\n    (* Actuators and Motors *)\n    bColdFeedFeeder1 : BOOL;      (* Sand feeder *)\n    bColdFeedFeeder2 : BOOL;      (* 10mm feeder *)\n    bColdFeedFeeder3 : BOOL;      (* 14mm feeder *)\n    bColdFeedFeeder4 : BOOL;      (* 20mm feeder *)\n    \n    bDryerDrumMotor : BOOL;       (* Main drum rotation *)\n    bBurnerBlower : BOOL;         (* Burner air blower *)\n    bBurnerIgniter : BOOL;        (* Burner ignition transformer *)\n    rBurnerFuelValve : REAL;      (* Burner fuel modulation 0-100% *)\n    bExhaustFan : BOOL;           (* Exhaust and baghouse fan *)\n    \n    bAggDischargeGate : BOOL;     (* Dump aggregate into mixer *)\n    bBitPumpCommand : BOOL;       (* Pump bitumen to scale *)\n    bBitDischargeValve : BOOL;    (* Inject bitumen into mixer *)\n    bFillerScrewComm : BOOL;      (* Run filler screw conveyor *)\n    bFillerDischargeGate : BOOL;  (* Dump filler into mixer *)\n    \n    bPugmillMotor : BOOL;         (* Main mixer motor *)\n    bMixerDischargeDoor : BOOL;   (* Open mixer discharge door *)\n    \n    (* Status and HMI *)\n    iState : INT;                 (* Current sequence state *)\n    bProductionActive : BOOL;     (* Production running flag *)\n    bFaultActive : BOOL;          (* System fault flag *)\n    iFaultCode : INT;             (* Fault code for diagnostics *)\nEND_VAR\n\nVAR\n    tDryMixTimer : TON;\n    tWetMixTimer : TON;\n    tDischargeTimer : TON;\n    tBurnerPurgeTimer : TON;\n    \n    rPID_Kp : REAL := 1.85;\n    rPID_Ki : REAL := 0.05;\n    rPID_Kd : REAL := 0.12;\n    rError : REAL;\n    rIntegral : REAL;\n    rPrevError : REAL;\n    \n    bAggReady : BOOL;\n    bBitReady : BOOL;\n    bFillerReady : BOOL;\nEND_VAR\n\n(* =========================================================================\n   ASPHALT BATCHING PLANT SEQUENCER & PID CONTROL\n   ========================================================================= *)\n   \n(* Handle Emergency Stop and Faults *)\nIF bEmergencyStop THEN\n    bColdFeedFeeder1 := FALSE; bColdFeedFeeder2 := FALSE;\n    bColdFeedFeeder3 := FALSE; bColdFeedFeeder4 := FALSE;\n    bDryerDrumMotor := FALSE; bBurnerBlower := FALSE;\n    bBurnerIgniter := FALSE; rBurnerFuelValve := 0.0;\n    bExhaustFan := FALSE; bAggDischargeGate := FALSE;\n    bBitPumpCommand := FALSE; bBitDischargeValve := FALSE;\n    bFillerScrewComm := FALSE; bFillerDischargeGate := FALSE;\n    bPugmillMotor := FALSE; bMixerDischargeDoor := FALSE;\n    \n    iState := 999;\n    bFaultActive := TRUE;\n    iFaultCode := 1; (* E-STOP Activated *)\n    bProductionActive := FALSE;\n    RETURN;\nEND_IF;\n\nIF bFaultActive AND bResetFault THEN\n    bFaultActive := FALSE;\n    iFaultCode := 0;\n    iState := 0;\nEND_IF;\n\nIF bFaultActive THEN\n    RETURN;\nEND_IF;\n\n(* Burner PID Control Cascade *)\nIF iState >= 20 AND iState <= 50 THEN\n    rError := rTargetAsphaltTemp - rDrumTemperature;\n    rIntegral := rIntegral + (rError * 0.1); (* 100ms cycle assumption *)\n    \n    (* Anti-windup limit *)\n    IF rIntegral > 100.0 THEN rIntegral := 100.0; END_IF;\n    IF rIntegral < 0.0 THEN rIntegral := 0.0; END_IF;\n    \n    rBurnerFuelValve := (rPID_Kp * rError) + (rPID_Ki * rIntegral) + (rPID_Kd * (rError - rPrevError));\n    \n    IF rBurnerFuelValve > 100.0 THEN rBurnerFuelValve := 100.0; END_IF;\n    IF rBurnerFuelValve < 15.0 THEN rBurnerFuelValve := 15.0; END_IF; (* Minimum fire *)\n    \n    rPrevError := rError;\nELSE\n    rBurnerFuelValve := 0.0;\n    rIntegral := 0.0;\nEND_IF;\n\n(* Main State Machine *)\nCASE iState OF\n    0: (* IDLE *)\n        bProductionActive := FALSE;\n        IF bStartProduction AND bMixerDoorClosed AND bSkipReady THEN\n            iState := 10;\n            bProductionActive := TRUE;\n        END_IF;\n        \n    10: (* PLANT STARTUP & PURGE *)\n        bExhaustFan := TRUE;\n        bDryerDrumMotor := TRUE;\n        bBurnerBlower := TRUE;\n        tBurnerPurgeTimer(IN:=TRUE, PT:=T#15S);\n        IF tBurnerPurgeTimer.Q THEN\n            tBurnerPurgeTimer(IN:=FALSE);\n            iState := 20;\n        END_IF;\n        \n    20: (* BURNER IGNITION *)\n        bBurnerIgniter := TRUE;\n        rBurnerFuelValve := 20.0; (* Light-off position *)\n        IF bBurnerFlameDetected THEN\n            bBurnerIgniter := FALSE;\n            iState := 30;\n        END_IF;\n        (* Add timeout fault logic here in production *)\n        \n    30: (* MATERIAL FEED AND WEIGHING *)\n        bColdFeedFeeder1 := TRUE;\n        bColdFeedFeeder2 := TRUE;\n        \n        (* Aggregate Weighing *)\n        IF rActualAggWeight < rTargetAggWeight THEN\n            (* Elevators running implied *)\n            bAggReady := FALSE;\n        ELSE\n            bColdFeedFeeder1 := FALSE;\n            bColdFeedFeeder2 := FALSE;\n            bAggReady := TRUE;\n        END_IF;\n        \n        (* Bitumen Weighing *)\n        IF rActualBitWeight < rTargetBitWeight THEN\n            bBitPumpCommand := TRUE;\n            bBitReady := FALSE;\n        ELSE\n            bBitPumpCommand := FALSE;\n            bBitReady := TRUE;\n        END_IF;\n        \n        (* Filler Weighing *)\n        IF rActualFillerWeight < rTargetFillerWeight THEN\n            bFillerScrewComm := TRUE;\n            bFillerReady := FALSE;\n        ELSE\n            bFillerScrewComm := FALSE;\n            bFillerReady := TRUE;\n        END_IF;\n        \n        IF bAggReady AND bBitReady AND bFillerReady AND (rDrumTemperature >= rTargetAsphaltTemp - 5.0) THEN\n            iState := 40;\n        END_IF;\n        \n    40: (* DRY MIXING CYCLE *)\n        bPugmillMotor := TRUE;\n        bAggDischargeGate := TRUE;\n        tDryMixTimer(IN:=TRUE, PT:=tDryMixingTime);\n        IF tDryMixTimer.Q THEN\n            bAggDischargeGate := FALSE;\n            tDryMixTimer(IN:=FALSE);\n            iState := 50;\n        END_IF;\n        \n    50: (* WET MIXING CYCLE *)\n        bBitDischargeValve := TRUE;\n        bFillerDischargeGate := TRUE;\n        tWetMixTimer(IN:=TRUE, PT:=tWetMixingTime);\n        IF tWetMixTimer.Q THEN\n            bBitDischargeValve := FALSE;\n            bFillerDischargeGate := FALSE;\n            tWetMixTimer(IN:=FALSE);\n            iState := 60;\n        END_IF;\n        \n    60: (* DISCHARGE TO SKIP *)\n        bMixerDischargeDoor := TRUE;\n        tDischargeTimer(IN:=TRUE, PT:=T#10S);\n        IF tDischargeTimer.Q THEN\n            bMixerDischargeDoor := FALSE;\n            tDischargeTimer(IN:=FALSE);\n            (* Loop back for next batch or shutdown *)\n            IF bStartProduction THEN\n                iState := 30;\n            ELSE\n                iState := 70;\n            END_IF;\n        END_IF;\n        \n    70: (* NORMAL SHUTDOWN *)\n        rBurnerFuelValve := 0.0;\n        bPugmillMotor := FALSE;\n        tBurnerPurgeTimer(IN:=TRUE, PT:=T#30S);\n        IF tBurnerPurgeTimer.Q AND NOT bBurnerFlameDetected THEN\n            bBurnerBlower := FALSE;\n            bDryerDrumMotor := FALSE;\n            bExhaustFan := FALSE;\n            bProductionActive := FALSE;\n            tBurnerPurgeTimer(IN:=FALSE);\n            iState := 0;\n        END_IF;\n        \n    999: (* FAULT STATE *)\n        (* Handled at the top of the block *)\n        ;\n        \nEND_CASE;\n\nEND_FUNCTION_BLOCK\n```"}
-    ]
-}
+**Your assigned domain is: Semiconductor Chemical Vapor Deposition (CVD) Graphene Furnace**
 
+Task: Invent a highly complex, ultra-realistic control scenario for this domain (e.g., Precursor mass flow synchronization, 1000°C isothermal zone mapping, and inert argon purging cross-contamination lock). Your code must look like the absolute best, most robust industrial code written by a world-class 40-year veteran.
+
+CRITICAL RULES - READ EVERY LINE:
+1. CODE FENCE: Use TRIPLE backticks + iec-st. EXACTLY like this:
+   ```iec-st
+   (your code here)
+   ```
+   NEVER use a single backtick `iec-st. ALWAYS use triple backticks.
+2. REQUIRED IEC 61131-3 STRUCTURE (all 5 mandatory):
+   a. FUNCTION_BLOCK FB_<Name>   <- first line of code, always
+   b. VAR_INPUT ... END_VAR      <- min 4 typed inputs with comments
+   c. VAR_OUTPUT ... END_VAR     <- min 3 typed outputs with comments
+   d. At least one END_IF; or END_CASE;  <- control logic required
+   e. END_FUNCTION_BLOCK         <- last line of code, always
+3. LENGTH: The assistant content MUST be >= 1500 characters total.
+4. SAVE to isolated file using this exact Python:
+   import json, uuid
+   prompt = \"\"\"<copy this exact user prompt here>\"\"\"
+   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_CVD_GrapheneFurnace\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
+   record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
+   with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
+       json.dump(record, f, ensure_ascii=False)
+5. SELF-CHECK before saving - verify ALL:
+   [ ] Fence is ```iec-st
+   [ ] First code line: FUNCTION_BLOCK FB_<name>
+   [ ] Has VAR_INPUT section
+   [ ] Has VAR_OUTPUT section
+   [ ] Has END_IF; or END_CASE;
+   [ ] Last code line: END_FUNCTION_BLOCK
+   [ ] Closing fence: ```
+   [ ] Total chars >= 1500
+6. REPLY with: EVOLUTION COMPLETE: Semiconductor Chemical Vapor Deposition (CVD) Graphene Furnace
+
+DO NOT APOLOGIZE. DO NOT EXPLAIN. GENERATE CODE AND SAVE IT."""
+
+code = """```iec-st
+FUNCTION_BLOCK FB_CVD_GrapheneFurnace
+VAR_INPUT
+    (* Physical inputs for the CVD Furnace System *)
+    bEnable                 : BOOL;     (* System enable signal from master recipe controller *)
+    bEmergencyStop          : BOOL;     (* Safety relay OK signal (E-Stop Loop) *)
+    rTempZone1              : REAL;     (* Temperature of Zone 1 in deg C *)
+    rTempZone2              : REAL;     (* Temperature of Zone 2 in deg C *)
+    rTempZone3              : REAL;     (* Temperature of Zone 3 in deg C *)
+    rMassFlowArgon          : REAL;     (* Actual mass flow of Argon in sccm *)
+    rMassFlowMethane        : REAL;     (* Actual mass flow of Methane (Precursor) in sccm *)
+    rChamberPressure        : REAL;     (* Vacuum chamber pressure in Torr *)
+END_VAR
+VAR_OUTPUT
+    (* Outputs to Physical Actuators and Status Flags *)
+    bSystemReady            : BOOL;     (* System ready status for recipe execution *)
+    rHeaterControlZone1     : REAL;     (* Control signal to Zone 1 thyristor (0-100%) *)
+    rHeaterControlZone2     : REAL;     (* Control signal to Zone 2 thyristor (0-100%) *)
+    rHeaterControlZone3     : REAL;     (* Control signal to Zone 3 thyristor (0-100%) *)
+    rMFCSetPointArgon       : REAL;     (* Mass flow controller setpoint for Argon (sccm) *)
+    rMFCSetPointMethane     : REAL;     (* Mass flow controller setpoint for Methane (sccm) *)
+    bVacuumPumpEnable       : BOOL;     (* Vacuum pump operation command *)
+    bAlarm                  : BOOL;     (* Critical fault alarm output *)
+    iCurrentState           : INT;      (* Current state of the CVD process *)
+END_VAR
+VAR
+    (* Internal state variables and timers *)
+    iState                  : INT := 0;
+    tPurgeTimer             : TON;
+    tGrowthTimer            : TON;
+    tCoolDownTimer          : TON;
+    rTargetTemp             : REAL := 1000.0; (* 1000°C isothermal target *)
+    rTolerance              : REAL := 2.5;    (* Temperature tolerance in deg C *)
+    bTempStable             : BOOL;
+    
+    (* PI Controller States (Simplified for example) *)
+    rErrorZ1                : REAL;
+    rErrorZ2                : REAL;
+    rErrorZ3                : REAL;
+END_VAR
+
+(* === MAIN LOGIC === *)
+IF NOT bEmergencyStop THEN
+    bSystemReady := FALSE;
+    bAlarm := TRUE;
+    rHeaterControlZone1 := 0.0;
+    rHeaterControlZone2 := 0.0;
+    rHeaterControlZone3 := 0.0;
+    rMFCSetPointArgon := 0.0;
+    rMFCSetPointMethane := 0.0;
+    bVacuumPumpEnable := FALSE;
+    iState := 999; (* Fault State *)
+    iCurrentState := iState;
+    RETURN;
+END_IF;
+
+bAlarm := FALSE;
+bTempStable := (ABS(rTempZone1 - rTargetTemp) < rTolerance) AND 
+               (ABS(rTempZone2 - rTargetTemp) < rTolerance) AND 
+               (ABS(rTempZone3 - rTargetTemp) < rTolerance);
+
+CASE iState OF
+    0: (* IDLE & STANDBY *)
+        bSystemReady := TRUE;
+        bVacuumPumpEnable := FALSE;
+        rHeaterControlZone1 := 0.0;
+        rHeaterControlZone2 := 0.0;
+        rHeaterControlZone3 := 0.0;
+        rMFCSetPointArgon := 0.0;
+        rMFCSetPointMethane := 0.0;
+        IF bEnable THEN
+            bSystemReady := FALSE;
+            iState := 10;
+        END_IF;
+
+    10: (* PUMPDOWN TO BASE PRESSURE *)
+        bVacuumPumpEnable := TRUE;
+        IF rChamberPressure < 0.01 THEN (* 10 mTorr base *)
+            iState := 20;
+        END_IF;
+
+    20: (* INERT ARGON PURGE (CROSS-CONTAMINATION LOCK) *)
+        rMFCSetPointArgon := 1000.0; (* 1000 sccm purge *)
+        rMFCSetPointMethane := 0.0;
+        tPurgeTimer(IN := TRUE, PT := T#5M);
+        IF tPurgeTimer.Q THEN
+            tPurgeTimer(IN := FALSE);
+            iState := 30;
+        END_IF;
+
+    30: (* HEATING TO ISOTHERMAL 1000C *)
+        (* Basic Proportional Control for demonstration *)
+        rErrorZ1 := rTargetTemp - rTempZone1;
+        rErrorZ2 := rTargetTemp - rTempZone2;
+        rErrorZ3 := rTargetTemp - rTempZone3;
+        
+        rHeaterControlZone1 := LIMIT(0.0, rErrorZ1 * 2.5, 100.0);
+        rHeaterControlZone2 := LIMIT(0.0, rErrorZ2 * 2.5, 100.0);
+        rHeaterControlZone3 := LIMIT(0.0, rErrorZ3 * 2.5, 100.0);
+        
+        IF bTempStable THEN
+            iState := 40;
+        END_IF;
+
+    40: (* GRAPHENE PRECURSOR INTRODUCTION & GROWTH *)
+        rMFCSetPointArgon := 500.0;
+        rMFCSetPointMethane := 15.0; (* Introduce Methane for Growth *)
+        
+        (* Maintain Heat *)
+        rHeaterControlZone1 := LIMIT(0.0, (rTargetTemp - rTempZone1) * 2.5, 100.0);
+        rHeaterControlZone2 := LIMIT(0.0, (rTargetTemp - rTempZone2) * 2.5, 100.0);
+        rHeaterControlZone3 := LIMIT(0.0, (rTargetTemp - rTempZone3) * 2.5, 100.0);
+        
+        tGrowthTimer(IN := TRUE, PT := T#30M); (* 30 Min Growth *)
+        IF tGrowthTimer.Q THEN
+            tGrowthTimer(IN := FALSE);
+            iState := 50;
+        END_IF;
+
+    50: (* POST-GROWTH COOL DOWN & PURGE *)
+        rHeaterControlZone1 := 0.0;
+        rHeaterControlZone2 := 0.0;
+        rHeaterControlZone3 := 0.0;
+        rMFCSetPointMethane := 0.0;
+        rMFCSetPointArgon := 1000.0; (* Maintain Argon for protective cooling *)
+        
+        IF (rTempZone1 < 100.0) AND (rTempZone2 < 100.0) AND (rTempZone3 < 100.0) THEN
+            iState := 60;
+        END_IF;
+
+    60: (* COMPLETE *)
+        bVacuumPumpEnable := FALSE;
+        rMFCSetPointArgon := 0.0;
+        bSystemReady := TRUE;
+        IF NOT bEnable THEN
+            iState := 0;
+        END_IF;
+        
+    999: (* FAULT HANDLING *)
+        bSystemReady := FALSE;
+        IF bEmergencyStop THEN
+            iState := 0;
+        END_IF;
+
+END_CASE;
+
+iCurrentState := iState;
+
+END_FUNCTION_BLOCK
+```"""
 os.makedirs("data/swarm_raw", exist_ok=True)
-filename = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
-with open(filename, "w", encoding="utf-8") as f:
-    json.dump(record, f, indent=4)
-
-record2 = {
-    "messages": [
-        {"role": "user", "content": "Invent a highly complex control scenario for Asphalt Batching Plant (e.g., aggregate cold feed drum drying burner cascade, bitumen gravimetric weighing injection, and pugmill mixer sequencing). Write a deterministic Structured Text (ST) FUNCTION_BLOCK. Include complete VAR declarations and physical I/O."},
-        record["messages"][1]
-    ]
-}
-
-os.makedirs("data", exist_ok=True)
-with open("data/synthetic_generation_v3_enterprise.jsonl", "a", encoding="utf-8") as f:
-    f.write(json.dumps(record2) + "\\n")
+record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
+with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
+    json.dump(record, f, ensure_ascii=False)
