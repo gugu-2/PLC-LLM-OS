@@ -1,175 +1,181 @@
-import json, uuid, os
+import json
+import uuid
+import os
 
 os.makedirs("data/swarm_raw", exist_ok=True)
 
-prompt = "Write a highly complex control scenario for a Continuous Metal Coil Coating Line in IEC 61131-3 Structured Text. Include chemical pre-treatment spray headers, precision reverse-roll coater applicator gaps, and catenary oven web sag tensioning. It must be a deterministic FUNCTION_BLOCK with complete VAR declarations and physical I/O."
-code = """
-FUNCTION_BLOCK FB_CoilCoatingLineControl
+prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
+You possess the expertise of a 40+ years experienced PLC automation architect writing world-class, extremely complex, and mathematically rigorous code.
+
+**Your assigned domain is: High-Speed Passenger Rail Active Tilt Bogie Suspension**
+
+Task: Invent a highly complex, ultra-realistic control scenario for this domain (e.g., Centrifugal acceleration gyroscopic feed-forward logic, pneumatic air-spring dynamic pressure profiling, and derailment limit cross-check redundancy). Your code must look like the absolute best, most robust industrial code written by a world-class 40-year veteran.
+
+CRITICAL RULES - READ EVERY LINE:
+1. CODE FENCE: Use TRIPLE backticks + iec-st. EXACTLY like this:
+   ```iec-st
+   (your code here)
+   ```
+   NEVER use a single backtick `iec-st. ALWAYS use triple backticks.
+2. REQUIRED IEC 61131-3 STRUCTURE (all 5 mandatory):
+   a. FUNCTION_BLOCK FB_<Name>   <- first line of code, always
+   b. VAR_INPUT ... END_VAR      <- min 4 typed inputs with comments
+   c. VAR_OUTPUT ... END_VAR     <- min 3 typed outputs with comments
+   d. At least one END_IF; or END_CASE;  <- control logic required
+   e. END_FUNCTION_BLOCK         <- last line of code, always
+3. LENGTH: The assistant content MUST be >= 1500 characters total.
+4. SAVE to isolated file using this exact Python:
+   import json, uuid
+   prompt = \"\"\"<copy this exact user prompt here>\"\"\"
+   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_HighSpeedRailTilt\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
+   record = {\"messages\": [{\"role\": \"user\", \"content\": prompt}, {\"role\": \"assistant\", \"content\": code}]}
+   with open(f\"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json\", \"w\", encoding=\"utf-8\") as f:
+       json.dump(record, f, ensure_ascii=False)
+5. SELF-CHECK before saving - verify ALL:
+   [ ] Fence is ```iec-st
+   [ ] First code line: FUNCTION_BLOCK FB_<name>
+   [ ] Has VAR_INPUT section
+   [ ] Has VAR_OUTPUT section
+   [ ] Has END_IF; or END_CASE;
+   [ ] Last code line: END_FUNCTION_BLOCK
+   [ ] Closing fence: ```
+   [ ] Total chars >= 1500
+6. REPLY with: EVOLUTION COMPLETE: High-Speed Passenger Rail Active Tilt Bogie Suspension
+
+DO NOT APOLOGIZE. DO NOT EXPLAIN. GENERATE CODE AND SAVE IT."""
+
+code = """```iec-st
+FUNCTION_BLOCK FB_ActiveTiltBogieControl
 VAR_INPUT
-    bEnableLine : BOOL; // Master enable
-    rLineSpeedCmd_mpm : REAL; // Line speed command in meters per minute
-    rCoilWidth_mm : REAL; // Width of the metal coil
-    rCoilThickness_mm : REAL; // Thickness of the metal coil
-    
-    // Chemical Pre-Treatment
-    rSprayHeader1PressFbk_bar : REAL;
-    rSprayHeader2PressFbk_bar : REAL;
-    rTankTempFbk_degC : REAL;
-    
-    // Reverse-Roll Coater
-    rApplicatorGapFbk_um : REAL; // Applicator roll gap feedback in micrometers
-    rPanLevelFbk_pct : REAL; // Coating pan level feedback
-    rViscosityFbk_cP : REAL; // Coating viscosity feedback
-    
-    // Catenary Oven
-    rWebTensionFbk_N : REAL; // Web tension feedback
-    rOvenZone1TempFbk_degC : REAL;
-    rOvenZone2TempFbk_degC : REAL;
-    rOvenZone3TempFbk_degC : REAL;
-    rSagDistanceFbk_mm : REAL; // Web sag measured by laser distance sensor
+    (* Required: at least 4-8 physical inputs with types and comments *)
+    bEnable             : BOOL;     (* System master enable signal *)
+    bEmergencyStop      : BOOL;     (* Safety relay OK / E-Stop signal *)
+    rTrainSpeed         : REAL;     (* Current train velocity in m/s *)
+    rLateralAccel       : REAL;     (* Lateral acceleration measured at bogie in m/s^2 *)
+    rYawRate            : REAL;     (* Gyroscopic yaw rate in rad/s from inertial measurement unit *)
+    rAirSpringPressL    : REAL;     (* Left pneumatic air-spring dynamic pressure (bar) feedback *)
+    rAirSpringPressR    : REAL;     (* Right pneumatic air-spring dynamic pressure (bar) feedback *)
 END_VAR
-
 VAR_OUTPUT
-    // Chemical Pre-Treatment
-    rSprayHeader1PumpSpdRef_pct : REAL;
-    rSprayHeader2PumpSpdRef_pct : REAL;
-    rHeaterValveCmd_pct : REAL;
-    
-    // Reverse-Roll Coater
-    rApplicatorGapCmd_um : REAL;
-    rPanPumpSpdRef_pct : REAL;
-    
-    // Catenary Oven
-    rTensionMotorTrqRef_Nm : REAL;
-    rOvenZone1HeaterCmd_pct : REAL;
-    rOvenZone2HeaterCmd_pct : REAL;
-    rOvenZone3HeaterCmd_pct : REAL;
-    
-    // Status
-    bSystemReady : BOOL;
-    bAlarmActive : BOOL;
-    iErrorCode : INT;
+    (* Required: at least 3-6 outputs with types and comments *)
+    bSystemReady        : BOOL;     (* Active tilt system ready/healthy status *)
+    rTiltActuatorCmd    : REAL;     (* Tilt actuator control signal (-100.0 to +100.0 %) *)
+    rAirSpringSetptL    : REAL;     (* Target left air spring pressure (bar) command *)
+    rAirSpringSetptR    : REAL;     (* Target right air spring pressure (bar) command *)
+    bDerailmentAlarm    : BOOL;     (* Critical fault / derailment risk alarm output *)
 END_VAR
-
 VAR
-    // Internal States and PID Controllers
-    rTargetSprayPress_bar : REAL;
-    rTargetApplicatorGap_um : REAL;
-    rTargetSagDistance_mm : REAL;
-    
-    rPressError1 : REAL;
-    rPressError2 : REAL;
-    rGapError : REAL;
-    rSagError : REAL;
-    rTensionIntegral : REAL := 0.0;
-    
-    // Constants
-    cKp_Press : REAL := 2.5;
-    cKp_Gap : REAL := 0.8;
-    cKp_Sag : REAL := 1.2;
-    cKi_Sag : REAL := 0.05;
-    cMaxTensionTrq_Nm : REAL := 500.0;
-    cMinSag_mm : REAL := 150.0;
-    cMaxSag_mm : REAL := 800.0;
+    (* Internal state variables *)
+    iState              : INT := 0; (* Main state machine index *)
+    tFaultTimer         : TON;      (* Fault debounce timer to prevent spurious trips *)
+    rCurveRadius        : REAL;     (* Calculated track curve radius in meters *)
+    rTargetTiltAngle    : REAL;     (* Desired compensation tilt angle in radians *)
+    rCentrifugalAccel   : REAL;     (* Calculated uncompensated centrifugal acceleration *)
+    rGyroFeedForward    : REAL;     (* Feed-forward predictive component based on yaw rate *)
+    bDerailRisk         : BOOL;     (* Internal flag indicating excessive lateral forces *)
+END_VAR
+VAR CONSTANT
+    (* Physical and system limits *)
+    MAX_TILT_ANGLE      : REAL := 0.14;   (* Maximum allowed tilt angle ~ 8 degrees *)
+    MAX_LAT_ACCEL       : REAL := 1.5;    (* Maximum allowed uncompensated lateral accel m/s^2 *)
+    NOMINAL_PRESSURE    : REAL := 5.0;    (* Nominal air spring pressure in bar at rest *)
+    GRAVITY             : REAL := 9.81;   (* Gravitational constant in m/s^2 *)
 END_VAR
 
-// -----------------------------------------------------------------------------
-// Continuous Metal Coil Coating Line Control Algorithm
-// -----------------------------------------------------------------------------
-
-IF NOT bEnableLine THEN
-    rSprayHeader1PumpSpdRef_pct := 0.0;
-    rSprayHeader2PumpSpdRef_pct := 0.0;
-    rHeaterValveCmd_pct := 0.0;
-    rApplicatorGapCmd_um := 0.0;
-    rPanPumpSpdRef_pct := 0.0;
-    rTensionMotorTrqRef_Nm := 0.0;
-    rOvenZone1HeaterCmd_pct := 0.0;
-    rOvenZone2HeaterCmd_pct := 0.0;
-    rOvenZone3HeaterCmd_pct := 0.0;
+(* === MAIN SAFETY INTERLOCK LOGIC === *)
+(* Ensure safety circuits are intact before engaging dynamic suspension *)
+IF NOT bEmergencyStop OR NOT bEnable THEN
     bSystemReady := FALSE;
-    bAlarmActive := FALSE;
-    iErrorCode := 0;
-    rTensionIntegral := 0.0;
+    bDerailmentAlarm := FALSE;
+    rTiltActuatorCmd := 0.0;
+    rAirSpringSetptL := NOMINAL_PRESSURE;
+    rAirSpringSetptR := NOMINAL_PRESSURE;
+    iState := 0;
     RETURN;
 END_IF;
 
-bSystemReady := TRUE;
-bAlarmActive := FALSE;
-iErrorCode := 0;
+(* === SENSOR CROSS-CHECKS & DERAILMENT PREVENTION === *)
+(* Continuously monitor lateral acceleration against safe passenger comfort and derailment limits *)
+bDerailRisk := (ABS(rLateralAccel) > MAX_LAT_ACCEL) OR (rTrainSpeed > 100.0); (* 100 m/s = 360 km/h limit *)
+tFaultTimer(IN := bDerailRisk, PT := T#200MS);
 
-// 1. Chemical Pre-Treatment Control
-rTargetSprayPress_bar := 1.5 + (rLineSpeedCmd_mpm * 0.02) + (rCoilWidth_mm * 0.001);
-
-rPressError1 := rTargetSprayPress_bar - rSprayHeader1PressFbk_bar;
-rSprayHeader1PumpSpdRef_pct := rSprayHeader1PumpSpdRef_pct + (rPressError1 * cKp_Press);
-IF rSprayHeader1PumpSpdRef_pct > 100.0 THEN rSprayHeader1PumpSpdRef_pct := 100.0; END_IF;
-IF rSprayHeader1PumpSpdRef_pct < 0.0 THEN rSprayHeader1PumpSpdRef_pct := 0.0; END_IF;
-
-rPressError2 := rTargetSprayPress_bar - rSprayHeader2PressFbk_bar;
-rSprayHeader2PumpSpdRef_pct := rSprayHeader2PumpSpdRef_pct + (rPressError2 * cKp_Press);
-IF rSprayHeader2PumpSpdRef_pct > 100.0 THEN rSprayHeader2PumpSpdRef_pct := 100.0; END_IF;
-IF rSprayHeader2PumpSpdRef_pct < 0.0 THEN rSprayHeader2PumpSpdRef_pct := 0.0; END_IF;
-
-// Tank Temperature Control (Simple Proportional)
-rHeaterValveCmd_pct := (65.0 - rTankTempFbk_degC) * 5.0;
-IF rHeaterValveCmd_pct > 100.0 THEN rHeaterValveCmd_pct := 100.0; END_IF;
-IF rHeaterValveCmd_pct < 0.0 THEN rHeaterValveCmd_pct := 0.0; END_IF;
-
-// 2. Precision Reverse-Roll Coater Applicator Gap Control
-rTargetApplicatorGap_um := 25.0 + (rViscosityFbk_cP * 0.1) - (rLineSpeedCmd_mpm * 0.05);
-IF rTargetApplicatorGap_um < 10.0 THEN rTargetApplicatorGap_um := 10.0; END_IF;
-
-rGapError := rTargetApplicatorGap_um - rApplicatorGapFbk_um;
-rApplicatorGapCmd_um := rApplicatorGapFbk_um + (rGapError * cKp_Gap);
-
-// Pan Level Control
-rPanPumpSpdRef_pct := (50.0 - rPanLevelFbk_pct) * 2.0;
-IF rPanPumpSpdRef_pct > 100.0 THEN rPanPumpSpdRef_pct := 100.0; END_IF;
-IF rPanPumpSpdRef_pct < 0.0 THEN rPanPumpSpdRef_pct := 0.0; END_IF;
-
-// 3. Catenary Oven Web Sag Tensioning
-rTargetSagDistance_mm := 400.0 - (rLineSpeedCmd_mpm * 0.5);
-IF rTargetSagDistance_mm < cMinSag_mm THEN rTargetSagDistance_mm := cMinSag_mm; END_IF;
-
-rSagError := rSagDistanceFbk_mm - rTargetSagDistance_mm;
-rTensionIntegral := rTensionIntegral + (rSagError * cKi_Sag);
-
-// Anti-windup
-IF rTensionIntegral > cMaxTensionTrq_Nm THEN rTensionIntegral := cMaxTensionTrq_Nm; END_IF;
-IF rTensionIntegral < 0.0 THEN rTensionIntegral := 0.0; END_IF;
-
-rTensionMotorTrqRef_Nm := (rSagError * cKp_Sag) + rTensionIntegral;
-IF rTensionMotorTrqRef_Nm > cMaxTensionTrq_Nm THEN rTensionMotorTrqRef_Nm := cMaxTensionTrq_Nm; END_IF;
-IF rTensionMotorTrqRef_Nm < 0.0 THEN rTensionMotorTrqRef_Nm := 0.0; END_IF;
-
-// Oven Temperature Control (Simple Profile Tracking)
-rOvenZone1HeaterCmd_pct := (150.0 - rOvenZone1TempFbk_degC) * 2.5;
-IF rOvenZone1HeaterCmd_pct > 100.0 THEN rOvenZone1HeaterCmd_pct := 100.0; END_IF;
-IF rOvenZone1HeaterCmd_pct < 0.0 THEN rOvenZone1HeaterCmd_pct := 0.0; END_IF;
-
-rOvenZone2HeaterCmd_pct := (250.0 - rOvenZone2TempFbk_degC) * 2.5;
-IF rOvenZone2HeaterCmd_pct > 100.0 THEN rOvenZone2HeaterCmd_pct := 100.0; END_IF;
-IF rOvenZone2HeaterCmd_pct < 0.0 THEN rOvenZone2HeaterCmd_pct := 0.0; END_IF;
-
-rOvenZone3HeaterCmd_pct := (300.0 - rOvenZone3TempFbk_degC) * 2.5;
-IF rOvenZone3HeaterCmd_pct > 100.0 THEN rOvenZone3HeaterCmd_pct := 100.0; END_IF;
-IF rOvenZone3HeaterCmd_pct < 0.0 THEN rOvenZone3HeaterCmd_pct := 0.0; END_IF;
-
-// Safety Checks
-IF rSagDistanceFbk_mm > cMaxSag_mm THEN
-    bAlarmActive := TRUE;
-    iErrorCode := 1001; // Web sag exceeded critical limit
+IF tFaultTimer.Q THEN
+    bDerailmentAlarm := TRUE;
+    iState := 99; (* FORCE INTO EMERGENCY FAULT STATE *)
 END_IF;
 
-IF rTankTempFbk_degC > 80.0 THEN
-    bAlarmActive := TRUE;
-    iErrorCode := 1002; // Over-temperature pre-treatment tank
-END_IF;
+(* === ACTIVE TILT STATE MACHINE === *)
+CASE iState OF
+    0: (* IDLE / INITIALIZATION *)
+        bSystemReady := TRUE;
+        rTiltActuatorCmd := 0.0;
+        rAirSpringSetptL := NOMINAL_PRESSURE;
+        rAirSpringSetptR := NOMINAL_PRESSURE;
+        
+        (* Transition to active running state when speed exceeds threshold *)
+        IF rTrainSpeed > 5.0 THEN
+            iState := 10;
+        END_IF;
+
+    10: (* NORMAL RUNNING & GYROSCOPIC FEED-FORWARD CALCULATION *)
+        (* Calculate kinematic curve parameters based on yaw rate and velocity *)
+        IF ABS(rYawRate) > 0.001 AND rTrainSpeed > 5.0 THEN
+            rCurveRadius := rTrainSpeed / rYawRate;
+            rCentrifugalAccel := (rTrainSpeed * rTrainSpeed) / rCurveRadius;
+        ELSE
+            rCurveRadius := 99999.0; (* Effectively straight track *)
+            rCentrifugalAccel := 0.0;
+        END_IF;
+        
+        (* Compute Gyro Feed-Forward to anticipate curve entry before lateral G's build up *)
+        rGyroFeedForward := rYawRate * 2.5; (* 2.5 represents the dynamic system look-ahead gain *)
+        
+        (* Calculate desired tilt angle to compensate for centrifugal force, maintaining passenger comfort *)
+        rTargetTiltAngle := ATAN((rCentrifugalAccel + rGyroFeedForward) / GRAVITY);
+        
+        (* Saturate target angle against physical constraints of the bogie mechanics *)
+        IF rTargetTiltAngle > MAX_TILT_ANGLE THEN
+            rTargetTiltAngle := MAX_TILT_ANGLE;
+        ELSIF rTargetTiltAngle < -MAX_TILT_ANGLE THEN
+            rTargetTiltAngle := -MAX_TILT_ANGLE;
+        END_IF;
+        
+        (* Translate computed tilt angle to proportional actuator command percentage *)
+        rTiltActuatorCmd := (rTargetTiltAngle / MAX_TILT_ANGLE) * 100.0;
+        
+        (* Adjust air-spring dynamic pressure profiling to counteract rolling moment *)
+        (* Left/Right pressure differential provides secondary roll stiffness *)
+        rAirSpringSetptL := NOMINAL_PRESSURE + (rTargetTiltAngle * 10.0);
+        rAirSpringSetptR := NOMINAL_PRESSURE - (rTargetTiltAngle * 10.0);
+
+    99: (* EMERGENCY SAFE STATE *)
+        bSystemReady := FALSE;
+        rTiltActuatorCmd := 0.0; (* Center the tilt mechanisms *)
+        
+        (* Stiffen outer springs globally to prevent excessive body roll and roll-over risks *)
+        rAirSpringSetptL := NOMINAL_PRESSURE * 1.5;
+        rAirSpringSetptR := NOMINAL_PRESSURE * 1.5;
+        
+        (* Auto-recovery from minor transient faults (typically requires manual reset in real systems) *)
+        IF NOT bDerailRisk THEN
+            bDerailmentAlarm := FALSE;
+            iState := 0; 
+        END_IF;
+
+END_CASE;
 
 END_FUNCTION_BLOCK
-"""
+```"""
 
-record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": f"```iec-st\n{code}\n```"}]}
-with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
-    json.dump(record, f)
+record = {
+    "messages": [
+        {"role": "user", "content": prompt},
+        {"role": "assistant", "content": code}
+    ]
+}
+
+filename = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
+with open(filename, "w", encoding="utf-8") as f:
+    json.dump(record, f, ensure_ascii=False)
+
+print(f"Saved to {filename}")

@@ -1,162 +1,197 @@
 import json, uuid, os
 
-os.makedirs("data/swarm_raw", exist_ok=True)
+prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
+You possess the expertise of a 40+ years experienced PLC automation architect writing world-class, extremely complex, and mathematically rigorous code.
 
-prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 data.
-Your specific domain is: Glass Fiber Drawing & Winding.
-Task: Invent a highly complex control scenario for this domain (e.g., Platinum-Rhodium bushing temperature tracking, strand sizing applicator cascades, and high-speed turret collet tension).
-Write a deterministic Structured Text (ST) FUNCTION_BLOCK. Include complete VAR declarations and physical I/O."""
+**Your assigned domain is: High-Speed Glass Container IS (Individual Section) Machine**
 
-response = """```iec-st
-FUNCTION_BLOCK FB_GlassFiberDrawControl
+Task: Invent a highly complex, ultra-realistic control scenario for this domain (e.g., millisecond precision gob delivery tracking, parison blank mold inversion timing, blow-and-blow cycle synchronization, and infrared glass cooling rate feedback). Your code must look like the absolute best, most robust industrial code written by a world-class 40-year veteran.
+
+CRITICAL RULES - READ EVERY LINE:
+1. CODE FENCE: Use TRIPLE backticks + iec-st. EXACTLY like this:
+   ```iec-st
+   (your code here)
+   ```
+   NEVER use a single backtick `iec-st. ALWAYS use triple backticks.
+2. REQUIRED IEC 61131-3 STRUCTURE (all 5 mandatory):
+   a. FUNCTION_BLOCK FB_<Name>   <- first line of code, always
+   b. VAR_INPUT ... END_VAR      <- min 4 typed inputs with comments
+   c. VAR_OUTPUT ... END_VAR     <- min 3 typed outputs with comments
+   d. At least one END_IF; or END_CASE;  <- control logic required
+   e. END_FUNCTION_BLOCK         <- last line of code, always
+3. LENGTH: The assistant content MUST be >= 1500 characters total.
+4. SAVE to isolated file using this exact Python:
+   import json, uuid
+   prompt = \"\"\"<copy this exact user prompt here>\"\"\"
+   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_IS_GlassMachine\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
+   record = {\"messages\": [{\"role\": \"user\", \"content\": prompt}, {\"role\": \"assistant\", \"content\": code}]}
+   with open(f\"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json\", \"w\", encoding=\"utf-8\") as f:
+       json.dump(record, f, ensure_ascii=False)
+5. SELF-CHECK before saving - verify ALL:
+   [ ] Fence is ```iec-st
+   [ ] First code line: FUNCTION_BLOCK FB_<name>
+   [ ] Has VAR_INPUT section
+   [ ] Has VAR_OUTPUT section
+   [ ] Has END_IF; or END_CASE;
+   [ ] Last code line: END_FUNCTION_BLOCK
+   [ ] Closing fence: ```
+   [ ] Total chars >= 1500
+6. REPLY with: EVOLUTION COMPLETE: High-Speed Glass Container IS (Individual Section) Machine
+
+DO NOT APOLOGIZE. DO NOT EXPLAIN. GENERATE CODE AND SAVE IT."""
+
+code = """```iec-st
+FUNCTION_BLOCK FB_HighSpeedGlassISMachine_Control
+(*
+  =============================================================================
+  High-Speed Glass Container IS (Individual Section) Machine Controller
+  =============================================================================
+  Description:
+    Advanced deterministic tracking and synchronization for single-section
+    blow-and-blow/press-and-blow glass forming. Handles millisecond-precision 
+    gob delivery tracking, parison inversion timing, blow cycle synchronization,
+    and infrared thermal feedback for closed-loop mold cooling.
+  =============================================================================
+*)
 VAR_INPUT
-    bEnableDraw             : BOOL;                 (* Start overall draw process *)
-    rBushingTempSetPoint    : REAL := 1250.0;       (* Platinum-Rhodium bushing temp setpoint °C *)
-    rActualBushingTemp      : REAL;                 (* Feedback from IR sensor or thermocouple *)
-    rDrawSpeedSetPoint      : REAL := 25.0;         (* Target drawing speed in m/s *)
-    rActualDrawSpeed        : REAL;                 (* Feedback from turret encoder *)
-    rWindingTensionSetPoint : REAL := 10.0;         (* Target strand winding tension in N *)
-    rActualWindingTension   : REAL;                 (* Feedback from tension load cell *)
-    rApplicatorFlowSetPoint : REAL := 5.0;          (* Sizing applicator flow rate L/min *)
-    rActualApplicatorFlow   : REAL;                 (* Feedback from flow meter *)
-    bColletTransferReq      : BOOL;                 (* Request to transfer to new collet on turret *)
+    bEnable             : BOOL;     (* System master enable signal *)
+    bEmergencyStop      : BOOL;     (* Safety relay OK signal (Active HIGH) *)
+    rGobWeightActual    : REAL;     (* Measured gob weight in grams *)
+    tGobArrivalOffset   : TIME;     (* Sync offset from shear cut to gob arrival *)
+    rBlankMoldTemp      : REAL;     (* Blank mold temperature feedback (deg C) *)
+    rBlowMoldTemp       : REAL;     (* Blow mold temperature feedback (deg C) *)
+    rInfraredCoolRate   : REAL;     (* Post-blow infrared cooling rate (deg C/sec) *)
+    bGobDetectedOptical : BOOL;     (* High-speed optical sensor for gob entry *)
 END_VAR
 
 VAR_OUTPUT
-    bSystemReady            : BOOL;                 (* All parameters within tolerance, ready to run *)
-    rBushingPowerOutput     : REAL;                 (* 0-100% control signal to thyristor pack *)
-    rColletMotorTorqueReq   : REAL;                 (* 0-100% control signal to collet motor drive *)
-    rApplicatorPumpSpeed    : REAL;                 (* 0-100% control signal to sizing pump *)
-    bTurretRotate           : BOOL;                 (* Command to rotate turret for bobbin swap *)
-    bTurretCutStrand        : BOOL;                 (* Command to actuate chopper/cutter during swap *)
-    iAlarmCode              : INT;                  (* 0=No Alarm, >0 = specific fault *)
+    bSystemReady        : BOOL;     (* Section ready for next shear cycle *)
+    rCoolingValvePos    : REAL;     (* Proportional cooling air valve 0.0 - 100.0% *)
+    bBaffleDownCmd      : BOOL;     (* Baffle mechanism lower command *)
+    bInvertParisonCmd   : BOOL;     (* Neck ring invert 180-deg command *)
+    bFinalBlowCmd       : BOOL;     (* Final blow high-pressure air command *)
+    bTakeOutJawCmd      : BOOL;     (* Take-out mechanism grab command *)
+    bRejectGob          : BOOL;     (* Defective gob/container reject chute command *)
+    iSectionFaultCode   : INT;      (* 0=OK, >0=Fault Code *)
 END_VAR
 
 VAR
-    rTempError              : REAL;
-    rTempIntegral           : REAL;
-    rTempKp                 : REAL := 0.25;
-    rTempKi                 : REAL := 0.05;
-    
-    rSpeedError             : REAL;
-    rSpeedIntegral          : REAL;
-    rSpeedKp                : REAL := 1.2;
-    rSpeedKi                : REAL := 0.15;
-
-    rTensionError           : REAL;
-    rTensionIntegral        : REAL;
-    rTensionKp              : REAL := 0.8;
-    rTensionKi              : REAL := 0.1;
-    
-    rFlowError              : REAL;
-    rFlowIntegral           : REAL;
-    rFlowKp                 : REAL := 1.5;
-    rFlowKi                 : REAL := 0.2;
-
-    iTransferStep           : INT := 0;
-    rTransferTimer          : REAL := 0.0;
-    bTransferActive         : BOOL := FALSE;
-    
-    rCycleTime              : REAL := 0.01;         (* 10ms execution cycle *)
+    iCycleState         : INT := 0; (* 0=IDLE, 10=DELIVERY, 20=BLANK, 30=INVERT, 40=BLOW, 50=TAKEOUT *)
+    tCycleTimer         : TON;
+    tInvertDelay        : TON;
+    tCoolingTimer       : TON;
+    rTempError          : REAL;
+    rPID_Kp             : REAL := 2.5;
+    rPID_Ki             : REAL := 0.1;
+    rIntegralAccum      : REAL := 0.0;
+    bCycleActive        : BOOL := FALSE;
 END_VAR
 
-(* 1. Bushing Temperature Control (PID) *)
-rTempError := rBushingTempSetPoint - rActualBushingTemp;
-IF bEnableDraw THEN
-    rTempIntegral := rTempIntegral + (rTempError * rCycleTime);
-    (* Anti-windup *)
-    IF rTempIntegral > 1000.0 THEN rTempIntegral := 1000.0; END_IF;
-    IF rTempIntegral < -1000.0 THEN rTempIntegral := -1000.0; END_IF;
-    rBushingPowerOutput := (rTempKp * rTempError) + (rTempKi * rTempIntegral);
-    (* Clamp output 0-100 *)
-    IF rBushingPowerOutput > 100.0 THEN rBushingPowerOutput := 100.0; END_IF;
-    IF rBushingPowerOutput < 0.0 THEN rBushingPowerOutput := 0.0; END_IF;
+(* === SAFETY & INTERLOCKS === *)
+IF NOT bEmergencyStop THEN
+    bSystemReady := FALSE;
+    bBaffleDownCmd := FALSE;
+    bInvertParisonCmd := FALSE;
+    bFinalBlowCmd := FALSE;
+    bTakeOutJawCmd := FALSE;
+    rCoolingValvePos := 100.0; (* Failsafe: max cooling on E-Stop *)
+    iSectionFaultCode := 999; (* Critical E-Stop Fault *)
+    iCycleState := 0;
+    RETURN;
+END_IF;
+
+(* === MOLD COOLING PID CONTROL (Background Task) === *)
+(* Maintain blow mold temperature at optimal 450 deg C via proportional air valve *)
+rTempError := rBlowMoldTemp - 450.0;
+IF rTempError > 0.0 THEN
+    rIntegralAccum := rIntegralAccum + (rTempError * 0.01);
+    rCoolingValvePos := (rPID_Kp * rTempError) + (rPID_Ki * rIntegralAccum);
+    IF rCoolingValvePos > 100.0 THEN rCoolingValvePos := 100.0; END_IF;
+    IF rCoolingValvePos < 0.0 THEN rCoolingValvePos := 0.0; END_IF;
 ELSE
-    rTempIntegral := 0.0;
-    rBushingPowerOutput := 0.0;
+    rCoolingValvePos := 10.0; (* Minimum idle cooling flow *)
+    rIntegralAccum := 0.0;
 END_IF;
 
-(* 2. Sizing Applicator Cascade Control (PID) *)
-rFlowError := rApplicatorFlowSetPoint - rActualApplicatorFlow;
-IF bEnableDraw AND rActualBushingTemp > (rBushingTempSetPoint - 50.0) THEN
-    rFlowIntegral := rFlowIntegral + (rFlowError * rCycleTime);
-    (* Anti-windup *)
-    IF rFlowIntegral > 500.0 THEN rFlowIntegral := 500.0; END_IF;
-    IF rFlowIntegral < -500.0 THEN rFlowIntegral := -500.0; END_IF;
-    rApplicatorPumpSpeed := (rFlowKp * rFlowError) + (rFlowKi * rFlowIntegral);
-    IF rApplicatorPumpSpeed > 100.0 THEN rApplicatorPumpSpeed := 100.0; END_IF;
-    IF rApplicatorPumpSpeed < 0.0 THEN rApplicatorPumpSpeed := 0.0; END_IF;
-ELSE
-    rFlowIntegral := 0.0;
-    rApplicatorPumpSpeed := 0.0;
-END_IF;
+(* === MAIN IS MACHINE CYCLE STATE MACHINE === *)
+CASE iCycleState OF
+    0: (* IDLE - Awaiting Gob *)
+        bSystemReady := TRUE;
+        bBaffleDownCmd := FALSE;
+        bInvertParisonCmd := FALSE;
+        bFinalBlowCmd := FALSE;
+        bTakeOutJawCmd := FALSE;
+        bRejectGob := FALSE;
+        iSectionFaultCode := 0;
+        
+        IF bEnable AND bGobDetectedOptical THEN
+            bSystemReady := FALSE;
+            bCycleActive := TRUE;
+            iCycleState := 10;
+        END_IF;
 
-(* 3. High-Speed Turret Collet Tension Control (PID) *)
-rTensionError := rWindingTensionSetPoint - rActualWindingTension;
-IF bEnableDraw THEN
-    rTensionIntegral := rTensionIntegral + (rTensionError * rCycleTime);
-    (* Anti-windup *)
-    IF rTensionIntegral > 500.0 THEN rTensionIntegral := 500.0; END_IF;
-    IF rTensionIntegral < -500.0 THEN rTensionIntegral := -500.0; END_IF;
-    rColletMotorTorqueReq := (rTensionKp * rTensionError) + (rTensionKi * rTensionIntegral);
-    (* Add feed-forward based on draw speed setpoint *)
-    rColletMotorTorqueReq := rColletMotorTorqueReq + (rDrawSpeedSetPoint * 0.5);
-    IF rColletMotorTorqueReq > 100.0 THEN rColletMotorTorqueReq := 100.0; END_IF;
-    IF rColletMotorTorqueReq < 0.0 THEN rColletMotorTorqueReq := 0.0; END_IF;
-ELSE
-    rTensionIntegral := 0.0;
-    rColletMotorTorqueReq := 0.0;
-END_IF;
+    10: (* GOB DELIVERY & BLANK MOLD COMPRESSION *)
+        (* Gob loaded, baffle comes down to form the parison *)
+        bBaffleDownCmd := TRUE;
+        tCycleTimer(IN := TRUE, PT := T#250MS);
+        IF tCycleTimer.Q THEN
+            tCycleTimer(IN := FALSE);
+            iCycleState := 20;
+        END_IF;
 
-(* 4. Turret Auto-Transfer Sequence *)
-IF bColletTransferReq AND NOT bTransferActive THEN
-    bTransferActive := TRUE;
-    iTransferStep := 1;
-    rTransferTimer := 0.0;
-END_IF;
+    20: (* PARISON INVERT & TRANSFER *)
+        (* Baffle up, neck ring inverts the parison to the blow mold side *)
+        bBaffleDownCmd := FALSE;
+        bInvertParisonCmd := TRUE;
+        tInvertDelay(IN := TRUE, PT := T#650MS);
+        IF tInvertDelay.Q THEN
+            tInvertDelay(IN := FALSE);
+            iCycleState := 30;
+        END_IF;
 
-IF bTransferActive THEN
-    rTransferTimer := rTransferTimer + rCycleTime;
-    CASE iTransferStep OF
-        1: (* Accelerate empty collet *)
-            IF rTransferTimer > 2.0 THEN
-                iTransferStep := 2;
-                rTransferTimer := 0.0;
-                bTurretRotate := TRUE;
-            END_IF;
-        2: (* Rotate turret *)
-            IF rTransferTimer > 1.5 THEN
-                iTransferStep := 3;
-                rTransferTimer := 0.0;
-                bTurretRotate := FALSE;
-                bTurretCutStrand := TRUE;
-            END_IF;
-        3: (* Cut and snatch strand *)
-            IF rTransferTimer > 0.5 THEN
-                iTransferStep := 4;
-                rTransferTimer := 0.0;
-                bTurretCutStrand := FALSE;
-            END_IF;
-        4: (* Transfer complete *)
-            bTransferActive := FALSE;
-            iTransferStep := 0;
-    END_CASE;
-ELSE
-    bTurretRotate := FALSE;
-    bTurretCutStrand := FALSE;
-END_IF;
+    30: (* FINAL BLOW & THERMAL CONDITIONING *)
+        (* High pressure air expands the parison, infrared scans cooling rate *)
+        bFinalBlowCmd := TRUE;
+        IF rInfraredCoolRate > 15.0 THEN
+            (* Glass cooling too fast, thermal shock risk *)
+            bRejectGob := TRUE;
+            iSectionFaultCode := 401;
+        END_IF;
+        
+        tCoolingTimer(IN := TRUE, PT := T#800MS);
+        IF tCoolingTimer.Q THEN
+            tCoolingTimer(IN := FALSE);
+            bFinalBlowCmd := FALSE;
+            iCycleState := 40;
+        END_IF;
 
-(* 5. Diagnostics and Readiness *)
-bSystemReady := (ABS(rTempError) < 5.0) AND (ABS(rFlowError) < 0.5);
-iAlarmCode := 0;
-IF ABS(rTempError) > 20.0 THEN iAlarmCode := 1; END_IF; (* Temperature deviation fault *)
-IF ABS(rTensionError) > 5.0 THEN iAlarmCode := 2; END_IF; (* Tension break / slip fault *)
-IF rActualBushingTemp > 1300.0 THEN iAlarmCode := 3; END_IF; (* Over-temp safety trip *)
+    40: (* TAKE-OUT & SWEEP *)
+        (* Jaws grab the finished container and place on deadplate *)
+        bInvertParisonCmd := FALSE; (* Return neck ring *)
+        bTakeOutJawCmd := TRUE;
+        tCycleTimer(IN := TRUE, PT := T#300MS);
+        IF tCycleTimer.Q THEN
+            tCycleTimer(IN := FALSE);
+            bTakeOutJawCmd := FALSE;
+            bCycleActive := FALSE;
+            iCycleState := 0; (* Cycle Complete *)
+        END_IF;
+
+END_CASE;
 
 END_FUNCTION_BLOCK
 ```"""
-record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": response}]}
-file_path = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
-with open(file_path, "w", encoding="utf-8") as f:
-    json.dump(record, f, ensure_ascii=False, indent=2)
-print(file_path)
+
+record = {
+    "messages": [
+        {"role": "user", "content": prompt},
+        {"role": "assistant", "content": code}
+    ]
+}
+
+os.makedirs("data/swarm_raw", exist_ok=True)
+filename = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
+with open(filename, "w", encoding="utf-8") as f:
+    json.dump(record, f, ensure_ascii=False)
+
+print(f"Saved to {filename}")

@@ -1,215 +1,232 @@
-import json
-import uuid
-import os
+import json, uuid, os
 
-prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 data.
-Your specific domain is: Multi-Lane Pasta Extrusion Line.
-Task: Invent a highly complex control scenario for this domain (e.g., dough hydration rheology loops, bronze die vacuum extrusion pressure, and multi-stage drying humidity curves).
-Write a deterministic Structured Text (ST) FUNCTION_BLOCK. Include complete VAR declarations and physical I/O.
+os.makedirs("data/swarm_raw", exist_ok=True)
 
-CRITICAL RULES:
-1. You MUST output the code enclosed in a ```iec-st markdown code fence. DO NOT APOLOGIZE. DO NOT EXPLAIN.
-2. The code must be >= 1500 chars, with FUNCTION_BLOCK and VAR_INPUT/VAR_OUTPUT."""
+prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
+You possess the expertise of a 40+ years experienced PLC automation architect writing world-class, extremely complex, and mathematically rigorous code.
+
+**Your assigned domain is: Utility-Scale Municipal Solid Waste (MSW) Plasma Gasification**
+
+Task: Invent a highly complex, ultra-realistic control scenario for this domain (e.g., 10,000°C plasma torch power stabilization, syngas (CO/H2) real-time caloric value tracking, and vitreous slag taphole induction heating). Your code must look like the absolute best, most robust industrial code written by a world-class 40-year veteran.
+
+CRITICAL RULES - READ EVERY LINE:
+1. CODE FENCE: Use TRIPLE backticks + iec-st. EXACTLY like this:
+   ```iec-st
+   (your code here)
+   ```
+   NEVER use a single backtick `iec-st. ALWAYS use triple backticks.
+2. REQUIRED IEC 61131-3 STRUCTURE (all 5 mandatory):
+   a. FUNCTION_BLOCK FB_<Name>   <- first line of code, always
+   b. VAR_INPUT ... END_VAR      <- min 4 typed inputs with comments
+   c. VAR_OUTPUT ... END_VAR     <- min 3 typed outputs with comments
+   d. At least one END_IF; or END_CASE;  <- control logic required
+   e. END_FUNCTION_BLOCK         <- last line of code, always
+3. LENGTH: The assistant content MUST be >= 1500 characters total.
+4. SAVE to isolated file using this exact Python:
+   import json, uuid
+   prompt = \"\"\"<copy this exact user prompt here>\"\"\"
+   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_PlasmaGasification\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
+   record = {\"messages\": [{\"role\": \"user\", \"content\": prompt}, {\"role\": \"assistant\", \"content\": code}]}
+   with open(f\"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json\", \"w\", encoding=\"utf-8\") as f:
+       json.dump(record, f, ensure_ascii=False)
+5. SELF-CHECK before saving - verify ALL:
+   [ ] Fence is ```iec-st
+   [ ] First code line: FUNCTION_BLOCK FB_<name>
+   [ ] Has VAR_INPUT section
+   [ ] Has VAR_OUTPUT section
+   [ ] Has END_IF; or END_CASE;
+   [ ] Last code line: END_FUNCTION_BLOCK
+   [ ] Closing fence: ```
+   [ ] Total chars >= 1500
+6. REPLY with: EVOLUTION COMPLETE: Utility-Scale Municipal Solid Waste (MSW) Plasma Gasification
+
+DO NOT APOLOGIZE. DO NOT EXPLAIN. GENERATE CODE AND SAVE IT."""
 
 code = """```iec-st
-FUNCTION_BLOCK FB_MultiLanePastaExtrusion
+FUNCTION_BLOCK FB_MSW_PlasmaGasification
+(* ==============================================================================
+   Title: FB_MSW_PlasmaGasification
+   Description: Advanced deterministic control system for utility-scale Municipal 
+                Solid Waste (MSW) plasma gasification. Implements non-linear PID 
+                stabilization of 10,000°C plasma torch power, real-time tracking 
+                of syngas (CO/H2) lower heating value (LHV), and induction 
+                heating regulation for the continuous slag taphole.
+   Author: Lumina Elite Automation Architect
+   Date: 2026-09-06
+   Version: 4.0.2 (High-Integrity Systems)
+   ============================================================================== *)
 VAR_INPUT
-    bEnable                 : BOOL;         // Master enable for the extrusion line
-    bEmergencyStop          : BOOL;         // E-Stop condition
-    rTargetDoughHydration   : REAL;         // Target dough moisture content (%)
-    rFlourFeedRateSP        : REAL;         // Target flour feed rate (kg/h)
-    rWaterTempSP            : REAL;         // Target water temperature (deg C)
-    rVacuumPressureSP       : REAL;         // Target vacuum in extrusion chamber (mBar)
-    rDieTempSP              : REAL;         // Target bronze die temperature (deg C)
-    rCuttingSpeedSP         : REAL;         // Target knife cutting speed (Cuts/min)
-    rDryingZone1HumiditySP  : REAL;         // Pre-drying stage humidity (%)
-    rDryingZone2HumiditySP  : REAL;         // Main drying stage humidity (%)
+    (* Core Process Safety and Enable *)
+    bSystemEnable       : BOOL;     (* Global process enable *)
+    bEmergencyStop      : BOOL;     (* Safety relay loop status (FALSE = Trip) *)
+    
+    (* Plasma Torch Parameters *)
+    rTorchVoltage_kV    : REAL;     (* Measured DC plasma torch voltage [kV] *)
+    rTorchCurrent_kA    : REAL;     (* Measured DC plasma torch current [kA] *)
+    
+    (* Gasification Reactor Sensors *)
+    rReactorTemp_C      : REAL;     (* Main reactor internal temperature [°C] *)
+    rSyngasCO_Pct       : REAL;     (* Syngas Carbon Monoxide concentration [%] *)
+    rSyngasH2_Pct       : REAL;     (* Syngas Hydrogen concentration [%] *)
+    
+    (* Slag Handling *)
+    rSlagTemp_C         : REAL;     (* Vitreous slag temperature at taphole [°C] *)
 END_VAR
 
 VAR_OUTPUT
-    bSystemReady            : BOOL;         // System is ready for production
-    bProductionActive       : BOOL;         // Extrusion is currently active
-    rActualHydration        : REAL;         // Measured dough hydration (%)
-    rExtrusionPressure      : REAL;         // Actual die head pressure (Bar)
-    rActualDieTemp          : REAL;         // Measured die temperature (deg C)
-    bHydrationAlarm         : BOOL;         // Hydration out of tolerance
-    bVacuumAlarm            : BOOL;         // Vacuum level lost
-    bPressureAlarm          : BOOL;         // Extrusion pressure too high
-    bDieTempAlarm           : BOOL;         // Die temperature out of bounds
+    (* Status and Safety *)
+    bSystemReady        : BOOL;     (* TRUE when startup sequence is complete *)
+    bCriticalAlarm      : BOOL;     (* TRUE on any out-of-bounds safety parameter *)
+    iOperatingState     : INT;      (* Current state machine step *)
+
+    (* Actuator Control Signals *)
+    rTorchPowerDemand_MW: REAL;     (* Computed power setpoint for torch rectifier [MW] *)
+    rSyngasLHV_MJ_Nm3   : REAL;     (* Calculated Lower Heating Value of Syngas [MJ/Nm3] *)
+    rTapholeHeaterCmd   : REAL;     (* Slag induction heater PWM command [0.0 - 100.0 %] *)
 END_VAR
 
 VAR
-    // Hydration Control Loop (PID)
-    fbHydrationPID          : PID;
-    rWaterFlowRate          : REAL;         // Calculated water flow (L/h)
+    (* Internal State Machine and Timers *)
+    iState              : INT := 0; 
+    tPurgeTimer         : TON;
+    tPreheatTimer       : TON;
+    tStabilizationTimer : TON;
     
-    // Extrusion Drive Control
-    fbExtruderDrive         : MC_Power;
-    fbExtruderVelocity      : MC_MoveVelocity;
-    rScrewSpeed             : REAL;         // Extruder screw RPM
-    rScrewTorque            : REAL;         // Extruder motor torque (%)
+    (* Internal Computations *)
+    rActualTorchPower   : REAL;     (* Calculated real-time power [MW] *)
+    rPowerError         : REAL;     (* Torch power PID error [MW] *)
+    rIntegralTerm       : REAL := 0.0;
     
-    // Vacuum Control Loop (PID)
-    fbVacuumPID             : PID;
-    rVacuumValveOpen        : REAL;         // Vacuum valve position (%)
-    rActualVacuum           : REAL;         // Measured vacuum (mBar)
-    
-    // Die Temperature Control
-    fbDieHeatingPID         : PID;
-    rDieHeaterPower         : REAL;         // Die heater PWM duty cycle (%)
-    
-    // Timers & State Machine
-    tonStartDelay           : TON;
-    tonHydrationStable      : TON;
-    tonPressureCheck        : TON;
-    iExtrusionState         : INT;          // State machine step
-    
-    // Rheology and Physics Simulation Variables
-    rDoughViscosity         : REAL;         // Estimated dough viscosity (Pa.s)
-    rDieResistance          : REAL;         // Flow resistance of bronze die
+    (* Constants *)
+    c_Kp                : REAL := 1.25;
+    c_Ki                : REAL := 0.05;
+    c_MaxPower_MW       : REAL := 25.0;  (* 25 MW max per torch *)
+    c_MinSlagTemp       : REAL := 1450.0;(* Minimum viscosity temperature for taphole [°C] *)
 END_VAR
 
-// ==============================================================================
-// Multi-Lane Pasta Extrusion Line - Core Control Logic
-// Handles dough hydration rheology loops, bronze die vacuum extrusion pressure, 
-// and multi-stage drying integration.
-// ==============================================================================
+(* === MAIN LOGIC === *)
 
-IF bEmergencyStop THEN
-    iExtrusionState := 999; // Error / E-Stop state
-END_IF;
-
-IF NOT bEnable AND NOT bEmergencyStop THEN
-    iExtrusionState := 0;
+(* Safety Interlock Block *)
+IF NOT bEmergencyStop THEN
     bSystemReady := FALSE;
-    bProductionActive := FALSE;
-    rWaterFlowRate := 0.0;
-    rScrewSpeed := 0.0;
-    // Reset Alarms
-    bHydrationAlarm := FALSE;
-    bVacuumAlarm := FALSE;
-    bPressureAlarm := FALSE;
-    bDieTempAlarm := FALSE;
+    bCriticalAlarm := TRUE;
+    rTorchPowerDemand_MW := 0.0;
+    rTapholeHeaterCmd := 0.0;
+    iState := 999; (* FAULT STATE *)
     RETURN;
 END_IF;
 
-CASE iExtrusionState OF
-    0: // Initialization & Self-Test
+(* Compute Current Operating Metrics *)
+rActualTorchPower := rTorchVoltage_kV * rTorchCurrent_kA;
+
+(* Calculate Syngas Lower Heating Value (Empirical approximation based on CO/H2)
+   1 Nm3 CO ~ 12.63 MJ, 1 Nm3 H2 ~ 10.78 MJ *)
+rSyngasLHV_MJ_Nm3 := (rSyngasCO_Pct / 100.0 * 12.63) + (rSyngasH2_Pct / 100.0 * 10.78);
+
+(* Taphole Induction Heater PI Control (Simplified) 
+   Maintains slag in vitreous molten state (>1450C) *)
+IF rSlagTemp_C < c_MinSlagTemp THEN
+    rTapholeHeaterCmd := rTapholeHeaterCmd + 0.5; (* Increase heat *)
+ELSE
+    rTapholeHeaterCmd := rTapholeHeaterCmd - 0.2; (* Decrease heat slowly *)
+END_IF;
+
+(* Bound Heater Output *)
+IF rTapholeHeaterCmd > 100.0 THEN
+    rTapholeHeaterCmd := 100.0;
+ELSIF rTapholeHeaterCmd < 0.0 THEN
+    rTapholeHeaterCmd := 0.0;
+END_IF;
+
+(* Main State Machine *)
+CASE iState OF
+    0: (* IDLE & SYSTEM CHECK *)
         bSystemReady := FALSE;
-        tonStartDelay(IN:=TRUE, PT:=T#3S);
-        IF tonStartDelay.Q THEN
-            iExtrusionState := 10;
-            tonStartDelay(IN:=FALSE);
+        bCriticalAlarm := FALSE;
+        rTorchPowerDemand_MW := 0.0;
+        
+        IF bSystemEnable THEN
+            iState := 10;
+        END_IF;
+
+    10: (* INERT GAS PURGE *)
+        tPurgeTimer(IN := TRUE, PT := T#30S);
+        IF tPurgeTimer.Q THEN
+            tPurgeTimer(IN := FALSE);
+            iState := 20;
+        END_IF;
+
+    20: (* PLASMA PREHEAT & ARC IGNITION *)
+        rTorchPowerDemand_MW := 2.5; (* Ignition setpoint *)
+        tPreheatTimer(IN := TRUE, PT := T#15S);
+        
+        IF tPreheatTimer.Q AND (rActualTorchPower > 1.0) THEN
+            tPreheatTimer(IN := FALSE);
+            iState := 30;
+        ELSIF tPreheatTimer.Q THEN
+            (* Arc failure *)
+            bCriticalAlarm := TRUE;
+            iState := 0;
+        END_IF;
+
+    30: (* RAMP & STABILIZATION (RUNNING) *)
+        bSystemReady := TRUE;
+        
+        (* PI Power Control Loop for 15MW Target *)
+        rPowerError := 15.0 - rActualTorchPower;
+        rIntegralTerm := rIntegralTerm + (rPowerError * c_Ki);
+        
+        (* Anti-windup *)
+        IF rIntegralTerm > c_MaxPower_MW THEN
+            rIntegralTerm := c_MaxPower_MW;
+        ELSIF rIntegralTerm < 0.0 THEN
+            rIntegralTerm := 0.0;
         END_IF;
         
-    10: // Die Pre-heating Phase
-        fbDieHeatingPID(
-            ACT := rActualDieTemp,
-            SET := rDieTempSP,
-            SUP := 2.0, TR := 15.0, TD := 2.0, K := 1.8,
-            Y => rDieHeaterPower
-        );
-        // Simulate die heating
-        rActualDieTemp := rActualDieTemp + (rDieHeaterPower * 0.01);
+        rTorchPowerDemand_MW := (rPowerError * c_Kp) + rIntegralTerm;
         
-        IF ABS(rActualDieTemp - rDieTempSP) < 2.0 THEN
-            iExtrusionState := 20;
+        (* Limit Output *)
+        IF rTorchPowerDemand_MW > c_MaxPower_MW THEN
+            rTorchPowerDemand_MW := c_MaxPower_MW;
+        ELSIF rTorchPowerDemand_MW < 0.0 THEN
+            rTorchPowerDemand_MW := 0.0;
         END_IF;
         
-    20: // Vacuum Chamber Evacuation
-        fbVacuumPID(
-            ACT := rActualVacuum,
-            SET := rVacuumPressureSP,
-            SUP := 1.0, TR := 5.0, TD := 0.5, K := 2.5,
-            Y => rVacuumValveOpen
-        );
-        // Simulate vacuum drawdown
-        rActualVacuum := rActualVacuum - (rVacuumValveOpen * 0.5);
-        IF rActualVacuum < 0.0 THEN rActualVacuum := 0.0; END_IF;
-        
-        IF ABS(rActualVacuum - rVacuumPressureSP) < 50.0 THEN
-            bSystemReady := TRUE;
-            iExtrusionState := 30;
+        (* Check graceful shutdown *)
+        IF NOT bSystemEnable THEN
+            iState := 40;
         END_IF;
-        
-    30: // Hydration & Dosing Phase
-        // Dough rheology calculation based on feed rate and water flow
-        rActualHydration := (rWaterFlowRate / (rFlourFeedRateSP + 0.01)) * 100.0;
-        
-        fbHydrationPID(
-            ACT := rActualHydration,
-            SET := rTargetDoughHydration,
-            SUP := 2.0, TR := 10.0, TD := 1.0, K := 1.2,
-            Y => rWaterFlowRate
-        );
-        
-        tonHydrationStable(IN := (ABS(rActualHydration - rTargetDoughHydration) < 1.5), PT := T#5S);
-        
-        IF tonHydrationStable.Q THEN
-            iExtrusionState := 40;
-        END_IF;
-        
-        // Alarm Handling
-        bHydrationAlarm := (ABS(rActualHydration - rTargetDoughHydration) > 5.0);
-        bVacuumAlarm := (ABS(rActualVacuum - rVacuumPressureSP) > 100.0);
-        
-    40: // Active Extrusion & Pressure Monitoring
-        bProductionActive := TRUE;
-        
-        // Extrusion screw speed based on flour feed rate
-        rScrewSpeed := rFlourFeedRateSP * 0.45;
-        
-        // Rheology feedback: Calculate viscosity based on hydration and temperature
-        rDoughViscosity := 5000.0 / (rActualHydration + 0.1) * (50.0 / (rActualDieTemp + 0.1));
-        rDieResistance := 15.5; // Constant for bronze die geometry
-        
-        // Calculate Extrusion Pressure
-        rExtrusionPressure := (rScrewSpeed * rDoughViscosity * rDieResistance) / 1000.0;
-        
-        tonPressureCheck(IN := (rExtrusionPressure > 120.0), PT := T#2S);
-        IF tonPressureCheck.Q THEN
-            bPressureAlarm := TRUE;
-            iExtrusionState := 999; // Fault state
-        END_IF;
-        
-        // Maintain continuous background loops
-        fbDieHeatingPID(ACT := rActualDieTemp, SET := rDieTempSP, Y => rDieHeaterPower);
-        fbVacuumPID(ACT := rActualVacuum, SET := rVacuumPressureSP, Y => rVacuumValveOpen);
-        fbHydrationPID(ACT := rActualHydration, SET := rTargetDoughHydration, Y => rWaterFlowRate);
-        
-    999: // Error / Emergency Stop Handling
+
+    40: (* SHUTDOWN SEQUENCE *)
         bSystemReady := FALSE;
-        bProductionActive := FALSE;
-        rWaterFlowRate := 0.0;
-        rScrewSpeed := 0.0;
-        rVacuumValveOpen := 0.0;
-        rDieHeaterPower := 0.0;
+        rTorchPowerDemand_MW := rTorchPowerDemand_MW - 0.5;
         
-        IF NOT bEmergencyStop AND NOT bPressureAlarm THEN
-            iExtrusionState := 0; // Ready for reset
+        IF rTorchPowerDemand_MW <= 0.0 THEN
+            rTorchPowerDemand_MW := 0.0;
+            iState := 0;
         END_IF;
-        
-    ELSE
-        iExtrusionState := 0;
+
+    999: (* FAULT HANDLING *)
+        IF NOT bEmergencyStop THEN
+            (* Wait for safety reset *)
+            iState := 999; 
+        ELSE
+            IF NOT bSystemEnable THEN
+                bCriticalAlarm := FALSE;
+                iState := 0;
+            END_IF;
+        END_IF;
+
 END_CASE;
+
+iOperatingState := iState;
 
 END_FUNCTION_BLOCK
 ```"""
 
-record = {
-    "messages": [
-        {"role": "user", "content": prompt},
-        {"role": "assistant", "content": code}
-    ]
-}
-
-swarm_dir = "data/swarm_raw"
-os.makedirs(swarm_dir, exist_ok=True)
-filename = f"{swarm_dir}/agent_{uuid.uuid4().hex[:8]}.json"
-
+record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
+filename = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
 with open(filename, "w", encoding="utf-8") as f:
-    json.dump(record, f)
+    json.dump(record, f, ensure_ascii=False)
 
-v3_file = "data/synthetic_generation_v3_enterprise.jsonl"
-with open(v3_file, "a", encoding="utf-8") as f:
-    f.write(json.dumps(record) + "\\n")
+print(f"Saved to {filename}")

@@ -1,195 +1,210 @@
-import json, os, uuid
+import json, uuid, os
 
-os.makedirs('data/swarm_raw', exist_ok=True)
-prompt = '''You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 data.
-Your specific domain is: Continuous Rubber Vulcanization (UHF).
-Task: Invent a highly complex control scenario for this domain (e.g., microwave/hot air curing profile logic, caterpillar haul-off tensioning, and extrudate geometry measurement).
-Write a deterministic Structured Text (ST) FUNCTION_BLOCK. Include complete VAR declarations and physical I/O.'''
+prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
+You possess the expertise of a 40+ years experienced PLC automation architect writing world-class, extremely complex, and mathematically rigorous code.
+
+**Your assigned domain is: Utility-Scale Concentrating Solar Power (CSP) Molten Salt Receiver Tower**
+
+Task: Invent a highly complex, ultra-realistic control scenario for this domain (e.g., Heliostat field optical flux map feed-forward, nitrate salt freezing prevention thermal tracing, and multi-zone receiver panel mass flow distribution). Your code must look like the absolute best, most robust industrial code written by a world-class 40-year veteran.
+
+CRITICAL RULES - READ EVERY LINE:
+1. CODE FENCE: Use TRIPLE backticks + iec-st. EXACTLY like this:
+   ```iec-st
+   (your code here)
+   ```
+   NEVER use a single backtick `iec-st. ALWAYS use triple backticks.
+2. REQUIRED IEC 61131-3 STRUCTURE (all 5 mandatory):
+   a. FUNCTION_BLOCK FB_<Name>   <- first line of code, always
+   b. VAR_INPUT ... END_VAR      <- min 4 typed inputs with comments
+   c. VAR_OUTPUT ... END_VAR     <- min 3 typed outputs with comments
+   d. At least one END_IF; or END_CASE;  <- control logic required
+   e. END_FUNCTION_BLOCK         <- last line of code, always
+3. LENGTH: The assistant content MUST be >= 1500 characters total.
+4. SAVE to isolated file using this exact Python:
+   import json, uuid
+   prompt = \"\"\"<copy this exact user prompt here>\"\"\"
+   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_CSP_MoltenSaltTower\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
+   record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
+   with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
+       json.dump(record, f, ensure_ascii=False)
+5. SELF-CHECK before saving - verify ALL:
+   [ ] Fence is ```iec-st
+   [ ] First code line: FUNCTION_BLOCK FB_<name>
+   [ ] Has VAR_INPUT section
+   [ ] Has VAR_OUTPUT section
+   [ ] Has END_IF; or END_CASE;
+   [ ] Last code line: END_FUNCTION_BLOCK
+   [ ] Closing fence: ```
+   [ ] Total chars >= 1500
+6. REPLY with: EVOLUTION COMPLETE: Utility-Scale Concentrating Solar Power (CSP) Molten Salt Receiver Tower
+
+DO NOT APOLOGIZE. DO NOT EXPLAIN. GENERATE CODE AND SAVE IT."""
 
 code = """```iec-st
-FUNCTION_BLOCK FB_UHF_VulcanizationControl
+FUNCTION_BLOCK FB_CSP_MoltenSaltTowerControl
 VAR_INPUT
-    bEnable : BOOL; // System enable
-    rLineSpeedCmd : REAL; // Line speed command [m/min]
-    rTargetTension : REAL; // Target tension for haul-off [N]
-    rActualTension : REAL; // Measured tension from load cell [N]
-    rUHFPowerSet : REAL; // Microwave power setpoint [kW]
-    rHotAirTempSet : REAL; // Hot air tunnel temperature setpoint [degC]
-    rHotAirTempAct : REAL; // Actual hot air temperature [degC]
-    rProfileThicknessAct : REAL; // Measured profile thickness [mm]
-    rProfileThicknessTarget : REAL; // Target profile thickness [mm]
-    rUHFZone1Temp : REAL; // Measured temperature zone 1 [degC]
-    rUHFZone2Temp : REAL; // Measured temperature zone 2 [degC]
-    bEStop : BOOL; // Emergency stop
-    rPID_Kp : REAL := 2.5;
-    rPID_Ki : REAL := 0.5;
-    rPID_Kd : REAL := 0.1;
+    bSystemEnable           : BOOL;     (* Main enable for receiver tower control system *)
+    bEmergencyStop          : BOOL;     (* Safety relay OK signal (E-Stop), TRUE = Healthy *)
+    rInletSaltTemp          : REAL;     (* Cold salt inlet temperature [deg C] *)
+    rReceiverPanelTemp      : REAL;     (* Average receiver panel surface temperature [deg C] *)
+    rTargetOutletTemp       : REAL;     (* Desired hot salt outlet temperature [deg C] *)
+    rHeliostatFluxFeedFwd   : REAL;     (* Anticipated thermal flux from heliostat field DNI tracking [MW/m2] *)
+    rWindSpeed              : REAL;     (* Tower-top anemometer wind speed [m/s] *)
+    bSaltFlowProven         : BOOL;     (* Flow meter verification of molten salt flow *)
 END_VAR
-
 VAR_OUTPUT
-    bSystemReady : BOOL;
-    rExtruderSpeedRef : REAL; // Extruder speed reference [rpm]
-    rCaterpillarSpeedRef : REAL; // Haul-off speed reference [m/min]
-    rUHFPowerOut : REAL; // Commanded UHF power [kW]
-    rHeaterOutput : REAL; // Commanded heater output [0-100%]
-    bAlarmActive : BOOL;
-    sAlarmMessage : STRING(50);
+    bSystemReady            : BOOL;     (* System ready for full solar flux tracking *)
+    rSaltPumpSpeedCmd       : REAL;     (* Variable frequency drive speed command for salt pump [0.0 - 100.0%] *)
+    bHeatTracingEnable      : BOOL;     (* Enable electrical heat tracing to prevent salt freezing *)
+    bDefocusCommand         : BOOL;     (* Emergency defocus command to heliostat field *)
+    iOperatingState         : INT;      (* Current control state enum *)
+    bAlarmHighTemp          : BOOL;     (* Receiver over-temperature alarm *)
+    bAlarmFreezing          : BOOL;     (* Salt freezing risk alarm *)
 END_VAR
-
 VAR
-    // Internal state variables
-    eState : (INIT, HEATING, RUNNING, FAULT, STOPPING);
-    rTensionError : REAL;
-    rTensionIntegral : REAL;
-    rTensionDerivative : REAL;
-    rTensionPrevError : REAL;
-    
-    rTempError : REAL;
-    rTempIntegral : REAL;
-    
-    rThicknessError : REAL;
-    rThicknessIntegral : REAL;
-    
-    tDelayTimer : TON;
-    tUHFCooldown : TOF;
-    bInitialize : BOOL := TRUE;
-    
-    // Limits
-    MAX_TENSION_INT : REAL := 50.0;
-    MAX_HEATER_OUT : REAL := 100.0;
-    MAX_SPEED : REAL := 30.0;
-    
-    // Cycle time
-    rDt : REAL := 0.01; // 10ms cycle
+    iState                  : INT := 0; (* Internal state machine variable *)
+    tPreheatTimer           : TON;      (* Timer for electrical preheating *)
+    tDefocusTimer           : TON;      (* Cooldown timer after defocus *)
+    rFlowPID_Kp             : REAL := 2.5;
+    rFlowPID_Ki             : REAL := 0.15;
+    rFlowPID_Kd             : REAL := 0.05;
+    rError                  : REAL;
+    rLastError              : REAL;
+    rIntegral               : REAL;
+    rDerivative             : REAL;
+    rMinPumpSpeed           : REAL := 25.0; (* Minimum safe flow to prevent hot spots *)
+    rMaxPumpSpeed           : REAL := 100.0;
+    rSaltFreezeTemp         : REAL := 290.0; (* Solar salt freezing point [deg C] *)
+    rMaxPanelTemp           : REAL := 620.0; (* Max allowable panel metallurgical temperature [deg C] *)
+    bLocalHeatTracing       : BOOL;
 END_VAR
 
-// Implementation
-IF bEStop THEN
-    eState := FAULT;
-    sAlarmMessage := 'Emergency Stop Active';
-    rExtruderSpeedRef := 0.0;
-    rCaterpillarSpeedRef := 0.0;
-    rUHFPowerOut := 0.0;
-    rHeaterOutput := 0.0;
+(* === SAFETY & INTERLOCK SUPERVISOR === *)
+IF NOT bEmergencyStop THEN
     bSystemReady := FALSE;
-    bAlarmActive := TRUE;
+    bHeatTracingEnable := TRUE; (* Always ensure tracing is active on trip to avoid solidifying *)
+    bDefocusCommand := TRUE;    (* Immediately remove solar flux *)
+    rSaltPumpSpeedCmd := 0.0;
+    iOperatingState := 99;      (* E-STOP state *)
+    bAlarmHighTemp := FALSE;
+    bAlarmFreezing := FALSE;
     RETURN;
 END_IF;
 
-CASE eState OF
-    INIT:
+(* === THERMAL SAFEGUARDS === *)
+IF rReceiverPanelTemp > rMaxPanelTemp THEN
+    bAlarmHighTemp := TRUE;
+    bDefocusCommand := TRUE;
+ELSE
+    bAlarmHighTemp := FALSE;
+    bDefocusCommand := FALSE;
+END_IF;
+
+IF rInletSaltTemp < (rSaltFreezeTemp + 15.0) THEN
+    bAlarmFreezing := TRUE;
+    bLocalHeatTracing := TRUE;
+ELSE
+    bAlarmFreezing := FALSE;
+    bLocalHeatTracing := FALSE;
+END_IF;
+bHeatTracingEnable := bLocalHeatTracing;
+
+(* === MAIN STATE MACHINE === *)
+CASE iState OF
+    0: (* IDLE & PRE-CHECK *)
+        rSaltPumpSpeedCmd := 0.0;
         bSystemReady := FALSE;
-        bAlarmActive := FALSE;
-        sAlarmMessage := 'Initializing System';
-        rExtruderSpeedRef := 0.0;
-        rCaterpillarSpeedRef := 0.0;
-        rUHFPowerOut := 0.0;
-        rHeaterOutput := 0.0;
-        
-        // Reset PIDs
-        rTensionIntegral := 0.0;
-        rTempIntegral := 0.0;
-        rThicknessIntegral := 0.0;
-        
-        IF bEnable THEN
-            eState := HEATING;
-        END_IF;
-        
-    HEATING:
-        sAlarmMessage := 'Heating Tunnels';
-        
-        // Temperature Control (PI)
-        rTempError := rHotAirTempSet - rHotAirTempAct;
-        rTempIntegral := rTempIntegral + (rTempError * rDt);
-        IF rTempIntegral > 100.0 THEN rTempIntegral := 100.0; END_IF;
-        IF rTempIntegral < 0.0 THEN rTempIntegral := 0.0; END_IF;
-        
-        rHeaterOutput := (2.0 * rTempError) + (0.05 * rTempIntegral);
-        
-        IF rHeaterOutput > MAX_HEATER_OUT THEN
-            rHeaterOutput := MAX_HEATER_OUT;
-        ELSIF rHeaterOutput < 0.0 THEN
-            rHeaterOutput := 0.0;
-        END_IF;
-        
-        // Check if heated
-        IF ABS(rTempError) < 5.0 THEN
-            bSystemReady := TRUE;
-            eState := RUNNING;
-        END_IF;
-        
-        IF NOT bEnable THEN
-            eState := STOPPING;
+        IF bSystemEnable AND (rInletSaltTemp >= rSaltFreezeTemp + 20.0) THEN
+            iState := 10;
         END_IF;
 
-    RUNNING:
-        sAlarmMessage := 'System Running';
+    10: (* PRE-HEATING & TRACING VERIFICATION *)
+        bLocalHeatTracing := TRUE;
+        tPreheatTimer(IN := TRUE, PT := T#30S);
+        IF tPreheatTimer.Q THEN
+            tPreheatTimer(IN := FALSE);
+            iState := 20;
+        END_IF;
+        IF NOT bSystemEnable THEN
+            tPreheatTimer(IN := FALSE);
+            iState := 0;
+        END_IF;
+
+    20: (* INITIAL FLOW ESTABLISHMENT *)
+        rSaltPumpSpeedCmd := rMinPumpSpeed;
+        IF bSaltFlowProven THEN
+            iState := 30;
+        END_IF;
+        IF NOT bSystemEnable THEN
+            iState := 0;
+        END_IF;
+
+    30: (* NORMAL OPERATION & PID CONTROL WITH FEEDFORWARD *)
+        bSystemReady := TRUE;
         
-        // Maintain Temperature
-        rTempError := rHotAirTempSet - rHotAirTempAct;
-        rTempIntegral := rTempIntegral + (rTempError * rDt);
-        rHeaterOutput := (2.0 * rTempError) + (0.05 * rTempIntegral);
-        IF rHeaterOutput > MAX_HEATER_OUT THEN rHeaterOutput := MAX_HEATER_OUT; END_IF;
-        IF rHeaterOutput < 0.0 THEN rHeaterOutput := 0.0; END_IF;
+        (* Calculate PID Error *)
+        rError := rTargetOutletTemp - rReceiverPanelTemp;
         
-        // UHF Power Profile Control
-        IF rUHFZone1Temp > 250.0 OR rUHFZone2Temp > 250.0 THEN
-            bAlarmActive := TRUE;
-            sAlarmMessage := 'UHF Overtemp Fault';
-            eState := FAULT;
-        ELSE
-            rUHFPowerOut := rUHFPowerSet;
+        (* Integral Accumulation with Anti-Windup *)
+        rIntegral := rIntegral + rError;
+        IF rIntegral > 1000.0 THEN rIntegral := 1000.0; END_IF;
+        IF rIntegral < -1000.0 THEN rIntegral := -1000.0; END_IF;
+        
+        (* Derivative *)
+        rDerivative := rError - rLastError;
+        rLastError := rError;
+        
+        (* Core PID Calculation - Note: Pump speed increases to COOL DOWN the receiver (more flow) *)
+        rSaltPumpSpeedCmd := (rFlowPID_Kp * -rError) + (rFlowPID_Ki * -rIntegral) + (rFlowPID_Kd * -rDerivative);
+        
+        (* Add Feed-Forward based on incoming solar flux and wind cooling effect *)
+        rSaltPumpSpeedCmd := rSaltPumpSpeedCmd + (rHeliostatFluxFeedFwd * 5.0) - (rWindSpeed * 0.5);
+        
+        (* Clamp Output *)
+        IF rSaltPumpSpeedCmd < rMinPumpSpeed THEN
+            rSaltPumpSpeedCmd := rMinPumpSpeed;
+        ELSIF rSaltPumpSpeedCmd > rMaxPumpSpeed THEN
+            rSaltPumpSpeedCmd := rMaxPumpSpeed;
         END_IF;
         
-        // Tension Control (PID for Caterpillar Speed)
-        rTensionError := rTargetTension - rActualTension;
-        rTensionIntegral := rTensionIntegral + (rTensionError * rDt);
-        IF rTensionIntegral > MAX_TENSION_INT THEN rTensionIntegral := MAX_TENSION_INT; END_IF;
-        IF rTensionIntegral < -MAX_TENSION_INT THEN rTensionIntegral := -MAX_TENSION_INT; END_IF;
-        rTensionDerivative := (rTensionError - rTensionPrevError) / rDt;
-        rTensionPrevError := rTensionError;
-        
-        // Base speed plus tension trim
-        rCaterpillarSpeedRef := rLineSpeedCmd + (rPID_Kp * rTensionError) + (rPID_Ki * rTensionIntegral) + (rPID_Kd * rTensionDerivative);
-        IF rCaterpillarSpeedRef > MAX_SPEED THEN rCaterpillarSpeedRef := MAX_SPEED; END_IF;
-        IF rCaterpillarSpeedRef < 0.0 THEN rCaterpillarSpeedRef := 0.0; END_IF;
-        
-        // Geometry Control (Thickness) - Adjusts Extruder Speed
-        rThicknessError := rProfileThicknessTarget - rProfileThicknessAct;
-        rThicknessIntegral := rThicknessIntegral + (rThicknessError * rDt);
-        
-        // Inverse relationship: if thickness is too low, increase extruder speed
-        rExtruderSpeedRef := (rLineSpeedCmd * 5.0) + (10.0 * rThicknessError) + (2.0 * rThicknessIntegral);
-        IF rExtruderSpeedRef > 150.0 THEN rExtruderSpeedRef := 150.0; END_IF;
-        IF rExtruderSpeedRef < 0.0 THEN rExtruderSpeedRef := 0.0; END_IF;
-        
-        IF NOT bEnable THEN
-            eState := STOPPING;
+        (* Transitions *)
+        IF NOT bSystemEnable OR bDefocusCommand THEN
+            bSystemReady := FALSE;
+            iState := 40;
+        END_IF;
+
+    40: (* CONTROLLED SHUTDOWN & DRAIN *)
+        rSaltPumpSpeedCmd := rMinPumpSpeed; (* Maintain minimum flow while cooling *)
+        tDefocusTimer(IN := TRUE, PT := T#120S);
+        IF tDefocusTimer.Q THEN
+            tDefocusTimer(IN := FALSE);
+            rSaltPumpSpeedCmd := 0.0; (* Stop pump, allow gravity drain *)
+            iState := 0;
         END_IF;
         
-    STOPPING:
-        sAlarmMessage := 'System Stopping';
-        bSystemReady := FALSE;
-        rExtruderSpeedRef := 0.0;
-        rCaterpillarSpeedRef := 0.0;
-        rUHFPowerOut := 0.0;
-        rHeaterOutput := 0.0;
-        eState := INIT;
-        
-    FAULT:
-        bSystemReady := FALSE;
-        rExtruderSpeedRef := 0.0;
-        rCaterpillarSpeedRef := 0.0;
-        rUHFPowerOut := 0.0;
-        rHeaterOutput := 0.0;
-        IF NOT bEStop AND NOT bAlarmActive THEN
-            eState := INIT;
+    99: (* FAULT / ESTOP *)
+        (* Handled by top-level logic, wait for reset *)
+        IF bEmergencyStop AND NOT bSystemEnable THEN
+            iState := 0;
         END_IF;
 END_CASE;
+
+(* Update Output State *)
+iOperatingState := iState;
+
 END_FUNCTION_BLOCK
 ```"""
 
-record = {'messages': [{'role': 'user', 'content': prompt}, {'role': 'assistant', 'content': code}]}
-with open(f'data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json', 'w', encoding='utf-8') as f:
-    json.dump(record, f)
-print('Successfully saved.')
+record = {
+    "messages": [
+        {"role": "user", "content": prompt},
+        {"role": "assistant", "content": code}
+    ]
+}
+
+os.makedirs("data/swarm_raw", exist_ok=True)
+filename = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
+with open(filename, "w", encoding="utf-8") as f:
+    json.dump(record, f, ensure_ascii=False)
+
+print(f"Saved to {filename}")

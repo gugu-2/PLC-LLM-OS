@@ -1,222 +1,191 @@
-import json
-import uuid
-import os
+import os, json, uuid
 
-# Create directory
-os.makedirs('data/swarm_raw', exist_ok=True)
+os.makedirs("data/swarm_raw", exist_ok=True)
 
-prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 data.
-Your specific domain is: Offshore Wind Turbine Jack-up Vessel.
-Task: Invent a highly complex control scenario for this domain (e.g., dynamic positioning thruster azimuth control, leg jacking rack-and-pinion synchronization, and crane active heave compensation).
-Write a deterministic Structured Text (ST) FUNCTION_BLOCK. Include complete VAR declarations and physical I/O."""
+prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
+You possess the expertise of a 40+ years experienced PLC automation architect writing world-class, extremely complex, and mathematically rigorous code.
+
+**Your assigned domain is: Hydrogen Electrolyzer PEM Stack Anode/Cathode Pressure Balancing**
+
+Task: Invent a highly complex, ultra-realistic control scenario for this domain (e.g., cross-membrane pressure differential control at mbar resolution, cascading water feed flow loops, and explosive gas mixture detection interlocks). Your code must look like the absolute best, most robust industrial code written by a world-class 40-year veteran.
+
+CRITICAL RULES - READ EVERY LINE:
+1. CODE FENCE: Use TRIPLE backticks + iec-st. EXACTLY like this:
+   ```iec-st
+   (your code here)
+   ```
+   NEVER use a single backtick `iec-st. ALWAYS use triple backticks.
+2. REQUIRED IEC 61131-3 STRUCTURE (all 5 mandatory):
+   a. FUNCTION_BLOCK FB_<Name>   <- first line of code, always
+   b. VAR_INPUT ... END_VAR      <- min 4 typed inputs with comments
+   c. VAR_OUTPUT ... END_VAR     <- min 3 typed outputs with comments
+   d. At least one END_IF; or END_CASE;  <- control logic required
+   e. END_FUNCTION_BLOCK         <- last line of code, always
+3. LENGTH: The assistant content MUST be >= 1500 characters total.
+4. SAVE to isolated file using this exact Python:
+   import json, uuid
+   prompt = \"\"\"<copy this exact user prompt here>\"\"\"
+   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_PEMElectrolyzer\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
+   record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
+   with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
+       json.dump(record, f, ensure_ascii=False)
+5. SELF-CHECK before saving - verify ALL:
+   [ ] Fence is ```iec-st
+   [ ] First code line: FUNCTION_BLOCK FB_<name>
+   [ ] Has VAR_INPUT section
+   [ ] Has VAR_OUTPUT section
+   [ ] Has END_IF; or END_CASE;
+   [ ] Last code line: END_FUNCTION_BLOCK
+   [ ] Closing fence: ```
+   [ ] Total chars >= 1500
+6. REPLY with: EVOLUTION COMPLETE: Hydrogen Electrolyzer PEM Stack Anode/Cathode Pressure Balancing
+
+DO NOT APOLOGIZE. DO NOT EXPLAIN. GENERATE CODE AND SAVE IT."""
 
 code = """```iec-st
-FUNCTION_BLOCK FB_JackUpVessel_MasterControl
-// ==============================================================================
-// Offshore Wind Turbine Jack-up Vessel Master Control System
-// Subsystems:
-// 1. Dynamic Positioning (DP) Thruster Azimuth Control
-// 2. Leg Jacking Rack-and-Pinion Synchronization (4 Legs)
-// 3. Crane Active Heave Compensation (AHC)
-// ==============================================================================
-
+FUNCTION_BLOCK FB_PEM_PressureBalanceControl
 VAR_INPUT
-    bEnableSystem          : BOOL;  // Main system enable
-    bEmergencyStop         : BOOL;  // Global E-stop
-
-    // DP System Inputs
-    fWindSpeed             : REAL;  // Current wind speed [m/s]
-    fWindDir               : REAL;  // Current wind direction [deg]
-    fVesselHeading         : REAL;  // Current vessel heading [deg]
-    fTargetHeading         : REAL;  // Desired vessel heading [deg]
-    fPositionErrorX        : REAL;  // Position error X [m]
-    fPositionErrorY        : REAL;  // Position error Y [m]
-
-    // Jacking System Inputs
-    fLeg1Load              : REAL;  // Load on Leg 1 [kN]
-    fLeg2Load              : REAL;  // Load on Leg 2 [kN]
-    fLeg3Load              : REAL;  // Load on Leg 3 [kN]
-    fLeg4Load              : REAL;  // Load on Leg 4 [kN]
-    fLeg1Pos               : REAL;  // Position of Leg 1 [m]
-    fLeg2Pos               : REAL;  // Position of Leg 2 [m]
-    fLeg3Pos               : REAL;  // Position of Leg 3 [m]
-    fLeg4Pos               : REAL;  // Position of Leg 4 [m]
-    fTargetDraft           : REAL;  // Target vessel draft/height [m]
-    bInitiateJacking       : BOOL;  // Start jacking sequence
-
-    // Crane AHC Inputs
-    fWaveHeaveAmplt        : REAL;  // Measured wave heave amplitude [m]
-    fWaveHeavePeriod       : REAL;  // Measured wave heave period [s]
-    fCranePayloadPos       : REAL;  // Current payload vertical position [m]
-    fCraneTargetPos        : REAL;  // Desired payload vertical position [m]
+    bEnable                 : BOOL;     (* System enable signal *)
+    bEmergencyStop          : BOOL;     (* Emergency stop / Safety chain OK signal *)
+    rAnodePressure          : REAL;     (* Measured O2 pressure at Anode (mbar) *)
+    rCathodePressure        : REAL;     (* Measured H2 pressure at Cathode (mbar) *)
+    rAnodeTemp              : REAL;     (* Anode temperature (Deg C) *)
+    rCathodeTemp            : REAL;     (* Cathode temperature (Deg C) *)
+    rWaterFeedFlow          : REAL;     (* Current water feed flow to stack (L/min) *)
+    rMaxDiffPressure        : REAL;     (* Maximum allowable cross-membrane pressure diff (mbar) *)
 END_VAR
-
 VAR_OUTPUT
-    bSystemReady           : BOOL;  // System is ready
-    bAlarmState            : BOOL;  // Global alarm flag
-
-    // DP Thruster Outputs
-    fThruster1AzimuthCmd   : REAL;  // Thruster 1 angle [deg]
-    fThruster1PitchCmd     : REAL;  // Thruster 1 pitch/thrust [%]
-    fThruster2AzimuthCmd   : REAL;  // Thruster 2 angle [deg]
-    fThruster2PitchCmd     : REAL;  // Thruster 2 pitch/thrust [%]
-    fThruster3AzimuthCmd   : REAL;  // Thruster 3 angle [deg]
-    fThruster3PitchCmd     : REAL;  // Thruster 3 pitch/thrust [%]
-
-    // Jacking Outputs
-    fLeg1SpeedCmd          : REAL;  // Leg 1 jacking speed command [mm/s]
-    fLeg2SpeedCmd          : REAL;  // Leg 2 jacking speed command [mm/s]
-    fLeg3SpeedCmd          : REAL;  // Leg 3 jacking speed command [mm/s]
-    fLeg4SpeedCmd          : REAL;  // Leg 4 jacking speed command [mm/s]
-    bJackingComplete       : BOOL;  // Jacking sequence done
-
-    // Crane AHC Outputs
-    fWinchSpeedCmd         : REAL;  // Winch speed command [m/s]
-    bAHCActive             : BOOL;  // AHC is active and locked
+    bSystemReady            : BOOL;     (* System ready for operation *)
+    rAnodeValveCmd          : REAL;     (* Anode pressure control valve command 0-100% *)
+    rCathodeValveCmd        : REAL;     (* Cathode pressure control valve command 0-100% *)
+    rWaterPumpCmd           : REAL;     (* Water feed pump speed command 0-100% *)
+    bAlarmDifferential      : BOOL;     (* Cross-membrane differential pressure alarm *)
+    bAlarmGasMixture        : BOOL;     (* Explosive gas mixture risk detected alarm *)
+    bSafetyTrip             : BOOL;     (* Critical safety trip signal (hardware interlock) *)
 END_VAR
-
 VAR
-    // Internal States
-    eState                 : INT := 0; // 0=Init, 1=Transit/DP, 2=Jacking, 3=Operations/AHC
+    iState                  : INT := 0;
+    rPressureDiff           : REAL;
+    rPressureDiffFiltered   : REAL;
+    rAlphaFilter            : REAL := 0.1;
+    tFaultTimer             : TON;
+    tStartupDelay           : TON;
     
-    // DP Control Variables
-    fKp_DP                 : REAL := 1.5;
-    fKi_DP                 : REAL := 0.1;
-    fKd_DP                 : REAL := 0.5;
-    fHeadingError          : REAL;
-    fIntegralErrorX        : REAL;
-    fIntegralErrorY        : REAL;
+    (* PI Controller States for Anode *)
+    rAnodeKp                : REAL := 2.5;
+    rAnodeKi                : REAL := 0.8;
+    rAnodeError             : REAL;
+    rAnodeIntegral          : REAL := 0.0;
+    rAnodeSetpoint          : REAL := 15000.0; (* 15 bar in mbar *)
     
-    // Jacking Sync Variables
-    fAvgLegPos             : REAL;
-    fMaxLegPosDiff         : REAL;
-    fPosTolerance          : REAL := 0.05; // 50mm max deviation
-    fNominalJackSpeed      : REAL := 10.0; // 10mm/s
-    fSyncGain              : REAL := 2.0;
-
-    // Crane AHC Variables
-    fAHC_Kp                : REAL := 2.5;
-    fAHC_Derivative        : REAL;
-    fPrevHeaveAmplt        : REAL;
-    fPayloadError          : REAL;
+    (* PI Controller States for Cathode *)
+    rCathodeKp              : REAL := 3.0;
+    rCathodeKi              : REAL := 1.2;
+    rCathodeError           : REAL;
+    rCathodeIntegral        : REAL := 0.0;
+    rCathodeSetpoint        : REAL := 15050.0; (* 15.05 bar in mbar *)
 END_VAR
 
-// ==============================================================================
-// IMPLEMENTATION
-// ==============================================================================
-
-IF bEmergencyStop THEN
-    // Reset all commands to safe state
-    fThruster1PitchCmd := 0.0;
-    fThruster2PitchCmd := 0.0;
-    fThruster3PitchCmd := 0.0;
-    fLeg1SpeedCmd := 0.0;
-    fLeg2SpeedCmd := 0.0;
-    fLeg3SpeedCmd := 0.0;
-    fLeg4SpeedCmd := 0.0;
-    fWinchSpeedCmd := 0.0;
+(* === MAIN LOGIC === *)
+(* 1. Safety Interlocks and Diagnostics *)
+IF NOT bEmergencyStop THEN
     bSystemReady := FALSE;
-    bAlarmState := TRUE;
+    bSafetyTrip := TRUE;
+    rAnodeValveCmd := 0.0;
+    rCathodeValveCmd := 0.0;
+    rWaterPumpCmd := 0.0;
+    iState := 99; (* Fault State *)
     RETURN;
 END_IF;
 
-bAlarmState := FALSE;
-bSystemReady := bEnableSystem;
+(* 2. Process Variable Filtering and Calculations *)
+rPressureDiff := ABS(rCathodePressure - rAnodePressure);
+rPressureDiffFiltered := (rPressureDiff * rAlphaFilter) + (rPressureDiffFiltered * (1.0 - rAlphaFilter));
 
-IF NOT bEnableSystem THEN
+(* 3. Alarm Generation *)
+IF rPressureDiffFiltered > rMaxDiffPressure THEN
+    tFaultTimer(IN := TRUE, PT := T#500MS);
+    IF tFaultTimer.Q THEN
+        bAlarmDifferential := TRUE;
+        bSafetyTrip := TRUE;
+    END_IF;
+ELSE
+    tFaultTimer(IN := FALSE);
+    bAlarmDifferential := FALSE;
+END_IF;
+
+(* Check for dangerous temperature deviations which could imply gas crossover *)
+IF (rAnodeTemp > 90.0) OR (rCathodeTemp > 90.0) THEN
+    bAlarmGasMixture := TRUE;
+    bSafetyTrip := TRUE;
+END_IF;
+
+IF bSafetyTrip THEN
+    rAnodeValveCmd := 100.0;   (* Fail safe open to vent *)
+    rCathodeValveCmd := 100.0; (* Fail safe open to vent *)
+    rWaterPumpCmd := 0.0;
+    bSystemReady := FALSE;
+    iState := 99;
     RETURN;
 END_IF;
 
-// Determine Operating Mode
-IF bInitiateJacking AND eState <> 2 THEN
-    eState := 2; // Transition to Jacking
-ELSIF bJackingComplete AND eState = 2 THEN
-    eState := 3; // Transition to Operations (Crane AHC active)
-ELSIF NOT bInitiateJacking AND eState = 0 THEN
-    eState := 1; // Default to DP Transit
-END_IF;
-
-CASE eState OF
-    1: // ================== DYNAMIC POSITIONING MODE ==================
-        // Calculate Heading Error
-        fHeadingError := fTargetHeading - fVesselHeading;
-        IF fHeadingError > 180.0 THEN fHeadingError := fHeadingError - 360.0; END_IF;
-        IF fHeadingError < -180.0 THEN fHeadingError := fHeadingError + 360.0; END_IF;
-        
-        // Simple PID for DP (X, Y, Yaw translation to thrust)
-        // Thruster 1 (Bow)
-        fThruster1AzimuthCmd := 90.0; // Bow thruster fixed lateral
-        fThruster1PitchCmd := (fHeadingError * fKp_DP) + (fPositionErrorY * 0.5);
-        
-        // Thruster 2 & 3 (Aft Port/Starboard)
-        fThruster2AzimuthCmd := 0.0;
-        fThruster2PitchCmd := (fPositionErrorX * fKp_DP) - (fHeadingError * 0.2);
-        
-        fThruster3AzimuthCmd := 0.0;
-        fThruster3PitchCmd := (fPositionErrorX * fKp_DP) + (fHeadingError * 0.2);
-        
-        // Anti-windup and limits
-        IF fThruster1PitchCmd > 100.0 THEN fThruster1PitchCmd := 100.0; END_IF;
-        IF fThruster1PitchCmd < -100.0 THEN fThruster1PitchCmd := -100.0; END_IF;
-
-    2: // ================== LEG JACKING SYNCHRONIZATION ==================
-        // Stop DP thrusters during jacking
-        fThruster1PitchCmd := 0.0;
-        fThruster2PitchCmd := 0.0;
-        fThruster3PitchCmd := 0.0;
-
-        fAvgLegPos := (fLeg1Pos + fLeg2Pos + fLeg3Pos + fLeg4Pos) / 4.0;
-        
-        // Check for max deviation
-        fMaxLegPosDiff := MAX(ABS(fLeg1Pos - fAvgLegPos), ABS(fLeg2Pos - fAvgLegPos));
-        fMaxLegPosDiff := MAX(fMaxLegPosDiff, ABS(fLeg3Pos - fAvgLegPos));
-        fMaxLegPosDiff := MAX(fMaxLegPosDiff, ABS(fLeg4Pos - fAvgLegPos));
-        
-        IF fMaxLegPosDiff > (fPosTolerance * 2.0) THEN
-            // Synchronization error - halt jacking
-            fLeg1SpeedCmd := 0.0;
-            fLeg2SpeedCmd := 0.0;
-            fLeg3SpeedCmd := 0.0;
-            fLeg4SpeedCmd := 0.0;
-            bAlarmState := TRUE;
-        ELSE
-            // Apply synchronized speed commands
-            IF fAvgLegPos < fTargetDraft THEN
-                fLeg1SpeedCmd := fNominalJackSpeed + (fAvgLegPos - fLeg1Pos) * fSyncGain;
-                fLeg2SpeedCmd := fNominalJackSpeed + (fAvgLegPos - fLeg2Pos) * fSyncGain;
-                fLeg3SpeedCmd := fNominalJackSpeed + (fAvgLegPos - fLeg3Pos) * fSyncGain;
-                fLeg4SpeedCmd := fNominalJackSpeed + (fAvgLegPos - fLeg4Pos) * fSyncGain;
-            ELSE
-                // Target reached
-                fLeg1SpeedCmd := 0.0;
-                fLeg2SpeedCmd := 0.0;
-                fLeg3SpeedCmd := 0.0;
-                fLeg4SpeedCmd := 0.0;
-                bJackingComplete := TRUE;
-            END_IF;
+(* 4. State Machine Control *)
+CASE iState OF
+    0: (* IDLE - Wait for System Enable *)
+        rAnodeValveCmd := 0.0;
+        rCathodeValveCmd := 0.0;
+        rWaterPumpCmd := 0.0;
+        bSystemReady := FALSE;
+        IF bEnable AND NOT bSafetyTrip THEN
+            iState := 10;
         END_IF;
 
-    3: // ================== CRANE ACTIVE HEAVE COMPENSATION ==================
-        // Vessel is jacked up, but boom might still experience relative dynamics if transferring to a floating vessel.
-        // Assuming AHC compensates for relative motion of the supply vessel (fWaveHeaveAmplt).
+    10: (* PURGE & PRESSURIZE PREP *)
+        rWaterPumpCmd := 20.0; (* Low flow for membrane wetting *)
+        tStartupDelay(IN := TRUE, PT := T#10S);
+        IF tStartupDelay.Q THEN
+            tStartupDelay(IN := FALSE);
+            iState := 20;
+        END_IF;
+
+    20: (* RAMP TO PRESSURE *)
+        (* Simple ramp logic or pass through to closed loop control *)
+        bSystemReady := TRUE;
+        iState := 30;
+
+    30: (* CLOSED LOOP CONTROL - NORMAL OPERATION *)
+        IF NOT bEnable THEN
+            iState := 0;
+        END_IF;
         
-        bAHCActive := TRUE;
+        (* Anode PI Control *)
+        rAnodeError := rAnodeSetpoint - rAnodePressure;
+        rAnodeIntegral := rAnodeIntegral + (rAnodeError * 0.01); (* Assume 10ms cycle *)
+        rAnodeValveCmd := (rAnodeError * rAnodeKp) + rAnodeIntegral;
         
-        // Calculate payload position error
-        fPayloadError := fCraneTargetPos - fCranePayloadPos;
+        (* Cathode PI Control - cascaded to maintain slight diff pressure *)
+        rCathodeError := rCathodeSetpoint - rCathodePressure;
+        rCathodeIntegral := rCathodeIntegral + (rCathodeError * 0.01);
+        rCathodeValveCmd := (rCathodeError * rCathodeKp) + rCathodeIntegral;
         
-        // Derivative of wave heave (predictive velocity compensation)
-        fAHC_Derivative := (fWaveHeaveAmplt - fPrevHeaveAmplt) / 0.1; // Assuming 100ms cycle
-        fPrevHeaveAmplt := fWaveHeaveAmplt;
-        
-        // Winch speed combines PID for payload positioning and feedforward for heave cancellation
-        fWinchSpeedCmd := (fPayloadError * fAHC_Kp) - fAHC_Derivative;
-        
-        // Speed limits
-        IF fWinchSpeedCmd > 5.0 THEN fWinchSpeedCmd := 5.0; END_IF;
-        IF fWinchSpeedCmd < -5.0 THEN fWinchSpeedCmd := -5.0; END_IF;
-        
+        (* Anti-windup limits *)
+        IF rAnodeValveCmd > 100.0 THEN rAnodeValveCmd := 100.0; END_IF;
+        IF rAnodeValveCmd < 0.0 THEN rAnodeValveCmd := 0.0; END_IF;
+        IF rCathodeValveCmd > 100.0 THEN rCathodeValveCmd := 100.0; END_IF;
+        IF rCathodeValveCmd < 0.0 THEN rCathodeValveCmd := 0.0; END_IF;
+
+        (* Cascading Water Feed Loop *)
+        rWaterPumpCmd := 50.0 + (rPressureDiffFiltered * 0.5);
+        IF rWaterPumpCmd > 100.0 THEN rWaterPumpCmd := 100.0; END_IF;
+
+    99: (* FAULT STATE *)
+        bSystemReady := FALSE;
+        IF NOT bSafetyTrip AND NOT bEnable THEN
+            iState := 0; (* Reset required by disabling *)
+        END_IF;
+
 END_CASE;
+
 END_FUNCTION_BLOCK
 ```"""
 
@@ -227,8 +196,8 @@ record = {
     ]
 }
 
-file_name = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
-with open(file_name, "w", encoding="utf-8") as f:
-    json.dump(record, f)
+filename = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
+with open(filename, "w", encoding="utf-8") as f:
+    json.dump(record, f, ensure_ascii=False)
 
-print(f"Success: {file_name}")
+print(f"Saved to {filename}")
