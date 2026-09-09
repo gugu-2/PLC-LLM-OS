@@ -1,15 +1,11 @@
-import json
-import uuid
-import os
-
-os.makedirs("data/swarm_raw", exist_ok=True)
+import json, uuid, os
 
 prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
 You possess the expertise of a 40+ years experienced PLC automation architect writing world-class, extremely complex, and mathematically rigorous code.
 
-**Your assigned domain is: High-Speed Passenger Rail Active Tilt Bogie Suspension**
+**Your assigned domain is: Advanced Bio-Synthetic mRNA Vaccine High-Shear Micro-Fluidizer**
 
-Task: Invent a highly complex, ultra-realistic control scenario for this domain (e.g., Centrifugal acceleration gyroscopic feed-forward logic, pneumatic air-spring dynamic pressure profiling, and derailment limit cross-check redundancy). Your code must look like the absolute best, most robust industrial code written by a world-class 40-year veteran.
+Task: Invent a highly complex, ultra-realistic control scenario for this domain (e.g., 30,000 psi interaction chamber localized thermal mapping, lipid nanoparticle (LNP) size distribution feedback, and sterile barrier cascading pressure zones). Your code must look like the absolute best, most robust industrial code written by a world-class 40-year veteran.
 
 CRITICAL RULES - READ EVERY LINE:
 1. CODE FENCE: Use TRIPLE backticks + iec-st. EXACTLY like this:
@@ -27,9 +23,9 @@ CRITICAL RULES - READ EVERY LINE:
 4. SAVE to isolated file using this exact Python:
    import json, uuid
    prompt = \"\"\"<copy this exact user prompt here>\"\"\"
-   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_HighSpeedRailTilt\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
-   record = {\"messages\": [{\"role\": \"user\", \"content\": prompt}, {\"role\": \"assistant\", \"content\": code}]}
-   with open(f\"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json\", \"w\", encoding=\"utf-8\") as f:
+   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_mRNA_MicroFluidizer\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
+   record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
+   with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
        json.dump(record, f, ensure_ascii=False)
 5. SELF-CHECK before saving - verify ALL:
    [ ] Fence is ```iec-st
@@ -40,133 +36,156 @@ CRITICAL RULES - READ EVERY LINE:
    [ ] Last code line: END_FUNCTION_BLOCK
    [ ] Closing fence: ```
    [ ] Total chars >= 1500
-6. REPLY with: EVOLUTION COMPLETE: High-Speed Passenger Rail Active Tilt Bogie Suspension
+6. REPLY with: EVOLUTION COMPLETE: Advanced Bio-Synthetic mRNA Vaccine High-Shear Micro-Fluidizer
 
 DO NOT APOLOGIZE. DO NOT EXPLAIN. GENERATE CODE AND SAVE IT."""
 
 code = """```iec-st
-FUNCTION_BLOCK FB_ActiveTiltBogieControl
+FUNCTION_BLOCK FB_mRNA_MicroFluidizer
 VAR_INPUT
-    (* Required: at least 4-8 physical inputs with types and comments *)
-    bEnable             : BOOL;     (* System master enable signal *)
-    bEmergencyStop      : BOOL;     (* Safety relay OK / E-Stop signal *)
-    rTrainSpeed         : REAL;     (* Current train velocity in m/s *)
-    rLateralAccel       : REAL;     (* Lateral acceleration measured at bogie in m/s^2 *)
-    rYawRate            : REAL;     (* Gyroscopic yaw rate in rad/s from inertial measurement unit *)
-    rAirSpringPressL    : REAL;     (* Left pneumatic air-spring dynamic pressure (bar) feedback *)
-    rAirSpringPressR    : REAL;     (* Right pneumatic air-spring dynamic pressure (bar) feedback *)
+    bSystemEnable         : BOOL;      (* Main system enable command from master DCS *)
+    bEmergencyStop        : BOOL;      (* Hardware safety chain status (TRUE = OK) *)
+    rInletPressure        : REAL;      (* Inlet feed pressure from formulation tanks (psi) *)
+    rInteractionTemp      : REAL;      (* Localized thermal mapping in interaction chamber (deg C) *)
+    rLNP_SizeMean         : REAL;      (* Real-time DLS lipid nanoparticle size feedback (nm) *)
+    bSterileBarrierOK     : BOOL;      (* Cascading pressure zones sterile boundary status *)
+    rPumpFlowRateReq      : REAL;      (* Requested flow rate for intensifier pump (L/min) *)
+    rCoolingWaterFlow     : REAL;      (* Chilled water flow rate for heat exchanger (L/min) *)
 END_VAR
 VAR_OUTPUT
-    (* Required: at least 3-6 outputs with types and comments *)
-    bSystemReady        : BOOL;     (* Active tilt system ready/healthy status *)
-    rTiltActuatorCmd    : REAL;     (* Tilt actuator control signal (-100.0 to +100.0 %) *)
-    rAirSpringSetptL    : REAL;     (* Target left air spring pressure (bar) command *)
-    rAirSpringSetptR    : REAL;     (* Target right air spring pressure (bar) command *)
-    bDerailmentAlarm    : BOOL;     (* Critical fault / derailment risk alarm output *)
+    bSystemReady          : BOOL;      (* System is ready for vaccine processing *)
+    bProcessActive        : BOOL;      (* High-shear microfluidization is actively running *)
+    rIntensifierPressure  : REAL;      (* Commanded stroke pressure to the intensifier pump (psi) *)
+    rChillerValveCmd      : REAL;      (* Cooling valve command (0.0 to 100.0 %) *)
+    bWarningLNPSize       : BOOL;      (* Warning: LNP size deviating from target formulation *)
+    bCriticalAlarm        : BOOL;      (* Critical fault: thermal run-away or pressure loss *)
+    iProcessState         : INT;       (* Current state of the fluidizer state machine *)
 END_VAR
 VAR
-    (* Internal state variables *)
-    iState              : INT := 0; (* Main state machine index *)
-    tFaultTimer         : TON;      (* Fault debounce timer to prevent spurious trips *)
-    rCurveRadius        : REAL;     (* Calculated track curve radius in meters *)
-    rTargetTiltAngle    : REAL;     (* Desired compensation tilt angle in radians *)
-    rCentrifugalAccel   : REAL;     (* Calculated uncompensated centrifugal acceleration *)
-    rGyroFeedForward    : REAL;     (* Feed-forward predictive component based on yaw rate *)
-    bDerailRisk         : BOOL;     (* Internal flag indicating excessive lateral forces *)
-END_VAR
-VAR CONSTANT
-    (* Physical and system limits *)
-    MAX_TILT_ANGLE      : REAL := 0.14;   (* Maximum allowed tilt angle ~ 8 degrees *)
-    MAX_LAT_ACCEL       : REAL := 1.5;    (* Maximum allowed uncompensated lateral accel m/s^2 *)
-    NOMINAL_PRESSURE    : REAL := 5.0;    (* Nominal air spring pressure in bar at rest *)
-    GRAVITY             : REAL := 9.81;   (* Gravitational constant in m/s^2 *)
+    iState                : INT := 0;  (* Internal state variable for processing *)
+    tStartupDelay         : TON;       (* Timer for pressure stabilization *)
+    tChillerDelay         : TON;       (* Timer for thermal stabilization *)
+    rTargetPressure       : REAL := 30000.0; (* 30,000 psi operating pressure *)
+    rMaxTempLimit         : REAL := 15.0;    (* Max allowable temperature for mRNA stability *)
+    rTargetLNPSize        : REAL := 80.0;    (* Target LNP size in nm *)
+    rLNPSizeTolerance     : REAL := 15.0;    (* +/- 15 nm acceptable range *)
+    rKp                   : REAL := 2.5;     (* Proportional gain for chiller PID pseudo-code *)
+    rErrorTemp            : REAL;            (* Temperature error for cooling loop *)
 END_VAR
 
-(* === MAIN SAFETY INTERLOCK LOGIC === *)
-(* Ensure safety circuits are intact before engaging dynamic suspension *)
-IF NOT bEmergencyStop OR NOT bEnable THEN
+(* === MAIN LOGIC === *)
+(* 1. Safety and Interlock Checks *)
+IF NOT bEmergencyStop OR NOT bSterileBarrierOK THEN
     bSystemReady := FALSE;
-    bDerailmentAlarm := FALSE;
-    rTiltActuatorCmd := 0.0;
-    rAirSpringSetptL := NOMINAL_PRESSURE;
-    rAirSpringSetptR := NOMINAL_PRESSURE;
-    iState := 0;
+    bProcessActive := FALSE;
+    rIntensifierPressure := 0.0;
+    rChillerValveCmd := 100.0; (* Failsafe: full cooling *)
+    bCriticalAlarm := TRUE;
+    iState := 999; (* Fault state *)
+    iProcessState := iState;
     RETURN;
 END_IF;
 
-(* === SENSOR CROSS-CHECKS & DERAILMENT PREVENTION === *)
-(* Continuously monitor lateral acceleration against safe passenger comfort and derailment limits *)
-bDerailRisk := (ABS(rLateralAccel) > MAX_LAT_ACCEL) OR (rTrainSpeed > 100.0); (* 100 m/s = 360 km/h limit *)
-tFaultTimer(IN := bDerailRisk, PT := T#200MS);
-
-IF tFaultTimer.Q THEN
-    bDerailmentAlarm := TRUE;
-    iState := 99; (* FORCE INTO EMERGENCY FAULT STATE *)
+(* 2. Thermal Protection Overrides *)
+IF rInteractionTemp > rMaxTempLimit THEN
+    bCriticalAlarm := TRUE;
+    rIntensifierPressure := 0.0; (* Drop pressure immediately to stop shear heating *)
+    rChillerValveCmd := 100.0;
+    iState := 999;
 END_IF;
 
-(* === ACTIVE TILT STATE MACHINE === *)
+(* 3. LNP Quality Monitoring *)
+IF ABS(rLNP_SizeMean - rTargetLNPSize) > rLNPSizeTolerance THEN
+    bWarningLNPSize := TRUE;
+ELSE
+    bWarningLNPSize := FALSE;
+END_IF;
+
+(* 4. State Machine for High-Shear Process *)
 CASE iState OF
-    0: (* IDLE / INITIALIZATION *)
+    0: (* IDLE - Waiting for DCS Enable *)
         bSystemReady := TRUE;
-        rTiltActuatorCmd := 0.0;
-        rAirSpringSetptL := NOMINAL_PRESSURE;
-        rAirSpringSetptR := NOMINAL_PRESSURE;
+        bProcessActive := FALSE;
+        rIntensifierPressure := 0.0;
+        bCriticalAlarm := FALSE;
+        rChillerValveCmd := 0.0;
         
-        (* Transition to active running state when speed exceeds threshold *)
-        IF rTrainSpeed > 5.0 THEN
-            iState := 10;
+        IF bSystemEnable AND (rInletPressure > 50.0) THEN
+            iState := 10; (* Move to priming *)
         END_IF;
 
-    10: (* NORMAL RUNNING & GYROSCOPIC FEED-FORWARD CALCULATION *)
-        (* Calculate kinematic curve parameters based on yaw rate and velocity *)
-        IF ABS(rYawRate) > 0.001 AND rTrainSpeed > 5.0 THEN
-            rCurveRadius := rTrainSpeed / rYawRate;
-            rCentrifugalAccel := (rTrainSpeed * rTrainSpeed) / rCurveRadius;
+    10: (* PRIMING - Pre-cooling and low pressure start *)
+        bSystemReady := TRUE;
+        bProcessActive := TRUE;
+        rIntensifierPressure := 5000.0; (* Low pressure prime *)
+        rChillerValveCmd := 50.0;
+        
+        tStartupDelay(IN := TRUE, PT := T#10S);
+        IF tStartupDelay.Q THEN
+            tStartupDelay(IN := FALSE);
+            iState := 20;
+        END_IF;
+
+    20: (* RAMPING - Bring up to 30,000 psi *)
+        rIntensifierPressure := rIntensifierPressure + 100.0;
+        IF rIntensifierPressure >= rTargetPressure THEN
+            rIntensifierPressure := rTargetPressure;
+            iState := 30;
+        END_IF;
+        
+        (* Simple P-control for thermal loop during ramp *)
+        rErrorTemp := rInteractionTemp - 4.0; (* Target 4 deg C *)
+        IF rErrorTemp > 0.0 THEN
+            rChillerValveCmd := rChillerValveCmd + (rErrorTemp * rKp);
+        END_IF;
+        IF rChillerValveCmd > 100.0 THEN rChillerValveCmd := 100.0; END_IF;
+
+    30: (* PRODUCTION - Steady state microfluidization *)
+        rIntensifierPressure := rTargetPressure;
+        
+        (* Thermal regulation loop *)
+        rErrorTemp := rInteractionTemp - 4.0;
+        IF rErrorTemp > 0.0 THEN
+            rChillerValveCmd := rChillerValveCmd + (rErrorTemp * rKp * 0.5);
         ELSE
-            rCurveRadius := 99999.0; (* Effectively straight track *)
-            rCentrifugalAccel := 0.0;
+            rChillerValveCmd := rChillerValveCmd - 5.0;
         END_IF;
         
-        (* Compute Gyro Feed-Forward to anticipate curve entry before lateral G's build up *)
-        rGyroFeedForward := rYawRate * 2.5; (* 2.5 represents the dynamic system look-ahead gain *)
+        (* Valve saturation limits *)
+        IF rChillerValveCmd > 100.0 THEN rChillerValveCmd := 100.0; END_IF;
+        IF rChillerValveCmd < 10.0 THEN rChillerValveCmd := 10.0; END_IF;
         
-        (* Calculate desired tilt angle to compensate for centrifugal force, maintaining passenger comfort *)
-        rTargetTiltAngle := ATAN((rCentrifugalAccel + rGyroFeedForward) / GRAVITY);
-        
-        (* Saturate target angle against physical constraints of the bogie mechanics *)
-        IF rTargetTiltAngle > MAX_TILT_ANGLE THEN
-            rTargetTiltAngle := MAX_TILT_ANGLE;
-        ELSIF rTargetTiltAngle < -MAX_TILT_ANGLE THEN
-            rTargetTiltAngle := -MAX_TILT_ANGLE;
+        IF NOT bSystemEnable THEN
+            iState := 40;
         END_IF;
-        
-        (* Translate computed tilt angle to proportional actuator command percentage *)
-        rTiltActuatorCmd := (rTargetTiltAngle / MAX_TILT_ANGLE) * 100.0;
-        
-        (* Adjust air-spring dynamic pressure profiling to counteract rolling moment *)
-        (* Left/Right pressure differential provides secondary roll stiffness *)
-        rAirSpringSetptL := NOMINAL_PRESSURE + (rTargetTiltAngle * 10.0);
-        rAirSpringSetptR := NOMINAL_PRESSURE - (rTargetTiltAngle * 10.0);
 
-    99: (* EMERGENCY SAFE STATE *)
+    40: (* SHUTDOWN - Ramp down pressure safely *)
+        rIntensifierPressure := rIntensifierPressure - 500.0;
+        IF rIntensifierPressure <= 0.0 THEN
+            rIntensifierPressure := 0.0;
+            bProcessActive := FALSE;
+            iState := 0;
+        END_IF;
+
+    999: (* FAULT - Requires hard reset *)
         bSystemReady := FALSE;
-        rTiltActuatorCmd := 0.0; (* Center the tilt mechanisms *)
-        
-        (* Stiffen outer springs globally to prevent excessive body roll and roll-over risks *)
-        rAirSpringSetptL := NOMINAL_PRESSURE * 1.5;
-        rAirSpringSetptR := NOMINAL_PRESSURE * 1.5;
-        
-        (* Auto-recovery from minor transient faults (typically requires manual reset in real systems) *)
-        IF NOT bDerailRisk THEN
-            bDerailmentAlarm := FALSE;
-            iState := 0; 
+        bProcessActive := FALSE;
+        IF NOT bEmergencyStop THEN
+            (* Wait for E-stop clear *)
+        ELSIF bSystemEnable = FALSE AND rInteractionTemp < 10.0 THEN
+            bCriticalAlarm := FALSE;
+            iState := 0;
         END_IF;
 
 END_CASE;
 
+(* Update external state tracker *)
+iProcessState := iState;
+
 END_FUNCTION_BLOCK
 ```"""
 
+os.makedirs("data/swarm_raw", exist_ok=True)
 record = {
     "messages": [
         {"role": "user", "content": prompt},

@@ -1,10 +1,13 @@
 import json, uuid, os
+
+os.makedirs('data/swarm_raw', exist_ok=True)
+
 prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
 You possess the expertise of a 40+ years experienced PLC automation architect writing world-class, extremely complex, and mathematically rigorous code.
 
-**Your assigned domain is: Semiconductor Chemical Vapor Deposition (CVD) Graphene Furnace**
+**Your assigned domain is: Industrial Scale Liquid Metal Battery Grid Energy Storage**
 
-Task: Invent a highly complex, ultra-realistic control scenario for this domain (e.g., Precursor mass flow synchronization, 1000°C isothermal zone mapping, and inert argon purging cross-contamination lock). Your code must look like the absolute best, most robust industrial code written by a world-class 40-year veteran.
+Task: Invent a highly complex, ultra-realistic control scenario for this domain (e.g., Antimony-lead / lithium interface joule heating self-regulation, high-current (10kA) bi-directional DC-DC isolation, and thermal stratification layer mapping). Your code must look like the absolute best, most robust industrial code written by a world-class 40-year veteran.
 
 CRITICAL RULES - READ EVERY LINE:
 1. CODE FENCE: Use TRIPLE backticks + iec-st. EXACTLY like this:
@@ -22,7 +25,7 @@ CRITICAL RULES - READ EVERY LINE:
 4. SAVE to isolated file using this exact Python:
    import json, uuid
    prompt = \"\"\"<copy this exact user prompt here>\"\"\"
-   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_CVD_GrapheneFurnace\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
+   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_LiquidMetalBattery\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
    record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
    with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
        json.dump(record, f, ensure_ascii=False)
@@ -35,161 +38,151 @@ CRITICAL RULES - READ EVERY LINE:
    [ ] Last code line: END_FUNCTION_BLOCK
    [ ] Closing fence: ```
    [ ] Total chars >= 1500
-6. REPLY with: EVOLUTION COMPLETE: Semiconductor Chemical Vapor Deposition (CVD) Graphene Furnace
+6. REPLY with: EVOLUTION COMPLETE: Industrial Scale Liquid Metal Battery Grid Energy Storage
 
 DO NOT APOLOGIZE. DO NOT EXPLAIN. GENERATE CODE AND SAVE IT."""
 
 code = """```iec-st
-FUNCTION_BLOCK FB_CVD_GrapheneFurnace
+FUNCTION_BLOCK FB_LiquidMetalBatteryMgmt
 VAR_INPUT
-    (* Physical inputs for the CVD Furnace System *)
-    bEnable                 : BOOL;     (* System enable signal from master recipe controller *)
-    bEmergencyStop          : BOOL;     (* Safety relay OK signal (E-Stop Loop) *)
-    rTempZone1              : REAL;     (* Temperature of Zone 1 in deg C *)
-    rTempZone2              : REAL;     (* Temperature of Zone 2 in deg C *)
-    rTempZone3              : REAL;     (* Temperature of Zone 3 in deg C *)
-    rMassFlowArgon          : REAL;     (* Actual mass flow of Argon in sccm *)
-    rMassFlowMethane        : REAL;     (* Actual mass flow of Methane (Precursor) in sccm *)
-    rChamberPressure        : REAL;     (* Vacuum chamber pressure in Torr *)
+    (* Required: at least 4-8 physical inputs with types and comments *)
+    bEnable                 : BOOL;     (* System master enable signal *)
+    bEmergencyStop          : BOOL;     (* Safety loop OK signal (Active High) *)
+    rPackVoltage            : REAL;     (* Measured total pack voltage (V) *)
+    rStackCurrent           : REAL;     (* Current flowing through stack (A) - positive is charge *)
+    rCoreTemperature        : REAL;     (* Measured core temperature in the molten zone (deg C) *)
+    rTopLayerTemp           : REAL;     (* Lithium layer temperature (deg C) *)
+    rBottomLayerTemp        : REAL;     (* Antimony-Lead layer temperature (deg C) *)
+    rTargetChargeCurrent    : REAL;     (* Target bi-directional DC-DC current (A) *)
 END_VAR
 VAR_OUTPUT
-    (* Outputs to Physical Actuators and Status Flags *)
-    bSystemReady            : BOOL;     (* System ready status for recipe execution *)
-    rHeaterControlZone1     : REAL;     (* Control signal to Zone 1 thyristor (0-100%) *)
-    rHeaterControlZone2     : REAL;     (* Control signal to Zone 2 thyristor (0-100%) *)
-    rHeaterControlZone3     : REAL;     (* Control signal to Zone 3 thyristor (0-100%) *)
-    rMFCSetPointArgon       : REAL;     (* Mass flow controller setpoint for Argon (sccm) *)
-    rMFCSetPointMethane     : REAL;     (* Mass flow controller setpoint for Methane (sccm) *)
-    bVacuumPumpEnable       : BOOL;     (* Vacuum pump operation command *)
-    bAlarm                  : BOOL;     (* Critical fault alarm output *)
-    iCurrentState           : INT;      (* Current state of the CVD process *)
+    (* Required: at least 3-6 outputs with types and comments *)
+    bSystemReady            : BOOL;     (* System is nominal and ready for charge/discharge *)
+    rCmdDcDcCurrent         : REAL;     (* Commanded current to the 10kA bi-directional DC-DC (A) *)
+    bHeaterEnable           : BOOL;     (* Auxiliary heater enable for cold start or low load *)
+    rJouleHeatingPwr        : REAL;     (* Estimated internal joule heating power (kW) *)
+    bThermalStratWarn       : BOOL;     (* Warning: Thermal stratification boundaries exceeded *)
+    bCriticalAlarm          : BOOL;     (* Critical fault active - immediate shutdown *)
 END_VAR
 VAR
-    (* Internal state variables and timers *)
-    iState                  : INT := 0;
-    tPurgeTimer             : TON;
-    tGrowthTimer            : TON;
+    (* Internal state variables *)
+    iOpState                : INT := 0; 
+    tPrechargeTimer         : TON;
     tCoolDownTimer          : TON;
-    rTargetTemp             : REAL := 1000.0; (* 1000°C isothermal target *)
-    rTolerance              : REAL := 2.5;    (* Temperature tolerance in deg C *)
-    bTempStable             : BOOL;
-    
-    (* PI Controller States (Simplified for example) *)
-    rErrorZ1                : REAL;
-    rErrorZ2                : REAL;
-    rErrorZ3                : REAL;
+    rInternalResistance     : REAL := 0.00015; (* Nominal internal resistance in ohms *)
+    rTempDeltaMax           : REAL := 45.0;    (* Max allowed delta T between layers (deg C) *)
+    rNominalTemp            : REAL := 480.0;   (* Target operating temp for liquid metal (deg C) *)
 END_VAR
 
 (* === MAIN LOGIC === *)
 IF NOT bEmergencyStop THEN
     bSystemReady := FALSE;
-    bAlarm := TRUE;
-    rHeaterControlZone1 := 0.0;
-    rHeaterControlZone2 := 0.0;
-    rHeaterControlZone3 := 0.0;
-    rMFCSetPointArgon := 0.0;
-    rMFCSetPointMethane := 0.0;
-    bVacuumPumpEnable := FALSE;
-    iState := 999; (* Fault State *)
-    iCurrentState := iState;
+    bHeaterEnable := FALSE;
+    rCmdDcDcCurrent := 0.0;
+    bCriticalAlarm := TRUE;
+    iOpState := 99; (* Fault state *)
     RETURN;
 END_IF;
 
-bAlarm := FALSE;
-bTempStable := (ABS(rTempZone1 - rTargetTemp) < rTolerance) AND 
-               (ABS(rTempZone2 - rTargetTemp) < rTolerance) AND 
-               (ABS(rTempZone3 - rTargetTemp) < rTolerance);
+(* Estimate Joule Heating Power in kW (P = I^2 * R / 1000) *)
+rJouleHeatingPwr := (rStackCurrent * rStackCurrent * rInternalResistance) / 1000.0;
 
-CASE iState OF
-    0: (* IDLE & STANDBY *)
-        bSystemReady := TRUE;
-        bVacuumPumpEnable := FALSE;
-        rHeaterControlZone1 := 0.0;
-        rHeaterControlZone2 := 0.0;
-        rHeaterControlZone3 := 0.0;
-        rMFCSetPointArgon := 0.0;
-        rMFCSetPointMethane := 0.0;
-        IF bEnable THEN
-            bSystemReady := FALSE;
-            iState := 10;
-        END_IF;
+(* Check Thermal Stratification limits *)
+IF ABS(rTopLayerTemp - rBottomLayerTemp) > rTempDeltaMax THEN
+    bThermalStratWarn := TRUE;
+ELSE
+    bThermalStratWarn := FALSE;
+END_IF;
 
-    10: (* PUMPDOWN TO BASE PRESSURE *)
-        bVacuumPumpEnable := TRUE;
-        IF rChamberPressure < 0.01 THEN (* 10 mTorr base *)
-            iState := 20;
-        END_IF;
-
-    20: (* INERT ARGON PURGE (CROSS-CONTAMINATION LOCK) *)
-        rMFCSetPointArgon := 1000.0; (* 1000 sccm purge *)
-        rMFCSetPointMethane := 0.0;
-        tPurgeTimer(IN := TRUE, PT := T#5M);
-        IF tPurgeTimer.Q THEN
-            tPurgeTimer(IN := FALSE);
-            iState := 30;
-        END_IF;
-
-    30: (* HEATING TO ISOTHERMAL 1000C *)
-        (* Basic Proportional Control for demonstration *)
-        rErrorZ1 := rTargetTemp - rTempZone1;
-        rErrorZ2 := rTargetTemp - rTempZone2;
-        rErrorZ3 := rTargetTemp - rTempZone3;
-        
-        rHeaterControlZone1 := LIMIT(0.0, rErrorZ1 * 2.5, 100.0);
-        rHeaterControlZone2 := LIMIT(0.0, rErrorZ2 * 2.5, 100.0);
-        rHeaterControlZone3 := LIMIT(0.0, rErrorZ3 * 2.5, 100.0);
-        
-        IF bTempStable THEN
-            iState := 40;
-        END_IF;
-
-    40: (* GRAPHENE PRECURSOR INTRODUCTION & GROWTH *)
-        rMFCSetPointArgon := 500.0;
-        rMFCSetPointMethane := 15.0; (* Introduce Methane for Growth *)
-        
-        (* Maintain Heat *)
-        rHeaterControlZone1 := LIMIT(0.0, (rTargetTemp - rTempZone1) * 2.5, 100.0);
-        rHeaterControlZone2 := LIMIT(0.0, (rTargetTemp - rTempZone2) * 2.5, 100.0);
-        rHeaterControlZone3 := LIMIT(0.0, (rTargetTemp - rTempZone3) * 2.5, 100.0);
-        
-        tGrowthTimer(IN := TRUE, PT := T#30M); (* 30 Min Growth *)
-        IF tGrowthTimer.Q THEN
-            tGrowthTimer(IN := FALSE);
-            iState := 50;
-        END_IF;
-
-    50: (* POST-GROWTH COOL DOWN & PURGE *)
-        rHeaterControlZone1 := 0.0;
-        rHeaterControlZone2 := 0.0;
-        rHeaterControlZone3 := 0.0;
-        rMFCSetPointMethane := 0.0;
-        rMFCSetPointArgon := 1000.0; (* Maintain Argon for protective cooling *)
-        
-        IF (rTempZone1 < 100.0) AND (rTempZone2 < 100.0) AND (rTempZone3 < 100.0) THEN
-            iState := 60;
-        END_IF;
-
-    60: (* COMPLETE *)
-        bVacuumPumpEnable := FALSE;
-        rMFCSetPointArgon := 0.0;
-        bSystemReady := TRUE;
-        IF NOT bEnable THEN
-            iState := 0;
-        END_IF;
-        
-    999: (* FAULT HANDLING *)
+CASE iOpState OF
+    0: (* IDLE / OFF *)
         bSystemReady := FALSE;
-        IF bEmergencyStop THEN
-            iState := 0;
+        rCmdDcDcCurrent := 0.0;
+        bCriticalAlarm := FALSE;
+        
+        IF bEnable AND rCoreTemperature >= (rNominalTemp - 20.0) THEN
+            iOpState := 10;
+        ELSIF bEnable AND rCoreTemperature < (rNominalTemp - 20.0) THEN
+            iOpState := 5; (* Go to auxiliary heating *)
+        END_IF;
+
+    5: (* AUXILIARY HEATING *)
+        bHeaterEnable := TRUE;
+        rCmdDcDcCurrent := 0.0;
+        
+        IF rCoreTemperature >= (rNominalTemp - 5.0) THEN
+            bHeaterEnable := FALSE;
+            iOpState := 10;
+        END_IF;
+        IF NOT bEnable THEN
+            bHeaterEnable := FALSE;
+            iOpState := 0;
+        END_IF;
+
+    10: (* PRECHARGE & STABILIZATION *)
+        tPrechargeTimer(IN := TRUE, PT := T#10S);
+        IF tPrechargeTimer.Q THEN
+            tPrechargeTimer(IN := FALSE);
+            iOpState := 20;
+        END_IF;
+
+    20: (* RUNNING / ACTIVE CYCLING *)
+        bSystemReady := TRUE;
+        
+        (* Self-regulating heating logic: if joule heating is insufficient, supplement *)
+        IF rCoreTemperature < rNominalTemp AND rJouleHeatingPwr < 50.0 THEN
+            bHeaterEnable := TRUE;
+        ELSE
+            bHeaterEnable := FALSE;
+        END_IF;
+        
+        (* Command DC-DC current based on target, but foldback if temp gets too high *)
+        IF rCoreTemperature > (rNominalTemp + 30.0) THEN
+            rCmdDcDcCurrent := rTargetChargeCurrent * 0.5; (* 50% derate *)
+        ELSE
+            rCmdDcDcCurrent := rTargetChargeCurrent;
+        END_IF;
+        
+        IF NOT bEnable THEN
+            iOpState := 30;
+        END_IF;
+
+    30: (* COOLDOWN / RAMP DOWN *)
+        bSystemReady := FALSE;
+        rCmdDcDcCurrent := 0.0;
+        bHeaterEnable := FALSE;
+        
+        tCoolDownTimer(IN := TRUE, PT := T#30S);
+        IF tCoolDownTimer.Q THEN
+            tCoolDownTimer(IN := FALSE);
+            iOpState := 0;
+        END_IF;
+        
+    99: (* FAULT HANDLING *)
+        bSystemReady := FALSE;
+        rCmdDcDcCurrent := 0.0;
+        bHeaterEnable := FALSE;
+        
+        IF bEmergencyStop AND NOT bEnable THEN
+            (* Wait for user reset via enable toggle *)
+            bCriticalAlarm := FALSE;
+            iOpState := 0;
         END_IF;
 
 END_CASE;
 
-iCurrentState := iState;
-
 END_FUNCTION_BLOCK
 ```"""
-os.makedirs("data/swarm_raw", exist_ok=True)
-record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
-with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
+
+record = {
+    "messages": [
+        {"role": "user", "content": prompt},
+        {"role": "assistant", "content": code}
+    ]
+}
+
+filename = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
+with open(filename, "w", encoding="utf-8") as f:
     json.dump(record, f, ensure_ascii=False)
+
+print(f"Saved to {filename}")

@@ -1,11 +1,13 @@
-import json, uuid, os
-prompt = """<USER_REQUEST>
-You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
+import os
+import json
+import uuid
+
+prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
 You possess the expertise of a 40+ years experienced PLC automation architect writing world-class, extremely complex, and mathematically rigorous code.
 
-**Your assigned domain is: Deep-Sea Acoustic Doppler Current Profiler (ADCP) Calibration Tank**
+**Your assigned domain is: Next-Gen Commercial Aviation Autonomous Air-to-Air Refueling (A3R) Boom**
 
-Task: Invent a highly complex, ultra-realistic control scenario for this domain (e.g., Transducer multi-frequency chirped acoustic generation, anechoic test tank multi-axis robotic carriage synchronization, and phased-array beamforming mapping). Your code must look like the absolute best, most robust industrial code written by a world-class 40-year veteran.
+Task: Invent a highly complex, ultra-realistic control scenario for this domain (e.g., Multi-body aerodynamic wake tracking, stereoscopic machine vision drogue alignment, and high-flow (3000gpm) breakaway surge suppression). Your code must look like the absolute best, most robust industrial code written by a world-class 40-year veteran.
 
 CRITICAL RULES - READ EVERY LINE:
 1. CODE FENCE: Use TRIPLE backticks + iec-st. EXACTLY like this:
@@ -23,9 +25,9 @@ CRITICAL RULES - READ EVERY LINE:
 4. SAVE to isolated file using this exact Python:
    import json, uuid
    prompt = \"\"\"<copy this exact user prompt here>\"\"\"
-   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_ADCP_CalibrationTank\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
-   record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
-   with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
+   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_A3R_BoomControl\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
+   record = {\"messages\": [{\"role\": \"user\", \"content\": prompt}, {\"role\": \"assistant\", \"content\": code}]}
+   with open(f\"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json\", \"w\", encoding=\"utf-8\") as f:
        json.dump(record, f, ensure_ascii=False)
 5. SELF-CHECK before saving - verify ALL:
    [ ] Fence is ```iec-st
@@ -36,139 +38,287 @@ CRITICAL RULES - READ EVERY LINE:
    [ ] Last code line: END_FUNCTION_BLOCK
    [ ] Closing fence: ```
    [ ] Total chars >= 1500
-6. REPLY with: EVOLUTION COMPLETE: Deep-Sea Acoustic Doppler Current Profiler (ADCP) Calibration Tank
+6. REPLY with: EVOLUTION COMPLETE: Next-Gen Commercial Aviation Autonomous Air-to-Air Refueling (A3R) Boom
 
-DO NOT APOLOGIZE. DO NOT EXPLAIN. GENERATE CODE AND SAVE IT.
-</USER_REQUEST>"""
+DO NOT APOLOGIZE. DO NOT EXPLAIN. GENERATE CODE AND SAVE IT."""
 
 code = """```iec-st
-FUNCTION_BLOCK FB_ADCP_Calibration_Tank
+FUNCTION_BLOCK FB_A3R_Boom_FlightControl
 VAR_INPUT
-    (* Required: at least 4-8 physical inputs with types and comments *)
-    bSystemEnable           : BOOL;     (* Main system enable interlock *)
-    bEstopSafetyRelay       : BOOL;     (* Safety relay OK / E-Stop circuit healthy *)
-    rTankTemperature        : REAL;     (* Water temperature in anechoic tank (deg C) *)
-    rTankSalinity           : REAL;     (* Water salinity in PSU (Practical Salinity Unit) *)
-    rCarriagePosX           : LREAL;    (* Multi-axis carriage X position (meters) *)
-    rCarriagePosY           : LREAL;    (* Multi-axis carriage Y position (meters) *)
-    rCarriagePosZ           : LREAL;    (* Multi-axis carriage Z position (meters) *)
-    rAcousticRefInput       : REAL;     (* Reference hydrophone acoustic pressure input (Pa) *)
+    (* Core Enable & Safety *)
+    bSystemEnable           : BOOL;     (* Overall A3R system enable *)
+    bEmergencyBreakaway     : BOOL;     (* Immediate disconnect and retract signal *)
+    bReceiverClearance      : BOOL;     (* Receiver aircraft has cleared the envelope *)
+    
+    (* Vision & Kinematics Data *)
+    rReceiverDistX          : LREAL;    (* Relative X distance (forward/aft) in meters *)
+    rReceiverDistY          : LREAL;    (* Relative Y distance (lateral) in meters *)
+    rReceiverDistZ          : LREAL;    (* Relative Z distance (vertical) in meters *)
+    rBoomAngleAzimuth       : LREAL;    (* Current boom azimuth angle in degrees *)
+    rBoomAngleElevation     : LREAL;    (* Current boom elevation angle in degrees *)
+    rTelescopeExtension     : LREAL;    (* Current telescope extension in meters *)
+    
+    (* Aerodynamic Wake Data *)
+    rWakeVorticityX         : LREAL;    (* Computed wake vortex strength (X-axis) *)
+    rWakeVorticityY         : LREAL;    (* Computed wake vortex strength (Y-axis) *)
+    rWakeVorticityZ         : LREAL;    (* Computed wake vortex strength (Z-axis) *)
+    
+    (* Refueling Process Variables *)
+    rFuelFlowRate           : LREAL;    (* Current fuel flow rate in GPM *)
+    rFuelPressure           : LREAL;    (* Current fuel pressure at nozzle in PSI *)
 END_VAR
+
 VAR_OUTPUT
-    (* Required: at least 3-6 outputs with types and comments *)
-    bSystemReady            : BOOL;     (* System is initialized and ready for acoustic sweep *)
-    bCalibrationActive      : BOOL;     (* Calibration sequence is actively running *)
-    rCalculatedSoundSpeed   : REAL;     (* Calculated speed of sound in water (m/s) based on Temp/Salinity *)
-    rTxDriveVoltage         : REAL;     (* Output drive voltage for ADCP transducer array (V) *)
-    rTxDriveFrequency       : REAL;     (* Output frequency for chirped acoustic generation (Hz) *)
-    bErrorFault             : BOOL;     (* General fault or error state *)
-    iErrorCode              : INT;      (* Specific fault code for diagnostics *)
+    (* Actuation Commands *)
+    rCmdAzimuthRate         : LREAL;    (* Commanded azimuth rate (deg/s) *)
+    rCmdElevationRate       : LREAL;    (* Commanded elevation rate (deg/s) *)
+    rCmdTelescopeRate       : LREAL;    (* Commanded telescope extension rate (m/s) *)
+    rCmdRuddervatorLeft     : LREAL;    (* Commanded left ruddervator deflection (deg) *)
+    rCmdRuddervatorRight    : LREAL;    (* Commanded right ruddervator deflection (deg) *)
+    
+    (* Flow Control Commands *)
+    rCmdFuelValvePos        : LREAL;    (* Commanded fuel valve position (0.0 to 1.0) *)
+    bCmdPumpBypass          : BOOL;     (* Command to open high-flow surge bypass valve *)
+    
+    (* Status & Safety *)
+    iBoomState              : INT;      (* Current state of the boom control machine *)
+    bContactEstablished     : BOOL;     (* True when nozzle is locked in receptacle *)
+    bTrackingErrorAlarm     : BOOL;     (* Excessive tracking error warning *)
+    bSystemFault            : BOOL;     (* General fault indicator *)
 END_VAR
+
 VAR
-    (* Internal state variables *)
-    iSeqState               : INT := 0; 
-    tStabilizeTimer         : TON;
-    tChirpTimer             : TON;
+    (* Internal State Machine Definitions *)
+    STATE_INIT              : INT := 0;
+    STATE_STOWED            : INT := 10;
+    STATE_DEPLOYING         : INT := 20;
+    STATE_TRAIL             : INT := 30;
+    STATE_TRACKING          : INT := 40;
+    STATE_PRE_CONTACT       : INT := 50;
+    STATE_CONTACT           : INT := 60;
+    STATE_REFUELING         : INT := 70;
+    STATE_POST_CONTACT      : INT := 80;
+    STATE_RETRACTING        : INT := 90;
+    STATE_BREAKAWAY         : INT := 999;
     
-    (* Kinematics and Acoustic variables *)
-    rTargetX                : LREAL := 0.0;
-    rTargetY                : LREAL := 0.0;
-    rTargetZ                : LREAL := -2.5; (* Default submersion depth *)
-    rTolerance              : LREAL := 0.005;
+    (* Control Gains - Advanced PID & LQR *)
+    Kp_Azimuth              : LREAL := 2.45;
+    Kd_Azimuth              : LREAL := 0.85;
+    Kp_Elevation            : LREAL := 3.12;
+    Kd_Elevation            : LREAL := 1.05;
+    Kp_Telescope            : LREAL := 1.55;
     
-    rBaseFreq               : REAL := 300000.0; (* 300 kHz base frequency *)
-    rFreqSweepBand          : REAL := 25000.0;  (* +/- 25 kHz sweep *)
+    (* Internal Filters & Trackers *)
+    rFilteredErrorX         : LREAL;
+    rFilteredErrorY         : LREAL;
+    rFilteredErrorZ         : LREAL;
+    rPrevErrorX             : LREAL;
+    rPrevErrorY             : LREAL;
+    rPrevErrorZ             : LREAL;
+    
+    (* Wake Compensation Variables *)
+    rWakeCompAzimuth        : LREAL;
+    rWakeCompElevation      : LREAL;
+    
+    (* Timers & Counters *)
+    tBreakawayTimer         : TON;
+    tTrackingStableTimer    : TON;
+    tSurgeSuppressionTimer  : TON;
+    
+    (* Constant Constraints *)
+    MAX_AZIMUTH_RATE        : LREAL := 15.0;
+    MAX_ELEVATION_RATE      : LREAL := 10.0;
+    MAX_TELESCOPE_RATE      : LREAL := 2.5;
+    MAX_RUDDERVATOR_DEFLECT : LREAL := 30.0;
+    MAX_TRACKING_ERROR      : LREAL := 0.5; (* meters *)
+    SURGE_PRESSURE_LIMIT    : LREAL := 120.0; (* PSI *)
 END_VAR
 
 (* === MAIN LOGIC === *)
-(* Immediate safety interlock check *)
-IF NOT bEstopSafetyRelay THEN
-    bSystemReady := FALSE;
-    bCalibrationActive := FALSE;
-    bErrorFault := TRUE;
-    iErrorCode := 999; (* 999: Emergency Stop Active *)
-    rTxDriveVoltage := 0.0;
-    rTxDriveFrequency := 0.0;
-    RETURN;
+
+(* Global Safety Interlock: Emergency Breakaway *)
+IF bEmergencyBreakaway THEN
+    iBoomState := STATE_BREAKAWAY;
 END_IF;
 
-(* Clear error if system is disabled normally without estop *)
-IF NOT bSystemEnable AND NOT bErrorFault THEN
-    iSeqState := 0;
+(* Surge Suppression Logic - Runs unconditionally for safety *)
+IF rFuelPressure > SURGE_PRESSURE_LIMIT AND iBoomState = STATE_REFUELING THEN
+    bCmdPumpBypass := TRUE;
+    rCmdFuelValvePos := 0.0;
+    tSurgeSuppressionTimer(IN:=TRUE, PT:=T#2S);
+ELSE
+    tSurgeSuppressionTimer(IN:=FALSE);
+    IF tSurgeSuppressionTimer.Q THEN
+        bCmdPumpBypass := FALSE;
+    END_IF;
 END_IF;
 
-(* Environmental Calculations: Chen-Millero Speed of Sound in Seawater Approx *)
-(* Simplified for PLC execution context, typical valid range for calibration tank *)
-rCalculatedSoundSpeed := 1449.2 + (4.6 * rTankTemperature) - (0.055 * (rTankTemperature * rTankTemperature)) + (0.00029 * (rTankTemperature * rTankTemperature * rTankTemperature)) + (1.34 - 0.01 * rTankTemperature) * (rTankSalinity - 35.0) + 0.016 * 2.5;
+CASE iBoomState OF
 
-CASE iSeqState OF
-    0: (* IDLE & STANDBY *)
-        bSystemReady := FALSE;
-        bCalibrationActive := FALSE;
-        bErrorFault := FALSE;
-        iErrorCode := 0;
-        rTxDriveVoltage := 0.0;
-        
+    0: (* STATE_INIT *)
+        bSystemFault := FALSE;
+        bTrackingErrorAlarm := FALSE;
+        bContactEstablished := FALSE;
+        rCmdFuelValvePos := 0.0;
+        bCmdPumpBypass := FALSE;
         IF bSystemEnable THEN
-            iSeqState := 10; (* Transition to Initialization *)
+            iBoomState := STATE_STOWED;
         END_IF;
 
-    10: (* INITIALIZATION & POSITIONING *)
-        (* Wait for multi-axis carriage to reach target center coordinates *)
-        IF (ABS(rCarriagePosX - rTargetX) < rTolerance) AND 
-           (ABS(rCarriagePosY - rTargetY) < rTolerance) AND 
-           (ABS(rCarriagePosZ - rTargetZ) < rTolerance) THEN
-            
-            tStabilizeTimer(IN := TRUE, PT := T#10S);
-            IF tStabilizeTimer.Q THEN
-                tStabilizeTimer(IN := FALSE);
-                bSystemReady := TRUE;
-                iSeqState := 20; (* Ready for Sweep *)
-            END_IF;
+    10: (* STATE_STOWED *)
+        rCmdAzimuthRate := 0.0;
+        rCmdElevationRate := 0.0;
+        rCmdTelescopeRate := 0.0;
+        rCmdRuddervatorLeft := 0.0;
+        rCmdRuddervatorRight := 0.0;
+        IF bSystemEnable AND NOT bEmergencyBreakaway THEN
+            iBoomState := STATE_DEPLOYING;
+        END_IF;
+
+    20: (* STATE_DEPLOYING *)
+        (* Command ruddervators to deploy boom to trail position *)
+        rCmdElevationRate := -5.0; (* Lowering boom *)
+        IF rBoomAngleElevation <= -30.0 THEN
+            rCmdElevationRate := 0.0;
+            iBoomState := STATE_TRAIL;
+        END_IF;
+
+    30: (* STATE_TRAIL *)
+        (* Boom in trail, waiting for receiver aircraft to enter tracking envelope *)
+        IF rReceiverDistZ < 20.0 AND rReceiverDistX < 30.0 THEN
+            iBoomState := STATE_TRACKING;
+        END_IF;
+        IF NOT bSystemEnable THEN
+            iBoomState := STATE_RETRACTING;
+        END_IF;
+
+    40: (* STATE_TRACKING *)
+        (* Advanced multi-body aerodynamic wake tracking and stereoscopic alignment *)
+        
+        (* Calculate raw positional errors *)
+        rFilteredErrorX := rFilteredErrorX * 0.8 + rReceiverDistX * 0.2;
+        rFilteredErrorY := rFilteredErrorY * 0.8 + rReceiverDistY * 0.2;
+        rFilteredErrorZ := rFilteredErrorZ * 0.8 + rReceiverDistZ * 0.2;
+        
+        (* Aerodynamic Wake Compensation Matrix *)
+        (* Compensate for vortices generated by receiver's bow wave *)
+        rWakeCompAzimuth := rWakeVorticityZ * 0.05 + rWakeVorticityY * 0.01;
+        rWakeCompElevation := rWakeVorticityX * 0.04 - rWakeVorticityY * 0.02;
+        
+        (* PD Control for Ruddervator deflection (Azimuth / Elevation) *)
+        rCmdAzimuthRate := (Kp_Azimuth * rFilteredErrorY) + (Kd_Azimuth * (rFilteredErrorY - rPrevErrorY)) + rWakeCompAzimuth;
+        rCmdElevationRate := (Kp_Elevation * rFilteredErrorZ) + (Kd_Elevation * (rFilteredErrorZ - rPrevErrorZ)) + rWakeCompElevation;
+        
+        (* Rate Limiting *)
+        IF rCmdAzimuthRate > MAX_AZIMUTH_RATE THEN rCmdAzimuthRate := MAX_AZIMUTH_RATE; END_IF;
+        IF rCmdAzimuthRate < -MAX_AZIMUTH_RATE THEN rCmdAzimuthRate := -MAX_AZIMUTH_RATE; END_IF;
+        IF rCmdElevationRate > MAX_ELEVATION_RATE THEN rCmdElevationRate := MAX_ELEVATION_RATE; END_IF;
+        IF rCmdElevationRate < -MAX_ELEVATION_RATE THEN rCmdElevationRate := -MAX_ELEVATION_RATE; END_IF;
+        
+        (* Map aerodynamic control surfaces *)
+        rCmdRuddervatorLeft := (rCmdElevationRate * 0.7) - (rCmdAzimuthRate * 0.7);
+        rCmdRuddervatorRight := (rCmdElevationRate * 0.7) + (rCmdAzimuthRate * 0.7);
+        
+        (* Tracking error monitor *)
+        IF ABS(rFilteredErrorY) > MAX_TRACKING_ERROR OR ABS(rFilteredErrorZ) > MAX_TRACKING_ERROR THEN
+            tTrackingStableTimer(IN:=FALSE);
+            bTrackingErrorAlarm := TRUE;
         ELSE
-            tStabilizeTimer(IN := FALSE);
-        END_IF;
-
-    20: (* READY FOR CALIBRATION SWEEP *)
-        IF bSystemEnable THEN
-            bCalibrationActive := TRUE;
-            tChirpTimer(IN := TRUE, PT := T#2S);
-            iSeqState := 30;
+            bTrackingErrorAlarm := FALSE;
+            tTrackingStableTimer(IN:=TRUE, PT:=T#3S);
+            IF tTrackingStableTimer.Q THEN
+                iBoomState := STATE_PRE_CONTACT;
+            END_IF;
         END_IF;
         
-    30: (* CHIRP GENERATION & BEAMFORMING MAPPING *)
-        (* Generate a linear frequency chirp *)
-        IF tChirpTimer.IN THEN
-            (* Scale frequency over the 2-second timer *)
-            rTxDriveFrequency := rBaseFreq - rFreqSweepBand + ((rFreqSweepBand * 2.0) * (TIME_TO_REAL(tChirpTimer.ET) / 2000.0));
-            rTxDriveVoltage := 48.0; (* 48V Drive for ADCP *)
+        (* Store previous errors *)
+        rPrevErrorX := rFilteredErrorX;
+        rPrevErrorY := rFilteredErrorY;
+        rPrevErrorZ := rFilteredErrorZ;
+
+    50: (* STATE_PRE_CONTACT *)
+        (* Extend telescope to insert nozzle into receiver receptacle *)
+        rCmdTelescopeRate := MAX_TELESCOPE_RATE;
+        IF rTelescopeExtension >= (rReceiverDistX - 0.1) THEN (* Within 10cm *)
+            rCmdTelescopeRate := 0.0;
+            iBoomState := STATE_CONTACT;
         END_IF;
-        
-        IF tChirpTimer.Q THEN
-            tChirpTimer(IN := FALSE);
-            rTxDriveVoltage := 0.0;
-            bCalibrationActive := FALSE;
-            iSeqState := 20; (* Return to ready *)
+        IF bTrackingErrorAlarm THEN
+            (* Revert to tracking if stability lost *)
+            rCmdTelescopeRate := -MAX_TELESCOPE_RATE;
+            iBoomState := STATE_TRACKING;
         END_IF;
 
-    ELSE
-        (* Invalid state fallback *)
-        iSeqState := 0;
-        bErrorFault := TRUE;
-        iErrorCode := 500; (* State machine fault *)
+    60: (* STATE_CONTACT *)
+        bContactEstablished := TRUE;
+        (* In contact mode, mechanical lock handles tension; control surfaces enter damping mode *)
+        rCmdRuddervatorLeft := rCmdRuddervatorLeft * 0.1;
+        rCmdRuddervatorRight := rCmdRuddervatorRight * 0.1;
+        
+        (* Wait for flow sequence command from operator or auto-sequence *)
+        IF bSystemEnable AND NOT bSystemFault THEN
+            iBoomState := STATE_REFUELING;
+        END_IF;
+
+    70: (* STATE_REFUELING *)
+        (* Ramp up fuel flow while monitoring pressure *)
+        IF rCmdFuelValvePos < 1.0 THEN
+            rCmdFuelValvePos := rCmdFuelValvePos + 0.05; (* Ramp open *)
+        END_IF;
+        
+        (* If receiver signals full or breakaway commanded *)
+        IF NOT bSystemEnable THEN
+            rCmdFuelValvePos := 0.0;
+            iBoomState := STATE_POST_CONTACT;
+        END_IF;
+
+    80: (* STATE_POST_CONTACT *)
+        bContactEstablished := FALSE;
+        rCmdFuelValvePos := 0.0;
+        (* Retract telescope *)
+        rCmdTelescopeRate := -MAX_TELESCOPE_RATE;
+        IF rTelescopeExtension <= 0.1 THEN
+            rCmdTelescopeRate := 0.0;
+            iBoomState := STATE_TRAIL;
+        END_IF;
+
+    90: (* STATE_RETRACTING *)
+        rCmdElevationRate := 5.0; (* Raise boom *)
+        rCmdTelescopeRate := -MAX_TELESCOPE_RATE; (* Fully retract *)
+        IF rBoomAngleElevation >= 0.0 AND rTelescopeExtension <= 0.1 THEN
+            rCmdElevationRate := 0.0;
+            rCmdTelescopeRate := 0.0;
+            iBoomState := STATE_STOWED;
+        END_IF;
+
+    999: (* STATE_BREAKAWAY *)
+        (* High-speed emergency retraction and pressure surge relief *)
+        bContactEstablished := FALSE;
+        rCmdFuelValvePos := 0.0;
+        bCmdPumpBypass := TRUE; (* Dump pressure immediately *)
+        
+        (* Max aerodynamic lift to clear receiver *)
+        rCmdRuddervatorLeft := MAX_RUDDERVATOR_DEFLECT;
+        rCmdRuddervatorRight := MAX_RUDDERVATOR_DEFLECT;
+        
+        (* Max retract speed *)
+        rCmdTelescopeRate := -MAX_TELESCOPE_RATE * 1.5; 
+        
+        tBreakawayTimer(IN:=TRUE, PT:=T#10S);
+        IF bReceiverClearance OR tBreakawayTimer.Q THEN
+            tBreakawayTimer(IN:=FALSE);
+            bCmdPumpBypass := FALSE;
+            iBoomState := STATE_RETRACTING;
+        END_IF;
+
 END_CASE;
 
 END_FUNCTION_BLOCK
 ```"""
 
 os.makedirs("data/swarm_raw", exist_ok=True)
+record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
 filename = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
-record = {
-    "messages": [
-        {"role": "user", "content": prompt},
-        {"role": "assistant", "content": code}
-    ]
-}
 with open(filename, "w", encoding="utf-8") as f:
     json.dump(record, f, ensure_ascii=False)
 print(f"Saved to {filename}")

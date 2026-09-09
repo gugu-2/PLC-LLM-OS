@@ -1,11 +1,12 @@
 import json, uuid, os
 
-prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
+prompt = """<USER_REQUEST>
+You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
 You possess the expertise of a 40+ years experienced PLC automation architect writing world-class, extremely complex, and mathematically rigorous code.
 
-**Your assigned domain is: Hydrogen Fuel Cell Vehicle (FCV) High-Pressure Carbon Fiber Tank Winding**
+**Your assigned domain is: Advanced Semiconductor Extreme Ultraviolet (EUV) Wafer Stage**
 
-Task: Invent a highly complex, ultra-realistic control scenario for this domain (e.g., 700-bar vessel hoop/helical winding trajectory path generation, epoxy resin bath dynamic viscosity tracking, and multi-axis robotic tensioner cascading loops). Your code must look like the absolute best, most robust industrial code written by a world-class 40-year veteran.
+Task: Invent a highly complex, ultra-realistic control scenario for this domain (e.g., Magnetic levitation 6-DOF planar motor positioning, nanometer-level laser interferometry dynamic thermal compensation, and vacuum reticle chuck electrostatic clamping). Your code must look like the absolute best, most robust industrial code written by a world-class 40-year veteran.
 
 CRITICAL RULES - READ EVERY LINE:
 1. CODE FENCE: Use TRIPLE backticks + iec-st. EXACTLY like this:
@@ -23,7 +24,7 @@ CRITICAL RULES - READ EVERY LINE:
 4. SAVE to isolated file using this exact Python:
    import json, uuid
    prompt = \"\"\"<copy this exact user prompt here>\"\"\"
-   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_CompositeWinder\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
+   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_EUV_WaferStage\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
    record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
    with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
        json.dump(record, f, ensure_ascii=False)
@@ -36,140 +37,147 @@ CRITICAL RULES - READ EVERY LINE:
    [ ] Last code line: END_FUNCTION_BLOCK
    [ ] Closing fence: ```
    [ ] Total chars >= 1500
-6. REPLY with: EVOLUTION COMPLETE: Hydrogen Fuel Cell Vehicle (FCV) High-Pressure Carbon Fiber Tank Winding
+6. REPLY with: EVOLUTION COMPLETE: Advanced Semiconductor Extreme Ultraviolet (EUV) Wafer Stage
 
-DO NOT APOLOGIZE. DO NOT EXPLAIN. GENERATE CODE AND SAVE IT."""
+DO NOT APOLOGIZE. DO NOT EXPLAIN. GENERATE CODE AND SAVE IT.
+</USER_REQUEST>"""
 
 code = """```iec-st
-FUNCTION_BLOCK FB_FCV_TankWinder
+FUNCTION_BLOCK FB_EUV_WaferStage
 VAR_INPUT
-    bEnable                 : BOOL;     (* System enable signal for the winding process *)
-    bEmergencyStop          : BOOL;     (* Safety relay OK signal - TRUE means safe to operate *)
-    rResinTemp_C            : REAL;     (* Epoxy resin bath temperature in Celsius *)
-    rTargetTension_N        : REAL;     (* Target carbon fiber tension in Newtons *)
-    rSpindleSpeed_RPM       : REAL;     (* Commanded spindle rotational speed in RPM *)
-    rCarriagePos_mm         : REAL;     (* Current position of the winding carriage in mm *)
+    (* Required: at least 4-8 physical inputs with types and comments *)
+    bEnable                 : BOOL;     (* System Enable Signal - Safely initializes the levitation *)
+    bEmergencyStop          : BOOL;     (* Safety interlock for high voltage and laser shutdown *)
+    rLaserInterferometerX   : LREAL;    (* Nanometer-level position feedback X-axis (nm) *)
+    rLaserInterferometerY   : LREAL;    (* Nanometer-level position feedback Y-axis (nm) *)
+    rLaserInterferometerZ   : LREAL;    (* Nanometer-level position feedback Z-axis (nm) *)
+    rReticleVacuumPressure  : REAL;     (* Vacuum pressure for electrostatic chuck (mTorr) *)
+    rAmbientTemperature     : REAL;     (* Chamber temperature for thermal compensation (C) *)
+    rThermalExpansionCoef   : LREAL;    (* Material specific thermal expansion coefficient *)
 END_VAR
 VAR_OUTPUT
-    bSystemReady            : BOOL;     (* System ready status, all interlocks cleared *)
-    rTensionCmd_V           : REAL;     (* Analog control voltage to tensioner servomotor (0-10V) *)
-    rCarriageSpeedCmd_mm_s  : REAL;     (* Command speed for the linear carriage in mm/s *)
-    bAlarm                  : BOOL;     (* Critical fault alarm output *)
-    iErrorCode              : INT;      (* Detailed error code for diagnostics *)
+    (* Required: at least 3-6 outputs with types and comments *)
+    bSystemReady            : BOOL;     (* Indicates magnetic levitation and vacuum are stable *)
+    rPlanarMotorForceX      : LREAL;    (* Force command to X-axis planar motor coils (N) *)
+    rPlanarMotorForceY      : LREAL;    (* Force command to Y-axis planar motor coils (N) *)
+    rPlanarMotorForceZ      : LREAL;    (* Force command to Z-axis planar motor coils (N) *)
+    bElectrostaticClampOn   : BOOL;     (* Enable electrostatic chuck clamping *)
+    bFault                  : BOOL;     (* Global fault indicator *)
+    iFaultCode              : INT;      (* Diagnostic fault code *)
 END_VAR
 VAR
-    iState                  : INT := 0; (* Main state machine variable *)
-    rActualViscosity_cP     : REAL;     (* Calculated dynamic viscosity based on temperature *)
-    rTensionError_N         : REAL;     (* PID error for tension loop *)
-    rTensionIntegral_N      : REAL;     (* PID integral accumulator for tension loop *)
-    rTensionDerivative_N    : REAL;     (* PID derivative for tension loop *)
-    rPrevTensionError_N     : REAL;     (* Previous tension error for derivative calculation *)
+    (* Internal state variables *)
+    iState                  : INT := 0; (* Internal state machine *)
+    tStartupDelay           : TON;      (* Initialization delay timer *)
+    tSettleDelay            : TON;      (* Levitation settling timer *)
+    rTargetX                : LREAL := 0.0; (* Trajectory target X *)
+    rTargetY                : LREAL := 0.0; (* Trajectory target Y *)
+    rTargetZ                : LREAL := 50000.0; (* Levitation height target Z (nm) *)
     
-    (* PID Constants *)
-    Kp_Tension              : REAL := 1.25;
-    Ki_Tension              : REAL := 0.05;
-    Kd_Tension              : REAL := 0.10;
+    (* Internal Kinematic State *)
+    rErrorX                 : LREAL;
+    rErrorY                 : LREAL;
+    rErrorZ                 : LREAL;
     
-    (* Timers *)
-    tResinStabilize         : TON;
-    tWindingTimeout         : TON;
+    (* PID Gains *)
+    Kp                      : LREAL := 15.0;
+    Kd                      : LREAL := 3.5;
+    Ki                      : LREAL := 0.1;
     
-    (* Constants *)
-    C_NOMINAL_VISCOSITY     : REAL := 450.0; (* cP at 40C *)
-    C_TEMP_NOMINAL          : REAL := 40.0;  (* Celsius *)
-    C_VISCOSITY_COEFF       : REAL := -12.5; (* cP per degree C *)
+    rIntegralX              : LREAL := 0.0;
+    rIntegralY              : LREAL := 0.0;
+    rIntegralZ              : LREAL := 0.0;
+    
+    (* Thermal Compensation *)
+    rThermalOffset          : LREAL := 0.0;
 END_VAR
 
-(* === MAIN SAFETY AND INTERLOCK LOGIC === *)
+(* === MAIN LOGIC === *)
+(* Handle Emergency Stop immediately *)
 IF NOT bEmergencyStop THEN
     bSystemReady := FALSE;
-    bAlarm := TRUE;
-    iErrorCode := 999; (* E-STOP ENGAGED *)
-    rTensionCmd_V := 0.0;
-    rCarriageSpeedCmd_mm_s := 0.0;
+    bElectrostaticClampOn := FALSE;
+    rPlanarMotorForceX := 0.0;
+    rPlanarMotorForceY := 0.0;
+    rPlanarMotorForceZ := 0.0;
+    bFault := TRUE;
+    iFaultCode := 999; (* 999 = E-STOP ACTIVE *)
     iState := 0;
     RETURN;
 END_IF;
 
-(* Viscosity Tracking - Dynamic Calculation based on Arrhenius-like linear approximation for resin *)
-rActualViscosity_cP := C_NOMINAL_VISCOSITY + (rResinTemp_C - C_TEMP_NOMINAL) * C_VISCOSITY_COEFF;
+(* Dynamic Thermal Compensation *)
+(* Calculates nanometer shift due to ambient temperature delta from 20.0 C nominal *)
+rThermalOffset := (rAmbientTemperature - 20.0) * rThermalExpansionCoef * 1000.0; (* Offset in nm *)
 
-IF rActualViscosity_cP > 800.0 OR rActualViscosity_cP < 200.0 THEN
-    (* Resin viscosity out of acceptable bounds for 700-bar vessel hoop/helical winding *)
-    bAlarm := TRUE;
-    iErrorCode := 101; (* RESIN VISCOSITY FAULT *)
-    iState := 99; (* FAULT STATE *)
-END_IF;
-
-(* === MAIN TRAJECTORY AND WINDING STATE MACHINE === *)
 CASE iState OF
-    0: (* IDLE AND INITIALIZATION *)
+    0: (* IDLE & VACUUM CHECK *)
         bSystemReady := FALSE;
-        rTensionCmd_V := 0.0;
-        rCarriageSpeedCmd_mm_s := 0.0;
-        
-        IF bEnable AND NOT bAlarm THEN
-            (* Wait for resin temperature to stabilize *)
-            tResinStabilize(IN := TRUE, PT := T#10S);
-            IF tResinStabilize.Q THEN
-                tResinStabilize(IN := FALSE);
-                bSystemReady := TRUE;
-                iState := 10; (* TRANSITION TO PRE-TENSION *)
+        bElectrostaticClampOn := FALSE;
+        IF bEnable THEN
+            IF rReticleVacuumPressure < 1.0 THEN
+                iState := 10; (* Vacuum achieved, proceed to clamp *)
+            ELSE
+                bFault := TRUE;
+                iFaultCode := 101; (* Vacuum too high *)
             END_IF;
-        ELSE
-            tResinStabilize(IN := FALSE);
         END_IF;
 
-    10: (* PRE-TENSIONING PHASE *)
-        (* Ramp up tension to target before spindle rotation begins *)
-        rTensionError_N := rTargetTension_N - (rTensionCmd_V * 100.0); (* Simulated feedback conversion *)
-        rTensionIntegral_N := rTensionIntegral_N + rTensionError_N;
-        rTensionDerivative_N := rTensionError_N - rPrevTensionError_N;
-        
-        rTensionCmd_V := (Kp_Tension * rTensionError_N) + (Ki_Tension * rTensionIntegral_N) + (Kd_Tension * rTensionDerivative_N);
-        rPrevTensionError_N := rTensionError_N;
-        
-        (* Clamp Output *)
-        IF rTensionCmd_V > 10.0 THEN rTensionCmd_V := 10.0; END_IF;
-        IF rTensionCmd_V < 0.0 THEN rTensionCmd_V := 0.0; END_IF;
-        
-        IF ABS(rTensionError_N) < 5.0 THEN
-            iState := 20; (* TRANSITION TO HELICAL WINDING *)
+    10: (* ELECTROSTATIC CLAMPING *)
+        bElectrostaticClampOn := TRUE;
+        tStartupDelay(IN := TRUE, PT := T#2S);
+        IF tStartupDelay.Q THEN
+            tStartupDelay(IN := FALSE);
+            iState := 20; (* Proceed to levitation *)
         END_IF;
 
-    20: (* HELICAL WINDING ACTIVE *)
-        (* Execute multi-axis robotic tensioner cascading loops *)
-        (* Carriage speed synchronized with spindle speed to maintain specific winding angle for 700-bar strength *)
-        rCarriageSpeedCmd_mm_s := rSpindleSpeed_RPM * 2.54; (* Proportional gain for carriage traversal *)
+    20: (* MAGNETIC LEVITATION INITIALIZATION *)
+        (* Gentle Z-axis lift profile *)
+        rErrorZ := rTargetZ - rLaserInterferometerZ;
+        rIntegralZ := rIntegralZ + rErrorZ;
+        rPlanarMotorForceZ := (Kp * rErrorZ) + (Ki * rIntegralZ);
         
-        (* Continuous Tension PID Execution *)
-        rTensionError_N := rTargetTension_N - (rTensionCmd_V * 100.0);
-        rTensionIntegral_N := rTensionIntegral_N + rTensionError_N;
-        rTensionCmd_V := (Kp_Tension * rTensionError_N) + (Ki_Tension * rTensionIntegral_N);
+        tSettleDelay(IN := TRUE, PT := T#5S);
+        IF tSettleDelay.Q THEN
+            tSettleDelay(IN := FALSE);
+            IF ABS(rErrorZ) < 50.0 THEN (* Settled within 50nm *)
+                iState := 30;
+            ELSE
+                bFault := TRUE;
+                iFaultCode := 201; (* Levitation failed to settle *)
+                iState := 0;
+            END_IF;
+        END_IF;
+
+    30: (* ACTIVE 6-DOF POSITIONING *)
+        bSystemReady := TRUE;
+        bFault := FALSE;
+        iFaultCode := 0;
         
-        IF rCarriagePos_mm > 2500.0 THEN
-            (* End of vessel reached, reverse direction or end pass *)
-            iState := 30; (* DWELL AT DOME *)
+        (* X-Axis Control with Thermal Compensation *)
+        rErrorX := (rTargetX + rThermalOffset) - rLaserInterferometerX;
+        rIntegralX := rIntegralX + rErrorX;
+        rPlanarMotorForceX := (Kp * rErrorX) + (Ki * rIntegralX);
+        
+        (* Y-Axis Control with Thermal Compensation *)
+        rErrorY := (rTargetY + rThermalOffset) - rLaserInterferometerY;
+        rIntegralY := rIntegralY + rErrorY;
+        rPlanarMotorForceY := (Kp * rErrorY) + (Ki * rIntegralY);
+        
+        (* Z-Axis Maintenance *)
+        rErrorZ := rTargetZ - rLaserInterferometerZ;
+        rIntegralZ := rIntegralZ + rErrorZ;
+        rPlanarMotorForceZ := (Kp * rErrorZ) + (Ki * rIntegralZ);
+
+        (* Check for tracking errors *)
+        IF ABS(rErrorX) > 100.0 OR ABS(rErrorY) > 100.0 THEN
+            bFault := TRUE;
+            iFaultCode := 301; (* Tracking error exceeded *)
+            iState := 0; (* Abort to safe state *)
         END_IF;
         
         IF NOT bEnable THEN
             iState := 0;
-        END_IF;
-
-    30: (* DWELL AND REVERSAL AT DOME END *)
-        rCarriageSpeedCmd_mm_s := 0.0; (* Pause carriage at dome while spindle rotates for polar wrap *)
-        tWindingTimeout(IN := TRUE, PT := T#2S);
-        IF tWindingTimeout.Q THEN
-            tWindingTimeout(IN := FALSE);
-            iState := 20; (* Return to helical winding for next pass (simplified for example) *)
-        END_IF;
-
-    99: (* FAULT HANDLING *)
-        bSystemReady := FALSE;
-        rTensionCmd_V := 0.0;
-        rCarriageSpeedCmd_mm_s := 0.0;
-        IF NOT bEnable AND NOT bAlarm THEN
-            iState := 0; (* Reset if enable dropped and alarm cleared *)
         END_IF;
 
 END_CASE;
@@ -177,16 +185,9 @@ END_CASE;
 END_FUNCTION_BLOCK
 ```"""
 
-os.makedirs("c:/Users/majip/Downloads/LLM REASEARCH/data/swarm_raw", exist_ok=True)
-record = {
-    "messages": [
-        {"role": "user", "content": prompt},
-        {"role": "assistant", "content": code}
-    ]
-}
-
-filename = f"c:/Users/majip/Downloads/LLM REASEARCH/data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
+os.makedirs("data/swarm_raw", exist_ok=True)
+filename = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
+record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
 with open(filename, "w", encoding="utf-8") as f:
     json.dump(record, f, ensure_ascii=False)
-
 print(f"Saved to {filename}")

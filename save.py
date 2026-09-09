@@ -1,11 +1,12 @@
-import os, json, uuid
-os.makedirs('data/swarm_raw', exist_ok=True)
-prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
+import json, uuid, os
+
+prompt = """<USER_REQUEST>
+You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
 You possess the expertise of a 40+ years experienced PLC automation architect writing world-class, extremely complex, and mathematically rigorous code.
 
-**Your assigned domain is: Semiconductor Chemical Mechanical Planarization (CMP) Polisher**
+**Your assigned domain is: Next-Gen Subsea Multiphase Booster Pump (MPP)**
 
-Task: Invent a highly complex, ultra-realistic control scenario for this domain (e.g., nano-level dynamic downward force feedback, precise slurry pH/flow cascading loops, wafer slip/friction detection, and active platen cooling). Your code must look like the absolute best, most robust industrial code written by a world-class 40-year veteran.
+Task: Invent a highly complex, ultra-realistic control scenario for this domain (e.g., 10,000 HP variable-speed drive water/oil/gas fraction active compensation, helicon-axial impeller thrust bearing dynamic balancing, and hydrate inhibitor subsea chemical injection). Your code must look like the absolute best, most robust industrial code written by a world-class 40-year veteran.
 
 CRITICAL RULES - READ EVERY LINE:
 1. CODE FENCE: Use TRIPLE backticks + iec-st. EXACTLY like this:
@@ -23,9 +24,9 @@ CRITICAL RULES - READ EVERY LINE:
 4. SAVE to isolated file using this exact Python:
    import json, uuid
    prompt = \"\"\"<copy this exact user prompt here>\"\"\"
-   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_CMP_Polisher\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
-   record = {\"messages\": [{\"role\": \"user\", \"content\": prompt}, {\"role\": \"assistant\", \"content\": code}]}
-   with open(f\"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json\", \"w\", encoding=\"utf-8\") as f:
+   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_SubseaMultiphasePump\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
+   record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
+   with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
        json.dump(record, f, ensure_ascii=False)
 5. SELF-CHECK before saving - verify ALL:
    [ ] Fence is ```iec-st
@@ -36,160 +37,220 @@ CRITICAL RULES - READ EVERY LINE:
    [ ] Last code line: END_FUNCTION_BLOCK
    [ ] Closing fence: ```
    [ ] Total chars >= 1500
-6. REPLY with: EVOLUTION COMPLETE: Semiconductor Chemical Mechanical Planarization (CMP) Polisher
+6. REPLY with: EVOLUTION COMPLETE: Next-Gen Subsea Multiphase Booster Pump (MPP)
 
-DO NOT APOLOGIZE. DO NOT EXPLAIN. GENERATE CODE AND SAVE IT."""
+DO NOT APOLOGIZE. DO NOT EXPLAIN. GENERATE CODE AND SAVE IT.
+</USER_REQUEST>"""
 
 code = """```iec-st
-FUNCTION_BLOCK FB_CMP_Polisher_Control
+FUNCTION_BLOCK FB_SubseaMPP_ActiveCompensation
 VAR_INPUT
-    bEnable                 : BOOL;     (* System master enable *)
-    bEmergencyStop          : BOOL;     (* Safety relay OK signal *)
-    rWaferDownwardForceCmd  : REAL;     (* Target nano-level downward force (N) *)
-    rWaferDownwardForceAct  : REAL;     (* Actual downward force from piezo sensor (N) *)
-    rPlatenSpeedCmd         : REAL;     (* Target platen rotation speed (RPM) *)
-    rPlatenSpeedAct         : REAL;     (* Actual platen speed from encoder (RPM) *)
-    rSlurryFlowRateCmd      : REAL;     (* Target slurry flow rate (ml/min) *)
-    rSlurryFlowRateAct      : REAL;     (* Actual slurry flow rate (ml/min) *)
-    rSlurryPHAct            : REAL;     (* Actual slurry pH reading *)
-    rPlatenTempAct          : REAL;     (* Actual platen temperature (deg C) *)
-    rCarrierFriction        : REAL;     (* Friction torque estimation (Nm) *)
+    (* Operational Commands *)
+    bSystemEnable           : BOOL;     (* Main Enable for Subsea Multiphase Booster System *)
+    bEmergencyStop          : BOOL;     (* Subsea Safety Module OK Signal (Normally High) *)
+    bAcknowledgeFault       : BOOL;     (* Topside operator fault acknowledge *)
+    
+    (* Process Parameters *)
+    rSuctionPressure        : REAL;     (* Pump suction pressure [bar] *)
+    rDischargePressure      : REAL;     (* Pump discharge pressure [bar] *)
+    rProcessFluidTemp       : REAL;     (* Multiphase fluid temperature [deg C] *)
+    rGasVolumeFraction      : REAL;     (* GVF input from subsea multiphase meter [%] *)
+    rWaterCut               : REAL;     (* Water Cut measurement [%] *)
+    
+    (* Mechanical Parameters *)
+    rMotorSpeedRPM          : REAL;     (* Actual Variable Speed Drive RPM *)
+    rVibrationAxial         : REAL;     (* Thrust bearing axial vibration [mm/s] *)
+    rVibrationRadial        : REAL;     (* Journal bearing radial vibration [mm/s] *)
+    
+    (* Chemical Injection *)
+    rHydrateInhibitorLevel  : REAL;     (* MEG/Methanol storage tank level [%] *)
 END_VAR
 VAR_OUTPUT
-    bSystemReady            : BOOL;     (* System ready for planarization *)
-    rDownwardForceOut       : REAL;     (* Control signal to pneumatic/piezo actuator (0-10V) *)
-    rPlatenSpeedOut         : REAL;     (* Control signal to platen servo drive (0-10V) *)
-    rSlurryPumpOut          : REAL;     (* Control signal to slurry peristaltic pump (0-100%) *)
-    rCoolingValveOut        : REAL;     (* Control signal to active platen cooling valve (0-100%) *)
-    bWaferSlipAlarm         : BOOL;     (* Alarm: Wafer slipping or friction out of bounds *)
-    bProcessAlarm           : BOOL;     (* Alarm: General process fault *)
+    (* Operational Status *)
+    bReadyToStart           : BOOL;     (* Pump interlocks satisfied, ready to start *)
+    bRunning                : BOOL;     (* Pump is running *)
+    
+    (* Control Outputs *)
+    rSpeedReferenceVSD      : REAL;     (* Commanded RPM to the topside VSD *)
+    rThrustBalanceValveCmd  : REAL;     (* Helicon-axial balance drum compensation valve [0-100%] *)
+    rChemInjectionDoseRate  : REAL;     (* Hydrate inhibitor pump speed reference [L/h] *)
+    
+    (* Fault & Alarms *)
+    bAlarmHighVibration     : BOOL;     (* Vibration exceeds alarm limit *)
+    bAlarmLowSuctionPress   : BOOL;     (* Suction pressure critically low *)
+    bTrip                   : BOOL;     (* System tripped (safety or operational trip) *)
+    iTripCode               : INT;      (* Diagnostics code for trip cause *)
 END_VAR
 VAR
-    iState                  : INT := 0;
-    tTimer                  : TON;
-    rForceError             : REAL;
-    rForceIntegral          : REAL := 0.0;
-    rForceKp                : REAL := 2.5;
-    rForceKi                : REAL := 0.15;
+    (* Internal States and Timers *)
+    iState                  : INT := 0; (* 0: INIT, 10: READY, 20: RAMP_UP, 30: RUN, 40: COAST_DOWN, 99: FAULT *)
+    tStartupTimer           : TON;
+    tCoastDownTimer         : TON;
+    tChemDoseTimer          : TON;
     
-    rSpeedError             : REAL;
-    rSpeedKp                : REAL := 1.2;
-    rSpeedIntegral          : REAL := 0.0;
+    (* Internal Calculations *)
+    rDifferentialPress      : REAL;
+    rDynamicThrustSetp      : REAL;
+    rTargetRPM              : REAL;
+    rMaxGVF_Limit           : REAL := 85.0; (* Max Gas Volume Fraction allowable [%] *)
     
-    rFrictionLimitHigh      : REAL := 15.0; (* Nm *)
-    rFrictionLimitLow       : REAL := 2.0;  (* Nm *)
-    rMaxTemp                : REAL := 45.0; (* Max platen temp deg C *)
+    (* PID Controllers for dynamic compensation *)
+    rKp_Thrust              : REAL := 1.25;
+    rKi_Thrust              : REAL := 0.05;
+    rIntegralThrust         : REAL := 0.0;
+    rErrorThrust            : REAL;
 END_VAR
 
-(* === MAIN SAFETY AND INTERLOCK LOGIC === *)
+(* === SAFETY & INTERLOCKS === *)
 IF NOT bEmergencyStop THEN
-    bSystemReady := FALSE;
-    bProcessAlarm := TRUE;
-    rDownwardForceOut := 0.0;
-    rPlatenSpeedOut := 0.0;
-    rSlurryPumpOut := 0.0;
-    rCoolingValveOut := 0.0;
-    iState := 0;
+    (* Immediate system shutdown *)
+    bReadyToStart := FALSE;
+    bRunning := FALSE;
+    rSpeedReferenceVSD := 0.0;
+    rThrustBalanceValveCmd := 100.0; (* Fail-safe open to balance thrust *)
+    rChemInjectionDoseRate := 0.0;
+    bTrip := TRUE;
+    iTripCode := 9999; (* ESD Activated *)
+    iState := 99;
     RETURN;
 END_IF;
 
-(* === ACTIVE PLATEN COOLING LOOP === *)
-IF rPlatenTempAct > 35.0 THEN
-    rCoolingValveOut := LIMIT(0.0, (rPlatenTempAct - 35.0) * 10.0, 100.0);
+(* Process calculations *)
+rDifferentialPress := rDischargePressure - rSuctionPressure;
+
+(* Hydrate Risk Assessment: Increase chemical dose if Temp < 15C and WaterCut > 10% *)
+IF rProcessFluidTemp < 15.0 AND rWaterCut > 10.0 THEN
+    rChemInjectionDoseRate := 50.0 + (15.0 - rProcessFluidTemp) * 5.0; (* Dynamic dosing curve *)
 ELSE
-    rCoolingValveOut := 0.0;
+    rChemInjectionDoseRate := 10.0; (* Base maintenance dose *)
+END_IF;
+IF rHydrateInhibitorLevel < 5.0 THEN
+    rChemInjectionDoseRate := 0.0; (* Prevent dry running of injection pump *)
 END_IF;
 
-IF rPlatenTempAct >= rMaxTemp THEN
-    bProcessAlarm := TRUE;
-    iState := 99; (* Fault state *)
-END_IF;
-
-(* === SLURRY PH & FLOW CASCADING LOOP === *)
-(* Assuming a nominal pump curve and adjusting for pH anomalies if needed *)
-rSlurryPumpOut := LIMIT(0.0, rSlurryFlowRateCmd * 0.8 + (rSlurryFlowRateCmd - rSlurryFlowRateAct) * 0.5, 100.0);
-IF rSlurryPHAct < 2.0 OR rSlurryPHAct > 12.0 THEN
-    bProcessAlarm := TRUE;
-END_IF;
-
-(* === MAIN STATE MACHINE === *)
+(* Main State Machine *)
 CASE iState OF
-    0: (* IDLE & INITIALIZATION *)
-        bSystemReady := TRUE;
-        rForceIntegral := 0.0;
-        rSpeedIntegral := 0.0;
-        bWaferSlipAlarm := FALSE;
-        IF bEnable AND NOT bProcessAlarm THEN
-            iState := 10;
-        END_IF;
-
-    10: (* RAMP UP PLATEN SPEED *)
-        rSpeedError := rPlatenSpeedCmd - rPlatenSpeedAct;
-        rSpeedIntegral := rSpeedIntegral + (rSpeedError * 0.01);
-        rPlatenSpeedOut := LIMIT(0.0, (rSpeedError * rSpeedKp) + rSpeedIntegral, 10.0);
+    0: (* INIT / FAULT RECOVERY *)
+        bReadyToStart := FALSE;
+        bRunning := FALSE;
+        rSpeedReferenceVSD := 0.0;
         
-        IF ABS(rSpeedError) < 2.0 THEN
-            tTimer(IN := TRUE, PT := T#2S);
-            IF tTimer.Q THEN
-                tTimer(IN := FALSE);
-                iState := 20;
+        IF bAcknowledgeFault AND NOT bTrip THEN
+            IF rSuctionPressure > 10.0 AND rVibrationAxial < 2.5 THEN
+                iState := 10; (* Proceed to READY *)
             END_IF;
-        ELSE
-            tTimer(IN := FALSE);
+        END_IF;
+        
+        (* Clear Trips if conditions normalize *)
+        IF bTrip AND bAcknowledgeFault THEN
+            bTrip := FALSE;
+            iTripCode := 0;
         END_IF;
 
-    20: (* DYNAMIC DOWNWARD FORCE CONTROL & PLANARIZATION *)
-        rForceError := rWaferDownwardForceCmd - rWaferDownwardForceAct;
-        rForceIntegral := rForceIntegral + (rForceError * 0.005);
-        rDownwardForceOut := LIMIT(0.0, (rForceError * rForceKp) + rForceIntegral, 10.0);
+    10: (* READY *)
+        bReadyToStart := TRUE;
+        bAlarmLowSuctionPress := (rSuctionPressure < 12.0);
         
-        (* Platen speed continues *)
-        rSpeedError := rPlatenSpeedCmd - rPlatenSpeedAct;
-        rSpeedIntegral := rSpeedIntegral + (rSpeedError * 0.01);
-        rPlatenSpeedOut := LIMIT(0.0, (rSpeedError * rSpeedKp) + rSpeedIntegral, 10.0);
+        IF bSystemEnable AND bReadyToStart AND NOT bAlarmLowSuctionPress THEN
+            iState := 20;
+            tStartupTimer(IN := FALSE);
+        END_IF;
+
+    20: (* RAMP_UP *)
+        bReadyToStart := FALSE;
+        bRunning := TRUE;
+        tStartupTimer(IN := TRUE, PT := T#60S);
         
-        (* Wafer Slip & Friction Detection *)
-        IF rCarrierFriction > rFrictionLimitHigh OR rCarrierFriction < rFrictionLimitLow THEN
-            bWaferSlipAlarm := TRUE;
-            iState := 99;
+        (* Ramp speed gradually up to minimum flow threshold *)
+        rSpeedReferenceVSD := rSpeedReferenceVSD + 5.0;
+        IF rSpeedReferenceVSD > 1500.0 THEN
+            rSpeedReferenceVSD := 1500.0;
         END_IF;
         
-        IF NOT bEnable THEN
+        IF tStartupTimer.Q THEN
             iState := 30;
         END_IF;
 
-    30: (* RAMP DOWN & RETRACT *)
-        rDownwardForceOut := 0.0;
-        rPlatenSpeedOut := 0.0;
-        IF rPlatenSpeedAct < 1.0 THEN
-            iState := 0;
+    30: (* RUNNING / ACTIVE COMPENSATION *)
+        bRunning := TRUE;
+        
+        (* Multiphase GVF Compensation: Adjust target RPM based on gas fraction *)
+        IF rGasVolumeFraction > rMaxGVF_Limit THEN
+            (* High gas slug detected: reduce speed to prevent gas lock and impeller cavitation *)
+            rTargetRPM := 1800.0 - (rGasVolumeFraction - rMaxGVF_Limit) * 20.0;
+        ELSE
+            (* Normal liquid/multiphase boosting *)
+            rTargetRPM := 3600.0; (* Nominal speed for 10k HP MPP *)
+        END_IF;
+        
+        (* Smooth speed transitions *)
+        IF rSpeedReferenceVSD < rTargetRPM THEN
+            rSpeedReferenceVSD := rSpeedReferenceVSD + 2.0;
+        ELSIF rSpeedReferenceVSD > rTargetRPM THEN
+            rSpeedReferenceVSD := rSpeedReferenceVSD - 5.0; (* Faster deceleration for gas slugs *)
+        END_IF;
+        
+        (* Dynamic Thrust Bearing Balancing using Helicon-Axial Valve *)
+        (* Target differential pressure is normalized for the thrust drum *)
+        rDynamicThrustSetp := (rMotorSpeedRPM / 3600.0) * 45.0; (* Estimated thrust load *)
+        rErrorThrust := rDynamicThrustSetp - rDifferentialPress;
+        
+        rIntegralThrust := rIntegralThrust + (rErrorThrust * rKi_Thrust);
+        (* Anti-windup *)
+        IF rIntegralThrust > 100.0 THEN rIntegralThrust := 100.0; END_IF;
+        IF rIntegralThrust < 0.0 THEN rIntegralThrust := 0.0; END_IF;
+        
+        rThrustBalanceValveCmd := (rErrorThrust * rKp_Thrust) + rIntegralThrust;
+        
+        (* Limits for Balance Valve *)
+        IF rThrustBalanceValveCmd > 100.0 THEN rThrustBalanceValveCmd := 100.0; END_IF;
+        IF rThrustBalanceValveCmd < 10.0 THEN rThrustBalanceValveCmd := 10.0; END_IF;
+        
+        (* Trip Conditions during run *)
+        IF rVibrationAxial > 8.0 OR rVibrationRadial > 8.0 THEN
+            bTrip := TRUE;
+            iTripCode := 101; (* High Vibration Trip *)
+            iState := 40;
+        END_IF;
+        
+        IF NOT bSystemEnable THEN
+            iState := 40;
+        END_IF;
+
+    40: (* COAST_DOWN *)
+        bRunning := FALSE;
+        rSpeedReferenceVSD := 0.0;
+        rThrustBalanceValveCmd := 100.0; (* Open to relieve pressure during coast down *)
+        
+        tCoastDownTimer(IN := TRUE, PT := T#120S);
+        IF tCoastDownTimer.Q OR rMotorSpeedRPM < 50.0 THEN
+            tCoastDownTimer(IN := FALSE);
+            iState := 99; (* Enter fault/standby state after stopping *)
+            IF NOT bTrip THEN
+                iState := 0;
+            END_IF;
         END_IF;
 
     99: (* FAULT HANDLING *)
-        rDownwardForceOut := 0.0;
-        rPlatenSpeedOut := 0.0;
-        rSlurryPumpOut := 0.0;
-        bSystemReady := FALSE;
-        IF NOT bEnable THEN
-            bProcessAlarm := FALSE;
-            bWaferSlipAlarm := FALSE;
+        bReadyToStart := FALSE;
+        bRunning := FALSE;
+        rSpeedReferenceVSD := 0.0;
+        
+        IF bAcknowledgeFault AND rMotorSpeedRPM < 10.0 THEN
             iState := 0;
         END_IF;
 
 END_CASE;
 
+(* Final Alarm Evaluations *)
+bAlarmHighVibration := (rVibrationAxial > 5.0 OR rVibrationRadial > 5.0);
+
 END_FUNCTION_BLOCK
 ```"""
 
-record = {
-    "messages": [
-        {"role": "user", "content": prompt},
-        {"role": "assistant", "content": code}
-    ]
-}
-
+os.makedirs("data/swarm_raw", exist_ok=True)
 filename = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
+record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
 with open(filename, "w", encoding="utf-8") as f:
     json.dump(record, f, ensure_ascii=False)
-
 print(f"Saved to {filename}")

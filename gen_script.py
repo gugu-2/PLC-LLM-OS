@@ -1,15 +1,13 @@
-import os
-import json
-import uuid
+import json, uuid, os
 
 os.makedirs("data/swarm_raw", exist_ok=True)
 
 prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
 You possess the expertise of a 40+ years experienced PLC automation architect writing world-class, extremely complex, and mathematically rigorous code.
 
-**Your assigned domain is: Molten Salt Solar Thermal Tower Central Receiver**
+**Your assigned domain is: Next-Gen Heavy-Duty Hydrogen Fuel Cell Mining Truck Powertrain**
 
-Task: Invent a highly complex, ultra-realistic control scenario for this domain (e.g., 565°C molten salt receiver temperature gradient control, cold/hot storage tank volume balancing, rapid transient cloud cover flow-rate adaptation, and anti-freeze trace heating interlocks). Your code must look like the absolute best, most robust industrial code written by a world-class 40-year veteran.
+Task: Invent a highly complex, ultra-realistic control scenario for this domain (e.g., 2MW PEM fuel cell stack air compressor surge mapping, ultra-capacitor transient load leveling, and liquid cooling loop two-phase boiling suppression). Your code must look like the absolute best, most robust industrial code written by a world-class 40-year veteran.
 
 CRITICAL RULES - READ EVERY LINE:
 1. CODE FENCE: Use TRIPLE backticks + iec-st. EXACTLY like this:
@@ -27,7 +25,7 @@ CRITICAL RULES - READ EVERY LINE:
 4. SAVE to isolated file using this exact Python:
    import json, uuid
    prompt = \"\"\"<copy this exact user prompt here>\"\"\"
-   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_SolarThermalReceiver\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
+   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_FuelCellMiningTruck\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
    record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
    with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
        json.dump(record, f, ensure_ascii=False)
@@ -40,200 +38,157 @@ CRITICAL RULES - READ EVERY LINE:
    [ ] Last code line: END_FUNCTION_BLOCK
    [ ] Closing fence: ```
    [ ] Total chars >= 1500
-6. REPLY with: EVOLUTION COMPLETE: Molten Salt Solar Thermal Tower Central Receiver
+6. REPLY with: EVOLUTION COMPLETE: Next-Gen Heavy-Duty Hydrogen Fuel Cell Mining Truck Powertrain
 
 DO NOT APOLOGIZE. DO NOT EXPLAIN. GENERATE CODE AND SAVE IT."""
 
 code = """```iec-st
-FUNCTION_BLOCK FB_MoltenSaltCentralReceiverCtrl
+FUNCTION_BLOCK FB_FuelCellPowertrainCoord
+TITLE = 'Next-Gen Heavy-Duty H2 Fuel Cell Mining Truck Powertrain Coordinator'
+// -----------------------------------------------------------------------------
+// Description:
+// Coordinates a 2MW PEM fuel cell stack, ultra-capacitor transient leveling,
+// and liquid cooling two-phase boiling suppression for extreme load profiles
+// in a heavy-duty mining truck.
+// -----------------------------------------------------------------------------
+
 VAR_INPUT
-    (* System operation signals *)
-    bEnable                 : BOOL;     (* System master enable signal *)
-    bEmergencyStop          : BOOL;     (* Hardwired emergency stop and safety loop OK (Active High) *)
-    bCloudTransientFlag     : BOOL;     (* Advanced sky imager detection of incoming cloud cover *)
-    
-    (* Process measurements *)
-    rSaltInletTemp          : REAL;     (* Receiver cold salt inlet temperature (deg C) *)
-    rSaltOutletTemp         : REAL;     (* Receiver hot salt outlet temperature (deg C) *)
-    rDniSensor              : REAL;     (* Direct Normal Irradiance from weather station (W/m^2) *)
-    rColdTankLevel          : REAL;     (* Cold salt storage tank level (%) *)
-    rHotTankLevel           : REAL;     (* Hot salt storage tank level (%) *)
-    rReceiverFlowRate       : REAL;     (* Current molten salt mass flow rate (kg/s) *)
+    (* Mandatory inputs *)
+    bSystemEnable           : BOOL;     (* System master enable signal *)
+    bEmergencyStop          : BOOL;     (* Safety circuit healthy signal *)
+    rTorqueRequest_Nm       : REAL;     (* Operator/Autonomous drive torque request *)
+    rFC_StackVoltage_V      : REAL;     (* Real-time fuel cell stack voltage (V) *)
+    rFC_StackCurrent_A      : REAL;     (* Real-time fuel cell stack current (A) *)
+    rUC_StateOfCharge_Pct   : REAL;     (* Ultra-capacitor SoC (0.0 - 100.0%) *)
+    rCoolantTempOut_C       : REAL;     (* Stack coolant outlet temperature (C) *)
+    rCompressorSpeed_RPM    : REAL;     (* Air compressor actual speed *)
 END_VAR
+
 VAR_OUTPUT
-    (* System Status *)
-    bSystemReady            : BOOL;     (* Interlocks met, receiver ready for flux *)
-    bAlarm                  : BOOL;     (* General fault or alarm active *)
-    iCurrentState           : INT;      (* Current state machine step *)
-    
-    (* Actuator Commands *)
-    rReceiverPumpSpeedCmd   : REAL;     (* Commanded VFD frequency for cold salt pump (Hz, 0-60) *)
-    bHeliostatDefocusCmd    : BOOL;     (* Command to heliostat field controller to execute emergency defocus *)
-    bTraceHeatingCmd        : BOOL;     (* Activate electrical trace heating to prevent salt freeze *)
-    bDrainValveCmd          : BOOL;     (* Command to open receiver drain valves (failsafe open) *)
+    (* Mandatory outputs *)
+    bPowertrainReady        : BOOL;     (* Powertrain ready for traction *)
+    rFC_PowerDemand_kW      : REAL;     (* Commanded power to fuel cell DC/DC *)
+    rUC_PowerDemand_kW      : REAL;     (* Commanded power to UC DC/DC (positive=discharge) *)
+    rCoolantPumpCmd_Pct     : REAL;     (* Coolant pump speed command (0-100%) *)
+    rCompressorCmd_RPM      : REAL;     (* Air compressor speed command *)
+    bCriticalAlarm          : BOOL;     (* System fault / derate active *)
 END_VAR
+
 VAR
-    (* Internal State & Timers *)
-    iState                  : INT := 0; 
-    tPreheatTimer           : TON;
-    tTransientTimer         : TON;
-    tShutdownTimer          : TON;
+    (* Internal State Machine *)
+    iOpState                : INT := 0; (* 0:Off, 10:Init, 20:Precharge, 30:Run, 99:Fault *)
     
-    (* Control Constants & Internal Variables *)
-    rTargetOutletTemp       : REAL := 565.0; (* Optimal molten salt design temperature *)
-    rMaxSafeTemp            : REAL := 595.0; (* Structural limit of receiver tubes *)
-    rFreezingLimitTemp      : REAL := 290.0; (* Freezing point of nitrate salt mixture + safety margin *)
+    (* Timers & Filters *)
+    tInitDelay              : TON;
+    tFaultDelay             : TON;
+    rFilteredTorqueReq      : REAL;
     
-    rCalculatedSetPoint     : REAL;
-    rFlowError              : REAL;
-    rKp                     : REAL := 1.25;
-    rKi                     : REAL := 0.05;
-    rIntegralAccumulator    : REAL := 0.0;
+    (* Thermodynamic / Surge Limits *)
+    rMaxStackPower_kW       : REAL := 2000.0;
+    rStackThermalLimit_C    : REAL := 85.0;
+    rSurgeMargin            : REAL := 1.15;
     
-    bFreezeWarning          : BOOL;
-    bOverTempWarning        : BOOL;
+    (* Calculated Values *)
+    rTractionPowerReq_kW    : REAL;
+    rAvailableUCPower_kW    : REAL;
+    rThermalDerateFactor    : REAL;
+    
+    (* Constants *)
+    c_MotorSpeed_RPM        : REAL := 1500.0; (* Assuming nominal speed for power calc simplify *)
 END_VAR
 
-(* === MAIN LOGIC AND SAFETY INTERLOCKS === *)
+(* === MAIN LOGIC === *)
 
-(* Check for Emergency Stop or Critical Safety Faults *)
+(* Safety and Enable Interlocks *)
 IF NOT bEmergencyStop THEN
-    bSystemReady := FALSE;
-    bAlarm := TRUE;
-    bHeliostatDefocusCmd := TRUE; 
-    rReceiverPumpSpeedCmd := 0.0;
-    bDrainValveCmd := TRUE; (* Drain salt back to cold tank immediately *)
-    bTraceHeatingCmd := TRUE; (* Maintain temp for residual salt *)
-    iState := 999; (* FAULT STATE *)
+    iOpState := 99; // Force fault state
+    bPowertrainReady := FALSE;
+    rFC_PowerDemand_kW := 0.0;
+    rUC_PowerDemand_kW := 0.0;
+    rCoolantPumpCmd_Pct := 100.0; // Max cooling on trip
+    bCriticalAlarm := TRUE;
     RETURN;
 END_IF;
 
-(* Continuous Monitoring for Freeze Risk *)
-IF rSaltInletTemp < rFreezingLimitTemp OR rSaltOutletTemp < rFreezingLimitTemp THEN
-    bFreezeWarning := TRUE;
-    bTraceHeatingCmd := TRUE;
+(* Thermal Derating Calculation *)
+IF rCoolantTempOut_C > rStackThermalLimit_C THEN
+    rThermalDerateFactor := MAX(0.0, 1.0 - ((rCoolantTempOut_C - rStackThermalLimit_C) * 0.1));
+    bCriticalAlarm := TRUE;
 ELSE
-    bFreezeWarning := FALSE;
-    (* Keep trace heating active only if state requires it or during freeze warning *)
+    rThermalDerateFactor := 1.0;
+    bCriticalAlarm := FALSE;
 END_IF;
 
-(* Continuous Monitoring for Over-temperature Risk *)
-IF rSaltOutletTemp > rMaxSafeTemp THEN
-    bOverTempWarning := TRUE;
-    bHeliostatDefocusCmd := TRUE;
-    bAlarm := TRUE;
-ELSE
-    bOverTempWarning := FALSE;
-END_IF;
+(* Transient Load Leveling (Ultra-Capacitor Logic) *)
+// Simple low-pass filter on torque request to simulate vehicle inertia decoupling
+rFilteredTorqueReq := rFilteredTorqueReq + 0.05 * (rTorqueRequest_Nm - rFilteredTorqueReq);
 
-(* Core Central Receiver State Machine *)
-CASE iState OF
-    0: (* IDLE & STANDBY *)
-        bSystemReady := FALSE;
-        rReceiverPumpSpeedCmd := 0.0;
-        bHeliostatDefocusCmd := TRUE; (* Field parked *)
-        bDrainValveCmd := TRUE; (* Receiver drained *)
-        bAlarm := FALSE;
-        
-        IF bEnable AND rColdTankLevel > 10.0 AND NOT bFreezeWarning THEN
-            iState := 10; (* Transition to Pre-heat *)
+// Calculate total requested traction power (P = T * w)
+rTractionPowerReq_kW := (rTorqueRequest_Nm * c_MotorSpeed_RPM * 0.10472) / 1000.0;
+
+(* State Machine *)
+CASE iOpState OF
+    0: (* OFF / STANDBY *)
+        bPowertrainReady := FALSE;
+        rFC_PowerDemand_kW := 0.0;
+        rUC_PowerDemand_kW := 0.0;
+        rCompressorCmd_RPM := 1000.0; // Idle speed
+        IF bSystemEnable THEN
+            iOpState := 10;
         END_IF;
 
-    10: (* PRE-HEAT SEQUENCE *)
-        bSystemReady := FALSE;
-        bDrainValveCmd := FALSE; (* Close drain valves to establish flow *)
-        bTraceHeatingCmd := TRUE; (* Engage heaters *)
+    10: (* INITIALIZATION & PURGE *)
+        // Run compressor to purge stack
+        rCompressorCmd_RPM := 15000.0; 
+        rCoolantPumpCmd_Pct := 20.0;
         
-        (* Start pump at minimum speed to establish circulation *)
-        rReceiverPumpSpeedCmd := 15.0; 
-        
-        tPreheatTimer(IN := TRUE, PT := T#5M);
-        IF tPreheatTimer.Q AND (rSaltInletTemp > 300.0) THEN
-            tPreheatTimer(IN := FALSE);
-            iState := 20; (* Transition to Ready *)
-        END_IF;
-        
-        IF NOT bEnable THEN
-            tPreheatTimer(IN := FALSE);
-            iState := 100; (* SHUTDOWN *)
+        tInitDelay(IN := TRUE, PT := T#10S);
+        IF tInitDelay.Q THEN
+            tInitDelay(IN := FALSE);
+            iOpState := 20;
         END_IF;
 
-    20: (* READY FOR FLUX *)
-        bSystemReady := TRUE;
-        bTraceHeatingCmd := FALSE;
-        bHeliostatDefocusCmd := FALSE; (* Permit field to focus on receiver *)
-        
-        (* Maintain minimum flow *)
-        rReceiverPumpSpeedCmd := 20.0;
-        
-        IF rDniSensor > 250.0 AND rSaltOutletTemp > 350.0 THEN
-            iState := 30; (* ACTIVE TRACKING AND HEATING *)
-        END_IF;
-        
-        IF NOT bEnable THEN
-            iState := 100;
+    20: (* PRECHARGE & VOLTAGE STABILIZATION *)
+        // Wait for Stack voltage to build
+        IF rFC_StackVoltage_V > 600.0 THEN
+            iOpState := 30;
         END_IF;
 
-    30: (* ACTIVE TRACKING - ADVANCED PID FLOW CONTROL *)
-        (* In this state, we modulate pump speed to maintain exactly 565C outlet *)
+    30: (* NORMAL RUN *)
+        bPowertrainReady := TRUE;
         
-        rFlowError := rSaltOutletTemp - rTargetOutletTemp;
+        // Split power demand between FC (Base load) and UC (Transient)
+        // Fuel cell provides the filtered (slow moving) power
+        rFC_PowerDemand_kW := MIN((rFilteredTorqueReq * c_MotorSpeed_RPM * 0.10472) / 1000.0, rMaxStackPower_kW * rThermalDerateFactor);
         
-        (* Anti-windup for integral component *)
-        IF rReceiverPumpSpeedCmd > 10.0 AND rReceiverPumpSpeedCmd < 60.0 THEN
-            rIntegralAccumulator := rIntegralAccumulator + (rFlowError * rKi);
+        // UC provides the transient delta, limited by its SoC
+        IF rUC_StateOfCharge_Pct > 20.0 THEN
+            rUC_PowerDemand_kW := rTractionPowerReq_kW - rFC_PowerDemand_kW;
+        ELSE
+            // Force charge if too low
+            rUC_PowerDemand_kW := -200.0; 
+            rFC_PowerDemand_kW := rFC_PowerDemand_kW + 200.0; // FC must supply traction + charging
         END_IF;
         
-        (* Proportional + Integral logic - Inverse acting because hotter temp needs MORE flow to cool *)
-        rReceiverPumpSpeedCmd := 30.0 + (rFlowError * rKp) + rIntegralAccumulator;
+        // Compressor map scheduling (Surge protection proxy)
+        rCompressorCmd_RPM := MAX(15000.0, rFC_PowerDemand_kW * 25.0 * rSurgeMargin);
         
-        (* Clamp pump limits *)
-        IF rReceiverPumpSpeedCmd < 15.0 THEN
-            rReceiverPumpSpeedCmd := 15.0;
-        ELSIF rReceiverPumpSpeedCmd > 60.0 THEN
-            rReceiverPumpSpeedCmd := 60.0;
-        END_IF;
-        
-        (* Handle DNI transients (Cloud cover prediction) *)
-        IF bCloudTransientFlag THEN
-            iState := 40;
-        END_IF;
-        
-        IF NOT bEnable OR rHotTankLevel > 98.0 THEN
-            iState := 100;
-        END_IF;
-        
-    40: (* TRANSIENT MITIGATION (CLOUD COVER) *)
-        (* Cloud shadow expected. Ramp down flow predictively to avoid temperature crashes *)
-        rReceiverPumpSpeedCmd := 15.0; (* Drop to minimum safe circulation *)
-        
-        tTransientTimer(IN := TRUE, PT := T#30S);
-        IF NOT bCloudTransientFlag AND tTransientTimer.Q THEN
-            tTransientTimer(IN := FALSE);
-            iState := 30; (* Resume normal operation *)
+        // Two-phase boiling suppression (Aggressive cooling curve)
+        rCoolantPumpCmd_Pct := MIN(100.0, 20.0 + (rFC_PowerDemand_kW / 20.0) + (MAX(0.0, rCoolantTempOut_C - 70.0) * 5.0));
+
+        // Disable handling
+        IF NOT bSystemEnable THEN
+            iOpState := 0;
         END_IF;
 
-    100: (* SHUTDOWN SEQUENCE *)
-        bHeliostatDefocusCmd := TRUE;
-        rReceiverPumpSpeedCmd := 60.0; (* Flush the receiver at high speed briefly *)
-        
-        tShutdownTimer(IN := TRUE, PT := T#2M);
-        IF tShutdownTimer.Q THEN
-            tShutdownTimer(IN := FALSE);
-            bDrainValveCmd := TRUE; (* Open drains *)
-            rReceiverPumpSpeedCmd := 0.0;
-            iState := 0;
+    99: (* FAULT HANDLING *)
+        // Wait for reset condition
+        IF bEmergencyStop AND NOT bSystemEnable THEN
+            iOpState := 0;
+            bCriticalAlarm := FALSE;
         END_IF;
 
-    999: (* FAULT HANDLING *)
-        (* Requires manual reset via bEnable toggle after emergency stop clears *)
-        IF bEmergencyStop AND NOT bEnable THEN
-            iState := 0;
-        END_IF;
-        
 END_CASE;
-
-iCurrentState := iState;
 
 END_FUNCTION_BLOCK
 ```"""
