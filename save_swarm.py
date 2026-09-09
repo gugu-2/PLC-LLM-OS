@@ -1,11 +1,14 @@
-import json, uuid, os
+import json, uuid
+import os
+
+os.makedirs("data/swarm_raw", exist_ok=True)
 
 prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
 You possess the expertise of a 40+ years experienced PLC automation architect writing world-class, extremely complex, and mathematically rigorous code.
 
-**Your assigned domain is: Utility-Scale Concentrating Solar Power (CSP) Molten Salt Receiver Tower**
+**Your assigned domain is: Advanced Semiconductor Pitch Multiplication (SADP/SAQP) Spacer Etch**
 
-Task: Invent a highly complex, ultra-realistic control scenario for this domain (e.g., Heliostat field optical flux map feed-forward, nitrate salt freezing prevention thermal tracing, and multi-zone receiver panel mass flow distribution). Your code must look like the absolute best, most robust industrial code written by a world-class 40-year veteran.
+Task: Invent a highly complex, ultra-realistic control scenario for this domain (e.g., Conformal ALD spacer oxide thickness tracking, highly anisotropic directional reactive ion etch (RIE), and polymer residue descumming). Your code must look like the absolute best, most robust industrial code written by a world-class 40-year veteran.
 
 CRITICAL RULES - READ EVERY LINE:
 1. CODE FENCE: Use TRIPLE backticks + iec-st. EXACTLY like this:
@@ -23,9 +26,9 @@ CRITICAL RULES - READ EVERY LINE:
 4. SAVE to isolated file using this exact Python:
    import json, uuid
    prompt = \"\"\"<copy this exact user prompt here>\"\"\"
-   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_CSP_MoltenSaltTower\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
-   record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
-   with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
+   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_SADP_SpacerEtch\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
+   record = {\"messages\": [{\"role\": \"user\", \"content\": prompt}, {\"role\": \"assistant\", \"content\": code}]}
+   with open(f\"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json\", \"w\", encoding=\"utf-8\") as f:
        json.dump(record, f, ensure_ascii=False)
 5. SELF-CHECK before saving - verify ALL:
    [ ] Fence is ```iec-st
@@ -36,173 +39,150 @@ CRITICAL RULES - READ EVERY LINE:
    [ ] Last code line: END_FUNCTION_BLOCK
    [ ] Closing fence: ```
    [ ] Total chars >= 1500
-6. REPLY with: EVOLUTION COMPLETE: Utility-Scale Concentrating Solar Power (CSP) Molten Salt Receiver Tower
+6. REPLY with: EVOLUTION COMPLETE: Advanced Semiconductor Pitch Multiplication (SADP/SAQP) Spacer Etch
 
 DO NOT APOLOGIZE. DO NOT EXPLAIN. GENERATE CODE AND SAVE IT."""
 
 code = """```iec-st
-FUNCTION_BLOCK FB_CSP_MoltenSaltTowerControl
+FUNCTION_BLOCK FB_SADP_SpacerEtch
 VAR_INPUT
-    bSystemEnable           : BOOL;     (* Main enable for receiver tower control system *)
-    bEmergencyStop          : BOOL;     (* Safety relay OK signal (E-Stop), TRUE = Healthy *)
-    rInletSaltTemp          : REAL;     (* Cold salt inlet temperature [deg C] *)
-    rReceiverPanelTemp      : REAL;     (* Average receiver panel surface temperature [deg C] *)
-    rTargetOutletTemp       : REAL;     (* Desired hot salt outlet temperature [deg C] *)
-    rHeliostatFluxFeedFwd   : REAL;     (* Anticipated thermal flux from heliostat field DNI tracking [MW/m2] *)
-    rWindSpeed              : REAL;     (* Tower-top anemometer wind speed [m/s] *)
-    bSaltFlowProven         : BOOL;     (* Flow meter verification of molten salt flow *)
+    bEnable                 : BOOL;     (* System enable signal for spacer etch sequence *)
+    bEmergencyStop          : BOOL;     (* Safety relay OK signal; must be TRUE to operate *)
+    rChamberPressure        : REAL;     (* Chamber pressure in mTorr, critical for RIE anisotropy *)
+    rGasFlowCHF3            : REAL;     (* Flow rate of CHF3 in sccm for fluorocarbon polymer *)
+    rGasFlowAr              : REAL;     (* Flow rate of Argon in sccm for ion bombardment *)
+    rRFBiasPower            : REAL;     (* RF bias power in Watts controlling ion energy *)
+    rWaferTemperature       : REAL;     (* Electrostatic chuck temperature in degrees C *)
+    rFilmThicknessInitial   : REAL;     (* Initial spacer ALD oxide thickness in Angstroms *)
 END_VAR
 VAR_OUTPUT
-    bSystemReady            : BOOL;     (* System ready for full solar flux tracking *)
-    rSaltPumpSpeedCmd       : REAL;     (* Variable frequency drive speed command for salt pump [0.0 - 100.0%] *)
-    bHeatTracingEnable      : BOOL;     (* Enable electrical heat tracing to prevent salt freezing *)
-    bDefocusCommand         : BOOL;     (* Emergency defocus command to heliostat field *)
-    iOperatingState         : INT;      (* Current control state enum *)
-    bAlarmHighTemp          : BOOL;     (* Receiver over-temperature alarm *)
-    bAlarmFreezing          : BOOL;     (* Salt freezing risk alarm *)
+    bSystemReady            : BOOL;     (* System ready status, all interlocks satisfied *)
+    bEtchComplete           : BOOL;     (* TRUE when main etch and over-etch are finished *)
+    rControlRFPower         : REAL;     (* Setpoint command to the RF generator (Watts) *)
+    rThrottleValvePos       : REAL;     (* Throttle valve position command (0-100%) *)
+    bAlarm                  : BOOL;     (* Fault alarm output (e.g. pressure/temp out of bounds) *)
+    iErrorCode              : INT;      (* 0 = No error, >0 = specific fault code *)
 END_VAR
 VAR
-    iState                  : INT := 0; (* Internal state machine variable *)
-    tPreheatTimer           : TON;      (* Timer for electrical preheating *)
-    tDefocusTimer           : TON;      (* Cooldown timer after defocus *)
-    rFlowPID_Kp             : REAL := 2.5;
-    rFlowPID_Ki             : REAL := 0.15;
-    rFlowPID_Kd             : REAL := 0.05;
-    rError                  : REAL;
-    rLastError              : REAL;
-    rIntegral               : REAL;
-    rDerivative             : REAL;
-    rMinPumpSpeed           : REAL := 25.0; (* Minimum safe flow to prevent hot spots *)
-    rMaxPumpSpeed           : REAL := 100.0;
-    rSaltFreezeTemp         : REAL := 290.0; (* Solar salt freezing point [deg C] *)
-    rMaxPanelTemp           : REAL := 620.0; (* Max allowable panel metallurgical temperature [deg C] *)
-    bLocalHeatTracing       : BOOL;
+    iState                  : INT := 0; (* Internal state machine counter *)
+    tStepTimer              : TON;      (* Step timer for process control *)
+    tOverEtchTimer          : TON;      (* Timer specifically for the descum over-etch phase *)
+    rEstimatedThickness     : REAL;     (* Real-time estimation of remaining spacer thickness (A) *)
+    rEtchRateAperSec        : REAL := 15.5; (* Nominal oxide etch rate in Angstroms/second *)
+    rPolymerDepRate         : REAL := 2.1;  (* Polymer deposition rate in Angstroms/second *)
 END_VAR
 
-(* === SAFETY & INTERLOCK SUPERVISOR === *)
+(* === MAIN SAFETY & INTERLOCK LOGIC === *)
 IF NOT bEmergencyStop THEN
     bSystemReady := FALSE;
-    bHeatTracingEnable := TRUE; (* Always ensure tracing is active on trip to avoid solidifying *)
-    bDefocusCommand := TRUE;    (* Immediately remove solar flux *)
-    rSaltPumpSpeedCmd := 0.0;
-    iOperatingState := 99;      (* E-STOP state *)
-    bAlarmHighTemp := FALSE;
-    bAlarmFreezing := FALSE;
+    bEtchComplete := FALSE;
+    rControlRFPower := 0.0;
+    rThrottleValvePos := 0.0;
+    bAlarm := TRUE;
+    iErrorCode := 999; (* Critical E-Stop *)
+    iState := 0;
     RETURN;
 END_IF;
 
-(* === THERMAL SAFEGUARDS === *)
-IF rReceiverPanelTemp > rMaxPanelTemp THEN
-    bAlarmHighTemp := TRUE;
-    bDefocusCommand := TRUE;
-ELSE
-    bAlarmHighTemp := FALSE;
-    bDefocusCommand := FALSE;
+(* Process variable boundary checking for ultra-precise SAQP constraints *)
+IF bEnable AND iState > 0 THEN
+    IF rChamberPressure < 10.0 OR rChamberPressure > 50.0 THEN
+        bAlarm := TRUE;
+        iErrorCode := 101; (* Pressure deviation limits anisotropic profile *)
+        iState := 99; (* Transition to safe abort *)
+    END_IF;
+    
+    IF rWaferTemperature < 15.0 OR rWaferTemperature > 60.0 THEN
+        bAlarm := TRUE;
+        iErrorCode := 102; (* Temperature limits exceeded, risk of polymer burning *)
+        iState := 99;
+    END_IF;
 END_IF;
 
-IF rInletSaltTemp < (rSaltFreezeTemp + 15.0) THEN
-    bAlarmFreezing := TRUE;
-    bLocalHeatTracing := TRUE;
-ELSE
-    bAlarmFreezing := FALSE;
-    bLocalHeatTracing := FALSE;
-END_IF;
-bHeatTracingEnable := bLocalHeatTracing;
-
-(* === MAIN STATE MACHINE === *)
 CASE iState OF
-    0: (* IDLE & PRE-CHECK *)
-        rSaltPumpSpeedCmd := 0.0;
-        bSystemReady := FALSE;
-        IF bSystemEnable AND (rInletSaltTemp >= rSaltFreezeTemp + 20.0) THEN
+    0: (* IDLE & INITIALIZATION *)
+        bSystemReady := TRUE;
+        bEtchComplete := FALSE;
+        bAlarm := FALSE;
+        iErrorCode := 0;
+        rControlRFPower := 0.0;
+        rThrottleValvePos := 10.0; (* Idle pumping *)
+        rEstimatedThickness := rFilmThicknessInitial;
+        
+        IF bEnable THEN
+            bSystemReady := FALSE;
             iState := 10;
         END_IF;
 
-    10: (* PRE-HEATING & TRACING VERIFICATION *)
-        bLocalHeatTracing := TRUE;
-        tPreheatTimer(IN := TRUE, PT := T#30S);
-        IF tPreheatTimer.Q THEN
-            tPreheatTimer(IN := FALSE);
+    10: (* GAS STABILIZATION *)
+        (* Target 25 mTorr for optimal directional RIE *)
+        rThrottleValvePos := 25.0 + (rGasFlowCHF3 + rGasFlowAr) * 0.05;
+        
+        tStepTimer(IN := TRUE, PT := T#15S);
+        IF tStepTimer.Q THEN
+            tStepTimer(IN := FALSE);
             iState := 20;
         END_IF;
-        IF NOT bSystemEnable THEN
-            tPreheatTimer(IN := FALSE);
-            iState := 0;
-        END_IF;
 
-    20: (* INITIAL FLOW ESTABLISHMENT *)
-        rSaltPumpSpeedCmd := rMinPumpSpeed;
-        IF bSaltFlowProven THEN
+    20: (* MAIN HIGH-ANISOTROPY ETCH *)
+        (* Ramp RF Bias Power to drive Argon ions vertically *)
+        IF rRFBiasPower < 400.0 THEN
+            rControlRFPower := 450.0; (* Setpoint overshoot to reach fast *)
+        ELSE
+            rControlRFPower := 400.0;
+        END_IF;
+        
+        (* Integrate Etch Rate (simple discrete approximation for demonstration) *)
+        rEstimatedThickness := rEstimatedThickness - (rEtchRateAperSec - rPolymerDepRate) * 0.1; (* assuming 100ms cycle *)
+        
+        IF rEstimatedThickness <= 20.0 THEN (* Leave 20 Angstroms for soft over-etch *)
+            rControlRFPower := 0.0;
             iState := 30;
         END_IF;
-        IF NOT bSystemEnable THEN
-            iState := 0;
-        END_IF;
 
-    30: (* NORMAL OPERATION & PID CONTROL WITH FEEDFORWARD *)
-        bSystemReady := TRUE;
+    30: (* POLYMER DESCUM / OVER-ETCH *)
+        rControlRFPower := 150.0; (* Low bias to avoid damaging underlying silicon/mandrel *)
+        rThrottleValvePos := 40.0; (* Increase pressure to favor chemical descum over physical sputtering *)
         
-        (* Calculate PID Error *)
-        rError := rTargetOutletTemp - rReceiverPanelTemp;
-        
-        (* Integral Accumulation with Anti-Windup *)
-        rIntegral := rIntegral + rError;
-        IF rIntegral > 1000.0 THEN rIntegral := 1000.0; END_IF;
-        IF rIntegral < -1000.0 THEN rIntegral := -1000.0; END_IF;
-        
-        (* Derivative *)
-        rDerivative := rError - rLastError;
-        rLastError := rError;
-        
-        (* Core PID Calculation - Note: Pump speed increases to COOL DOWN the receiver (more flow) *)
-        rSaltPumpSpeedCmd := (rFlowPID_Kp * -rError) + (rFlowPID_Ki * -rIntegral) + (rFlowPID_Kd * -rDerivative);
-        
-        (* Add Feed-Forward based on incoming solar flux and wind cooling effect *)
-        rSaltPumpSpeedCmd := rSaltPumpSpeedCmd + (rHeliostatFluxFeedFwd * 5.0) - (rWindSpeed * 0.5);
-        
-        (* Clamp Output *)
-        IF rSaltPumpSpeedCmd < rMinPumpSpeed THEN
-            rSaltPumpSpeedCmd := rMinPumpSpeed;
-        ELSIF rSaltPumpSpeedCmd > rMaxPumpSpeed THEN
-            rSaltPumpSpeedCmd := rMaxPumpSpeed;
-        END_IF;
-        
-        (* Transitions *)
-        IF NOT bSystemEnable OR bDefocusCommand THEN
-            bSystemReady := FALSE;
+        tOverEtchTimer(IN := TRUE, PT := T#8S);
+        IF tOverEtchTimer.Q THEN
+            tOverEtchTimer(IN := FALSE);
+            rControlRFPower := 0.0;
             iState := 40;
         END_IF;
 
-    40: (* CONTROLLED SHUTDOWN & DRAIN *)
-        rSaltPumpSpeedCmd := rMinPumpSpeed; (* Maintain minimum flow while cooling *)
-        tDefocusTimer(IN := TRUE, PT := T#120S);
-        IF tDefocusTimer.Q THEN
-            tDefocusTimer(IN := FALSE);
-            rSaltPumpSpeedCmd := 0.0; (* Stop pump, allow gravity drain *)
-            iState := 0;
-        END_IF;
+    40: (* PUMP DOWN & COMPLETE *)
+        rThrottleValvePos := 100.0; (* Fully open throttle valve to evacuate chamber *)
+        tStepTimer(IN := TRUE, PT := T#10S);
         
-    99: (* FAULT / ESTOP *)
-        (* Handled by top-level logic, wait for reset *)
-        IF bEmergencyStop AND NOT bSystemEnable THEN
+        IF tStepTimer.Q THEN
+            tStepTimer(IN := FALSE);
+            bEtchComplete := TRUE;
+            iState := 50;
+        END_IF;
+
+    50: (* WAITING FOR DISABLE *)
+        IF NOT bEnable THEN
             iState := 0;
         END_IF;
-END_CASE;
 
-(* Update Output State *)
-iOperatingState := iState;
+    99: (* FAULT HANDLING *)
+        rControlRFPower := 0.0;
+        rThrottleValvePos := 100.0;
+        bSystemReady := FALSE;
+        IF NOT bEnable THEN (* Reset on disable *)
+            iState := 0;
+            bAlarm := FALSE;
+            iErrorCode := 0;
+        END_IF;
+
+END_CASE;
 
 END_FUNCTION_BLOCK
 ```"""
 
-record = {
-    "messages": [
-        {"role": "user", "content": prompt},
-        {"role": "assistant", "content": code}
-    ]
-}
+record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
 
-os.makedirs("data/swarm_raw", exist_ok=True)
 filename = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
 with open(filename, "w", encoding="utf-8") as f:
     json.dump(record, f, ensure_ascii=False)

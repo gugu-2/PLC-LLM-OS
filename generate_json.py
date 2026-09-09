@@ -1,162 +1,196 @@
-import json, uuid, os
+import os, json, uuid
+
+os.makedirs('data/swarm_raw', exist_ok=True)
+
+prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
+You possess the expertise of a 40+ years experienced PLC automation architect writing world-class, extremely complex, and mathematically rigorous code.
+
+**Your assigned domain is: Next-Gen Heavy-Duty Electric Mining Haul Truck Pantograph Substation**
+
+Task: Invent a highly complex, ultra-realistic control scenario for this domain (e.g., 3kV DC catenary on-the-fly robotic arm engagement, active arc flash quench filtering, and regenerative downhill dynamic braking chopper modulation). Your code must look like the absolute best, most robust industrial code written by a world-class 40-year veteran.
+
+CRITICAL RULES - READ EVERY LINE:
+1. CODE FENCE: Use TRIPLE backticks + iec-st. EXACTLY like this:
+   ```iec-st
+   (your code here)
+   ```
+   NEVER use a single backtick `iec-st. ALWAYS use triple backticks.
+2. REQUIRED IEC 61131-3 STRUCTURE (all 5 mandatory):
+   a. FUNCTION_BLOCK FB_<Name>   <- first line of code, always
+   b. VAR_INPUT ... END_VAR      <- min 4 typed inputs with comments
+   c. VAR_OUTPUT ... END_VAR     <- min 3 typed outputs with comments
+   d. At least one END_IF; or END_CASE;  <- control logic required
+   e. END_FUNCTION_BLOCK         <- last line of code, always
+3. LENGTH: The assistant content MUST be >= 1500 characters total.
+4. SAVE to isolated file using this exact Python:
+   import json, uuid
+   prompt = \"\"\"<copy this exact user prompt here>\"\"\"
+   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_MiningTruckPantograph\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
+   record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
+   with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
+       json.dump(record, f, ensure_ascii=False)
+5. SELF-CHECK before saving - verify ALL:
+   [ ] Fence is ```iec-st
+   [ ] First code line: FUNCTION_BLOCK FB_<name>
+   [ ] Has VAR_INPUT section
+   [ ] Has VAR_OUTPUT section
+   [ ] Has END_IF; or END_CASE;
+   [ ] Last code line: END_FUNCTION_BLOCK
+   [ ] Closing fence: ```
+   [ ] Total chars >= 1500
+6. REPLY with: EVOLUTION COMPLETE: Next-Gen Heavy-Duty Electric Mining Haul Truck Pantograph Substation
+
+DO NOT APOLOGIZE. DO NOT EXPLAIN. GENERATE CODE AND SAVE IT."""
 
 code = """```iec-st
-FUNCTION_BLOCK FB_LFW_Titanium_Forging_Control
-TITLE = 'Linear Friction Welding (LFW) Controller - Titanium Forging'
-// Handles high-frequency oscillation profiling, hydraulic axial forge load synchronization, 
-// and acoustic emission quality monitoring for aerospace-grade titanium components.
+FUNCTION_BLOCK FB_MiningTruckPantographSubstation
 VAR_INPUT
-    bEnable                 : BOOL; // Enable the LFW process
-    bEmergencyStop          : BOOL; // E-Stop condition
-    rTargetFrequency        : REAL; // Target oscillation frequency (Hz)
-    rTargetAmplitude        : REAL; // Target oscillation amplitude (mm)
-    rForgeForce             : REAL; // Target forge force (kN)
-    rBurnOffDistance        : REAL; // Target burn-off distance (mm)
-    rAcousticEmissionLimit  : REAL; // Maximum allowable acoustic emission threshold
-    rHydraulicPressureIn    : REAL; // Actual hydraulic pressure feedback (Bar)
-    rActuatorPosFeedback    : REAL; // Linear actuator position feedback (mm)
-    rAcousticSensorIn       : REAL; // Acoustic emission sensor input (mV)
-    rSpindleVibration       : REAL; // Spindle vibration monitoring (mm/s)
-END_VAR
-
-VAR_OUTPUT
-    bSystemReady            : BOOL; // System is ready and homed
-    bWeldingActive          : BOOL; // Welding process is currently active
-    bProcessComplete        : BOOL; // Welding process completed successfully
-    bFault                  : BOOL; // Fault condition present
-    iFaultCode              : INT;  // Specific fault code
-    rCurrentOscillation     : REAL; // Current oscillation output reference
-    rCurrentForgeLoad       : REAL; // Current forge load applied (kN)
-    rTotalBurnOff           : REAL; // Measured total burn-off (mm)
-END_VAR
-
-VAR
-    eState                  : INT := 0; // State machine step
-    rOscillatorPhase        : REAL := 0.0;
-    rInitialPosition        : REAL := 0.0;
-    tProcessTimer           : TON;
-    tOscillationRampTimer   : TON;
-    tForgeTimer             : TON;
-    bAcousticFault          : BOOL := FALSE;
-    bHydraulicFault         : BOOL := FALSE;
+    (* System & Safety Constraints *)
+    bEnable             : BOOL;     (* System enable signal *)
+    bEmergencyStop      : BOOL;     (* Safety relay OK signal, normally high *)
+    bLineVoltageOK      : BOOL;     (* Catenary 3kV DC verification relay *)
     
-    // Constants for PID Force Control
-    Kp_Force                : REAL := 2.5;
-    Ki_Force                : REAL := 0.5;
-    Kd_Force                : REAL := 0.1;
-    rForceError             : REAL := 0.0;
-    rForceIntegral          : REAL := 0.0;
-    rForceDerivative        : REAL := 0.0;
-    rLastError              : REAL := 0.0;
+    (* Vehicle Dynamics & Sensors *)
+    rTruckVelocityKmh   : REAL;     (* Truck velocity in km/h *)
+    rDownhillGrade      : REAL;     (* Road gradient % (positive = downhill) *)
+    rPantographForceN   : REAL;     (* Contact force on the pantograph head in Newtons *)
+    
+    (* Vision & Positioning *)
+    bGpsAlignmentOK     : BOOL;     (* Ultra-Wideband & RTK-GPS catenary alignment confirm *)
+    bArcFlashDetected   : BOOL;     (* Optical arc flash sensor input *)
+END_VAR
+VAR_OUTPUT
+    (* System Status *)
+    bSystemReady        : BOOL;     (* System ready status for main VFD drives *)
+    bAlarm              : BOOL;     (* Fault alarm output *)
+    
+    (* Pantograph Actuation *)
+    bPantographDeploy   : BOOL;     (* Command to raise pantograph to catenary *)
+    bArcQuenchActive    : BOOL;     (* Active arc flash quench filter relay engagement *)
+    
+    (* Power Modulation *)
+    rChopperDutyCycle   : REAL;     (* Regenerative braking chopper modulation 0.0-100.0% *)
+    rTargetContactForce : REAL;     (* Dynamic target upward contact force setpoint *)
+END_VAR
+VAR
+    (* Internal State & Timers *)
+    iState              : INT := 0;
+    tDeployTimer        : TON;
+    tArcQuenchTimer     : TON;
+    tAlignDebounce      : TON;
+    
+    (* Filtering & Math *)
+    rFilteredForce      : REAL := 0.0;
+    rForceError         : REAL := 0.0;
+    
+    (* Constants *)
+    MAX_SPEED_KMH       : REAL := 60.0;
+    MIN_SPEED_KMH       : REAL := 5.0;
+    NOMINAL_FORCE_N     : REAL := 150.0;
 END_VAR
 
-// ==============================================================================
-// MAIN CONTROL LOGIC
-// ==============================================================================
+(* === MAIN LOGIC === *)
 
-// Fault Monitoring Task (Runs continuously)
-IF bEmergencyStop THEN
-    eState := 99; // Jump to fault state
-    bFault := TRUE;
-    iFaultCode := 1000; // E-Stop pressed
-ELSIF rAcousticSensorIn > rAcousticEmissionLimit THEN
-    eState := 99;
-    bFault := TRUE;
-    iFaultCode := 1001; // Acoustic emission limit exceeded (Defect detected)
-ELSIF rHydraulicPressureIn < 100.0 AND eState > 1 THEN
-    eState := 99;
-    bFault := TRUE;
-    iFaultCode := 1002; // Loss of hydraulic pressure during cycle
+(* 1. Safety Interlock Evaluation *)
+IF NOT bEmergencyStop OR NOT bLineVoltageOK THEN
+    bSystemReady := FALSE;
+    bPantographDeploy := FALSE;
+    rChopperDutyCycle := 0.0;
+    bArcQuenchActive := FALSE;
+    bAlarm := TRUE;
+    iState := 99; (* Force fault state *)
+    RETURN;
 END_IF;
 
-// Main State Machine for LFW Process
-CASE eState OF
-    0: // Initialization & Ready State
-        bSystemReady := NOT bFault AND rHydraulicPressureIn > 150.0;
-        bWeldingActive := FALSE;
-        bProcessComplete := FALSE;
-        rCurrentOscillation := 0.0;
-        rCurrentForgeLoad := 0.0;
+(* 2. Contact Force Low-Pass Filter (First Order) *)
+(* Mathematically rigorous filtering of pantograph contact pressure *)
+rFilteredForce := rFilteredForce + 0.25 * (rPantographForceN - rFilteredForce);
+
+(* 3. Complex State Machine Execution *)
+CASE iState OF
+    0: (* IDLE & SAFETY CHECK *)
+        bSystemReady := FALSE;
+        bAlarm := FALSE;
+        bPantographDeploy := FALSE;
+        rChopperDutyCycle := 0.0;
         
-        IF bEnable AND bSystemReady THEN
-            rInitialPosition := rActuatorPosFeedback;
-            eState := 1; // Transition to Contact phase
+        IF bEnable AND bEmergencyStop THEN
+            iState := 10;
         END_IF;
         
-    1: // Phase 1: Touchdown & Initial Contact
-        bWeldingActive := TRUE;
-        rCurrentForgeLoad := 5.0; // Apply small contact force
+    10: (* ALIGNMENT & SPEED VALIDATION *)
+        tAlignDebounce(IN := bGpsAlignmentOK, PT := T#2S);
         
-        IF ABS(rHydraulicPressureIn - rCurrentForgeLoad) < 1.0 THEN
-            tProcessTimer(IN := TRUE, PT := T#500ms);
-            IF tProcessTimer.Q THEN
-                tProcessTimer(IN := FALSE);
-                eState := 2; // Transition to Conditioning/Friction phase
+        IF tAlignDebounce.Q AND (rTruckVelocityKmh > MIN_SPEED_KMH) AND (rTruckVelocityKmh < MAX_SPEED_KMH) THEN
+            iState := 20; (* Proceed to dynamic deployment *)
+        ELSIF NOT bEnable THEN
+            iState := 0;
+        END_IF;
+        
+    20: (* PANTOGRAPH ENGAGEMENT (ON-THE-FLY) *)
+        bPantographDeploy := TRUE;
+        tDeployTimer(IN := TRUE, PT := T#5S);
+        
+        (* Calculate dynamic target upward force based on aerodynamics (speed factor) *)
+        rTargetContactForce := NOMINAL_FORCE_N + (rTruckVelocityKmh * 0.45);
+        
+        IF tDeployTimer.Q AND (rFilteredForce > (NOMINAL_FORCE_N * 0.8)) THEN
+            tDeployTimer(IN := FALSE);
+            bSystemReady := TRUE;
+            iState := 30;
+        ELSIF tDeployTimer.Q AND (rFilteredForce <= (NOMINAL_FORCE_N * 0.8)) THEN
+            (* Failed to engage catenary wire within threshold time *)
+            bAlarm := TRUE;
+            iState := 99; 
+        END_IF;
+        
+    30: (* ACTIVE TROLLEY MODE & DYNAMIC REGEN BRAKING CHOPPER MODULATION *)
+        rForceError := rTargetContactForce - rFilteredForce;
+        
+        (* Regenerative braking chopper modulation based on downhill grade and kinetic energy *)
+        IF rDownhillGrade > 2.0 THEN
+            (* Aggressive chopper modulation for heavy downhill regen (0 to 100%) *)
+            rChopperDutyCycle := LIMIT(0.0, (rDownhillGrade - 2.0) * 12.5, 100.0);
+        ELSE
+            rChopperDutyCycle := 0.0;
+        END_IF;
+        
+        (* Active Arc flash detection during active transit & heavy regen *)
+        IF bArcFlashDetected OR (rFilteredForce < 20.0 AND rChopperDutyCycle > 15.0) THEN
+            iState := 40;
+        END_IF;
+        
+        IF NOT bEnable OR NOT bGpsAlignmentOK THEN
+            iState := 0; (* Detach from Catenary *)
+        END_IF;
+        
+    40: (* ACTIVE ARC FLASH QUENCHING FILTERING *)
+        bArcQuenchActive := TRUE;
+        rChopperDutyCycle := 0.0; (* Instantly cut regen current to quench arc *)
+        
+        tArcQuenchTimer(IN := TRUE, PT := T#500MS);
+        
+        IF tArcQuenchTimer.Q THEN
+            tArcQuenchTimer(IN := FALSE);
+            bArcQuenchActive := FALSE;
+            IF rFilteredForce > (NOMINAL_FORCE_N * 0.6) THEN
+                iState := 30; (* Arc successfully quenched, physical contact re-established *)
+            ELSE
+                iState := 0; (* Lost contact entirely, retract safely *)
             END_IF;
         END_IF;
         
-    2: // Phase 2: Friction & Heating (Oscillation active)
-        tOscillationRampTimer(IN := TRUE, PT := T#2s);
+    99: (* FAULT HANDLING & LOCKOUT *)
+        bPantographDeploy := FALSE;
+        rChopperDutyCycle := 0.0;
+        bArcQuenchActive := FALSE;
+        bSystemReady := FALSE;
         
-        // Calculate Ramp Profile for Amplitude
-        IF tOscillationRampTimer.ET < T#2s THEN
-            rCurrentOscillation := (TIME_TO_REAL(tOscillationRampTimer.ET) / 2000.0) * rTargetAmplitude;
-        ELSE
-            rCurrentOscillation := rTargetAmplitude;
-        END_IF;
-        
-        // Oscillation Profile generation (Sine wave simulation for driver)
-        rOscillatorPhase := rOscillatorPhase + (rTargetFrequency * 360.0 * 0.001); // Assuming 1ms cycle time
-        IF rOscillatorPhase >= 360.0 THEN
-            rOscillatorPhase := rOscillatorPhase - 360.0;
-        END_IF;
-        
-        // Maintain Friction Force
-        rForceError := (rForgeForce * 0.5) - rHydraulicPressureIn; // Friction force is 50% of forge force
-        rForceIntegral := rForceIntegral + rForceError;
-        rCurrentForgeLoad := (Kp_Force * rForceError) + (Ki_Force * rForceIntegral);
-        
-        // Monitor Burn-Off
-        rTotalBurnOff := rInitialPosition - rActuatorPosFeedback;
-        
-        IF rTotalBurnOff >= rBurnOffDistance * 0.8 THEN
-            // 80% burn-off reached, transition to Forge phase
-            tOscillationRampTimer(IN := FALSE);
-            eState := 3; 
-        END_IF;
-        
-    3: // Phase 3: Forging (Zero Oscillation, Max Force)
-        rCurrentOscillation := 0.0; // Instantly halt oscillation to align parts
-        rOscillatorPhase := 0.0;
-        
-        // Apply Maximum Forge Force
-        rCurrentForgeLoad := rForgeForce;
-        
-        tForgeTimer(IN := TRUE, PT := T#3s); // Hold forge force for 3 seconds
-        
-        IF tForgeTimer.Q THEN
-            tForgeTimer(IN := FALSE);
-            eState := 4; // Complete
-        END_IF;
-        
-    4: // Phase 4: Completion and Retract
-        bWeldingActive := FALSE;
-        rCurrentForgeLoad := 0.0; // Release pressure
-        bProcessComplete := TRUE;
-        
-        IF NOT bEnable THEN
-            eState := 0; // Reset state machine
-        END_IF;
-        
-    99: // Fault State
-        bWeldingActive := FALSE;
-        rCurrentOscillation := 0.0;
-        rCurrentForgeLoad := 0.0;
-        
-        IF NOT bEnable AND NOT bEmergencyStop THEN
-            bFault := FALSE;
-            iFaultCode := 0;
-            eState := 0;
+        IF NOT bEmergencyStop THEN
+            (* Wait for E-Stop clear or system disable cycle to reset fault *)
+            IF NOT bEnable THEN
+                iState := 0;
+            END_IF;
         END_IF;
         
 END_CASE;
@@ -164,12 +198,15 @@ END_CASE;
 END_FUNCTION_BLOCK
 ```"""
 
-prompt = "You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 data.\nYour specific domain is: Linear Friction Welding (LFW) Machine.\nTask: Invent a highly complex control scenario for this domain (e.g., high-frequency titanium forging oscillation profiling, hydraulic axial forge load synchronization, and acoustic emission quality monitoring).\nWrite a deterministic Structured Text (ST) FUNCTION_BLOCK. Include complete VAR declarations and physical I/O.\n\nCRITICAL RULES:\n1. You MUST output the code enclosed in a ```iec-st markdown code fence. DO NOT APOLOGIZE. DO NOT EXPLAIN.\n2. The code must be >= 1500 chars, with FUNCTION_BLOCK and VAR_INPUT/VAR_OUTPUT."
+record = {
+    "messages": [
+        {"role": "user", "content": prompt},
+        {"role": "assistant", "content": code}
+    ]
+}
 
-os.makedirs("c:/Users/majip/Downloads/LLM REASEARCH/data/swarm_raw", exist_ok=True)
-record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
-filename = f"c:/Users/majip/Downloads/LLM REASEARCH/data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
+filename = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
 with open(filename, "w", encoding="utf-8") as f:
-    json.dump(record, f)
+    json.dump(record, f, ensure_ascii=False)
 
-print("Saved to", filename)
+print(f"Saved to {filename}")

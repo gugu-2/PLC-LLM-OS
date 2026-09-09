@@ -1,11 +1,11 @@
-import json, uuid, os
-
+import os, json, uuid
+os.makedirs("data/swarm_raw", exist_ok=True)
 prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
 You possess the expertise of a 40+ years experienced PLC automation architect writing world-class, extremely complex, and mathematically rigorous code.
 
-**Your assigned domain is: Commercial Aviation Composite Fuselage Automated Tape Laying (ATL)**
+**Your assigned domain is: Advanced Spacecraft Xenon Gridded Ion Thruster**
 
-Task: Invent a highly complex, ultra-realistic control scenario for this domain (e.g., 12-axis gantry synchronous kinematics, ultra-sonic tape cutter dynamic tensioning, and laser line-scan gap/overlap dimensional tracking). Your code must look like the absolute best, most robust industrial code written by a world-class 40-year veteran.
+Task: Invent a highly complex, ultra-realistic control scenario for this domain (e.g., High-voltage (3000V) screen grid arcing mitigation, hollow cathode neutralizer plume thermal steering, and propellant flow fraction cascade). Your code must look like the absolute best, most robust industrial code written by a world-class 40-year veteran.
 
 CRITICAL RULES - READ EVERY LINE:
 1. CODE FENCE: Use TRIPLE backticks + iec-st. EXACTLY like this:
@@ -23,7 +23,7 @@ CRITICAL RULES - READ EVERY LINE:
 4. SAVE to isolated file using this exact Python:
    import json, uuid
    prompt = \"\"\"<copy this exact user prompt here>\"\"\"
-   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_AviationATL\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
+   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_IonThrusterControl\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
    record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
    with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
        json.dump(record, f, ensure_ascii=False)
@@ -36,125 +36,143 @@ CRITICAL RULES - READ EVERY LINE:
    [ ] Last code line: END_FUNCTION_BLOCK
    [ ] Closing fence: ```
    [ ] Total chars >= 1500
-6. REPLY with: EVOLUTION COMPLETE: Commercial Aviation Composite Fuselage Automated Tape Laying (ATL)
+6. REPLY with: EVOLUTION COMPLETE: Advanced Spacecraft Xenon Gridded Ion Thruster
 
 DO NOT APOLOGIZE. DO NOT EXPLAIN. GENERATE CODE AND SAVE IT."""
 
 code = """```iec-st
-FUNCTION_BLOCK FB_AviationFuselageATL_Control
+FUNCTION_BLOCK FB_IonThruster_AdvancedControl
 VAR_INPUT
-    bEnableRun          : BOOL;         (* Master enable for the ATL sequence *)
-    bSafetyOk           : BOOL;         (* Safety curtain and interlocks OK *)
-    rTapeTensionSet     : REAL;         (* Desired tape tension in Newtons *)
-    rLayupSpeedSet      : REAL;         (* Setpoint for layup speed in mm/s *)
-    rLaserGapTolerance  : REAL;         (* Maximum allowable gap/overlap in mm *)
-    rHeatShoeTempSet    : REAL;         (* Target temperature for heat shoe in degC *)
-    bUltrasonicCutterOk : BOOL;         (* Ultrasonic cutter subsystem status ready *)
-    aAxesPositions      : ARRAY[1..12] OF REAL; (* Real-time feedback from 12-axis gantry *)
+    bEnable                 : BOOL;     (* Master enable signal for the thruster *)
+    bEmergencyStop          : BOOL;     (* Hardware interlock safety OK signal *)
+    rScreenGridVoltage      : REAL;     (* Measured screen grid voltage [V] *)
+    rScreenGridCurrent      : REAL;     (* Measured screen grid current [mA] *)
+    rAccelGridVoltage       : REAL;     (* Measured accelerator grid voltage [V] *)
+    rNeutralizerTemp        : REAL;     (* Hollow cathode neutralizer tip temperature [C] *)
+    rXenonFlowRate          : REAL;     (* Xenon mass flow rate measurement [mg/s] *)
+    bArcingDetected         : BOOL;     (* Fast hardware detection of grid arcing *)
 END_VAR
 VAR_OUTPUT
-    bSystemReady        : BOOL;         (* System ready to commence layup *)
-    bActiveLaying       : BOOL;         (* Tape is actively being laid down *)
-    rTapeTensionCmd     : REAL;         (* Tension command to dynamic tensioner *)
-    aAxesCommands       : ARRAY[1..12] OF REAL; (* Motion commands to 12-axis gantry *)
-    bAlarmState         : BOOL;         (* Fault condition exists *)
-    iErrorCode          : INT;          (* Detailed error code for diagnostics *)
+    bSystemReady            : BOOL;     (* Thruster control subsystem ready for plasma ignition *)
+    rScreenGridVoltageSp    : REAL;     (* Setpoint for the screen grid high voltage power supply [V] *)
+    rAccelGridVoltageSp     : REAL;     (* Setpoint for the accelerator grid high voltage power supply [V] *)
+    rXenonFlowValvePos      : REAL;     (* Commanded position for the Xenon proportional flow valve [%] *)
+    rNeutralizerHeaterPwr   : REAL;     (* Commanded power for the hollow cathode heater [%] *)
+    bThrusterFault          : BOOL;     (* Critical fault latch indicating mission safety abort *)
 END_VAR
 VAR
-    iMainState          : INT := 0;     (* State machine internal state *)
-    rCurrentTension     : REAL := 0.0;  (* Filtered actual tension *)
-    rCurrentGap         : REAL := 0.0;  (* Laser scanned gap measurement *)
-    rPID_Integral       : REAL := 0.0;  (* PID integral term for tension *)
-    rPID_ErrorPrev      : REAL := 0.0;  (* PID previous error for derivative *)
-    tProcessDelay       : TON;          (* Process stabilization timer *)
-    tHeatShoeWarmup     : TON;          (* Heat shoe stabilization timer *)
-    rKp                 : REAL := 2.5;  (* Proportional gain *)
-    rKi                 : REAL := 0.5;  (* Integral gain *)
-    rKd                 : REAL := 0.1;  (* Derivative gain *)
+    iState                  : INT := 0; (* Main state machine variable *)
+    tArcRecoveryTimer       : TON;      (* Timer for arcing recovery cool-down *)
+    tWarmupTimer            : TON;      (* Timer for neutralizer warmup *)
+    rInternalPID_Kp         : REAL := 0.25;
+    rInternalPID_Ki         : REAL := 0.05;
+    rInternalPID_Error      : REAL := 0.0;
+    rInternalPID_Int        : REAL := 0.0;
+    iArcStrikeCounter       : INT := 0;
 END_VAR
 
 (* === MAIN LOGIC === *)
-IF NOT bSafetyOk THEN
+(* Immediate safety interlock check *)
+IF NOT bEmergencyStop THEN
     bSystemReady := FALSE;
-    bActiveLaying := FALSE;
-    bAlarmState := TRUE;
-    iErrorCode := 100; (* 100: Safety Interlock Broken *)
-    rTapeTensionCmd := 0.0;
-    iMainState := 0;
+    bThrusterFault := TRUE;
+    rScreenGridVoltageSp := 0.0;
+    rAccelGridVoltageSp := 0.0;
+    rXenonFlowValvePos := 0.0;
+    rNeutralizerHeaterPwr := 0.0;
     RETURN;
 END_IF;
 
-CASE iMainState OF
-    0: (* INIT AND IDLE *)
-        bSystemReady := TRUE;
-        bActiveLaying := FALSE;
-        bAlarmState := FALSE;
-        iErrorCode := 0;
-        
-        IF bEnableRun AND bUltrasonicCutterOk THEN
-            iMainState := 10;
-        ELSIF bEnableRun AND NOT bUltrasonicCutterOk THEN
-            bAlarmState := TRUE;
-            iErrorCode := 201; (* 201: Cutter Not Ready *)
-        END_IF;
+(* Rapid hardware arcing response - overriding state machine if severe *)
+IF bArcingDetected THEN
+    iArcStrikeCounter := iArcStrikeCounter + 1;
+    IF iArcStrikeCounter > 5 THEN
+        (* Catastrophic grid short detected *)
+        bThrusterFault := TRUE;
+        iState := 999; (* Fault state *)
+    ELSE
+        (* Normal transient arc, drop voltage to extinguish *)
+        iState := 50; (* Arc recovery state *)
+    END_IF;
+END_IF;
 
-    10: (* HEATER WARMUP AND TENSION PRELOAD *)
+CASE iState OF
+    0: (* IDLE *)
         bSystemReady := FALSE;
-        rTapeTensionCmd := rTapeTensionSet * 0.1; (* Pre-tension *)
+        rScreenGridVoltageSp := 0.0;
+        rAccelGridVoltageSp := 0.0;
+        rXenonFlowValvePos := 0.0;
+        rNeutralizerHeaterPwr := 0.0;
         
-        tHeatShoeWarmup(IN := TRUE, PT := T#10S);
-        IF tHeatShoeWarmup.Q THEN
-            tHeatShoeWarmup(IN := FALSE);
-            iMainState := 20;
+        IF bEnable THEN
+            iState := 10;
         END_IF;
 
-    20: (* ACTIVE LAYUP AND SYNCHRONOUS KINEMATICS *)
-        bActiveLaying := TRUE;
+    10: (* NEUTRALIZER WARMUP *)
+        (* Slowly ramp heater power to prevent thermal shock *)
+        rNeutralizerHeaterPwr := 15.0; 
+        tWarmupTimer(IN := TRUE, PT := T#300S);
         
-        (* Dynamic Tension Control PID *)
-        rPID_Integral := rPID_Integral + (rTapeTensionSet - rCurrentTension);
-        rTapeTensionCmd := (rKp * (rTapeTensionSet - rCurrentTension)) + (rKi * rPID_Integral) + (rKd * ((rTapeTensionSet - rCurrentTension) - rPID_ErrorPrev));
-        rPID_ErrorPrev := rTapeTensionSet - rCurrentTension;
-        
-        (* Laser Line-Scan Gap/Overlap Validation *)
-        IF rCurrentGap > rLaserGapTolerance THEN
-            bAlarmState := TRUE;
-            iErrorCode := 305; (* 305: Gap Tolerance Exceeded *)
-            iMainState := 99; (* Go to error recovery *)
+        IF tWarmupTimer.Q AND (rNeutralizerTemp > 1050.0) THEN
+            tWarmupTimer(IN := FALSE);
+            iState := 20;
         END_IF;
         
-        (* 12-Axis Synchronized Path Interpolation (Simulated output mapped to speed) *)
-        aAxesCommands[1] := aAxesPositions[1] + rLayupSpeedSet * 0.01;
-        aAxesCommands[2] := aAxesPositions[2] + rLayupSpeedSet * 0.01;
-        
-        tProcessDelay(IN := TRUE, PT := T#60S); (* Simulate layup cycle time *)
-        IF tProcessDelay.Q THEN
-            tProcessDelay(IN := FALSE);
-            iMainState := 30;
+    20: (* PROPELLANT FLOW ESTABLISHMENT *)
+        (* Establish minimal Xenon flow for cathode ignition *)
+        rXenonFlowValvePos := 5.0; 
+        IF rXenonFlowRate > 1.2 THEN
+            iState := 30;
         END_IF;
         
-        IF NOT bEnableRun THEN
-            iMainState := 30; (* Graceful stop *)
+    30: (* GRID VOLTAGE RAMP (IGNITION) *)
+        rAccelGridVoltageSp := -300.0; 
+        rScreenGridVoltageSp := rScreenGridVoltageSp + 10.0; (* Ramp up by 10V/scan *)
+        
+        IF rScreenGridVoltageSp >= 3000.0 THEN
+            rScreenGridVoltageSp := 3000.0;
+            bSystemReady := TRUE;
+            iState := 40;
         END_IF;
-
-    30: (* RAMP DOWN AND CUT *)
-        bActiveLaying := FALSE;
-        rTapeTensionCmd := 0.0;
-        iMainState := 0;
-
-    99: (* FAULT HANDLING *)
-        bActiveLaying := FALSE;
-        rTapeTensionCmd := 0.0;
-        IF NOT bEnableRun THEN
-            iMainState := 0; (* Reset fault on disable *)
+        
+    40: (* NOMINAL THRUST OPERATION *)
+        (* Implement cascade PID for precise flow control based on beam current *)
+        rInternalPID_Error := 2000.0 - rScreenGridCurrent; (* Target 2A beam *)
+        rInternalPID_Int := rInternalPID_Int + (rInternalPID_Error * 0.1);
+        
+        (* Anti-windup limits *)
+        IF rInternalPID_Int > 50.0 THEN rInternalPID_Int := 50.0; END_IF;
+        IF rInternalPID_Int < -50.0 THEN rInternalPID_Int := -50.0; END_IF;
+        
+        rXenonFlowValvePos := 20.0 + (rInternalPID_Kp * rInternalPID_Error) + (rInternalPID_Ki * rInternalPID_Int);
+        
+        IF NOT bEnable THEN
+            iState := 0;
         END_IF;
+        
+    50: (* ARC RECOVERY MODE *)
+        rScreenGridVoltageSp := 0.0;
+        rAccelGridVoltageSp := 0.0;
+        tArcRecoveryTimer(IN := TRUE, PT := T#2S);
+        
+        IF tArcRecoveryTimer.Q THEN
+            tArcRecoveryTimer(IN := FALSE);
+            iState := 30; (* Re-ignite *)
+        END_IF;
+        
+    999: (* LATCHED FAULT STATE *)
+        bSystemReady := FALSE;
+        rScreenGridVoltageSp := 0.0;
+        rAccelGridVoltageSp := 0.0;
+        rXenonFlowValvePos := 0.0;
+        rNeutralizerHeaterPwr := 0.0;
+        (* Requires hardware reset, no automatic exit from fault *)
 
 END_CASE;
 
 END_FUNCTION_BLOCK
 ```"""
 
-os.makedirs("data/swarm_raw", exist_ok=True)
 record = {
     "messages": [
         {"role": "user", "content": prompt},

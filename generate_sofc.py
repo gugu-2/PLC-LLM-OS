@@ -5,7 +5,7 @@ You possess the expertise of a 40+ years experienced PLC automation architect wr
 
 **Your assigned domain is: Utility-Scale Solid Oxide Fuel Cell (SOFC) Co-Generation Plant**
 
-Task: Invent a highly complex, ultra-realistic control scenario for this domain (e.g., natural gas reforming fuel-to-steam ratio cascading, high-temperature (800°C) stack voltage degradation active trimming, and thermal runaway prevention). Your code must look like the absolute best, most robust industrial code written by a world-class 40-year veteran.
+Task: Invent a highly complex, ultra-realistic control scenario for this domain (e.g., 800°C ceramic stack anode/cathode differential pressure tracking, exhaust heat recovery cascade (CHP), and natural gas desulfurization breakthrough detection). Your code must look like the absolute best, most robust industrial code written by a world-class 40-year veteran.
 
 CRITICAL RULES - READ EVERY LINE:
 1. CODE FENCE: Use TRIPLE backticks + iec-st. EXACTLY like this:
@@ -23,9 +23,9 @@ CRITICAL RULES - READ EVERY LINE:
 4. SAVE to isolated file using this exact Python:
    import json, uuid
    prompt = \"\"\"<copy this exact user prompt here>\"\"\"
-   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_SOFC_Plant\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
-   record = {\"messages\": [{\"role\": \"user\", \"content\": prompt}, {\"role\": \"assistant\", \"content\": code}]}
-   with open(f\"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json\", \"w\", encoding=\"utf-8\") as f:
+   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_SOFC_CoGenPlant\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
+   record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
+   with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
        json.dump(record, f, ensure_ascii=False)
 5. SELF-CHECK before saving - verify ALL:
    [ ] Fence is ```iec-st
@@ -41,157 +41,142 @@ CRITICAL RULES - READ EVERY LINE:
 DO NOT APOLOGIZE. DO NOT EXPLAIN. GENERATE CODE AND SAVE IT."""
 
 code = """```iec-st
-FUNCTION_BLOCK FB_SOFC_PlantControl
+FUNCTION_BLOCK FB_SOFC_CoGenPlant
 VAR_INPUT
-    (* System Operation & Safety Signals *)
-    bEnableSystem          : BOOL;     (* Main plant enable signal *)
-    bEmergencyStop         : BOOL;     (* Safety relay OK (TRUE = OK, FALSE = TRIP) *)
-    rPowerDemandKW         : REAL;     (* Grid power demand [kW] *)
-    
-    (* Physical Process Variables *)
-    rStackTempAvg          : REAL;     (* Average stack temperature [deg C] (Target ~ 800) *)
-    rFuelCellVoltage       : REAL;     (* Aggregate stack voltage [VDC] *)
-    rNaturalGasFlow        : REAL;     (* Natural gas inlet mass flow [kg/s] *)
-    rSteamInletFlow        : REAL;     (* Reformer steam inlet mass flow [kg/s] *)
+    bSystemEnable           : BOOL;     (* Main system enable command from master DCS *)
+    bEmergencyStop          : BOOL;     (* Emergency stop safety loop OK (1 = Safe) *)
+    rStackTempActual        : REAL;     (* Ceramic stack temperature [degC], target 800-850 *)
+    rAnodePressure          : REAL;     (* Anode fuel gas pressure [kPa] *)
+    rCathodePressure        : REAL;     (* Cathode air pressure [kPa] *)
+    rFuelFlowActual         : REAL;     (* Natural gas flow rate [kg/h] *)
+    bDesulfurizationOK      : BOOL;     (* Desulfurization breakthrough detection signal (1 = OK) *)
+    rHeatRecoveryTemp       : REAL;     (* CHP exhaust heat recovery inlet temp [degC] *)
 END_VAR
 VAR_OUTPUT
-    (* System Status *)
-    bSystemReady           : BOOL;     (* Plant is ready for grid synchronization *)
-    bCriticalAlarm         : BOOL;     (* High-priority shutdown alarm *)
-    
-    (* Actuator & Converter Commands *)
-    rGasValveCmd           : REAL;     (* Natural gas valve position 0-100% *)
-    rSteamValveCmd         : REAL;     (* Steam valve position 0-100% for S/C ratio *)
-    rStackCurrentRef       : REAL;     (* Reference DC current to inverter [A] *)
-    bThermalBypass         : BOOL;     (* Active thermal runaway mitigation bypass *)
+    bSystemReady            : BOOL;     (* System is ready for load / producing power *)
+    rAnodeValveCmd          : REAL;     (* Control signal for Anode fuel valve 0-100% *)
+    rCathodeBlowerCmd       : REAL;     (* Control signal for Cathode blower VFD 0-100% *)
+    bSafetyTrip             : BOOL;     (* Main safety trip output (trip all fuel) *)
+    bWarningAlarm           : BOOL;     (* Non-critical warning (e.g. slight delta P deviation) *)
+    rCHP_BypassValveCmd     : REAL;     (* Exhaust heat recovery bypass valve 0-100% *)
 END_VAR
 VAR
-    (* Internal State & Memory *)
-    iPlantState            : INT := 0; (* Main State Machine Step *)
-    rTargetGasFlow         : REAL;     (* Derived from Power Demand and efficiency curve *)
-    rDegradationFactor     : REAL := 1.0; (* Voltage degradation trim / aging compensation *)
+    iStateMachine           : INT := 0; (* Internal state logic step for sequence control *)
+    tStartupTimer           : TON;      (* Heat up timer for purging and preheating phases *)
+    tTripTimer              : TON;      (* Trip delay timer for delta pressure anomaly *)
+    rDeltaPressure          : REAL;     (* Computed Anode/Cathode diff pressure *)
+    rTempError              : REAL;     (* Temperature tracking error versus target *)
     
-    (* Timers *)
-    tWarmupTimer           : TON;
+    (* Internal tuning constants *)
+    rMAX_DELTA_P            : REAL := 5.0;  (* Maximum allowed diff pressure [kPa] before trip *)
+    rTARGET_TEMP            : REAL := 825.0;(* Target operating temp [degC] for ceramic stack *)
 END_VAR
 
 (* === MAIN SAFETY INTERLOCKS === *)
-IF NOT bEmergencyStop THEN
-    iPlantState := 999; (* FAULT STATE *)
+(* Immediate hardware protection loop overrides all other states *)
+IF NOT bEmergencyStop OR NOT bDesulfurizationOK THEN
+    bSafetyTrip := TRUE;
     bSystemReady := FALSE;
-    rGasValveCmd := 0.0;
-    rSteamValveCmd := 100.0; (* Maximum steam flow for aggressive purge and cooling *)
-    rStackCurrentRef := 0.0;
-    bThermalBypass := TRUE;
-    bCriticalAlarm := TRUE;
+    rAnodeValveCmd := 0.0;
+    rCathodeBlowerCmd := 10.0; (* Maintain slight purge flow on shutdown to prevent explosive mixtures *)
+    iStateMachine := 999; (* Transition to TRIPPED FAULT STATE *)
     RETURN;
 END_IF;
 
-(* High-Temperature / Thermal Runaway Prevention *)
-(* SOFCs typically operate around 800C. Exceeding 850C risks irreversible cell damage. *)
-IF rStackTempAvg > 850.0 THEN
-    bThermalBypass := TRUE;
-    bCriticalAlarm := TRUE;
-    (* Immediately shed load to reduce exothermic I2R heating effects *)
-    rStackCurrentRef := 0.0;
-    iPlantState := 900; (* Enter controlled cooldown sequence *)
+(* === CONTINUOUS DIAGNOSTICS & CALCULATIONS === *)
+(* Compute the differential pressure across the solid oxide membrane *)
+rDeltaPressure := ABS(rAnodePressure - rCathodePressure);
+
+(* If delta pressure exceeds critical threshold, start the trip timer to filter noise *)
+IF rDeltaPressure > rMAX_DELTA_P THEN
+    tTripTimer(IN := TRUE, PT := T#2S);
 ELSE
-    bThermalBypass := FALSE;
-    bCriticalAlarm := FALSE;
+    tTripTimer(IN := FALSE);
 END_IF;
 
-(* Voltage degradation tracking & active trimming *)
-(* As stack ages, nominal voltage drops; this compensates the fuel demand dynamically. *)
-IF iPlantState = 40 THEN
-    IF rFuelCellVoltage < 950.0 AND rFuelCellVoltage > 500.0 THEN
-        rDegradationFactor := 950.0 / rFuelCellVoltage;
-    ELSE
-        rDegradationFactor := 1.0;
-    END_IF;
+IF tTripTimer.Q THEN
+    bSafetyTrip := TRUE;
+    iStateMachine := 999; (* Critical failure: Overpressure on ceramic plates *)
 END_IF;
 
-(* === MAIN PLANT CONTROL STATE MACHINE === *)
-CASE iPlantState OF
-    0: (* OFF / STANDBY STATE *)
+(* Early warning for operators if delta P is drifting high *)
+IF rDeltaPressure > (rMAX_DELTA_P * 0.75) THEN
+    bWarningAlarm := TRUE;
+ELSE
+    bWarningAlarm := FALSE;
+END_IF;
+
+(* === MAIN OPERATIONAL STATE MACHINE === *)
+CASE iStateMachine OF
+    0: (* IDLE / OFF / DE-ENERGIZED *)
         bSystemReady := FALSE;
-        rGasValveCmd := 0.0;
-        rSteamValveCmd := 0.0;
-        rStackCurrentRef := 0.0;
-        IF bEnableSystem AND bEmergencyStop THEN
-            iPlantState := 10;
-        END_IF;
-
-    10: (* COLD PURGE AND INITIAL WARMUP *)
-        (* Prevent anode oxidation by displacing air with steam *)
-        rSteamValveCmd := 30.0; 
-        rGasValveCmd := 0.0;
-        tWarmupTimer(IN := TRUE, PT := T#10M);
-        IF tWarmupTimer.Q AND rStackTempAvg > 300.0 THEN
-            tWarmupTimer(IN := FALSE);
-            iPlantState := 20;
-        END_IF;
-
-    20: (* REFORMER LIGHT-OFF & THERMAL RAMP *)
-        (* Gradually increase gas and steam maintaining minimum Steam-to-Carbon ratio > 2.5 *)
-        rGasValveCmd := 10.0;
-        rSteamValveCmd := 40.0;
-        (* Wait until minimum operating temperature is reached before drawing current *)
-        IF rStackTempAvg >= 750.0 THEN
-            iPlantState := 30;
+        rAnodeValveCmd := 0.0;
+        rCathodeBlowerCmd := 0.0;
+        rCHP_BypassValveCmd := 100.0; (* Full bypass to exhaust stack when idle *)
+        
+        IF bSystemEnable AND NOT bSafetyTrip THEN
+            iStateMachine := 10;
         END_IF;
         
-    30: (* OPEN CIRCUIT VOLTAGE (OCV) VERIFICATION *)
-        (* Confirm stack health via expected Nernst potential *)
-        IF rFuelCellVoltage > 980.0 THEN
-            bSystemReady := TRUE;
-            iPlantState := 40;
-        END_IF;
-
-    40: (* STEADY-STATE POWER GENERATION *)
-        (* 1. Fuel demand cascading control based on load and degradation *)
-        rTargetGasFlow := rPowerDemandKW * 0.015 * rDegradationFactor;
+    10: (* PURGE AND PRE-HEAT CYCLE *)
+        rCathodeBlowerCmd := 30.0; (* Establish base air flow for initial thermal equilibrium *)
+        rAnodeValveCmd := 0.0;
+        tStartupTimer(IN := TRUE, PT := T#60S); (* Simulated long preheat cycle for ceramics *)
         
-        IF (rTargetGasFlow / 100.0) * 100.0 > 100.0 THEN
-            rGasValveCmd := 100.0;
+        IF tStartupTimer.Q THEN
+            tStartupTimer(IN := FALSE);
+            iStateMachine := 20;
+        END_IF;
+        
+    20: (* RAMP TO THERMAL OPERATING TEMPERATURE *)
+        (* Cathode air serves as primary heat transfer medium initially during ramp up *)
+        rCathodeBlowerCmd := 50.0;
+        (* Introduce fuel cautiously to prevent thermal shock *)
+        rAnodeValveCmd := 15.0;
+        
+        IF rStackTempActual >= 750.0 THEN
+            iStateMachine := 30;
+        END_IF;
+        
+    30: (* NOMINAL POWER GENERATION AND CHP CONTROL (STEADY STATE) *)
+        bSystemReady := TRUE;
+        
+        (* Proportional temperature control cascade mockup *)
+        rTempError := rTARGET_TEMP - rStackTempActual;
+        rAnodeValveCmd := 50.0 + (rTempError * 0.25);
+        
+        (* Actuator limits *)
+        IF rAnodeValveCmd > 100.0 THEN rAnodeValveCmd := 100.0; END_IF;
+        IF rAnodeValveCmd < 20.0 THEN rAnodeValveCmd := 20.0; END_IF;
+        
+        (* Differential pressure control - dynamically slave cathode to anode *)
+        rCathodeBlowerCmd := rAnodeValveCmd * 1.05; 
+        IF rCathodeBlowerCmd > 100.0 THEN rCathodeBlowerCmd := 100.0; END_IF;
+        
+        (* Heat Recovery / Co-Generation Cascade Loop *)
+        IF rHeatRecoveryTemp < 150.0 THEN
+            rCHP_BypassValveCmd := 0.0; (* All waste heat routed to recovery exchanger *)
+        ELSIF rHeatRecoveryTemp > 250.0 THEN
+            rCHP_BypassValveCmd := 100.0; (* Dump heat to exhaust to protect thermal loop *)
         ELSE
-            IF (rTargetGasFlow / 100.0) * 100.0 < 0.0 THEN
-                rGasValveCmd := 0.0;
-            ELSE
-                rGasValveCmd := (rTargetGasFlow / 100.0) * 100.0;
-            END_IF;
+            (* Proportional modulation of the bypass valve for CHP regulation *)
+            rCHP_BypassValveCmd := (rHeatRecoveryTemp - 150.0) * 1.0; 
         END_IF;
         
-        (* 2. Steam mass flow regulation to prevent carbon coking *)
-        (* Maintain nominal S/C ratio of 2.8 *)
-        IF rGasValveCmd * 2.8 > 100.0 THEN
-            rSteamValveCmd := 100.0;
-        ELSE
-            rSteamValveCmd := rGasValveCmd * 2.8;
+        IF NOT bSystemEnable THEN
+            iStateMachine := 0; (* Graceful shutdown requested *)
         END_IF;
         
-        (* 3. Inverter current reference derived from power equation (P = V*I) *)
-        IF rFuelCellVoltage > 0.0 THEN
-            rStackCurrentRef := (rPowerDemandKW * 1000.0) / rFuelCellVoltage; 
+    999: (* FAULT HANDLING AND LATCHING *)
+        bSystemReady := FALSE;
+        IF NOT bEmergencyStop THEN
+            (* Wait for manual hardware reset of the physical estop circuit *)
+            bSafetyTrip := FALSE;
         END_IF;
-
-        IF NOT bEnableSystem THEN
-            iPlantState := 900; (* Operator requested shutdown *)
-        END_IF;
-
-    900: (* CONTROLLED COOLDOWN SEQUENCE *)
-        rStackCurrentRef := 0.0;
-        rGasValveCmd := 0.0;
-        (* Maintain base steam flow to prevent oxidation during temp decay *)
-        rSteamValveCmd := 20.0; 
-        IF rStackTempAvg < 150.0 THEN
-            iPlantState := 0;
-        END_IF;
-
-    999: (* FAULT LOCKOUT *)
-        (* Waiting for manual reset via bEmergencyStop rising edge combined with toggle *)
-        IF bEmergencyStop AND NOT bEnableSystem THEN
-            iPlantState := 0;
-            bCriticalAlarm := FALSE;
+        
+        (* Require toggle of system enable to clear state machine fault *)
+        IF bSystemEnable = FALSE AND bSafetyTrip = FALSE THEN
+            iStateMachine := 0;
         END_IF;
         
 END_CASE;
@@ -199,16 +184,14 @@ END_CASE;
 END_FUNCTION_BLOCK
 ```"""
 
+os.makedirs("data/swarm_raw", exist_ok=True)
+filename = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
 record = {
-    'messages': [
-        {'role': 'user', 'content': prompt},
-        {'role': 'assistant', 'content': code}
+    "messages": [
+        {"role": "user", "content": prompt},
+        {"role": "assistant", "content": code}
     ]
 }
-
-os.makedirs('data/swarm_raw', exist_ok=True)
-filename = f'data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json'
-with open(filename, 'w', encoding='utf-8') as f:
-    json.dump(record, f, ensure_ascii=False, indent=2)
-
-print(f'Saved to {filename}')
+with open(filename, "w", encoding="utf-8") as f:
+    json.dump(record, f, ensure_ascii=False)
+print(f"Saved to {filename}")

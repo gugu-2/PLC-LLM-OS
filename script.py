@@ -1,11 +1,11 @@
-import json, uuid, os
-os.makedirs("data/swarm_raw", exist_ok=True)
+import os, json, uuid
+
 prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
 You possess the expertise of a 40+ years experienced PLC automation architect writing world-class, extremely complex, and mathematically rigorous code.
 
-**Your assigned domain is: Advanced Biopharmaceutical Monoclonal Antibody (mAb) Chromatography Skids**
+**Your assigned domain is: High-Speed Magnetic Levitation (Maglev) Vacuum Tube Hyperloop**
 
-Task: Invent a highly complex, ultra-realistic control scenario for this domain (e.g., UV absorbance rapid peak cutting logic, multi-column counter-current solvent gradient mixing, and precise isocratic flow buffering cascades). Your code must look like the absolute best, most robust industrial code written by a world-class 40-year veteran.
+Task: Invent a highly complex, ultra-realistic control scenario for this domain (e.g., 1200km/h aerodynamic choke point mitigation, active superconducting levitation null-flux mapping, and sub-millisecond linear synchronous motor (LSM) block switching). Your code must look like the absolute best, most robust industrial code written by a world-class 40-year veteran.
 
 CRITICAL RULES - READ EVERY LINE:
 1. CODE FENCE: Use TRIPLE backticks + iec-st. EXACTLY like this:
@@ -23,7 +23,7 @@ CRITICAL RULES - READ EVERY LINE:
 4. SAVE to isolated file using this exact Python:
    import json, uuid
    prompt = \"\"\"<copy this exact user prompt here>\"\"\"
-   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_mAbChromatography\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
+   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_HyperloopMaglevControl\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
    record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
    with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
        json.dump(record, f, ensure_ascii=False)
@@ -36,186 +36,156 @@ CRITICAL RULES - READ EVERY LINE:
    [ ] Last code line: END_FUNCTION_BLOCK
    [ ] Closing fence: ```
    [ ] Total chars >= 1500
-6. REPLY with: EVOLUTION COMPLETE: Advanced Biopharmaceutical Monoclonal Antibody (mAb) Chromatography Skids
+6. REPLY with: EVOLUTION COMPLETE: High-Speed Magnetic Levitation (Maglev) Vacuum Tube Hyperloop
 
 DO NOT APOLOGIZE. DO NOT EXPLAIN. GENERATE CODE AND SAVE IT."""
 
 code = """```iec-st
-FUNCTION_BLOCK FB_MAbChromatographySkidControl
-(*
-    Advanced Biopharmaceutical Monoclonal Antibody (mAb) Chromatography Skids Control Block
-    Author: Lumina AI Cloud Swarm
-    Description: 
-    Implements extremely complex, mathematically rigorous control for UV absorbance rapid peak cutting, 
-    multi-column counter-current solvent gradient mixing, and precise isocratic flow buffering cascades.
-    Provides sub-millisecond precision gradient control with adaptive UV-threshold switching.
-*)
+FUNCTION_BLOCK FB_HyperloopMaglevControl
 VAR_INPUT
-    bSystemEnable           : BOOL;     (* Global Enable for Chromatography Skid *)
-    bEmergencyStop          : BOOL;     (* Safety Interlock: Immediate Hardware Stop *)
-    rUV_Absorbance_AU       : REAL;     (* Process UV Absorbance [AU] at 280nm *)
-    rFlowRate_LPM           : REAL;     (* Master flow rate setpoint [L/min] *)
-    rTargetConductivity_mS  : REAL;     (* Target conductivity for gradient [mS/cm] *)
-    rCurrentConductivity_mS : REAL;     (* Process Conductivity [mS/cm] *)
-    bStartGradient          : BOOL;     (* Trigger for starting multi-column gradient *)
-    iOperationMode          : INT;      (* 0 = Idle, 1 = Equilibration, 2 = Load, 3 = Wash, 4 = Elution *)
+    bSystemEnable           : BOOL;     (* Main hyperloop drive and levitation enable *)
+    bEmergencyStop          : BOOL;     (* Safety loop interlock signal (active HIGH = OK) *)
+    rTubePressure           : REAL;     (* Current vacuum tube pressure in Pascals *)
+    rPodVelocity            : REAL;     (* Instantaneous pod velocity in m/s *)
+    rPodPosition            : REAL;     (* Absolute position in the tube in meters *)
+    rLevitationGap_FL       : REAL;     (* Front-Left levitation gap in mm *)
+    rLevitationGap_FR       : REAL;     (* Front-Right levitation gap in mm *)
+    rLevitationGap_RL       : REAL;     (* Rear-Left levitation gap in mm *)
+    rLevitationGap_RR       : REAL;     (* Rear-Right levitation gap in mm *)
+    rSuperconductorTemp     : REAL;     (* Highest superconductor temperature in Kelvin *)
 END_VAR
-
 VAR_OUTPUT
-    bSystemReady            : BOOL;     (* True when skid is primed and ready *)
-    bPeakDetected           : BOOL;     (* True when Product Peak is being collected *)
-    rPumpASpeed_Pct         : REAL;     (* Pump A speed control output 0.0 - 100.0% *)
-    rPumpBSpeed_Pct         : REAL;     (* Pump B speed control output 0.0 - 100.0% *)
-    bValveProductCollect    : BOOL;     (* High when product should be diverted to collection vessel *)
-    bValveWaste             : BOOL;     (* High when flow should be diverted to waste *)
-    bAlarmState             : BOOL;     (* True on Critical System Fault *)
-    iActiveStep             : INT;      (* Current Sequence Step *)
+    bSystemReady            : BOOL;     (* Drive and levitation systems nominal and ready *)
+    bPropulsionActive       : BOOL;     (* LSM propulsion is currently active *)
+    rRequestedThrust        : REAL;     (* Force command to LSM in Newtons *)
+    rLevitationCurrent_FL   : REAL;     (* Active null-flux coil current FL in Amps *)
+    rLevitationCurrent_FR   : REAL;     (* Active null-flux coil current FR in Amps *)
+    rLevitationCurrent_RL   : REAL;     (* Active null-flux coil current RL in Amps *)
+    rLevitationCurrent_RR   : REAL;     (* Active null-flux coil current RR in Amps *)
+    bCriticalAlarm          : BOOL;     (* Critical fault requiring immediate pod braking *)
+    iAlarmCode              : INT;      (* Diagnostics code for fault classification *)
 END_VAR
-
 VAR
-    (* Internal State and Timers *)
-    iState                  : INT := 0; 
-    tEquilibrationTimer     : TON;
-    tGradientTimer          : TON;
-    tPeakDwellTimer         : TON;
-    
-    (* Internal Calculations and Memory *)
-    rDerivativeUV           : REAL := 0.0;
-    rPreviousUV             : REAL := 0.0;
-    rIntegralConductivity   : REAL := 0.0;
-    rErrorConductivity      : REAL := 0.0;
-    rGradientProgress       : REAL := 0.0;
-    
-    (* PI Controller Constants for Buffer Mixing *)
-    rKp                     : REAL := 1.25;
-    rKi                     : REAL := 0.15;
-    
-    (* Peak Cutting Parameters *)
-    rUVStartThreshold       : REAL := 0.25;  (* AU threshold to start collection *)
-    rUVStopThreshold        : REAL := 0.10;  (* AU threshold to stop collection *)
-    bInPeak                 : BOOL := FALSE;
+    iStateMachine           : INT := 0;
+    rTargetVelocity         : REAL := 333.33; (* Nominal cruise 1200 km/h in m/s *)
+    rMaxTubePressure        : REAL := 100.0;  (* Max allowable tube pressure in Pa *)
+    rMaxSuperTemp           : REAL := 77.0;   (* Liquid nitrogen boiling point K *)
+    rNominalGap             : REAL := 15.0;   (* Target levitation gap in mm *)
+    rKp_Gap                 : REAL := 50.0;
+    rKd_Gap                 : REAL := 10.0;
+    rPrevGap_FL             : REAL := 15.0;
+    rPrevGap_FR             : REAL := 15.0;
+    rPrevGap_RL             : REAL := 15.0;
+    rPrevGap_RR             : REAL := 15.0;
+    tChokeTimer             : TON;
+    bAerodynamicChoke       : BOOL := FALSE;
 END_VAR
 
-(* === MAIN LOGIC === *)
-(* 1. Safety and Interlock Checks *)
+(* === MAIN SAFETY INTERLOCKS === *)
 IF NOT bEmergencyStop THEN
-    bSystemReady            := FALSE;
-    bValveProductCollect    := FALSE;
-    bValveWaste             := TRUE;
-    rPumpASpeed_Pct         := 0.0;
-    rPumpBSpeed_Pct         := 0.0;
-    bAlarmState             := TRUE;
-    iActiveStep             := -1;
+    bSystemReady := FALSE;
+    bPropulsionActive := FALSE;
+    rRequestedThrust := -100000.0; (* Maximum regenerative/eddy current braking *)
+    bCriticalAlarm := TRUE;
+    iAlarmCode := 100; (* E-STOP *)
     RETURN;
 END_IF;
 
-IF NOT bSystemEnable THEN
-    iState := 0;
+IF rTubePressure > rMaxTubePressure THEN
+    bCriticalAlarm := TRUE;
+    iAlarmCode := 101; (* Loss of vacuum *)
+    rRequestedThrust := -80000.0;
+    RETURN;
 END_IF;
 
-bAlarmState := FALSE;
+IF rSuperconductorTemp > rMaxSuperTemp THEN
+    bCriticalAlarm := TRUE;
+    iAlarmCode := 102; (* Quench detected *)
+    rRequestedThrust := -100000.0;
+    RETURN;
+END_IF;
 
-(* 2. UV Signal Processing & Derivative Calculation for Peak Inflection Detection *)
-rDerivativeUV := rUV_Absorbance_AU - rPreviousUV;
-rPreviousUV := rUV_Absorbance_AU;
+(* === ACTIVE NULL-FLUX LEVITATION CONTROL === *)
+(* PID-based regulation of active levitation coils to maintain optimal gap *)
+rLevitationCurrent_FL := (rNominalGap - rLevitationGap_FL) * rKp_Gap + (rPrevGap_FL - rLevitationGap_FL) * rKd_Gap;
+rLevitationCurrent_FR := (rNominalGap - rLevitationGap_FR) * rKp_Gap + (rPrevGap_FR - rLevitationGap_FR) * rKd_Gap;
+rLevitationCurrent_RL := (rNominalGap - rLevitationGap_RL) * rKp_Gap + (rPrevGap_RL - rLevitationGap_RL) * rKd_Gap;
+rLevitationCurrent_RR := (rNominalGap - rLevitationGap_RR) * rKp_Gap + (rPrevGap_RR - rLevitationGap_RR) * rKd_Gap;
 
-(* Peak Collection Logic with Hysteresis *)
-IF iOperationMode = 4 THEN (* Elution Phase *)
-    IF NOT bInPeak AND (rUV_Absorbance_AU > rUVStartThreshold) AND (rDerivativeUV > 0.0) THEN
-        bInPeak := TRUE;
-    ELSIF bInPeak AND (rUV_Absorbance_AU < rUVStopThreshold) AND (rDerivativeUV <= 0.0) THEN
-        bInPeak := FALSE;
+rPrevGap_FL := rLevitationGap_FL;
+rPrevGap_FR := rLevitationGap_FR;
+rPrevGap_RL := rLevitationGap_RL;
+rPrevGap_RR := rLevitationGap_RR;
+
+(* === AERODYNAMIC CHOKE POINT MITIGATION === *)
+(* Kantrowitz limit avoidance near 1200km/h depending on tube geometry and local pressure *)
+IF (rPodVelocity > 300.0) AND (rTubePressure > 50.0) THEN
+    tChokeTimer(IN := TRUE, PT := T#50MS);
+    IF tChokeTimer.Q THEN
+        bAerodynamicChoke := TRUE;
     END_IF;
 ELSE
-    bInPeak := FALSE;
+    tChokeTimer(IN := FALSE);
+    bAerodynamicChoke := FALSE;
 END_IF;
 
-bPeakDetected := bInPeak;
-
-(* 3. State Machine for Chromatography Phases *)
-CASE iState OF
-    0: (* IDLE *)
+(* === LINEAR SYNCHRONOUS MOTOR (LSM) STATE MACHINE === *)
+CASE iStateMachine OF
+    0: (* IDLE & SYSTEM CHECKS *)
         bSystemReady := TRUE;
-        rPumpASpeed_Pct := 0.0;
-        rPumpBSpeed_Pct := 0.0;
-        bValveProductCollect := FALSE;
-        bValveWaste := TRUE;
-        rIntegralConductivity := 0.0;
-        
-        IF bSystemEnable AND (iOperationMode = 1) THEN
-            iState := 10;
+        bPropulsionActive := FALSE;
+        rRequestedThrust := 0.0;
+        IF bSystemEnable THEN
+            iStateMachine := 10;
         END_IF;
         
-    10: (* EQUILIBRATION - Isocratic Flow *)
-        bSystemReady := FALSE;
-        rPumpASpeed_Pct := 100.0; (* 100% Buffer A *)
-        rPumpBSpeed_Pct := 0.0;
-        
-        tEquilibrationTimer(IN := TRUE, PT := T#5M);
-        
-        IF tEquilibrationTimer.Q THEN
-            tEquilibrationTimer(IN := FALSE);
-            IF iOperationMode = 2 THEN
-                iState := 20;
-            END_IF;
-        END_IF;
-        
-    20: (* LOAD - Application of mAb onto Column *)
-        rPumpASpeed_Pct := 80.0;
-        rPumpBSpeed_Pct := 20.0; (* Some feed additive if required *)
-        
-        IF iOperationMode = 3 THEN
-            iState := 30;
-        END_IF;
-        
-    30: (* WASH *)
-        rPumpASpeed_Pct := 100.0;
-        rPumpBSpeed_Pct := 0.0;
-        
-        IF iOperationMode = 4 THEN
-            iState := 40;
-        END_IF;
-        
-    40: (* ELUTION - Multi-column Counter-Current Solvent Gradient Mixing *)
-        (* Closed loop PI conductivity control to execute linear gradient *)
-        rErrorConductivity := rTargetConductivity_mS - rCurrentConductivity_mS;
-        rIntegralConductivity := rIntegralConductivity + rErrorConductivity * 0.1; (* 100ms cycle presumed *)
-        
-        rGradientProgress := (rKp * rErrorConductivity) + (rKi * rIntegralConductivity);
-        
-        (* Saturate Gradient Output 0 to 100 *)
-        IF rGradientProgress > 100.0 THEN
-            rGradientProgress := 100.0;
-        ELSIF rGradientProgress < 0.0 THEN
-            rGradientProgress := 0.0;
-        END_IF;
-        
-        (* Apply to Pumps - Cross ratio mixing *)
-        rPumpBSpeed_Pct := rGradientProgress;
-        rPumpASpeed_Pct := 100.0 - rGradientProgress;
-        
-        (* Peak Cutting Actuation *)
-        IF bInPeak THEN
-            bValveProductCollect := TRUE;
-            bValveWaste := FALSE;
+    10: (* ACCELERATION *)
+        bPropulsionActive := TRUE;
+        IF rPodVelocity < rTargetVelocity THEN
+            rRequestedThrust := 50000.0; (* 50kN nominal thrust *)
         ELSE
-            bValveProductCollect := FALSE;
-            bValveWaste := TRUE;
+            iStateMachine := 20;
         END_IF;
         
-        IF iOperationMode = 0 THEN
-            iState := 0;
+        IF bAerodynamicChoke THEN
+            rRequestedThrust := 10000.0; (* Reduce thrust to pass Kantrowitz limit gently *)
+        END_IF;
+        
+    20: (* CRUISE *)
+        bPropulsionActive := TRUE;
+        (* Simple P-controller for cruise speed *)
+        rRequestedThrust := (rTargetVelocity - rPodVelocity) * 200.0;
+        
+        (* If we need to decelerate based on absolute position (e.g. approaching station) *)
+        IF rPodPosition > 800000.0 THEN (* 800 km mark *)
+            iStateMachine := 30;
+        END_IF;
+        
+    30: (* DECELERATION *)
+        bPropulsionActive := TRUE;
+        rRequestedThrust := -40000.0;
+        IF rPodVelocity < 10.0 THEN
+            iStateMachine := 0;
+            bSystemEnable := FALSE;
         END_IF;
         
     ELSE
-        iState := 0; (* Fallback *)
+        iStateMachine := 0;
 END_CASE;
-
-iActiveStep := iState;
 
 END_FUNCTION_BLOCK
 ```"""
 
-record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
-with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
+os.makedirs("data/swarm_raw", exist_ok=True)
+record = {
+    "messages": [
+        {"role": "user", "content": prompt},
+        {"role": "assistant", "content": code}
+    ]
+}
+
+filename = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
+with open(filename, "w", encoding="utf-8") as f:
     json.dump(record, f, ensure_ascii=False)
+
+print(f"Saved to {filename}")
