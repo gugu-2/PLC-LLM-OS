@@ -71,8 +71,11 @@ REFUSAL_PHRASES = [
     "safety guidelines", "i cannot", "not able to provide actionable"
 ]
 
-FB_PATTERN    = re.compile(r'\bFUNCTION_BLOCK\b', re.IGNORECASE)
-LOGIC_PATTERN = re.compile(r'\bEND_IF\b|\bEND_CASE\b', re.IGNORECASE)
+FB_PATTERN          = re.compile(r'\bFUNCTION_BLOCK\b', re.IGNORECASE)
+END_FB_PATTERN      = re.compile(r'\bEND_FUNCTION_BLOCK\b', re.IGNORECASE)
+LOGIC_PATTERN       = re.compile(r'\bEND_IF\b|\bEND_CASE\b', re.IGNORECASE)
+VAR_INPUT_PATTERN   = re.compile(r'\bVAR_INPUT\b', re.IGNORECASE)
+VAR_OUTPUT_PATTERN  = re.compile(r'\bVAR_OUTPUT\b', re.IGNORECASE)
 
 
 def load_and_filter(filepath: Path, source_name: str) -> list:
@@ -123,8 +126,35 @@ def load_and_filter(filepath: Path, source_name: str) -> list:
                 continue
 
             # Skip records missing core IEC structure
-            if not FB_PATTERN.search(assistant_content) and not LOGIC_PATTERN.search(assistant_content):
+            fb_count = len(FB_PATTERN.findall(assistant_content))
+            
+            # FIX: Reject double FUNCTION_BLOCK declarations (structural bug ~10% of files)
+            if fb_count > 1:
                 skipped += 1
+                logger.debug(f"    SKIP (double-FB bug): {filepath.name}")
+                continue
+            
+            # Reject records with zero FUNCTION_BLOCKs
+            if fb_count == 0:
+                skipped += 1
+                continue
+
+            # Enforce all 5 mandatory IEC 61131-3 elements
+            if not END_FB_PATTERN.search(assistant_content):
+                skipped += 1
+                logger.debug(f"    SKIP (missing END_FUNCTION_BLOCK): {filepath.name}")
+                continue
+            if not VAR_INPUT_PATTERN.search(assistant_content):
+                skipped += 1
+                logger.debug(f"    SKIP (missing VAR_INPUT): {filepath.name}")
+                continue
+            if not VAR_OUTPUT_PATTERN.search(assistant_content):
+                skipped += 1
+                logger.debug(f"    SKIP (missing VAR_OUTPUT): {filepath.name}")
+                continue
+            if not LOGIC_PATTERN.search(assistant_content):
+                skipped += 1
+                logger.debug(f"    SKIP (missing END_IF/END_CASE): {filepath.name}")
                 continue
 
             # Normalize prompt instructions (GAP-001/ARCH-003)
@@ -161,13 +191,14 @@ def load_and_filter(filepath: Path, source_name: str) -> list:
 
 
 def deduplicate(records: list) -> list:
-    """Remove exact duplicates based on first 400 chars of assistant content."""
+    """Remove exact duplicates based on full SHA-256 hash of assistant content."""
     seen = set()
     unique = []
     dupes = 0
     for rec in records:
         content = rec["messages"][1]["content"]
-        h = hashlib.sha256(content[:400].encode()).hexdigest()
+        # Use full content hash for accurate deduplication (upgraded from 400-char prefix)
+        h = hashlib.sha256(content.encode()).hexdigest()
         if h in seen:
             dupes += 1
             continue

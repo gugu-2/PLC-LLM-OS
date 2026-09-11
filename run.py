@@ -1,157 +1,201 @@
-﻿import os
-import json
+﻿import json
 import uuid
+import os
 
-prompt = '''You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
+prompt = """<USER_REQUEST>
+You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
 You possess the expertise of a 40+ years experienced PLC automation architect writing world-class, extremely complex, mathematically rigorous, and structurally flawless code. Your logic must include advanced PID/state-machine resilience, multi-layered safety interlocks, and sensor noise filtering. Output the most elite, realistic IEC 61131-3 Structured Text imaginable.
 
-**Your assigned domain is: Next-Gen Extreme Environment Deep Borehole Seismometer Array**
+**Your assigned domain is: Next-Gen Hypersonic Wind Tunnel Blowdown Facility**
 
-Task: Invent a highly complex, ultra-realistic control scenario for this domain (e.g., 20km depth 300°C piezoelectric sensor drift compensation, armored fiber-optic telemetry Bragg grating interrogation, and mud-pulse acoustic decoupling). Your code must look like the absolute best, most robust industrial code written by a world-class 40-year veteran.'''
+Task: Invent a highly complex, ultra-realistic control scenario for this domain (e.g., Mach 10 contoured nozzle variable geometry throat actuation, high-enthalpy arc heater power stabilization, and pebble bed thermal storage mass flow modulation). Your code must look like the absolute best, most robust industrial code written by a world-class 40-year veteran.
 
-code = '''`iec-st
-FUNCTION_BLOCK FB_DeepBoreholeSeismometer
+CRITICAL RULES - READ EVERY LINE:
+1. CODE FENCE: Use TRIPLE backticks + iec-st. EXACTLY like this:
+   `iec-st
+   (your code here)
+   `
+   NEVER use a single backtick iec-st. ALWAYS use triple backticks.
+2. REQUIRED IEC 61131-3 STRUCTURE (all 5 mandatory):
+   a. FUNCTION_BLOCK FB_<Name>   <- first line of code, always
+   b. VAR_INPUT ... END_VAR      <- min 4 typed inputs with comments
+   c. VAR_OUTPUT ... END_VAR     <- min 3 typed outputs with comments
+   d. At least one END_IF; or END_CASE;  <- control logic required
+   e. END_FUNCTION_BLOCK         <- last line of code, always
+3. LENGTH: The assistant content MUST be >= 1500 characters total.
+4. SAVE to isolated file using this exact Python:
+   import json, uuid
+   prompt = \"\"\"<copy this exact user prompt here>\"\"\"
+   code = \"\"\"`iec-st\\nFUNCTION_BLOCK FB_HypersonicWindTunnel\\n//...\\nEND_FUNCTION_BLOCK\\n`\"\"\"
+   record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
+   with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
+       json.dump(record, f, ensure_ascii=False)
+5. SELF-CHECK before saving - verify ALL:
+   [ ] Fence is `iec-st
+   [ ] First code line: FUNCTION_BLOCK FB_<name>
+   [ ] Has VAR_INPUT section
+   [ ] Has VAR_OUTPUT section
+   [ ] Has END_IF; or END_CASE;
+   [ ] Last code line: END_FUNCTION_BLOCK
+   [ ] Closing fence: `
+   [ ] Total chars >= 1500
+6. REPLY with: EVOLUTION COMPLETE: Next-Gen Hypersonic Wind Tunnel Blowdown Facility
+
+DO NOT APOLOGIZE. DO NOT EXPLAIN. GENERATE CODE AND SAVE IT.
+</USER_REQUEST>"""
+
+code = """`iec-st
+FUNCTION_BLOCK FB_HypersonicWindTunnelControl
 VAR_INPUT
-    (* Required: at least 4-8 physical inputs with types and comments *)
-    bEnable                 : BOOL;     (* System enable signal *)
-    bEmergencyStop          : BOOL;     (* Safety relay OK signal *)
-    rTempDeepHole           : REAL;     (* Ambient temperature at 20km depth in deg C *)
-    rPressureAmb            : REAL;     (* Ambient pressure at depth in MPa *)
-    rPiezoRawSignal         : LREAL;    (* Raw piezoelectric sensor signal *)
-    rFiberStrainRaw         : LREAL;    (* Armored fiber-optic Bragg grating strain *)
-    bMudPulseSync           : BOOL;     (* Mud-pulse acoustic telemetry sync lock *)
-    bCalibrationMode        : BOOL;     (* Trigger drift compensation calibration *)
+    bEnableSys            : BOOL;   (* System Global Enable from Main SCADA *)
+    bEmergencyStopOk      : BOOL;   (* Safety Circuit OK, Dual Channel monitored *)
+    rArcHeaterTemp        : REAL;   (* High-enthalpy arc heater temp [K] *)
+    rStagnationPressure   : REAL;   (* Stagnation chamber pressure [bar] *)
+    rMassFlowRate         : REAL;   (* Pebble bed thermal storage mass flow [kg/s] *)
+    bThroatLimitSwMax     : BOOL;   (* Variable geometry throat maximum limit switch *)
+    bThroatLimitSwMin     : BOOL;   (* Variable geometry throat minimum limit switch *)
+    rTargetMachNumber     : REAL;   (* Target Mach number for test section [Mach] *)
 END_VAR
 VAR_OUTPUT
-    (* Required: at least 3-6 outputs with types and comments *)
-    bSystemReady            : BOOL;     (* System ready status, filters primed *)
-    rSeismicOutput_X        : LREAL;    (* Compensated seismic trace X-axis *)
-    rSeismicOutput_Y        : LREAL;    (* Compensated seismic trace Y-axis *)
-    rSeismicOutput_Z        : LREAL;    (* Compensated seismic trace Z-axis *)
-    bTelemetryLinkOk        : BOOL;     (* Active mud-pulse telemetry link OK *)
-    bAlarm                  : BOOL;     (* Fault alarm output (overtemp/pressure) *)
-    iFaultCode              : INT;      (* Diagnostics fault code *)
+    bSystemReady          : BOOL;   (* Facility ready for blowdown sequence *)
+    rArcHeaterPowerCmd    : REAL;   (* Arc heater power output command [MW] *)
+    rThroatActuatorCmd    : REAL;   (* Variable geometry throat hydraulic position command [%] *)
+    bFlowValveOpen        : BOOL;   (* Main flow control valve pilot signal *)
+    bCriticalAlarm        : BOOL;   (* Critical system fault active *)
+    iSequenceStep         : INT;    (* Current control sequence step for HMI *)
 END_VAR
 VAR
-    (* Internal state variables *)
-    iState                  : INT := 0;
-    tInitTimer              : TON;
-    tCalibTimer             : TON;
-    
-    (* Filtering arrays *)
-    aHistory_Piezo          : ARRAY[0..99] OF LREAL;
-    iBufferIndex            : INT := 0;
-    rPiezoFiltered          : LREAL;
-    
-    (* Compensation factors *)
-    rTempCompFactor         : LREAL;
-    rPressureCompFactor     : LREAL;
-    
-    (* Calibration offsets *)
-    rOffset_X               : LREAL := 0.0;
-    rOffset_Y               : LREAL := 0.0;
-    rOffset_Z               : LREAL := 0.0;
+    iState                : INT := 0; (* Internal state machine *)
+    fbArcHeaterPID        : PID;      (* PID controller for arc heater power stabilization *)
+    fbThroatPositionPID   : PID;      (* PID for variable geometry throat position *)
+    tBlowdownTimer        : TON;      (* Blowdown phase duration timer *)
+    tStartDelay           : TON;      (* Sequence initialization delay *)
+    rFilteredPres         : REAL;     (* First-order low pass filtered stagnation pressure *)
+    rFilteredTemp         : REAL;     (* First-order low pass filtered heater temperature *)
+    alphaFilter           : REAL := 0.1; (* Filter coefficient for EMA noise reduction *)
+    bBlowdownActive       : BOOL := FALSE;
+    bSafetyTrip           : BOOL := FALSE;
 END_VAR
 
-(* === MAIN LOGIC === *)
-IF NOT bEmergencyStop THEN
+(* === MAIN SAFETY INTERLOCKS AND NOISE FILTERING === *)
+IF NOT bEmergencyStopOk THEN
+    bSafetyTrip := TRUE;
     bSystemReady := FALSE;
-    bTelemetryLinkOk := FALSE;
-    bAlarm := TRUE;
-    iFaultCode := 9999;
-    rSeismicOutput_X := 0.0;
-    rSeismicOutput_Y := 0.0;
-    rSeismicOutput_Z := 0.0;
-    iState := 0;
+    bCriticalAlarm := TRUE;
+    bFlowValveOpen := FALSE;
+    rArcHeaterPowerCmd := 0.0;
+    rThroatActuatorCmd := 100.0; (* Fail safe: open throat completely *)
+    iState := 999; (* FAULT STATE *)
     RETURN;
 END_IF;
 
-(* Continuous Environmental Monitoring Safety Interlocks *)
-IF rTempDeepHole > 310.0 OR rPressureAmb > 250.0 THEN
-    bAlarm := TRUE;
-    iFaultCode := 1001; (* Extreme Environment Limit Exceeded *)
-    bSystemReady := FALSE;
-    iState := 0;
-ELSE
-    bAlarm := FALSE;
-    iFaultCode := 0;
-END_IF;
+(* EMA Filter for critical process variables *)
+rFilteredPres := (alphaFilter * rStagnationPressure) + ((1.0 - alphaFilter) * rFilteredPres);
+rFilteredTemp := (alphaFilter * rArcHeaterTemp) + ((1.0 - alphaFilter) * rFilteredTemp);
 
-(* Compute Environmental Compensation Factors *)
-(* Extremely complex polynomial drift correction for 300C piezo effects *)
-rTempCompFactor := (rTempDeepHole * 0.0034) + (rTempDeepHole * rTempDeepHole * 0.000012);
-rPressureCompFactor := (rPressureAmb * 0.015) - 0.002;
+(* PID parameters update (assuming initialized elsewhere with Kp, Ti, Td) *)
+fbArcHeaterPID.SP := 4500.0; (* 4500 K setpoint for hypersonic enthalpy *)
+fbArcHeaterPID.PV := rFilteredTemp;
+fbArcHeaterPID.EN := bBlowdownActive;
 
+fbThroatPositionPID.SP := rTargetMachNumber * 10.0; (* Simplified relationship for Mach -> Throat pos % *)
+fbThroatPositionPID.PV := rFilteredPres; (* Using pressure feedback for throat adjustment loop *)
+fbThroatPositionPID.EN := bBlowdownActive;
+
+(* === MAIN CONTROL SEQUENCE === *)
 CASE iState OF
-    0: (* IDLE & INITIALIZATION *)
+    0: (* IDLE - WAIT FOR ENABLE *)
         bSystemReady := FALSE;
-        IF bEnable AND NOT bAlarm THEN
+        bFlowValveOpen := FALSE;
+        bCriticalAlarm := FALSE;
+        rArcHeaterPowerCmd := 0.0;
+        IF bEnableSys AND bEmergencyStopOk AND NOT bSafetyTrip THEN
+            iSequenceStep := 10;
             iState := 10;
         END_IF;
 
-    10: (* PRIMING FILTERS & SENSOR PRE-HEATING ALIGNMENT *)
-        tInitTimer(IN := TRUE, PT := T#15S);
-        IF tInitTimer.Q THEN
-            tInitTimer(IN := FALSE);
-            iState := 20;
+    10: (* SYSTEM INITIALIZATION & SELF-TEST *)
+        tStartDelay(IN := TRUE, PT := T#3S);
+        IF tStartDelay.Q THEN
+            tStartDelay(IN := FALSE);
+            bSystemReady := TRUE;
+            iSequenceStep := 20;
+            IF rMassFlowRate > 0.5 THEN (* Confirm pre-flow via pebble bed *)
+                iState := 20;
+            END_IF;
         END_IF;
 
-    20: (* RUNNING / NOMINAL OPERATION *)
-        bSystemReady := TRUE;
+    20: (* PRE-BLOWDOWN ARC HEATER RAMP-UP *)
+        fbArcHeaterPID();
+        rArcHeaterPowerCmd := fbArcHeaterPID.OUT;
         
-        (* Circular Buffer for Moving Average / FIR Filter approximation *)
-        aHistory_Piezo[iBufferIndex] := rPiezoRawSignal;
-        iBufferIndex := iBufferIndex + 1;
-        IF iBufferIndex > 99 THEN
-            iBufferIndex := 0;
-        END_IF;
-        
-        (* Calculate compensated seismic trace using fusion of piezo and fiber optic strain *)
-        rPiezoFiltered := rPiezoRawSignal * rTempCompFactor * rPressureCompFactor;
-        
-        rSeismicOutput_X := rPiezoFiltered + rFiberStrainRaw - rOffset_X;
-        rSeismicOutput_Y := (rPiezoFiltered * 0.85) + (rFiberStrainRaw * 1.1) - rOffset_Y;
-        rSeismicOutput_Z := (rPiezoFiltered * 1.2) - (rFiberStrainRaw * 0.9) - rOffset_Z;
-        
-        bTelemetryLinkOk := bMudPulseSync;
-        
-        IF bCalibrationMode THEN
+        IF rFilteredTemp > 4000.0 AND rFilteredPres > 50.0 THEN
+            iSequenceStep := 30;
             iState := 30;
         END_IF;
+
+    30: (* BLOWDOWN ACTIVE - MACH 10 NOZZLE CONTROL *)
+        bBlowdownActive := TRUE;
+        bFlowValveOpen := TRUE;
         
-        IF NOT bEnable THEN
+        fbArcHeaterPID();
+        rArcHeaterPowerCmd := fbArcHeaterPID.OUT;
+        
+        fbThroatPositionPID();
+        
+        (* Actuator limits checking *)
+        IF bThroatLimitSwMax THEN
+            rThroatActuatorCmd := 100.0;
+        ELSIF bThroatLimitSwMin THEN
+            rThroatActuatorCmd := 0.0;
+        ELSE
+            rThroatActuatorCmd := fbThroatPositionPID.OUT;
+        END_IF;
+        
+        tBlowdownTimer(IN := TRUE, PT := T#15S); (* Typical hypersonic facility run time limits *)
+        
+        IF tBlowdownTimer.Q OR NOT bEnableSys THEN
+            bBlowdownActive := FALSE;
+            bFlowValveOpen := FALSE;
+            tBlowdownTimer(IN := FALSE);
+            iSequenceStep := 40;
+            iState := 40;
+        END_IF;
+
+    40: (* SHUTDOWN & PURGE *)
+        rArcHeaterPowerCmd := 0.0;
+        rThroatActuatorCmd := 100.0; (* Safe vent position *)
+        
+        IF rFilteredPres < 2.0 THEN
+            iSequenceStep := 0;
+            bSystemReady := FALSE;
             iState := 0;
         END_IF;
 
-    30: (* CALIBRATION & DRIFT COMPENSATION MODE *)
-        bSystemReady := FALSE; (* Temporarily offline for calib *)
-        tCalibTimer(IN := TRUE, PT := T#30S);
-        
-        (* Accumulate drift baseline *)
-        rOffset_X := rOffset_X + (rPiezoRawSignal * 0.001);
-        rOffset_Y := rOffset_Y + (rPiezoRawSignal * 0.001);
-        rOffset_Z := rOffset_Z + (rPiezoRawSignal * 0.001);
-        
-        IF tCalibTimer.Q THEN
-            tCalibTimer(IN := FALSE);
-            iState := 20;
+    999: (* FAULT HANDLING *)
+        bBlowdownActive := FALSE;
+        bFlowValveOpen := FALSE;
+        rArcHeaterPowerCmd := 0.0;
+        rThroatActuatorCmd := 100.0;
+        IF bEmergencyStopOk AND bEnableSys = FALSE THEN
+            bSafetyTrip := FALSE;
+            bCriticalAlarm := FALSE;
+            iState := 0;
         END_IF;
 
 END_CASE;
 
 END_FUNCTION_BLOCK
-`'''
+`"""
 
+os.makedirs("data/swarm_raw", exist_ok=True)
+filename = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
 record = {
     "messages": [
         {"role": "user", "content": prompt},
         {"role": "assistant", "content": code}
     ]
 }
-
-os.makedirs("data/swarm_raw", exist_ok=True)
-filename = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
 with open(filename, "w", encoding="utf-8") as f:
     json.dump(record, f, ensure_ascii=False)
-
 print(f"Saved to {filename}")
