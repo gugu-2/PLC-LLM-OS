@@ -1,0 +1,182 @@
+```iec-st
+FUNCTION_BLOCK FB_CVD_SilaneDelivery
+VAR_INPUT
+    (* System and Safety Signals *)
+    bEnable                 : BOOL;     (* System master enable *)
+    bEmergencyStop          : BOOL;     (* Safety relay / E-Stop (Active High = OK) *)
+    bFacilityN2Ok           : BOOL;     (* High-purity Nitrogen facility supply OK *)
+    bScrubberActive         : BOOL;     (* Abatement/Scrubber system active and ready *)
+    
+    (* Sensors & Transducers *)
+    rSiH4_SupplyPressure    : REAL;     (* Silane supply pressure (Bar) *)
+    rN2_PurgePressure       : REAL;     (* Nitrogen purge pressure (Bar) *)
+    rMFC_ActualFlow         : REAL;     (* MFC actual mass flow feedback (sccm) *)
+    rMFC_FlowSetpoint       : REAL;     (* Desired MFC flow rate (sccm) *)
+    
+    (* Double-Containment Leak Detection *)
+    bLeakSensor_Inner       : BOOL;     (* Primary interstitial leak sensor (Active High = Leak) *)
+    bLeakSensor_Outer       : BOOL;     (* Secondary cabinet enclosure leak sensor (Active High = Leak) *)
+END_VAR
+
+VAR_OUTPUT
+    (* Valve Actuators *)
+    bValve_SiH4_Source      : BOOL;     (* Silane cylinder isolation valve *)
+    bValve_SiH4_Process     : BOOL;     (* Silane delivery valve to CVD chamber *)
+    bValve_N2_Purge         : BOOL;     (* N2 cross-purge injection valve *)
+    bValve_Exhaust          : BOOL;     (* Scrubber bypass / exhaust valve *)
+    
+    (* MFC Control *)
+    rMFC_Command            : REAL;     (* 0-100% or sccm command to MFC *)
+    
+    (* Status and Alarms *)
+    bSystemReady            : BOOL;     (* Purge complete, SiH4 ready for delivery *)
+    bAlarm_Leak             : BOOL;     (* Critical leak alarm *)
+    bAlarm_Pressure         : BOOL;     (* Supply pressure deviation alarm *)
+    iCurrentState           : INT;      (* Diagnostics: Current active state *)
+END_VAR
+
+VAR
+    (* Internal State Variables *)
+    iState                  : INT := 0; (* Main State Machine Step *)
+    iStatePrevious          : INT := 0; (* Edge detection for state transitions *)
+    
+    (* Timers *)
+    tN2_PrePurgeTimer       : TON;
+    tN2_PostPurgeTimer      : TON;
+    tMFC_SettleTimer        : TON;
+    tValveDelayTimer        : TON;
+    
+    (* Signal Filtering (EWMA) *)
+    rFilteredSiH4Press      : REAL := 0.0;
+    rFilteredN2Press        : REAL := 0.0;
+    rAlphaPress             : REAL := 0.1; (* Filter coefficient *)
+    
+    (* Operational Limits *)
+    rMinSiH4Pressure        : REAL := 1.5; (* Bar *)
+    rMaxSiH4Pressure        : REAL := 5.0; (* Bar *)
+    rMinN2Pressure          : REAL := 6.0; (* Bar *)
+    
+    (* Diagnostics *)
+    bSafetyFault            : BOOL := FALSE;
+END_VAR
+
+(* === MAIN LOGIC === *)
+
+(* 1. Signal Processing and Noise Filtering *)
+rFilteredSiH4Press := (rAlphaPress * rSiH4_SupplyPressure) + ((1.0 - rAlphaPress) * rFilteredSiH4Press);
+rFilteredN2Press   := (rAlphaPress * rN2_PurgePressure) + ((1.0 - rAlphaPress) * rFilteredN2Press);
+
+(* 2. Universal Safety Interlocks - Evaluated every scan *)
+bSafetyFault := NOT bEmergencyStop OR 
+                NOT bScrubberActive OR 
+                bLeakSensor_Inner OR 
+                bLeakSensor_Outer OR 
+                (rFilteredN2Press < rMinN2Pressure);
+
+IF bSafetyFault THEN
+    (* Pyrophoric Gas Rapid Isolation Protocol *)
+    bValve_SiH4_Source  := FALSE;
+    bValve_SiH4_Process := FALSE;
+    rMFC_Command        := 0.0;
+    
+    (* Attempt to purge if leak is strictly inner and N2 is available *)
+    IF bLeakSensor_Inner AND NOT bLeakSensor_Outer AND bFacilityN2Ok THEN
+        bValve_N2_Purge := TRUE;
+        bValve_Exhaust  := TRUE;
+    ELSE
+        (* Total shutdown on outer leak or facility N2 loss *)
+        bValve_N2_Purge := FALSE;
+        bValve_Exhaust  := FALSE;
+    END_IF;
+    
+    bAlarm_Leak         := bLeakSensor_Inner OR bLeakSensor_Outer;
+    bSystemReady        := FALSE;
+    iState              := 999; (* FAULT STATE *)
+    iCurrentState       := iState;
+    RETURN;
+END_IF;
+
+(* 3. Alarm Generation (Non-critical but requires attention) *)
+IF (rFilteredSiH4Press < rMinSiH4Pressure) OR (rFilteredSiH4Press > rMaxSiH4Pressure) THEN
+    bAlarm_Pressure := TRUE;
+ELSE
+    bAlarm_Pressure := FALSE;
+END_IF;
+
+(* 4. Delivery State Machine *)
+CASE iState OF
+    0: (* IDLE - Awaiting Enable *)
+        bSystemReady        := FALSE;
+        bValve_SiH4_Source  := FALSE;
+        bValve_SiH4_Process := FALSE;
+        bValve_N2_Purge     := FALSE;
+        bValve_Exhaust      := FALSE;
+        rMFC_Command        := 0.0;
+        
+        IF bEnable THEN
+            iState := 10;
+        END_IF;
+
+    10: (* PRE-PURGE: Flush delivery lines with N2 *)
+        bValve_N2_Purge     := TRUE;
+        bValve_Exhaust      := TRUE;
+        bValve_SiH4_Source  := FALSE;
+        bValve_SiH4_Process := FALSE;
+        
+        tN2_PrePurgeTimer(IN := TRUE, PT := T#30S);
+        IF tN2_PrePurgeTimer.Q THEN
+            tN2_PrePurgeTimer(IN := FALSE);
+            bValve_N2_Purge := FALSE;
+            bValve_Exhaust  := FALSE;
+            iState          := 20;
+        END_IF;
+
+    20: (* PRESSURIZE: Open source and stabilize MFC *)
+        bValve_SiH4_Source  := TRUE;
+        tValveDelayTimer(IN := TRUE, PT := T#2S);
+        
+        IF tValveDelayTimer.Q THEN
+            tValveDelayTimer(IN := FALSE);
+            bSystemReady := TRUE;
+            iState       := 30;
+        END_IF;
+
+    30: (* DELIVERY: Regulate MFC based on Process Setpoint *)
+        bValve_SiH4_Process := TRUE;
+        rMFC_Command        := rMFC_FlowSetpoint;
+        
+        IF NOT bEnable THEN
+            bSystemReady        := FALSE;
+            bValve_SiH4_Process := FALSE;
+            rMFC_Command        := 0.0;
+            iState              := 40;
+        END_IF;
+
+    40: (* POST-PURGE: Safely evacuate remaining SiH4 from lines *)
+        bValve_SiH4_Source  := FALSE;
+        bValve_N2_Purge     := TRUE;
+        bValve_Exhaust      := TRUE;
+        
+        tN2_PostPurgeTimer(IN := TRUE, PT := T#45S);
+        IF tN2_PostPurgeTimer.Q THEN
+            tN2_PostPurgeTimer(IN := FALSE);
+            bValve_N2_Purge := FALSE;
+            bValve_Exhaust  := FALSE;
+            iState          := 0;
+        END_IF;
+
+    999: (* FAULT HANDLING *)
+        IF NOT bSafetyFault AND NOT bEnable THEN
+            bAlarm_Leak := FALSE;
+            iState := 0; (* Reset only when faults cleared and enable removed *)
+        END_IF;
+        
+    ELSE
+        iState := 999; (* Catch all undefined states *)
+END_CASE;
+
+(* Housekeeping *)
+iCurrentState := iState;
+
+END_FUNCTION_BLOCK
+```

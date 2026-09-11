@@ -1,13 +1,14 @@
-import json, uuid, os
+import json, uuid
+import os
 
 os.makedirs("data/swarm_raw", exist_ok=True)
 
 prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
 You possess the expertise of a 40+ years experienced PLC automation architect writing world-class, extremely complex, and mathematically rigorous code.
 
-**Your assigned domain is: Advanced Synchrotron Light Source Electron Storage Ring**
+**Your assigned domain is: Industrial Scale High-Volume Water Desalination (SWRO)**
 
-Task: Invent a highly complex, ultra-realistic control scenario for this domain (e.g., 3-GeV bending magnet power supply ramping, ultra-high vacuum (UHV) non-evaporable getter (NEG) activation, and beam position monitor (BPM) fast orbit feedback). Your code must look like the absolute best, most robust industrial code written by a world-class 40-year veteran.
+Task: Invent a highly complex, ultra-realistic control scenario for this domain (e.g., High-pressure (80 bar) reverse osmosis membrane train, isobaric energy recovery device (ERD) brine mixing, and antiscalant dosing proportional to total dissolved solids (TDS)). Your code must look like the absolute best, most robust industrial code written by a world-class 40-year veteran.
 
 CRITICAL RULES - READ EVERY LINE:
 1. CODE FENCE: Use TRIPLE backticks + iec-st. EXACTLY like this:
@@ -25,7 +26,7 @@ CRITICAL RULES - READ EVERY LINE:
 4. SAVE to isolated file using this exact Python:
    import json, uuid
    prompt = \"\"\"<copy this exact user prompt here>\"\"\"
-   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_SynchrotronStorageRing\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
+   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_SWRO_Desalination\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
    record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
    with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
        json.dump(record, f, ensure_ascii=False)
@@ -38,158 +39,202 @@ CRITICAL RULES - READ EVERY LINE:
    [ ] Last code line: END_FUNCTION_BLOCK
    [ ] Closing fence: ```
    [ ] Total chars >= 1500
-6. REPLY with: EVOLUTION COMPLETE: Advanced Synchrotron Light Source Electron Storage Ring
+6. REPLY with: EVOLUTION COMPLETE: Industrial Scale High-Volume Water Desalination (SWRO)
 
 DO NOT APOLOGIZE. DO NOT EXPLAIN. GENERATE CODE AND SAVE IT."""
 
 code = """```iec-st
-FUNCTION_BLOCK FB_StorageRingOrbitFeedback
+FUNCTION_BLOCK FB_SWRO_Membrane_Train_Control
+(* 
+   =============================================================================
+   Block: FB_SWRO_Membrane_Train_Control
+   Description: Advanced control for High-Volume Seawater Reverse Osmosis 
+                (SWRO) membrane trains. Includes high-pressure pump (HPP) 
+                coordination, isobaric Energy Recovery Device (ERD) control, 
+                brine mixing, and flow-proportional antiscalant dosing 
+                based on Total Dissolved Solids (TDS).
+   Author: Senior Automation Architect
+   Version: 1.0.0
+   =============================================================================
+*)
+
 VAR_INPUT
-    bEnable                 : BOOL;     (* Fast orbit feedback system enable *)
-    bBeamDumpInterlock      : BOOL;     (* MPS beam dump interlock status (TRUE = OK) *)
-    rBeamCurrent_mA         : REAL;     (* Stored electron beam current in mA *)
-    arBPM_X_um              : ARRAY[1..120] OF REAL; (* Horizontal Beam Position Monitor readings (um) *)
-    arBPM_Y_um              : ARRAY[1..120] OF REAL; (* Vertical Beam Position Monitor readings (um) *)
-    rRfCavityVoltage_kV     : REAL;     (* RF cavity gap voltage (kV) *)
-    bUHV_ValveStatus        : BOOL;     (* Ultra-High Vacuum sector valves status (TRUE = OPEN) *)
-END_VAR
-VAR_OUTPUT
-    bSystemReady            : BOOL;     (* FOFB system ready and healthy *)
-    arCorrector_X_urad      : ARRAY[1..80] OF REAL; (* Horizontal fast corrector magnet setpoints (urad) *)
-    arCorrector_Y_urad      : ARRAY[1..80] OF REAL; (* Vertical fast corrector magnet setpoints (urad) *)
-    bOrbitStable            : BOOL;     (* True if orbit RMS is within tolerance *)
-    bAlarm                  : BOOL;     (* FOFB general fault alarm *)
-    iErrorCode              : INT;      (* Error code for diagnostics *)
-END_VAR
-VAR
-    iState                  : INT := 0;
-    i                       : INT;
-    rRmsX                   : REAL;
-    rRmsY                   : REAL;
-    rSumSquareX             : REAL := 0.0;
-    rSumSquareY             : REAL := 0.0;
-    tSettleTimer            : TON;
-    rMaxPosTol_um           : REAL := 5.0; (* 5 micrometer RMS tolerance *)
+    bEnableTrain         : BOOL;  (* System enable command from Master SCADA *)
+    bEmergencyStop       : BOOL;  (* Safety relay OK signal (FALSE = Trip) *)
+    bPermissiveStart     : BOOL;  (* Upstream intake & pretreatment ready *)
     
-    (* PI Controller internal states for each plane *)
-    arIntSum_X              : ARRAY[1..80] OF REAL;
-    arIntSum_Y              : ARRAY[1..80] OF REAL;
-    rKp                     : REAL := 0.5;
-    rKi                     : REAL := 0.01;
+    rFeedWaterFlow_m3h   : REAL;  (* Feed water flow rate (m^3/h) *)
+    rFeedWaterTDS_ppm    : REAL;  (* Feed water Total Dissolved Solids (ppm) *)
+    rFeedWaterTemp_C     : REAL;  (* Feed water temperature (Celsius) *)
+    
+    rHPP_Pressure_bar    : REAL;  (* High Pressure Pump discharge pressure (bar) - Target ~80 bar *)
+    rERD_BrinePress_bar  : REAL;  (* ERD brine side pressure (bar) *)
+    rPermeateFlow_m3h    : REAL;  (* Permeate (product water) flow rate (m^3/h) *)
+    
+    rTargetRecoveryPct   : REAL := 45.0; (* Target recovery rate (%) *)
 END_VAR
 
-(* === MAIN LOGIC === *)
-(* Global Safety and Interlock Check *)
-IF NOT bBeamDumpInterlock OR NOT bUHV_ValveStatus THEN
+VAR_OUTPUT
+    bSystemReady         : BOOL;  (* SWRO train is ready for operation *)
+    bTrainRunning        : BOOL;  (* SWRO train is in steady state operation *)
+    bAlarmActive         : BOOL;  (* Global alarm output (latching) *)
+    
+    rHPPSpeedRef_pct     : REAL;  (* HPP VFD speed reference (0-100%) *)
+    rDosingPumpRef_mLh   : REAL;  (* Antiscalant dosing pump speed (mL/h) *)
+    rERDValvePos_pct     : REAL;  (* ERD booster pump / valve position (0-100%) *)
+    
+    rCalculatedRecovery  : REAL;  (* Real-time calculated recovery rate (%) *)
+END_VAR
+
+VAR
+    iState               : INT := 0; (* Internal state machine *)
+    
+    (* Timers *)
+    tStartupDelay        : TON;
+    tHPP_RampTimer       : TON;
+    tFlushTimer          : TON;
+    tFaultTimer          : TON;
+    
+    (* PID Controllers for Pressure & Flow *)
+    stHPP_PID            : PID;
+    stERD_PID            : PID;
+    
+    (* Internal Calculations *)
+    rBaseDosingRate      : REAL := 2.5; (* Base dosing rate in mg/L per 35000 ppm TDS *)
+    rTDS_Factor          : REAL;
+    
+    (* Alarms & Faults *)
+    bHighPressureTrip    : BOOL;
+    bLowFlowTrip         : BOOL;
+    bERDFault            : BOOL;
+    bUnsafeTemp          : BOOL;
+END_VAR
+
+(* === MAIN LOGIC START === *)
+
+(* 1. Safety & Interlocks *)
+IF NOT bEmergencyStop THEN
     bSystemReady := FALSE;
-    bOrbitStable := FALSE;
-    bAlarm := TRUE;
-    iErrorCode := 1001; (* Critical interlock tripped *)
-    
-    (* Zero all corrector strengths for safety *)
-    FOR i := 1 TO 80 DO
-        arCorrector_X_urad[i] := 0.0;
-        arCorrector_Y_urad[i] := 0.0;
-        arIntSum_X[i] := 0.0;
-        arIntSum_Y[i] := 0.0;
-    END_FOR;
-    
-    iState := 0;
+    bTrainRunning := FALSE;
+    bAlarmActive := TRUE;
+    rHPPSpeedRef_pct := 0.0;
+    rDosingPumpRef_mLh := 0.0;
+    rERDValvePos_pct := 0.0;
+    iState := 999; (* Transition to Emergency Fault State *)
     RETURN;
 END_IF;
 
-(* Main State Machine *)
+(* Evaluate Trips *)
+bHighPressureTrip := (rHPP_Pressure_bar > 85.0);
+bLowFlowTrip := (rFeedWaterFlow_m3h < 10.0) AND bTrainRunning;
+bUnsafeTemp := (rFeedWaterTemp_C < 5.0) OR (rFeedWaterTemp_C > 45.0);
+
+IF bHighPressureTrip OR bLowFlowTrip OR bUnsafeTemp THEN
+    bAlarmActive := TRUE;
+    IF iState < 900 THEN
+        iState := 900; (* Controlled Shutdown State *)
+    END_IF;
+END_IF;
+
+(* 2. Real-time Calculations *)
+IF rFeedWaterFlow_m3h > 0.1 THEN
+    rCalculatedRecovery := (rPermeateFlow_m3h / rFeedWaterFlow_m3h) * 100.0;
+ELSE
+    rCalculatedRecovery := 0.0;
+END_IF;
+
+(* Dosing Calculation: Proportional to Flow and TDS *)
+rTDS_Factor := rFeedWaterTDS_ppm / 35000.0;
+IF rTDS_Factor < 0.5 THEN rTDS_Factor := 0.5; END_IF;
+
+rDosingPumpRef_mLh := rFeedWaterFlow_m3h * rBaseDosingRate * rTDS_Factor;
+
+(* 3. Main State Machine *)
 CASE iState OF
-    0: (* IDLE / INITIALIZATION *)
-        bSystemReady := FALSE;
-        bOrbitStable := FALSE;
-        bAlarm := FALSE;
-        iErrorCode := 0;
+    0: (* IDLE & STANDBY *)
+        bSystemReady := bPermissiveStart AND NOT bAlarmActive;
+        bTrainRunning := FALSE;
+        rHPPSpeedRef_pct := 0.0;
+        rERDValvePos_pct := 0.0;
         
-        IF bEnable AND (rBeamCurrent_mA > 5.0) AND (rRfCavityVoltage_kV > 2500.0) THEN
+        IF bSystemReady AND bEnableTrain THEN
             iState := 10;
         END_IF;
 
-    10: (* CALCULATION & CORRECTION *)
-        bSystemReady := TRUE;
-        rSumSquareX := 0.0;
-        rSumSquareY := 0.0;
+    10: (* PRE-START / FLUSHING *)
+        (* Open feed valves and allow low pressure flow *)
+        tFlushTimer(IN := TRUE, PT := T#30S);
+        IF tFlushTimer.Q THEN
+            tFlushTimer(IN := FALSE);
+            iState := 20;
+        END_IF;
+
+    20: (* HPP RAMP UP *)
+        (* Gradually ramp up high pressure pump to overcome osmotic pressure *)
+        tHPP_RampTimer(IN := TRUE, PT := T#60S);
+        rHPPSpeedRef_pct := 30.0 + (70.0 * (TIME_TO_REAL(tHPP_RampTimer.ET) / TIME_TO_REAL(T#60S)));
         
-        (* Calculate RMS Orbit Distortion *)
-        FOR i := 1 TO 120 DO
-            rSumSquareX := rSumSquareX + (arBPM_X_um[i] * arBPM_X_um[i]);
-            rSumSquareY := rSumSquareY + (arBPM_Y_um[i] * arBPM_Y_um[i]);
-        END_FOR;
+        IF tHPP_RampTimer.Q THEN
+            tHPP_RampTimer(IN := FALSE);
+            iState := 30;
+        END_IF;
+
+    30: (* STEADY STATE CONTROL *)
+        bTrainRunning := TRUE;
         
-        rRmsX := SQRT(rSumSquareX / 120.0);
-        rRmsY := SQRT(rSumSquareY / 120.0);
+        (* Cascade control for HPP based on permeate flow & recovery *)
+        stHPP_PID(
+            ACTUAL := rCalculatedRecovery,
+            SET_POINT := rTargetRecoveryPct,
+            KP := 1.2,
+            TN := 5.0,
+            TV := 0.0
+        );
+        rHPPSpeedRef_pct := stHPP_PID.Y;
         
-        (* Apply SVD-based inverted response matrix logic (simplified for ST abstraction) 
-           Here we simulate the PI loop update for fast corrector magnets *)
-        FOR i := 1 TO 80 DO
-            (* Pseudo-feedback integrating local BPMs to correctors *)
-            arIntSum_X[i] := arIntSum_X[i] + (arBPM_X_um[i] * rKi);
-            arIntSum_Y[i] := arIntSum_Y[i] + (arBPM_Y_um[i] * rKi);
-            
-            arCorrector_X_urad[i] := -(rKp * arBPM_X_um[i]) - arIntSum_X[i];
-            arCorrector_Y_urad[i] := -(rKp * arBPM_Y_um[i]) - arIntSum_Y[i];
-            
-            (* Anti-windup clamping *)
-            IF arCorrector_X_urad[i] > 100.0 THEN arCorrector_X_urad[i] := 100.0; arIntSum_X[i] := arIntSum_X[i] - (arBPM_X_um[i] * rKi); END_IF;
-            IF arCorrector_X_urad[i] < -100.0 THEN arCorrector_X_urad[i] := -100.0; arIntSum_X[i] := arIntSum_X[i] - (arBPM_X_um[i] * rKi); END_IF;
-            
-            IF arCorrector_Y_urad[i] > 100.0 THEN arCorrector_Y_urad[i] := 100.0; arIntSum_Y[i] := arIntSum_Y[i] - (arBPM_Y_um[i] * rKi); END_IF;
-            IF arCorrector_Y_urad[i] < -100.0 THEN arCorrector_Y_urad[i] := -100.0; arIntSum_Y[i] := arIntSum_Y[i] - (arBPM_Y_um[i] * rKi); END_IF;
-        END_FOR;
+        (* ERD balancing: Ensure brine pressure doesn't exceed HPP pressure *)
+        stERD_PID(
+            ACTUAL := rERD_BrinePress_bar,
+            SET_POINT := rHPP_Pressure_bar - 2.0, (* 2 bar differential *)
+            KP := 0.8,
+            TN := 3.0
+        );
+        rERDValvePos_pct := stERD_PID.Y;
+
+        IF NOT bEnableTrain THEN
+            iState := 900;
+        END_IF;
+
+    900: (* CONTROLLED SHUTDOWN *)
+        bTrainRunning := FALSE;
+        rHPPSpeedRef_pct := rHPPSpeedRef_pct - 1.0; (* Ramp down *)
+        IF rHPPSpeedRef_pct <= 0.0 THEN
+            rHPPSpeedRef_pct := 0.0;
+            iState := 0;
+        END_IF;
+
+    999: (* EMERGENCY FAULT *)
+        bTrainRunning := FALSE;
+        rHPPSpeedRef_pct := 0.0;
+        rERDValvePos_pct := 0.0;
+        rDosingPumpRef_mLh := 0.0;
         
-        IF (rRmsX <= rMaxPosTol_um) AND (rRmsY <= rMaxPosTol_um) THEN
-            tSettleTimer(IN := TRUE, PT := T#2S);
-            IF tSettleTimer.Q THEN
-                tSettleTimer(IN := FALSE);
-                bOrbitStable := TRUE;
-                iState := 20;
-            END_IF;
+        IF NOT bEmergencyStop THEN
+            (* Wait for safety reset *)
         ELSE
-            tSettleTimer(IN := FALSE);
-            bOrbitStable := FALSE;
-        END_IF;
-        
-        IF NOT bEnable THEN
-            tSettleTimer(IN := FALSE);
-            iState := 0;
+            IF NOT bAlarmActive THEN
+                iState := 0;
+            END_IF;
         END_IF;
 
-    20: (* STABLE OPERATION *)
-        bSystemReady := TRUE;
-        bOrbitStable := TRUE;
-        
-        (* Continuous monitoring without heavy correction *)
-        IF (arBPM_X_um[1] > 20.0) OR (arBPM_Y_um[1] > 20.0) THEN (* Trigger if glitch detected *)
-            bOrbitStable := FALSE;
-            tSettleTimer(IN := FALSE);
-            iState := 10;
-        END_IF;
-        
-        IF NOT bEnable THEN
-            iState := 0;
-        END_IF;
-
-    ELSE
-        iState := 0;
 END_CASE;
 
 END_FUNCTION_BLOCK
 ```"""
 
-record = {
-    "messages": [
-        {"role": "user", "content": prompt},
-        {"role": "assistant", "content": code}
-    ]
-}
+record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
 
-filename = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
-with open(filename, "w", encoding="utf-8") as f:
+with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
     json.dump(record, f, ensure_ascii=False)
 
-print(f"Saved to {filename}")
+print("Saved.")

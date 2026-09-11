@@ -3,9 +3,9 @@ import json, uuid, os
 prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
 You possess the expertise of a 40+ years experienced PLC automation architect writing world-class, extremely complex, and mathematically rigorous code.
 
-**Your assigned domain is: Deep-Space Nuclear Thermal Propulsion (NTP) Bimodal Reactor**
+**Your assigned domain is: Next-Gen Superconducting Maglev Train Cryostat Bogie**
 
-Task: Invent a highly complex, ultra-realistic control scenario for this domain (e.g., Gaseous hydrogen propellant expansion, enriched uranium fuel element thermal balancing, and Brayton cycle power generation phase switching). Your code must look like the absolute best, most robust industrial code written by a world-class 40-year veteran.
+Task: Invent a highly complex, ultra-realistic control scenario for this domain (e.g., 8-stage pulse tube cryocooler sequence optimization, electrodynamic suspension (EDS) high-speed gap measurement, and levitation coil quench isolation bypassing). Your code must look like the absolute best, most robust industrial code written by a world-class 40-year veteran.
 
 CRITICAL RULES - READ EVERY LINE:
 1. CODE FENCE: Use TRIPLE backticks + iec-st. EXACTLY like this:
@@ -23,7 +23,7 @@ CRITICAL RULES - READ EVERY LINE:
 4. SAVE to isolated file using this exact Python:
    import json, uuid
    prompt = \"\"\"<copy this exact user prompt here>\"\"\"
-   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_NTP_BimodalReactor\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
+   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_Maglev_CryostatBogie\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
    record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
    with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
        json.dump(record, f, ensure_ascii=False)
@@ -36,175 +36,204 @@ CRITICAL RULES - READ EVERY LINE:
    [ ] Last code line: END_FUNCTION_BLOCK
    [ ] Closing fence: ```
    [ ] Total chars >= 1500
-6. REPLY with: EVOLUTION COMPLETE: Deep-Space Nuclear Thermal Propulsion (NTP) Bimodal Reactor
+6. REPLY with: EVOLUTION COMPLETE: Next-Gen Superconducting Maglev Train Cryostat Bogie
 
 DO NOT APOLOGIZE. DO NOT EXPLAIN. GENERATE CODE AND SAVE IT."""
 
 code = """```iec-st
-FUNCTION_BLOCK FB_NTP_BimodalReactor
+FUNCTION_BLOCK FB_Maglev_CryoBogie_Control
 VAR_INPUT
-    (* Safety & Interlock Inputs *)
-    bEnable                 : BOOL;     (* System enable signal from master controller *)
-    bScramSystem            : BOOL;     (* Hardware scram / Emergency stop OK signal (Active High) *)
-    
-    (* Physical Measurements *)
-    rCoreTempMain_K         : REAL;     (* Reactor core temperature [Kelvin] *)
-    rPropFlowRate_kg_s      : REAL;     (* Hydrogen propellant flow rate [kg/s] *)
-    rNeutronFlux            : REAL;     (* Ex-core neutron flux measurement [nv] *)
-    
-    (* Operational Modes *)
-    bRequestPropulsion      : BOOL;     (* Request for high-thrust NTP mode *)
-    bRequestBraytonPower    : BOOL;     (* Request for closed-loop Brayton power generation mode *)
+    (* Required: at least 4-8 physical inputs with types and comments *)
+    bSystemEnable : BOOL; (* Main power and logic enable for the bogie control system *)
+    bEmergencyStop : BOOL; (* Safety loop OK, TRUE means nominal safe state *)
+    rHeLvl_Cryostat : REAL; (* Liquid Helium level in cryostat (percentage %) *)
+    rTemp_Coil_Front : REAL; (* SCM coil temperature at the front winding (K) *)
+    rTemp_Coil_Rear : REAL; (* SCM coil temperature at the rear winding (K) *)
+    rLevitationGap_Left : REAL; (* Bogie to guideway gap left side (mm) *)
+    rLevitationGap_Right : REAL; (* Bogie to guideway gap right side (mm) *)
+    bQuenchDetect_Raw : BOOL; (* Hardware quench detection signal from primary sensors *)
 END_VAR
 VAR_OUTPUT
-    (* System Status Outputs *)
-    bSystemReady            : BOOL;     (* System ready for operation status *)
-    bCriticalAlarm          : BOOL;     (* Core anomaly or safety threshold exceeded *)
-    bPropulsionActive       : BOOL;     (* High-thrust propulsion mode is engaged *)
-    bBraytonActive          : BOOL;     (* Brayton power generation mode is engaged *)
-    
-    (* Actuator Control Signals *)
-    rControlDrumAngle_deg   : REAL;     (* Commanded reflector control drum angle [degrees] 0-180 *)
-    rPropValvePosition_pct  : REAL;     (* Propellant flow control valve position [0-100%] *)
-    rBraytonBypass_pct      : REAL;     (* Brayton cycle turbine bypass valve position [0-100%] *)
+    (* Required: at least 3-6 outputs with types and comments *)
+    bSystemReady : BOOL; (* System ready status for main train propulsion network *)
+    rCryocoolerPower : REAL; (* Compressor power setpoint output (kW) *)
+    bQuenchIsolateTrigger : BOOL; (* Trigger to dump internal stored energy to braking resistors *)
+    rEDS_CorrectionAmp_Left : REAL; (* Correction current to left suspension coils (A) *)
+    rEDS_CorrectionAmp_Right : REAL; (* Correction current to right suspension coils (A) *)
+    bAlarm : BOOL; (* Fault alarm output for SCADA reporting *)
 END_VAR
 VAR
-    (* Internal state variables *)
-    iReactorState           : INT := 0; (* State Machine Index *)
+    (* Internal state variables and timers *)
+    iState : INT := 0; (* Main execution state machine pointer *)
+    tQuenchDebounce : TON; (* Debounce timer for transient quench spikes *)
+    tCoolingTimer : TON; (* Max time allowed for cooldown procedures *)
     
-    (* Timers and Filters *)
-    tStartupDelay           : TON;      (* Startup sequence delay timer *)
-    tModeSwitchDelay        : TON;      (* Delay for thermal stabilization during mode switch *)
-    
-    (* Internal Control Variables *)
-    rFilteredCoreTemp       : REAL;     (* First-order filtered core temperature *)
-    rThermalSetpoint        : REAL;     (* Target temperature setpoint based on active mode *)
-    rDrumAngleIntegral      : REAL;     (* Integral accumulator for reactivity control *)
-    
-    (* Constants *)
-    MAX_CORE_TEMP           : REAL := 2800.0; (* Maximum allowable core temperature in Kelvin *)
-    MAX_BRAYTON_TEMP        : REAL := 1500.0; (* Maximum temperature for power generation mode *)
+    (* Control loop internal variables *)
+    rTargetGap : REAL := 12.0; (* Nominal levitation gap setpoint in mm *)
+    rGapError_Left : REAL;
+    rGapError_Right : REAL;
+    rKp_EDS : REAL := 18.25; (* Proportional gain for suspension correction *)
+    rKd_EDS : REAL := 4.15; (* Derivative gain for suspension damping *)
+    rPrevGapError_Left : REAL := 0.0;
+    rPrevGapError_Right : REAL := 0.0;
+    rDerivative_Left : REAL;
+    rDerivative_Right : REAL;
+    rMaxTemp_Coil : REAL;
 END_VAR
 
 (* === MAIN LOGIC === *)
-
-(* 1. Safety and Scram Interlock Processing *)
-IF NOT bScramSystem THEN
-    (* Immediate SCRAM: Rotate drums to minimum reactivity, close valves, flag alarm *)
-    rControlDrumAngle_deg := 0.0; 
-    rPropValvePosition_pct := 0.0;
-    rBraytonBypass_pct := 100.0; (* Bypass turbine fully during scram *)
+(* First pass: Handle Emergency Stops and Critical Overrides immediately *)
+IF NOT bEmergencyStop THEN
     bSystemReady := FALSE;
-    bCriticalAlarm := TRUE;
-    bPropulsionActive := FALSE;
-    bBraytonActive := FALSE;
-    iReactorState := 0;
+    bQuenchIsolateTrigger := TRUE; (* Failsafe state dumps energy out of SCM coils *)
+    rCryocoolerPower := 0.0;
+    rEDS_CorrectionAmp_Left := 0.0;
+    rEDS_CorrectionAmp_Right := 0.0;
+    bAlarm := TRUE;
+    iState := 999; (* E-Stop active state locking *)
     RETURN;
 END_IF;
 
-(* 2. Core Temperature Filtering & Protection *)
-(* Simple first-order low pass filter logic (simulated representation) *)
-rFilteredCoreTemp := (rFilteredCoreTemp * 0.9) + (rCoreTempMain_K * 0.1);
-
-IF rFilteredCoreTemp > MAX_CORE_TEMP THEN
-    bCriticalAlarm := TRUE;
-    (* Initiate protective power reduction *)
-    rControlDrumAngle_deg := 10.0;
+(* Evaluate the worst-case coil temperature *)
+IF rTemp_Coil_Front > rTemp_Coil_Rear THEN
+    rMaxTemp_Coil := rTemp_Coil_Front;
 ELSE
-    bCriticalAlarm := FALSE;
+    rMaxTemp_Coil := rTemp_Coil_Rear;
 END_IF;
 
-(* 3. Primary State Machine *)
-CASE iReactorState OF
-    0: (* IDLE / SHUTDOWN STATE *)
+(* Quench detection filtering - 5 millisecond transient ignore *)
+tQuenchDebounce(IN := bQuenchDetect_Raw, PT := T#5MS);
+
+(* If quench is sustained or temperature exceeds absolute critical limits (5.5K) *)
+IF tQuenchDebounce.Q OR rMaxTemp_Coil > 5.5 THEN
+    bQuenchIsolateTrigger := TRUE; (* Dump current to avoid catastrophic thermal runaway *)
+    bAlarm := TRUE;
+    iState := 800; (* Jump to quench mitigation sequence *)
+END_IF;
+
+(* Main State Machine Execution *)
+CASE iState OF
+    0: (* IDLE & PRE-CHECK STATE *)
         bSystemReady := FALSE;
-        rControlDrumAngle_deg := 0.0;
-        rPropValvePosition_pct := 0.0;
-        
-        IF bEnable THEN
-            tStartupDelay(IN := TRUE, PT := T#10S);
-            IF tStartupDelay.Q THEN
-                tStartupDelay(IN := FALSE);
-                iReactorState := 10; (* Move to STANDBY *)
+        bAlarm := FALSE;
+        IF bSystemEnable THEN
+            (* Check if cryostat is at nominal operational conditions before initiating EDS *)
+            IF rHeLvl_Cryostat > 80.0 AND rMaxTemp_Coil <= 4.2 THEN
+                iState := 10; (* Nominal temperature reached, ready for EDS stabilization *)
+            ELSE
+                iState := 5; (* Switch to active cooling mode to reach setpoints *)
             END_IF;
+        END_IF;
+        
+    5: (* ACTIVE COOLING SEQUENCE *)
+        (* Maximize 8-stage pulse tube cryocooler efficiency *)
+        rCryocoolerPower := 15.0; (* Max allowable cooling power in kW *)
+        tCoolingTimer(IN := TRUE, PT := T#300S); (* Allow up to 5 minutes to reach temp *)
+        
+        IF rMaxTemp_Coil <= 4.2 AND rHeLvl_Cryostat > 80.0 THEN
+            tCoolingTimer(IN := FALSE); (* Reset timer *)
+            iState := 10; (* Move to levitation stabilization *)
+        ELSIF tCoolingTimer.Q THEN
+            (* Failed to reach thermal state within timeout limit *)
+            bAlarm := TRUE;
+            iState := 900; (* Fault state *)
+        END_IF;
+
+    10: (* LEVITATION STABILIZATION (INITIAL ENGAGEMENT) *)
+        rCryocoolerPower := 5.0; (* Throttle back to maintenance cooling to reduce vibrations *)
+        
+        (* Calculate left side dynamics *)
+        rGapError_Left := rTargetGap - rLevitationGap_Left;
+        rDerivative_Left := rGapError_Left - rPrevGapError_Left;
+        rEDS_CorrectionAmp_Left := (rKp_EDS * rGapError_Left) + (rKd_EDS * rDerivative_Left);
+        rPrevGapError_Left := rGapError_Left;
+        
+        (* Calculate right side dynamics *)
+        rGapError_Right := rTargetGap - rLevitationGap_Right;
+        rDerivative_Right := rGapError_Right - rPrevGapError_Right;
+        rEDS_CorrectionAmp_Right := (rKp_EDS * rGapError_Right) + (rKd_EDS * rDerivative_Right);
+        rPrevGapError_Right := rGapError_Right;
+        
+        (* Check if both gaps are within a 0.5mm tolerance band for 1 cycle *)
+        IF ABS(rGapError_Left) < 0.5 AND ABS(rGapError_Right) < 0.5 THEN
+            bSystemReady := TRUE; (* Flag higher-level system for propulsion start *)
+            iState := 20; (* Transition to Steady Levitation mode *)
+        END_IF;
+
+    20: (* STEADY HIGH-SPEED LEVITATION TRACKING *)
+        (* Continuous closed-loop PID-like regulation for EDS suspension *)
+        rGapError_Left := rTargetGap - rLevitationGap_Left;
+        rDerivative_Left := rGapError_Left - rPrevGapError_Left;
+        rEDS_CorrectionAmp_Left := (rKp_EDS * rGapError_Left) + (rKd_EDS * rDerivative_Left);
+        rPrevGapError_Left := rGapError_Left;
+        
+        rGapError_Right := rTargetGap - rLevitationGap_Right;
+        rDerivative_Right := rGapError_Right - rPrevGapError_Right;
+        rEDS_CorrectionAmp_Right := (rKp_EDS * rGapError_Right) + (rKd_EDS * rDerivative_Right);
+        rPrevGapError_Right := rGapError_Right;
+        
+        (* Dynamic thermal load compensation for the cryocooler at high velocities *)
+        IF rMaxTemp_Coil > 4.4 THEN
+            rCryocoolerPower := 10.5; (* Increase power to reject dynamic heat loads *)
         ELSE
-            tStartupDelay(IN := FALSE);
-        END_IF;
-
-    10: (* STANDBY STATE *)
-        bSystemReady := TRUE;
-        bPropulsionActive := FALSE;
-        bBraytonActive := FALSE;
-        
-        (* Maintain sub-critical keeping power *)
-        rControlDrumAngle_deg := 45.0; 
-        rPropValvePosition_pct := 5.0; (* Trickle flow for cooling *)
-        rBraytonBypass_pct := 100.0;
-
-        IF bRequestPropulsion THEN
-            iReactorState := 20; (* Transition to Propulsion *)
-        ELSIF bRequestBraytonPower THEN
-            iReactorState := 30; (* Transition to Power Generation *)
+            rCryocoolerPower := 5.0; (* Return to steady maintenance baseline *)
         END_IF;
         
-        IF NOT bEnable THEN
-            iReactorState := 0;
+        (* Normal shutdown pathway *)
+        IF NOT bSystemEnable THEN
+            bSystemReady := FALSE;
+            iState := 0;
+        END_IF;
+        
+    800: (* QUENCH RECOVERY AND MITIGATION *)
+        bSystemReady := FALSE;
+        rCryocoolerPower := 18.0; (* Overdrive compressor to purge thermal spike *)
+        rEDS_CorrectionAmp_Left := 0.0;
+        rEDS_CorrectionAmp_Right := 0.0;
+        
+        (* Wait for operator to clear fault and temp to normalize under 5.0K safely *)
+        IF NOT bQuenchDetect_Raw AND rMaxTemp_Coil < 5.0 AND NOT bSystemEnable THEN
+            bQuenchIsolateTrigger := FALSE; (* Safe to close dump switches *)
+            bAlarm := FALSE;
+            iState := 0;
+        END_IF;
+        
+    900: (* HARDWARE/TIMEOUT ERROR FAULT *)
+        bSystemReady := FALSE;
+        rCryocoolerPower := 0.0;
+        rEDS_CorrectionAmp_Left := 0.0;
+        rEDS_CorrectionAmp_Right := 0.0;
+        bAlarm := TRUE;
+        
+        (* Requires reset toggle of bSystemEnable to exit fault *)
+        IF NOT bSystemEnable THEN
+            iState := 0;
         END_IF;
 
-    20: (* PROPULSION MODE *)
-        bPropulsionActive := TRUE;
-        bBraytonActive := FALSE;
-        rThermalSetpoint := 2500.0; (* High temperature for max Isp *)
-        
-        (* Simulated PI Control for Drum Angle based on Temperature Setpoint *)
-        IF rFilteredCoreTemp < rThermalSetpoint THEN
-            rDrumAngleIntegral := rDrumAngleIntegral + 0.1;
+    999: (* EMERGENCY STOP RECOVERY LATCH *)
+        (* Wait here until bEmergencyStop is TRUE again, handled by first rung *)
+        IF bSystemEnable THEN
+            (* Require operator to disable system before re-enabling *)
+            iState := 999; 
         ELSE
-            rDrumAngleIntegral := rDrumAngleIntegral - 0.1;
-        END_IF;
-        
-        (* Clamp Integral *)
-        IF rDrumAngleIntegral > 140.0 THEN rDrumAngleIntegral := 140.0; END_IF;
-        IF rDrumAngleIntegral < 45.0 THEN rDrumAngleIntegral := 45.0; END_IF;
-        
-        rControlDrumAngle_deg := rDrumAngleIntegral;
-        
-        (* Match propellant flow to core temperature to avoid thermal shock *)
-        rPropValvePosition_pct := (rFilteredCoreTemp / MAX_CORE_TEMP) * 100.0;
-        
-        IF NOT bRequestPropulsion THEN
-            iReactorState := 10;
+            iState := 0; 
         END_IF;
 
-    30: (* BRAYTON POWER GENERATION MODE *)
-        bPropulsionActive := FALSE;
-        bBraytonActive := TRUE;
-        rThermalSetpoint := 1400.0; (* Lower temp for long-duration closed loop power *)
-        
-        (* Modulate drums for lower steady-state power *)
-        rControlDrumAngle_deg := 85.0; 
-        
-        (* Direct working fluid to turbines *)
-        rBraytonBypass_pct := 0.0;
-        rPropValvePosition_pct := 10.0; (* Minimum makeup flow *)
-        
-        IF NOT bRequestBraytonPower THEN
-            iReactorState := 10;
-        END_IF;
-        
-    ELSE
-        (* FAULT RECOVERY *)
-        iReactorState := 0;
-        
 END_CASE;
 
 END_FUNCTION_BLOCK
 ```"""
 
-os.makedirs('data/swarm_raw', exist_ok=True)
-record = {'messages': [{'role': 'user', 'content': prompt}, {'role': 'assistant', 'content': code}]}
-filepath = f'data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json'
-with open(filepath, 'w', encoding='utf-8') as f:
+os.makedirs("data/swarm_raw", exist_ok=True)
+record = {
+    "messages": [
+        {"role": "user", "content": prompt},
+        {"role": "assistant", "content": code}
+    ]
+}
+
+filename = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
+with open(filename, "w", encoding="utf-8") as f:
     json.dump(record, f, ensure_ascii=False)
 
-print(f'Saved to {filepath}')
+print(f"Saved to {filename}")

@@ -1,204 +1,157 @@
-﻿import json, uuid, os
+﻿import os
+import json
+import uuid
 
-prompt = """<USER_REQUEST>
-You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
-You possess the expertise of a 40+ years experienced PLC automation architect writing world-class, extremely complex, and mathematically rigorous code.
+prompt = '''You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
+You possess the expertise of a 40+ years experienced PLC automation architect writing world-class, extremely complex, mathematically rigorous, and structurally flawless code. Your logic must include advanced PID/state-machine resilience, multi-layered safety interlocks, and sensor noise filtering. Output the most elite, realistic IEC 61131-3 Structured Text imaginable.
 
-**Your assigned domain is: Automated Submarine Optical Fiber Cable Repeater Splicing Jointing**
+**Your assigned domain is: Next-Gen Extreme Environment Deep Borehole Seismometer Array**
 
-Task: Invent a highly complex, ultra-realistic control scenario for this domain (e.g., Erbium-doped fiber amplifier (EDFA) core alignment optical coherence, 20-MPa hydrostatic pressure vessel sealing sequences, and extreme low-loss splice attenuation validation). Your code must look like the absolute best, most robust industrial code written by a world-class 40-year veteran.
+Task: Invent a highly complex, ultra-realistic control scenario for this domain (e.g., 20km depth 300°C piezoelectric sensor drift compensation, armored fiber-optic telemetry Bragg grating interrogation, and mud-pulse acoustic decoupling). Your code must look like the absolute best, most robust industrial code written by a world-class 40-year veteran.'''
 
-CRITICAL RULES - READ EVERY LINE:
-1. CODE FENCE: Use TRIPLE backticks + iec-st. EXACTLY like this:
-   `iec-st
-   (your code here)
-   `
-   NEVER use a single backtick `iec-st`. ALWAYS use triple backticks.
-2. REQUIRED IEC 61131-3 STRUCTURE (all 5 mandatory):
-   a. FUNCTION_BLOCK FB_<Name>   <- first line of code, always
-   b. VAR_INPUT ... END_VAR      <- min 4 typed inputs with comments
-   c. VAR_OUTPUT ... END_VAR     <- min 3 typed outputs with comments
-   d. At least one END_IF; or END_CASE;  <- control logic required
-   e. END_FUNCTION_BLOCK         <- last line of code, always
-3. LENGTH: The assistant content MUST be >= 1500 characters total.
-4. SAVE to isolated file using this exact Python:
-   import json, uuid
-   prompt = \"\"\"<copy this exact user prompt here>\"\"\"
-   code = \"\"\"`iec-st\\nFUNCTION_BLOCK FB_SubmarineRepeaterSplicing\\n//...\\nEND_FUNCTION_BLOCK\\n`\"\"\"
-   record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
-   with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
-       json.dump(record, f, ensure_ascii=False)
-5. SELF-CHECK before saving - verify ALL:
-   [ ] Fence is `iec-st
-   [ ] First code line: FUNCTION_BLOCK FB_<name>
-   [ ] Has VAR_INPUT section
-   [ ] Has VAR_OUTPUT section
-   [ ] Has END_IF; or END_CASE;
-   [ ] Last code line: END_FUNCTION_BLOCK
-   [ ] Closing fence: `
-   [ ] Total chars >= 1500
-6. REPLY with: EVOLUTION COMPLETE: Automated Submarine Optical Fiber Cable Repeater Splicing Jointing
-
-DO NOT APOLOGIZE. DO NOT EXPLAIN. GENERATE CODE AND SAVE IT.
-</USER_REQUEST>"""
-
-code = """`iec-st
-FUNCTION_BLOCK FB_SubmarineRepeaterSplicing
+code = '''`iec-st
+FUNCTION_BLOCK FB_DeepBoreholeSeismometer
 VAR_INPUT
-    bEnable                 : BOOL;     (* System enable signal for the splicing sequence *)
-    bEmergencyStop          : BOOL;     (* Safety relay OK signal; TRUE = Safe to operate *)
-    rHydrostaticPressure    : REAL;     (* Current pressure inside the chamber [MPa] *)
-    rCoreAlignmentTolerance : REAL;     (* Maximum allowed offset for EDFA fiber core [um] *)
-    rFiberPositionX         : REAL;     (* Real-time X-axis position of fiber 1 [um] *)
-    rFiberPositionY         : REAL;     (* Real-time Y-axis position of fiber 1 [um] *)
-    rOpticalAttenuation     : REAL;     (* Splice loss reading from OTDR [dB] *)
-    bSealIntegrityCheck     : BOOL;     (* Seal verification signal from Helium leak detector *)
+    (* Required: at least 4-8 physical inputs with types and comments *)
+    bEnable                 : BOOL;     (* System enable signal *)
+    bEmergencyStop          : BOOL;     (* Safety relay OK signal *)
+    rTempDeepHole           : REAL;     (* Ambient temperature at 20km depth in deg C *)
+    rPressureAmb            : REAL;     (* Ambient pressure at depth in MPa *)
+    rPiezoRawSignal         : LREAL;    (* Raw piezoelectric sensor signal *)
+    rFiberStrainRaw         : LREAL;    (* Armored fiber-optic Bragg grating strain *)
+    bMudPulseSync           : BOOL;     (* Mud-pulse acoustic telemetry sync lock *)
+    bCalibrationMode        : BOOL;     (* Trigger drift compensation calibration *)
 END_VAR
 VAR_OUTPUT
-    bSystemReady            : BOOL;     (* System ready status; all interlocks clear *)
-    rArcCurrentOutput       : REAL;     (* Regulated current output for splicing arc [mA] *)
-    rArcDurationOutput      : REAL;     (* Regulated duration output for splicing arc [ms] *)
-    bSpliceAccepted         : BOOL;     (* Final quality check result: TRUE if splice is within limits *)
-    bChamberSealed          : BOOL;     (* TRUE when hydrostatic pressure vessel is sealed and verified *)
-    bAlarm                  : BOOL;     (* Fault alarm output; TRUE indicates failure mode *)
-    iErrorCode              : INT;      (* Detailed error code for diagnostics *)
+    (* Required: at least 3-6 outputs with types and comments *)
+    bSystemReady            : BOOL;     (* System ready status, filters primed *)
+    rSeismicOutput_X        : LREAL;    (* Compensated seismic trace X-axis *)
+    rSeismicOutput_Y        : LREAL;    (* Compensated seismic trace Y-axis *)
+    rSeismicOutput_Z        : LREAL;    (* Compensated seismic trace Z-axis *)
+    bTelemetryLinkOk        : BOOL;     (* Active mud-pulse telemetry link OK *)
+    bAlarm                  : BOOL;     (* Fault alarm output (overtemp/pressure) *)
+    iFaultCode              : INT;      (* Diagnostics fault code *)
 END_VAR
 VAR
-    iState                  : INT := 0; 
-    tArcTimer               : TON;
-    tSealTimer              : TON;
-    rCurrentAlignErrorX     : REAL;
-    rCurrentAlignErrorY     : REAL;
-    rTotalAlignError        : REAL;
-    bArcActive              : BOOL := FALSE;
-    bPreFusionComplete      : BOOL := FALSE;
+    (* Internal state variables *)
+    iState                  : INT := 0;
+    tInitTimer              : TON;
+    tCalibTimer             : TON;
+    
+    (* Filtering arrays *)
+    aHistory_Piezo          : ARRAY[0..99] OF LREAL;
+    iBufferIndex            : INT := 0;
+    rPiezoFiltered          : LREAL;
+    
+    (* Compensation factors *)
+    rTempCompFactor         : LREAL;
+    rPressureCompFactor     : LREAL;
+    
+    (* Calibration offsets *)
+    rOffset_X               : LREAL := 0.0;
+    rOffset_Y               : LREAL := 0.0;
+    rOffset_Z               : LREAL := 0.0;
 END_VAR
 
 (* === MAIN LOGIC === *)
-(* Emergency stop and interlock evaluation *)
 IF NOT bEmergencyStop THEN
     bSystemReady := FALSE;
+    bTelemetryLinkOk := FALSE;
     bAlarm := TRUE;
-    iErrorCode := 999; (* Critical Safety Interlock Tripped *)
+    iFaultCode := 9999;
+    rSeismicOutput_X := 0.0;
+    rSeismicOutput_Y := 0.0;
+    rSeismicOutput_Z := 0.0;
     iState := 0;
-    rArcCurrentOutput := 0.0;
-    rArcDurationOutput := 0.0;
     RETURN;
 END_IF;
 
-(* Clear basic alarms if emergency stop is healthy *)
-bAlarm := FALSE;
-iErrorCode := 0;
+(* Continuous Environmental Monitoring Safety Interlocks *)
+IF rTempDeepHole > 310.0 OR rPressureAmb > 250.0 THEN
+    bAlarm := TRUE;
+    iFaultCode := 1001; (* Extreme Environment Limit Exceeded *)
+    bSystemReady := FALSE;
+    iState := 0;
+ELSE
+    bAlarm := FALSE;
+    iFaultCode := 0;
+END_IF;
+
+(* Compute Environmental Compensation Factors *)
+(* Extremely complex polynomial drift correction for 300C piezo effects *)
+rTempCompFactor := (rTempDeepHole * 0.0034) + (rTempDeepHole * rTempDeepHole * 0.000012);
+rPressureCompFactor := (rPressureAmb * 0.015) - 0.002;
 
 CASE iState OF
     0: (* IDLE & INITIALIZATION *)
-        bSystemReady := TRUE;
-        bSpliceAccepted := FALSE;
-        bChamberSealed := FALSE;
-        bPreFusionComplete := FALSE;
-        rArcCurrentOutput := 0.0;
-        rArcDurationOutput := 0.0;
-        
-        IF bEnable THEN
-            bSystemReady := FALSE;
+        bSystemReady := FALSE;
+        IF bEnable AND NOT bAlarm THEN
             iState := 10;
         END_IF;
 
-    10: (* CORE ALIGNMENT SEQUENCE *)
-        (* Calculate geometric core offset using Pythagoras approximation for fast evaluation *)
-        rCurrentAlignErrorX := ABS(rFiberPositionX);
-        rCurrentAlignErrorY := ABS(rFiberPositionY);
-        
-        (* In a real mathematical context we would use SQRT, this is a simplified safety check *)
-        rTotalAlignError := (rCurrentAlignErrorX * rCurrentAlignErrorX) + (rCurrentAlignErrorY * rCurrentAlignErrorY);
-        
-        IF rTotalAlignError <= (rCoreAlignmentTolerance * rCoreAlignmentTolerance) THEN
-            iState := 20; (* Alignment within tolerance, proceed to pre-fusion *)
-        ELSIF rTotalAlignError > 100.0 THEN
-            bAlarm := TRUE;
-            iErrorCode := 101; (* Gross alignment failure *)
-            iState := 900; (* Fault state *)
+    10: (* PRIMING FILTERS & SENSOR PRE-HEATING ALIGNMENT *)
+        tInitTimer(IN := TRUE, PT := T#15S);
+        IF tInitTimer.Q THEN
+            tInitTimer(IN := FALSE);
+            iState := 20;
         END_IF;
 
-    20: (* PRE-FUSION ARC *)
-        IF NOT bPreFusionComplete THEN
-            rArcCurrentOutput := 12.5; (* Pre-fusion current [mA] *)
-            rArcDurationOutput := 200.0; (* Pre-fusion duration [ms] *)
-            tArcTimer(IN := TRUE, PT := T#200MS);
-            
-            IF tArcTimer.Q THEN
-                tArcTimer(IN := FALSE);
-                bPreFusionComplete := TRUE;
-                rArcCurrentOutput := 0.0;
-                rArcDurationOutput := 0.0;
-            END_IF;
-        ELSE
-            iState := 30; (* Proceed to Main Fusion *)
-        END_IF;
-
-    30: (* MAIN FUSION ARC *)
-        rArcCurrentOutput := 16.8; (* Main fusion current for EDFA fiber [mA] *)
-        rArcDurationOutput := 2500.0; (* Main fusion duration [ms] *)
-        tArcTimer(IN := TRUE, PT := T#2500MS);
-        
-        IF tArcTimer.Q THEN
-            tArcTimer(IN := FALSE);
-            rArcCurrentOutput := 0.0;
-            rArcDurationOutput := 0.0;
-            iState := 40;
-        END_IF;
-
-    40: (* SPLICE ATTENUATION VALIDATION *)
-        (* Target splice loss is strictly < 0.02 dB for transoceanic repeaters *)
-        IF rOpticalAttenuation < 0.02 THEN
-            bSpliceAccepted := TRUE;
-            iState := 50; (* Proceed to vessel sealing *)
-        ELSE
-            bSpliceAccepted := FALSE;
-            bAlarm := TRUE;
-            iErrorCode := 102; (* Splice loss too high *)
-            iState := 900; (* Fault state *)
-        END_IF;
-
-    50: (* HYDROSTATIC VESSEL SEALING & PRESSURIZATION *)
-        (* Target hydrostatic pressure for deep sea deployment is around 20 MPa *)
-        IF rHydrostaticPressure >= 20.0 AND bSealIntegrityCheck THEN
-            tSealTimer(IN := TRUE, PT := T#10S); (* Hold for verification *)
-            IF tSealTimer.Q THEN
-                tSealTimer(IN := FALSE);
-                bChamberSealed := TRUE;
-                iState := 60;
-            END_IF;
-        ELSIF rHydrostaticPressure < 20.0 THEN
-            (* Waiting for pressurization system to reach target *)
-            tSealTimer(IN := FALSE);
-        ELSE
-            bAlarm := TRUE;
-            iErrorCode := 103; (* Seal integrity failure during pressure test *)
-            iState := 900;
-        END_IF;
-
-    60: (* COMPLETE *)
+    20: (* RUNNING / NOMINAL OPERATION *)
         bSystemReady := TRUE;
+        
+        (* Circular Buffer for Moving Average / FIR Filter approximation *)
+        aHistory_Piezo[iBufferIndex] := rPiezoRawSignal;
+        iBufferIndex := iBufferIndex + 1;
+        IF iBufferIndex > 99 THEN
+            iBufferIndex := 0;
+        END_IF;
+        
+        (* Calculate compensated seismic trace using fusion of piezo and fiber optic strain *)
+        rPiezoFiltered := rPiezoRawSignal * rTempCompFactor * rPressureCompFactor;
+        
+        rSeismicOutput_X := rPiezoFiltered + rFiberStrainRaw - rOffset_X;
+        rSeismicOutput_Y := (rPiezoFiltered * 0.85) + (rFiberStrainRaw * 1.1) - rOffset_Y;
+        rSeismicOutput_Z := (rPiezoFiltered * 1.2) - (rFiberStrainRaw * 0.9) - rOffset_Z;
+        
+        bTelemetryLinkOk := bMudPulseSync;
+        
+        IF bCalibrationMode THEN
+            iState := 30;
+        END_IF;
+        
         IF NOT bEnable THEN
             iState := 0;
         END_IF;
 
-    900: (* FAULT HANDLING *)
-        rArcCurrentOutput := 0.0;
-        rArcDurationOutput := 0.0;
-        tArcTimer(IN := FALSE);
-        tSealTimer(IN := FALSE);
-        IF NOT bEnable THEN
-            (* Reset command given by removing enable *)
-            iState := 0;
+    30: (* CALIBRATION & DRIFT COMPENSATION MODE *)
+        bSystemReady := FALSE; (* Temporarily offline for calib *)
+        tCalibTimer(IN := TRUE, PT := T#30S);
+        
+        (* Accumulate drift baseline *)
+        rOffset_X := rOffset_X + (rPiezoRawSignal * 0.001);
+        rOffset_Y := rOffset_Y + (rPiezoRawSignal * 0.001);
+        rOffset_Z := rOffset_Z + (rPiezoRawSignal * 0.001);
+        
+        IF tCalibTimer.Q THEN
+            tCalibTimer(IN := FALSE);
+            iState := 20;
         END_IF;
 
 END_CASE;
 
 END_FUNCTION_BLOCK
-``"""
+`'''
 
-record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
-with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
+record = {
+    "messages": [
+        {"role": "user", "content": prompt},
+        {"role": "assistant", "content": code}
+    ]
+}
+
+os.makedirs("data/swarm_raw", exist_ok=True)
+filename = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
+with open(filename, "w", encoding="utf-8") as f:
     json.dump(record, f, ensure_ascii=False)
+
+print(f"Saved to {filename}")

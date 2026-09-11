@@ -1,11 +1,11 @@
 import json, uuid, os
 
 prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
-You possess the expertise of a 40+ years experienced PLC automation architect writing world-class, extremely complex, and mathematically rigorous code.
+You possess the expertise of a 40+ years experienced PLC automation architect writing world-class, extremely complex, mathematically rigorous, and structurally flawless code. Your logic must include advanced PID/state-machine resilience, multi-layered safety interlocks, and sensor noise filtering. Output the most elite, realistic IEC 61131-3 Structured Text imaginable.
 
-**Your assigned domain is: Advanced Bio-Synthetic mRNA Vaccine High-Shear Micro-Fluidizer**
+**Your assigned domain is: Advanced Biomedical Proton Therapy Synchrotron Beamline**
 
-Task: Invent a highly complex, ultra-realistic control scenario for this domain (e.g., 30,000 psi interaction chamber localized thermal mapping, lipid nanoparticle (LNP) size distribution feedback, and sterile barrier cascading pressure zones). Your code must look like the absolute best, most robust industrial code written by a world-class 40-year veteran.
+Task: Invent a highly complex, ultra-realistic control scenario for this domain (e.g., 250 MeV proton extraction septum magnet ramping, scanning dipole raster precise dose delivery, and real-time Bragg peak tissue depth modulation). Your code must look like the absolute best, most robust industrial code written by a world-class 40-year veteran.
 
 CRITICAL RULES - READ EVERY LINE:
 1. CODE FENCE: Use TRIPLE backticks + iec-st. EXACTLY like this:
@@ -23,7 +23,7 @@ CRITICAL RULES - READ EVERY LINE:
 4. SAVE to isolated file using this exact Python:
    import json, uuid
    prompt = \"\"\"<copy this exact user prompt here>\"\"\"
-   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_mRNA_MicroFluidizer\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
+   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_ProtonTherapySynchrotron\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
    record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
    with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
        json.dump(record, f, ensure_ascii=False)
@@ -36,155 +36,149 @@ CRITICAL RULES - READ EVERY LINE:
    [ ] Last code line: END_FUNCTION_BLOCK
    [ ] Closing fence: ```
    [ ] Total chars >= 1500
-6. REPLY with: EVOLUTION COMPLETE: Advanced Bio-Synthetic mRNA Vaccine High-Shear Micro-Fluidizer
+6. REPLY with: EVOLUTION COMPLETE: Advanced Biomedical Proton Therapy Synchrotron Beamline
 
 DO NOT APOLOGIZE. DO NOT EXPLAIN. GENERATE CODE AND SAVE IT."""
 
 code = """```iec-st
-FUNCTION_BLOCK FB_mRNA_MicroFluidizer
+FUNCTION_BLOCK FB_ProtonTherapySynchrotron
 VAR_INPUT
-    bSystemEnable         : BOOL;      (* Main system enable command from master DCS *)
-    bEmergencyStop        : BOOL;      (* Hardware safety chain status (TRUE = OK) *)
-    rInletPressure        : REAL;      (* Inlet feed pressure from formulation tanks (psi) *)
-    rInteractionTemp      : REAL;      (* Localized thermal mapping in interaction chamber (deg C) *)
-    rLNP_SizeMean         : REAL;      (* Real-time DLS lipid nanoparticle size feedback (nm) *)
-    bSterileBarrierOK     : BOOL;      (* Cascading pressure zones sterile boundary status *)
-    rPumpFlowRateReq      : REAL;      (* Requested flow rate for intensifier pump (L/min) *)
-    rCoolingWaterFlow     : REAL;      (* Chilled water flow rate for heat exchanger (L/min) *)
+    bEnable                 : BOOL;     (* System master enable *)
+    bEmergencyStopOk        : BOOL;     (* Safety relay loop closed and OK *)
+    rBeamEnergySetpt        : REAL;     (* Target proton beam energy in MeV (e.g., 70 - 250 MeV) *)
+    rDoseRateSetpt          : REAL;     (* Desired dose rate in Gy/min *)
+    rExtractionSeptumCur    : REAL;     (* Septum magnet current feedback in Amps *)
+    rScanningDipoleXFB      : REAL;     (* Raster scanning dipole X-axis position feedback (mm) *)
+    rScanningDipoleYFB      : REAL;     (* Raster scanning dipole Y-axis position feedback (mm) *)
+    bPatientAlignmentOk     : BOOL;     (* Patient 6D couch positioning verification *)
 END_VAR
 VAR_OUTPUT
-    bSystemReady          : BOOL;      (* System is ready for vaccine processing *)
-    bProcessActive        : BOOL;      (* High-shear microfluidization is actively running *)
-    rIntensifierPressure  : REAL;      (* Commanded stroke pressure to the intensifier pump (psi) *)
-    rChillerValveCmd      : REAL;      (* Cooling valve command (0.0 to 100.0 %) *)
-    bWarningLNPSize       : BOOL;      (* Warning: LNP size deviating from target formulation *)
-    bCriticalAlarm        : BOOL;      (* Critical fault: thermal run-away or pressure loss *)
-    iProcessState         : INT;       (* Current state of the fluidizer state machine *)
+    bSystemReady            : BOOL;     (* Beamline ready for extraction and delivery *)
+    bBeamActive             : BOOL;     (* Proton beam is currently active and extracting *)
+    rSeptumCurrentCmd       : REAL;     (* Command signal to extraction septum magnet power supply *)
+    rDipoleXCurrentCmd      : REAL;     (* X-axis dipole scanning magnet command *)
+    rDipoleYCurrentCmd      : REAL;     (* Y-axis dipole scanning magnet command *)
+    bDoseDelivered          : BOOL;     (* Target accumulated dose achieved *)
+    bSafetyInterlockTrip    : BOOL;     (* Critical safety violation detected, beam aborted *)
+    iErrorCode              : INT;      (* Diagnostics error code for HMI/SCADA *)
 END_VAR
 VAR
-    iState                : INT := 0;  (* Internal state variable for processing *)
-    tStartupDelay         : TON;       (* Timer for pressure stabilization *)
-    tChillerDelay         : TON;       (* Timer for thermal stabilization *)
-    rTargetPressure       : REAL := 30000.0; (* 30,000 psi operating pressure *)
-    rMaxTempLimit         : REAL := 15.0;    (* Max allowable temperature for mRNA stability *)
-    rTargetLNPSize        : REAL := 80.0;    (* Target LNP size in nm *)
-    rLNPSizeTolerance     : REAL := 15.0;    (* +/- 15 nm acceptable range *)
-    rKp                   : REAL := 2.5;     (* Proportional gain for chiller PID pseudo-code *)
-    rErrorTemp            : REAL;            (* Temperature error for cooling loop *)
+    iState                  : INT := 0; (* Main state machine step *)
+    tStartupDelay           : TON;
+    tDoseTimer              : TON;
+    rAccumulatedDose        : REAL := 0.0;
+    rSeptumError            : REAL := 0.0;
+    rSeptumIntegral         : REAL := 0.0;
+    rSeptumKp               : REAL := 0.85;
+    rSeptumKi               : REAL := 0.12;
+    rMaxSeptumCurrent       : REAL := 5000.0; (* Max 5kA *)
+    bFaultActive            : BOOL := FALSE;
 END_VAR
 
 (* === MAIN LOGIC === *)
-(* 1. Safety and Interlock Checks *)
-IF NOT bEmergencyStop OR NOT bSterileBarrierOK THEN
+(* Real-time safety interlock evaluation - 1ms deterministic execution *)
+IF NOT bEmergencyStopOk OR NOT bPatientAlignmentOk THEN
+    bFaultActive := TRUE;
     bSystemReady := FALSE;
-    bProcessActive := FALSE;
-    rIntensifierPressure := 0.0;
-    rChillerValveCmd := 100.0; (* Failsafe: full cooling *)
-    bCriticalAlarm := TRUE;
-    iState := 999; (* Fault state *)
-    iProcessState := iState;
+    bBeamActive := FALSE;
+    bSafetyInterlockTrip := TRUE;
+    rSeptumCurrentCmd := 0.0;
+    rDipoleXCurrentCmd := 0.0;
+    rDipoleYCurrentCmd := 0.0;
+    iState := 999; (* Transition to FAULT state *)
+    IF NOT bEmergencyStopOk THEN
+        iErrorCode := 1001; (* E-Stop Pressed or Loop Open *)
+    ELSE
+        iErrorCode := 1002; (* Patient Alignment Lost During Treatment *)
+    END_IF;
     RETURN;
 END_IF;
 
-(* 2. Thermal Protection Overrides *)
-IF rInteractionTemp > rMaxTempLimit THEN
-    bCriticalAlarm := TRUE;
-    rIntensifierPressure := 0.0; (* Drop pressure immediately to stop shear heating *)
-    rChillerValveCmd := 100.0;
-    iState := 999;
-END_IF;
-
-(* 3. LNP Quality Monitoring *)
-IF ABS(rLNP_SizeMean - rTargetLNPSize) > rLNPSizeTolerance THEN
-    bWarningLNPSize := TRUE;
-ELSE
-    bWarningLNPSize := FALSE;
-END_IF;
-
-(* 4. State Machine for High-Shear Process *)
 CASE iState OF
-    0: (* IDLE - Waiting for DCS Enable *)
-        bSystemReady := TRUE;
-        bProcessActive := FALSE;
-        rIntensifierPressure := 0.0;
-        bCriticalAlarm := FALSE;
-        rChillerValveCmd := 0.0;
+    0: (* IDLE & INITIALIZATION *)
+        bSystemReady := FALSE;
+        bBeamActive := FALSE;
+        bSafetyInterlockTrip := FALSE;
+        bDoseDelivered := FALSE;
+        rAccumulatedDose := 0.0;
         
-        IF bSystemEnable AND (rInletPressure > 50.0) THEN
-            iState := 10; (* Move to priming *)
+        IF bEnable AND NOT bFaultActive THEN
+            iState := 10;
         END_IF;
 
-    10: (* PRIMING - Pre-cooling and low pressure start *)
-        bSystemReady := TRUE;
-        bProcessActive := TRUE;
-        rIntensifierPressure := 5000.0; (* Low pressure prime *)
-        rChillerValveCmd := 50.0;
-        
-        tStartupDelay(IN := TRUE, PT := T#10S);
+    10: (* WARMUP & BEAM ENERGY CONFIGURATION *)
+        (* Simulate setting up the synchrotron ring for desired energy *)
+        tStartupDelay(IN := TRUE, PT := T#2S);
         IF tStartupDelay.Q THEN
             tStartupDelay(IN := FALSE);
             iState := 20;
         END_IF;
 
-    20: (* RAMPING - Bring up to 30,000 psi *)
-        rIntensifierPressure := rIntensifierPressure + 100.0;
-        IF rIntensifierPressure >= rTargetPressure THEN
-            rIntensifierPressure := rTargetPressure;
+    20: (* SEPTUM MAGNET RAMPING PID CONTROL *)
+        (* Closed-loop control of the extraction septum magnet *)
+        rSeptumError := (rBeamEnergySetpt * 15.4) - rExtractionSeptumCur; (* 15.4 A/MeV heuristic *)
+        rSeptumIntegral := rSeptumIntegral + rSeptumError;
+        
+        (* Anti-windup *)
+        IF rSeptumIntegral > 1000.0 THEN rSeptumIntegral := 1000.0; END_IF;
+        IF rSeptumIntegral < -1000.0 THEN rSeptumIntegral := -1000.0; END_IF;
+        
+        rSeptumCurrentCmd := (rSeptumKp * rSeptumError) + (rSeptumKi * rSeptumIntegral);
+        
+        (* Saturation limits *)
+        IF rSeptumCurrentCmd > rMaxSeptumCurrent THEN
+            rSeptumCurrentCmd := rMaxSeptumCurrent;
+        ELSIF rSeptumCurrentCmd < 0.0 THEN
+            rSeptumCurrentCmd := 0.0;
+        END_IF;
+        
+        (* Check if septum current is within 0.1% tolerance *)
+        IF ABS(rSeptumError) < 5.0 THEN
+            bSystemReady := TRUE;
             iState := 30;
         END_IF;
-        
-        (* Simple P-control for thermal loop during ramp *)
-        rErrorTemp := rInteractionTemp - 4.0; (* Target 4 deg C *)
-        IF rErrorTemp > 0.0 THEN
-            rChillerValveCmd := rChillerValveCmd + (rErrorTemp * rKp);
-        END_IF;
-        IF rChillerValveCmd > 100.0 THEN rChillerValveCmd := 100.0; END_IF;
 
-    30: (* PRODUCTION - Steady state microfluidization *)
-        rIntensifierPressure := rTargetPressure;
+    30: (* BEAM EXTRACTION & DOSE DELIVERY *)
+        bBeamActive := TRUE;
         
-        (* Thermal regulation loop *)
-        rErrorTemp := rInteractionTemp - 4.0;
-        IF rErrorTemp > 0.0 THEN
-            rChillerValveCmd := rChillerValveCmd + (rErrorTemp * rKp * 0.5);
-        ELSE
-            rChillerValveCmd := rChillerValveCmd - 5.0;
-        END_IF;
+        (* Raster scanning logic - simplified spiral or raster pattern simulated by dose time *)
+        rDipoleXCurrentCmd := rScanningDipoleXFB + 0.1; (* Increment scan X *)
+        IF rDipoleXCurrentCmd > 100.0 THEN rDipoleXCurrentCmd := -100.0; END_IF;
         
-        (* Valve saturation limits *)
-        IF rChillerValveCmd > 100.0 THEN rChillerValveCmd := 100.0; END_IF;
-        IF rChillerValveCmd < 10.0 THEN rChillerValveCmd := 10.0; END_IF;
+        rDipoleYCurrentCmd := rScanningDipoleYFB + 0.05; (* Increment scan Y *)
+        IF rDipoleYCurrentCmd > 100.0 THEN rDipoleYCurrentCmd := -100.0; END_IF;
         
-        IF NOT bSystemEnable THEN
+        (* Dose accumulation model *)
+        rAccumulatedDose := rAccumulatedDose + (rDoseRateSetpt / 60000.0); (* Per ms integration *)
+        
+        IF rAccumulatedDose >= 2.0 THEN (* Target 2.0 Gy per fraction *)
+            bDoseDelivered := TRUE;
+            bBeamActive := FALSE;
+            rSeptumCurrentCmd := 0.0;
             iState := 40;
         END_IF;
 
-    40: (* SHUTDOWN - Ramp down pressure safely *)
-        rIntensifierPressure := rIntensifierPressure - 500.0;
-        IF rIntensifierPressure <= 0.0 THEN
-            rIntensifierPressure := 0.0;
-            bProcessActive := FALSE;
-            iState := 0;
-        END_IF;
-
-    999: (* FAULT - Requires hard reset *)
+    40: (* COMPLETE / POST-IRRADIATION VERIFICATION *)
         bSystemReady := FALSE;
-        bProcessActive := FALSE;
-        IF NOT bEmergencyStop THEN
-            (* Wait for E-stop clear *)
-        ELSIF bSystemEnable = FALSE AND rInteractionTemp < 10.0 THEN
-            bCriticalAlarm := FALSE;
+        IF NOT bEnable THEN
+            iState := 0; (* Reset for next fraction *)
+        END_IF;
+        
+    999: (* FAULT RECOVERY *)
+        bSystemReady := FALSE;
+        bBeamActive := FALSE;
+        IF NOT bEnable AND NOT bSafetyInterlockTrip THEN
+            bFaultActive := FALSE;
+            iErrorCode := 0;
             iState := 0;
         END_IF;
 
 END_CASE;
 
-(* Update external state tracker *)
-iProcessState := iState;
-
 END_FUNCTION_BLOCK
 ```"""
 
+import os
 os.makedirs("data/swarm_raw", exist_ok=True)
 record = {
     "messages": [

@@ -1,11 +1,13 @@
-import os, json, uuid
+import json, uuid, os
+
 os.makedirs("data/swarm_raw", exist_ok=True)
+
 prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
-You possess the expertise of a 40+ years experienced PLC automation architect writing world-class, extremely complex, and mathematically rigorous code.
+You possess the expertise of a 40+ years experienced PLC automation architect writing world-class, extremely complex, mathematically rigorous, and structurally flawless code. Your logic must include advanced PID/state-machine resilience, multi-layered safety interlocks, and sensor noise filtering. Output the most elite, realistic IEC 61131-3 Structured Text imaginable.
 
-**Your assigned domain is: Advanced Spacecraft Xenon Gridded Ion Thruster**
+**Your assigned domain is: Next-Gen Space Telescope Beryllium Primary Mirror Segment Actuator**
 
-Task: Invent a highly complex, ultra-realistic control scenario for this domain (e.g., High-voltage (3000V) screen grid arcing mitigation, hollow cathode neutralizer plume thermal steering, and propellant flow fraction cascade). Your code must look like the absolute best, most robust industrial code written by a world-class 40-year veteran.
+Task: Invent a highly complex, ultra-realistic control scenario for this domain (e.g., 10-nanometer resolution piezoelectric strut extension, thermal distortion wavefront pre-compensation, and highly redundant fault-tolerant absolute encoding). Your code must look like the absolute best, most robust industrial code written by a world-class 40-year veteran.
 
 CRITICAL RULES - READ EVERY LINE:
 1. CODE FENCE: Use TRIPLE backticks + iec-st. EXACTLY like this:
@@ -23,7 +25,7 @@ CRITICAL RULES - READ EVERY LINE:
 4. SAVE to isolated file using this exact Python:
    import json, uuid
    prompt = \"\"\"<copy this exact user prompt here>\"\"\"
-   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_IonThrusterControl\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
+   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_SpaceTelescope_MirrorActuator\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
    record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
    with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
        json.dump(record, f, ensure_ascii=False)
@@ -36,137 +38,164 @@ CRITICAL RULES - READ EVERY LINE:
    [ ] Last code line: END_FUNCTION_BLOCK
    [ ] Closing fence: ```
    [ ] Total chars >= 1500
-6. REPLY with: EVOLUTION COMPLETE: Advanced Spacecraft Xenon Gridded Ion Thruster
+6. REPLY with: EVOLUTION COMPLETE: Next-Gen Space Telescope Beryllium Primary Mirror Segment Actuator
 
 DO NOT APOLOGIZE. DO NOT EXPLAIN. GENERATE CODE AND SAVE IT."""
 
 code = """```iec-st
-FUNCTION_BLOCK FB_IonThruster_AdvancedControl
+FUNCTION_BLOCK FB_SpaceTelescope_MirrorActuator
 VAR_INPUT
-    bEnable                 : BOOL;     (* Master enable signal for the thruster *)
-    bEmergencyStop          : BOOL;     (* Hardware interlock safety OK signal *)
-    rScreenGridVoltage      : REAL;     (* Measured screen grid voltage [V] *)
-    rScreenGridCurrent      : REAL;     (* Measured screen grid current [mA] *)
-    rAccelGridVoltage       : REAL;     (* Measured accelerator grid voltage [V] *)
-    rNeutralizerTemp        : REAL;     (* Hollow cathode neutralizer tip temperature [C] *)
-    rXenonFlowRate          : REAL;     (* Xenon mass flow rate measurement [mg/s] *)
-    bArcingDetected         : BOOL;     (* Fast hardware detection of grid arcing *)
+    (* High-precision physical inputs *)
+    bEnableSys               : BOOL;     (* System master enable interlock *)
+    bSafetyOK                : BOOL;     (* Hardware safety loop closed *)
+    rCmdPosition_nm          : REAL;     (* Commanded extension in nanometers (10nm res) *)
+    rActualPosA_nm           : REAL;     (* Main absolute encoder position *)
+    rActualPosB_nm           : REAL;     (* Redundant absolute encoder position *)
+    rTemperature_K           : REAL;     (* Beryllium segment temperature in Kelvin *)
+    rThermalWavefrontComp    : REAL;     (* Thermal distortion pre-compensation offset *)
+    bForceCalibrate          : BOOL;     (* Force recalibration sequence *)
 END_VAR
 VAR_OUTPUT
-    bSystemReady            : BOOL;     (* Thruster control subsystem ready for plasma ignition *)
-    rScreenGridVoltageSp    : REAL;     (* Setpoint for the screen grid high voltage power supply [V] *)
-    rAccelGridVoltageSp     : REAL;     (* Setpoint for the accelerator grid high voltage power supply [V] *)
-    rXenonFlowValvePos      : REAL;     (* Commanded position for the Xenon proportional flow valve [%] *)
-    rNeutralizerHeaterPwr   : REAL;     (* Commanded power for the hollow cathode heater [%] *)
-    bThrusterFault          : BOOL;     (* Critical fault latch indicating mission safety abort *)
+    (* Actuator drive outputs and status *)
+    bActuatorReady           : BOOL;     (* Ready for precision tracking *)
+    rPiezoDriveVolts         : REAL;     (* Commanded drive voltage to piezoelectric strut (0-150V) *)
+    bPositionAchieved        : BOOL;     (* Position within tight tolerance band *)
+    bThermalWarning          : BOOL;     (* Temperature gradient exceeds safe limits *)
+    bEncoderFault            : BOOL;     (* Divergence between primary and redundant encoders *)
+    iSystemStateOut          : INT;      (* Current state machine state *)
 END_VAR
 VAR
-    iState                  : INT := 0; (* Main state machine variable *)
-    tArcRecoveryTimer       : TON;      (* Timer for arcing recovery cool-down *)
-    tWarmupTimer            : TON;      (* Timer for neutralizer warmup *)
-    rInternalPID_Kp         : REAL := 0.25;
-    rInternalPID_Ki         : REAL := 0.05;
-    rInternalPID_Error      : REAL := 0.0;
-    rInternalPID_Int        : REAL := 0.0;
-    iArcStrikeCounter       : INT := 0;
+    (* Internal State and Filtering *)
+    iState                   : INT := 0;
+    rFilteredPos_nm          : REAL := 0.0;
+    rPosError_nm             : REAL := 0.0;
+    rIntegralTerm            : REAL := 0.0;
+    rDerivativeTerm          : REAL := 0.0;
+    rLastError_nm            : REAL := 0.0;
+    
+    (* Filter Constants and PID Gains *)
+    rKp                      : REAL := 0.005;
+    rKi                      : REAL := 0.0001;
+    rKd                      : REAL := 0.015;
+    rAlphaFilter             : REAL := 0.1;
+    
+    (* Timers and Safety bounds *)
+    tSettleTimer             : TON;
+    tSafetyTimer             : TON;
+    rMaxVoltage_V            : REAL := 150.0;
+    rMaxTempGradient         : REAL := 0.5;
+    rEncoderTol_nm           : REAL := 5.0; (* Maximum allowed deviation between encoders *)
+    
+    bInitDone                : BOOL := FALSE;
 END_VAR
 
 (* === MAIN LOGIC === *)
-(* Immediate safety interlock check *)
-IF NOT bEmergencyStop THEN
-    bSystemReady := FALSE;
-    bThrusterFault := TRUE;
-    rScreenGridVoltageSp := 0.0;
-    rAccelGridVoltageSp := 0.0;
-    rXenonFlowValvePos := 0.0;
-    rNeutralizerHeaterPwr := 0.0;
-    RETURN;
+(* 1. Safety Interlocks and Hardware Fault Detection *)
+IF NOT bEnableSys OR NOT bSafetyOK THEN
+    iState := 99; (* Fault state *)
 END_IF;
 
-(* Rapid hardware arcing response - overriding state machine if severe *)
-IF bArcingDetected THEN
-    iArcStrikeCounter := iArcStrikeCounter + 1;
-    IF iArcStrikeCounter > 5 THEN
-        (* Catastrophic grid short detected *)
-        bThrusterFault := TRUE;
-        iState := 999; (* Fault state *)
-    ELSE
-        (* Normal transient arc, drop voltage to extinguish *)
-        iState := 50; (* Arc recovery state *)
-    END_IF;
+(* Encoder validation - detect divergence *)
+IF ABS(rActualPosA_nm - rActualPosB_nm) > rEncoderTol_nm THEN
+    bEncoderFault := TRUE;
+    iState := 99;
+ELSE
+    bEncoderFault := FALSE;
+END_IF;
+
+(* Initialise filter *)
+IF NOT bInitDone THEN
+    rFilteredPos_nm := rActualPosA_nm;
+    bInitDone := TRUE;
+END_IF;
+
+(* Exponential moving average filter on primary encoder *)
+rFilteredPos_nm := (rAlphaFilter * rActualPosA_nm) + ((1.0 - rAlphaFilter) * rFilteredPos_nm);
+
+(* Thermal bounds checking *)
+IF (rTemperature_K < 20.0) OR (rTemperature_K > 50.0) THEN
+    bThermalWarning := TRUE;
+ELSE
+    bThermalWarning := FALSE;
 END_IF;
 
 CASE iState OF
     0: (* IDLE *)
-        bSystemReady := FALSE;
-        rScreenGridVoltageSp := 0.0;
-        rAccelGridVoltageSp := 0.0;
-        rXenonFlowValvePos := 0.0;
-        rNeutralizerHeaterPwr := 0.0;
-        
-        IF bEnable THEN
+        bActuatorReady := FALSE;
+        rPiezoDriveVolts := 0.0;
+        bPositionAchieved := FALSE;
+        rIntegralTerm := 0.0;
+        IF bEnableSys AND bSafetyOK AND NOT bEncoderFault AND NOT bForceCalibrate THEN
             iState := 10;
+        ELSIF bForceCalibrate THEN
+            iState := 5;
         END_IF;
 
-    10: (* NEUTRALIZER WARMUP *)
-        (* Slowly ramp heater power to prevent thermal shock *)
-        rNeutralizerHeaterPwr := 15.0; 
-        tWarmupTimer(IN := TRUE, PT := T#300S);
-        
-        IF tWarmupTimer.Q AND (rNeutralizerTemp > 1050.0) THEN
-            tWarmupTimer(IN := FALSE);
-            iState := 20;
+    5: (* CALIBRATE *)
+        (* Simulated zeroing procedure for absolute referencing *)
+        rPiezoDriveVolts := 0.0;
+        tSettleTimer(IN := TRUE, PT := T#2S);
+        IF tSettleTimer.Q THEN
+            tSettleTimer(IN := FALSE);
+            iState := 10;
         END_IF;
         
-    20: (* PROPELLANT FLOW ESTABLISHMENT *)
-        (* Establish minimal Xenon flow for cathode ignition *)
-        rXenonFlowValvePos := 5.0; 
-        IF rXenonFlowRate > 1.2 THEN
-            iState := 30;
+    10: (* ACTIVE TRACKING *)
+        bActuatorReady := TRUE;
+        
+        (* Calculate target with thermal pre-compensation applied *)
+        rPosError_nm := (rCmdPosition_nm + rThermalWavefrontComp) - rFilteredPos_nm;
+        
+        (* PID Control Law for Piezoelectric Extension *)
+        rIntegralTerm := rIntegralTerm + (rPosError_nm * rKi);
+        
+        (* Anti-windup clamping *)
+        IF rIntegralTerm > 50.0 THEN
+            rIntegralTerm := 50.0;
+        ELSIF rIntegralTerm < -50.0 THEN
+            rIntegralTerm := -50.0;
         END_IF;
         
-    30: (* GRID VOLTAGE RAMP (IGNITION) *)
-        rAccelGridVoltageSp := -300.0; 
-        rScreenGridVoltageSp := rScreenGridVoltageSp + 10.0; (* Ramp up by 10V/scan *)
+        rDerivativeTerm := (rPosError_nm - rLastError_nm) * rKd;
         
-        IF rScreenGridVoltageSp >= 3000.0 THEN
-            rScreenGridVoltageSp := 3000.0;
-            bSystemReady := TRUE;
-            iState := 40;
+        (* Compute Output Voltage *)
+        rPiezoDriveVolts := (rPosError_nm * rKp) + rIntegralTerm + rDerivativeTerm;
+        
+        (* Clamp Output voltage to hardware limits (0 - 150V) *)
+        IF rPiezoDriveVolts > rMaxVoltage_V THEN
+            rPiezoDriveVolts := rMaxVoltage_V;
+        ELSIF rPiezoDriveVolts < 0.0 THEN
+            rPiezoDriveVolts := 0.0;
         END_IF;
         
-    40: (* NOMINAL THRUST OPERATION *)
-        (* Implement cascade PID for precise flow control based on beam current *)
-        rInternalPID_Error := 2000.0 - rScreenGridCurrent; (* Target 2A beam *)
-        rInternalPID_Int := rInternalPID_Int + (rInternalPID_Error * 0.1);
+        (* Update state variables *)
+        rLastError_nm := rPosError_nm;
         
-        (* Anti-windup limits *)
-        IF rInternalPID_Int > 50.0 THEN rInternalPID_Int := 50.0; END_IF;
-        IF rInternalPID_Int < -50.0 THEN rInternalPID_Int := -50.0; END_IF;
+        (* Determine if settled within 10nm band *)
+        IF ABS(rPosError_nm) <= 10.0 THEN
+            tSettleTimer(IN := TRUE, PT := T#500MS);
+            IF tSettleTimer.Q THEN
+                bPositionAchieved := TRUE;
+            END_IF;
+        ELSE
+            tSettleTimer(IN := FALSE);
+            bPositionAchieved := FALSE;
+        END_IF;
         
-        rXenonFlowValvePos := 20.0 + (rInternalPID_Kp * rInternalPID_Error) + (rInternalPID_Ki * rInternalPID_Int);
+        IF bForceCalibrate THEN
+            iState := 5;
+        END_IF;
+
+    99: (* FAULT SHUTDOWN *)
+        bActuatorReady := FALSE;
+        bPositionAchieved := FALSE;
+        (* Gentle ramp down to zero voltage would be implemented here. For immediate safety: *)
+        rPiezoDriveVolts := 0.0;
         
-        IF NOT bEnable THEN
+        (* Recovery condition *)
+        IF bEnableSys AND bSafetyOK AND NOT bEncoderFault THEN
             iState := 0;
         END_IF;
-        
-    50: (* ARC RECOVERY MODE *)
-        rScreenGridVoltageSp := 0.0;
-        rAccelGridVoltageSp := 0.0;
-        tArcRecoveryTimer(IN := TRUE, PT := T#2S);
-        
-        IF tArcRecoveryTimer.Q THEN
-            tArcRecoveryTimer(IN := FALSE);
-            iState := 30; (* Re-ignite *)
-        END_IF;
-        
-    999: (* LATCHED FAULT STATE *)
-        bSystemReady := FALSE;
-        rScreenGridVoltageSp := 0.0;
-        rAccelGridVoltageSp := 0.0;
-        rXenonFlowValvePos := 0.0;
-        rNeutralizerHeaterPwr := 0.0;
-        (* Requires hardware reset, no automatic exit from fault *)
 
 END_CASE;
 
