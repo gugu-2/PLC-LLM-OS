@@ -1,12 +1,11 @@
-import json, uuid, os
-
-prompt = """<USER_REQUEST>
-You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
+import os, json, uuid
+os.makedirs('data/swarm_raw', exist_ok=True)
+prompt = '''You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
 You possess the expertise of a 40+ years experienced PLC automation architect writing world-class, extremely complex, and mathematically rigorous code.
 
-**Your assigned domain is: Continuous Polyethylene Terephthalate (PET) Solid State Polycondensation (SSP) Reactor**
+**Your assigned domain is: Advanced Biopharmaceutical Mammalian Cell Culture Bioreactor**
 
-Task: Invent a highly complex, ultra-realistic control scenario for this domain (e.g., hot nitrogen counter-current mass flow fluidization, crystalline density gradient tracking, and rotary valve precise throughput metering). Your code must look like the absolute best, most robust industrial code written by a world-class 40-year veteran.
+Task: Invent a highly complex, ultra-realistic control scenario for this domain (e.g., Perfusion cascade control for dissolved oxygen (DO) and pH, glucose/lactate metabolic shift multi-variate feeding, and anti-foaming mechanical/chemical intervention). Your code must look like the absolute best, most robust industrial code written by a world-class 40-year veteran.
 
 CRITICAL RULES - READ EVERY LINE:
 1. CODE FENCE: Use TRIPLE backticks + iec-st. EXACTLY like this:
@@ -23,8 +22,8 @@ CRITICAL RULES - READ EVERY LINE:
 3. LENGTH: The assistant content MUST be >= 1500 characters total.
 4. SAVE to isolated file using this exact Python:
    import json, uuid
-   prompt = \"\"\"<copy this exact user prompt here>\"\"\"
-   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_PET_SSP_Reactor\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
+   prompt = """<copy this exact user prompt here>"""
+   code = """```iec-st\nFUNCTION_BLOCK FB_MammalianBioreactor\n//...\nEND_FUNCTION_BLOCK\n```"""
    record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
    with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
        json.dump(record, f, ensure_ascii=False)
@@ -37,154 +36,187 @@ CRITICAL RULES - READ EVERY LINE:
    [ ] Last code line: END_FUNCTION_BLOCK
    [ ] Closing fence: ```
    [ ] Total chars >= 1500
-6. REPLY with: EVOLUTION COMPLETE: Continuous Polyethylene Terephthalate (PET) Solid State Polycondensation (SSP) Reactor
+6. REPLY with: EVOLUTION COMPLETE: Advanced Biopharmaceutical Mammalian Cell Culture Bioreactor
 
-DO NOT APOLOGIZE. DO NOT EXPLAIN. GENERATE CODE AND SAVE IT.
-</USER_REQUEST>"""
+DO NOT APOLOGIZE. DO NOT EXPLAIN. GENERATE CODE AND SAVE IT.'''
 
-code = """```iec-st
-FUNCTION_BLOCK FB_PET_SSP_Reactor
+code = '''```iec-st
+FUNCTION_BLOCK FB_MammalianBioreactorControl
 VAR_INPUT
-    bSystemEnable           : BOOL;     (* Global Enable Signal for the SSP Reactor System *)
-    bEmergencyStop          : BOOL;     (* Safety Relay Status (FALSE = E-Stop Active) *)
-    rInletPelletTemp        : REAL;     (* Pre-crystallized PET pellet inlet temperature [deg C] *)
-    rN2GasMassFlow          : REAL;     (* Counter-current Hot N2 mass flow rate [kg/h] *)
-    rN2InletTemp            : REAL;     (* Hot N2 inlet temperature at bottom of reactor [deg C] *)
-    rTargetIntrinsicVisc    : REAL;     (* Target Intrinsic Viscosity (IV) for final PET product [dL/g] *)
-    rLevelMeasurement       : REAL;     (* Radar level measurement of PET bed [m] *)
-    bDischargePermit        : BOOL;     (* Downstream process ready to accept product *)
+    (* Essential Physical I/O & Measurements *)
+    bSystemEnable       : BOOL;     (* Global Enable for Bioreactor Control *)
+    bEmergencyStop      : BOOL;     (* Safety Relay Status (TRUE = OK, FALSE = E-STOP) *)
+    rpH_Measurement     : REAL;     (* Current pH value from primary sensor (0.0 - 14.0) *)
+    rDO_Measurement     : REAL;     (* Dissolved Oxygen (%) *)
+    rTemp_Measurement   : REAL;     (* Bioreactor Temperature (Deg C) *)
+    rAgitatorSpeed      : REAL;     (* Current Agitator Speed (RPM) *)
+    rGlucoseConc        : REAL;     (* Online Glucose Concentration (g/L) *)
+    rLactateConc        : REAL;     (* Online Lactate Concentration (g/L) *)
+    bFoamDetected       : BOOL;     (* Foam detection probe active high *)
 END_VAR
 VAR_OUTPUT
-    bReactorReady           : BOOL;     (* Reactor in steady state and producing on-spec IV *)
-    rRotaryValveSpeedSetp   : REAL;     (* Discharge rotary valve speed setpoint [RPM] *)
-    rN2HeaterPower          : REAL;     (* Nitrogen heater SCR power control [0-100%] *)
-    bHighTempAlarm          : BOOL;     (* Alarm: Reactor bed temperature exceeded safety limits *)
-    bChokingAlarm           : BOOL;     (* Alarm: Potential fluidization choking detected *)
-    rEstimatedIV            : REAL;     (* Real-time model estimation of current discharge IV [dL/g] *)
+    (* Actuator Control Commands *)
+    bSystemReady        : BOOL;     (* Interlocks verified, ready for operation *)
+    rAgitatorSetpoint   : REAL;     (* Commanded Agitator Speed (RPM) *)
+    rO2_SpargingRate    : REAL;     (* Oxygen MFC Setpoint (SLPM) *)
+    rAir_SpargingRate   : REAL;     (* Air MFC Setpoint (SLPM) *)
+    rBase_PumpSpeed     : REAL;     (* Base Addition Pump Speed (%) *)
+    rCO2_SpargingRate   : REAL;     (* CO2 MFC Setpoint (SLPM) for pH Control *)
+    rFeed_PumpSpeed     : REAL;     (* Nutrient Feed Pump Speed (%) *)
+    bAntiFoam_PumpCmd   : BOOL;     (* Anti-foam addition pump command *)
+    bCriticalAlarm      : BOOL;     (* Critical process deviation alarm *)
 END_VAR
 VAR
-    iState                  : INT := 0; (* State Machine Index *)
-    rBedDensity             : REAL;     (* Estimated bulk density of the crystallizing bed [kg/m^3] *)
-    rResidenceTime          : REAL;     (* Calculated average residence time [h] *)
-    rReactionRate           : REAL;     (* SSP Reaction rate constant dependent on temperature *)
-    rCurrentIV              : REAL := 0.60; (* Inlet IV starts at base pre-polymer level *)
-    tStartupDelay           : TON;      (* Delay timer for heating system stabilization *)
-    tUpdateRate             : TON;      (* Kinetic model calculation frequency *)
+    (* Internal PID Controllers and State Variables *)
+    iControlState       : INT := 0; (* 0: IDLE, 10: INIT, 20: RUN_PHASE_1, 30: METABOLIC_SHIFT, 99: FAULT *)
+    tProcessTimer       : TON;
+    tAntiFoamTimer      : TON;
     
-    (* Internal PID variables *)
-    rLevelError             : REAL;
-    rIntegralTerm           : REAL := 0.0;
-    rKp                     : REAL := 2.5;
-    rKi                     : REAL := 0.05;
-    rMaxSpeed               : REAL := 50.0;
+    (* PID Internal Variables for DO Control (Cascade O2 Sparging & Agitation) *)
+    rDO_Setpoint        : REAL := 40.0; (* 40% DO Target *)
+    rDO_Error           : REAL;
+    rDO_Integral        : REAL := 0.0;
+    rKp_DO              : REAL := 1.5;
+    rKi_DO              : REAL := 0.05;
+    
+    (* PID Internal Variables for pH Control *)
+    rpH_Setpoint        : REAL := 7.05;
+    rpH_Error           : REAL;
+    rpH_Integral        : REAL := 0.0;
+    rKp_pH              : REAL := 2.0;
+    rKi_pH              : REAL := 0.1;
+    
+    (* Metabolic Control Parameters *)
+    rGlucoseTarget      : REAL := 3.0; (* Target glucose g/L *)
+    rLactateThreshold   : REAL := 2.5; (* Lactate shift threshold g/L *)
+    
+    bShiftActive        : BOOL := FALSE;
 END_VAR
 
 (* === MAIN LOGIC === *)
+
+(* Safety and Interlock Verification *)
 IF NOT bEmergencyStop THEN
-    bReactorReady := FALSE;
-    bHighTempAlarm := FALSE;
-    bChokingAlarm := FALSE;
-    rRotaryValveSpeedSetp := 0.0;
-    rN2HeaterPower := 0.0;
-    iState := 0;
+    bSystemReady := FALSE;
+    bCriticalAlarm := TRUE;
+    iControlState := 99;
+    
+    (* Safe State Enforcement *)
+    rAgitatorSetpoint := 0.0;
+    rO2_SpargingRate := 0.0;
+    rAir_SpargingRate := 0.0;
+    rBase_PumpSpeed := 0.0;
+    rCO2_SpargingRate := 0.0;
+    rFeed_PumpSpeed := 0.0;
+    bAntiFoam_PumpCmd := FALSE;
     RETURN;
 END_IF;
 
-(* Continuous Kinetic Model Update (Runs every 1 second) *)
-tUpdateRate(IN := TRUE, PT := T#1S);
-IF tUpdateRate.Q THEN
-    tUpdateRate(IN := FALSE);
-    
-    (* Calculate Arrhenius-based SSP reaction rate constant k(T) *)
-    (* Assuming base activation energy and universal gas constant parameters *)
-    rReactionRate := EXP(-15000.0 / (rN2InletTemp + 273.15)) * 1.5E6;
-    
-    (* Estimate local bed density change as a function of temperature and IV *)
-    rBedDensity := 850.0 + (rN2InletTemp - 200.0) * 0.5 + (rCurrentIV - 0.6) * 100.0;
-    
-    (* Calculate dynamic residence time based on level and throughput *)
-    IF rRotaryValveSpeedSetp > 0.0 THEN
-        rResidenceTime := (rLevelMeasurement * 3.14 * 2.0 * rBedDensity) / (rRotaryValveSpeedSetp * 15.0);
-    ELSE
-        rResidenceTime := 10.0; (* Nominal hold time during stagnant conditions *)
-    END_IF;
-    
-    (* Update real-time estimated IV based on residence time and reaction rate *)
-    rEstimatedIV := rCurrentIV + (rReactionRate * rResidenceTime * 0.1);
-END_IF;
-
-(* State Machine for Reactor Operation *)
-CASE iState OF
-    0: (* SYSTEM IDLE / OFF *)
-        bReactorReady := FALSE;
-        rRotaryValveSpeedSetp := 0.0;
-        rN2HeaterPower := 0.0;
+(* State Machine for Bioreactor Lifecycle *)
+CASE iControlState OF
+    0: (* IDLE STATE *)
+        bSystemReady := TRUE;
+        bCriticalAlarm := FALSE;
         IF bSystemEnable THEN
-            iState := 10;
+            iControlState := 10;
         END_IF;
 
-    10: (* HEATING N2 GAS *)
-        (* Ramp up Nitrogen heater power proportional to required temperature delta *)
-        rN2HeaterPower := (210.0 - rN2InletTemp) * 1.2;
-        IF rN2HeaterPower > 100.0 THEN rN2HeaterPower := 100.0; END_IF;
-        IF rN2HeaterPower < 0.0 THEN rN2HeaterPower := 0.0; END_IF;
+    10: (* INITIALIZATION *)
+        (* Bring up base agitation and air flow *)
+        rAgitatorSetpoint := 50.0; (* Minimum RPM *)
+        rAir_SpargingRate := 0.5;  (* Minimum SLPM *)
         
-        tStartupDelay(IN := (rN2InletTemp >= 205.0), PT := T#5M);
-        IF tStartupDelay.Q THEN
-            tStartupDelay(IN := FALSE);
-            iState := 20;
-        END_IF;
-        IF NOT bSystemEnable THEN iState := 0; END_IF;
-
-    20: (* CONTINUOUS PRODUCTION *)
-        (* Maintain N2 Temperature *)
-        rN2HeaterPower := 50.0 + (210.0 - rN2InletTemp) * 2.0;
-        IF rN2HeaterPower > 100.0 THEN rN2HeaterPower := 100.0; END_IF;
-        IF rN2HeaterPower < 0.0 THEN rN2HeaterPower := 0.0; END_IF;
-        
-        (* Level Control PID -> Rotary Valve Speed *)
-        rLevelError := rLevelMeasurement - 12.0; (* Target bed height = 12m *)
-        rIntegralTerm := rIntegralTerm + (rLevelError * rKi);
-        
-        IF bDischargePermit THEN
-            rRotaryValveSpeedSetp := (rLevelError * rKp) + rIntegralTerm;
-            IF rRotaryValveSpeedSetp > rMaxSpeed THEN rRotaryValveSpeedSetp := rMaxSpeed; END_IF;
-            IF rRotaryValveSpeedSetp < 0.0 THEN rRotaryValveSpeedSetp := 0.0; END_IF;
-        ELSE
-            rRotaryValveSpeedSetp := 0.0;
-        END_IF;
-        
-        (* Evaluate Quality & Safety Alarms *)
-        IF rN2InletTemp > 225.0 THEN
-            bHighTempAlarm := TRUE;
-        ELSE
-            bHighTempAlarm := FALSE;
-        END_IF;
-        
-        IF rN2GasMassFlow > 5000.0 AND rBedDensity < 800.0 THEN
-            bChokingAlarm := TRUE;
-        ELSE
-            bChokingAlarm := FALSE;
-        END_IF;
-        
-        IF rEstimatedIV >= rTargetIntrinsicVisc AND NOT bHighTempAlarm THEN
-            bReactorReady := TRUE;
-        ELSE
-            bReactorReady := FALSE;
-        END_IF;
-        
-        IF NOT bSystemEnable THEN 
-            iState := 0; 
+        tProcessTimer(IN := TRUE, PT := T#30S);
+        IF tProcessTimer.Q THEN
+            tProcessTimer(IN := FALSE);
+            iControlState := 20;
         END_IF;
 
+    20: (* RUN PHASE 1: EXPONENTIAL GROWTH *)
+        (* DO Control: Cascade implementation using Oxygen sparging and Agitation *)
+        rDO_Error := rDO_Setpoint - rDO_Measurement;
+        rDO_Integral := rDO_Integral + rDO_Error * 0.1; (* Assuming 100ms task rate *)
+        
+        (* Prevent Integral Windup *)
+        IF rDO_Integral > 100.0 THEN rDO_Integral := 100.0; END_IF;
+        IF rDO_Integral < -100.0 THEN rDO_Integral := -100.0; END_IF;
+        
+        (* Calculate Total DO Demand *)
+        rO2_SpargingRate := (rKp_DO * rDO_Error) + (rKi_DO * rDO_Integral);
+        IF rO2_SpargingRate < 0.0 THEN rO2_SpargingRate := 0.0; END_IF;
+        
+        (* pH Control: Split range for CO2 (acidic) and Base *)
+        rpH_Error := rpH_Setpoint - rpH_Measurement;
+        rpH_Integral := rpH_Integral + rpH_Error * 0.1;
+        
+        IF rpH_Error > 0.0 THEN
+            (* pH is too low -> add base *)
+            rBase_PumpSpeed := (rKp_pH * rpH_Error) + (rKi_pH * rpH_Integral);
+            rCO2_SpargingRate := 0.0;
+        ELSE
+            (* pH is too high -> add CO2 *)
+            rCO2_SpargingRate := ABS(rKp_pH * rpH_Error) + ABS(rKi_pH * rpH_Integral);
+            rBase_PumpSpeed := 0.0;
+        END_IF;
+        
+        (* Glucose Feeding Strategy *)
+        IF rGlucoseConc < rGlucoseTarget THEN
+            rFeed_PumpSpeed := 15.0; (* Base feed rate *)
+        ELSE
+            rFeed_PumpSpeed := 0.0;
+        END_IF;
+        
+        (* Metabolic Shift Detection based on Lactate accumulation *)
+        IF rLactateConc > rLactateThreshold THEN
+            bShiftActive := TRUE;
+            iControlState := 30;
+        END_IF;
+
+    30: (* METABOLIC SHIFT / PRODUCTION PHASE *)
+        (* Reduce Glucose Target to induce specific production metabolism *)
+        rGlucoseTarget := 1.0; 
+        
+        (* Maintain pH and DO but with more aggressive Agitation vs Sparging to limit shear stress *)
+        rAgitatorSetpoint := 75.0;
+        rDO_Setpoint := 30.0; (* Lower DO target in production phase *)
+        
+        (* Continue Feed at adjusted rate *)
+        IF rGlucoseConc < rGlucoseTarget THEN
+            rFeed_PumpSpeed := 5.0;
+        ELSE
+            rFeed_PumpSpeed := 0.0;
+        END_IF;
+
+    99: (* FAULT STATE *)
+        (* Active interlock failure - hold safe state until cleared *)
+        IF bEmergencyStop AND NOT bSystemEnable THEN
+            iControlState := 0;
+        END_IF;
 END_CASE;
 
-END_FUNCTION_BLOCK
-```"""
+(* Anti-Foaming Mechanical/Chemical Intervention (Independent of main state, active while running) *)
+IF iControlState >= 10 AND iControlState < 90 THEN
+    IF bFoamDetected THEN
+        bAntiFoam_PumpCmd := TRUE;
+        tAntiFoamTimer(IN := TRUE, PT := T#5S);
+    END_IF;
+    
+    IF tAntiFoamTimer.Q THEN
+        bAntiFoam_PumpCmd := FALSE;
+        IF NOT bFoamDetected THEN
+            tAntiFoamTimer(IN := FALSE);
+        END_IF;
+    END_IF;
+ELSE
+    bAntiFoam_PumpCmd := FALSE;
+    tAntiFoamTimer(IN := FALSE);
+END_IF;
 
-os.makedirs("data/swarm_raw", exist_ok=True)
-filename = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
-record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
-with open(filename, "w", encoding="utf-8") as f:
+END_FUNCTION_BLOCK
+```'''
+
+record = {'messages': [{'role': 'user', 'content': prompt}, {'role': 'assistant', 'content': code}]}
+filename = f'data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json'
+with open(filename, 'w', encoding='utf-8') as f:
     json.dump(record, f, ensure_ascii=False)
-print(f"Saved to {filename}")
+print(f'Saved to {filename}')

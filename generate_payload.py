@@ -1,193 +1,239 @@
-import json, uuid, os
+import json, uuid
+import os
 
-prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 data.
-Your specific domain is: Continuous Aluminium Extrusion Press.
-Task: Invent a highly complex control scenario for this domain (e.g., billet induction pre-heating profiles, dummy block hydraulic sequencing, and run-out table quench cooling).
-Write a deterministic Structured Text (ST) FUNCTION_BLOCK. Include complete VAR declarations and physical I/O.
-"""
+os.makedirs("data/swarm_raw", exist_ok=True)
 
-st_code = """```iec-st
-FUNCTION_BLOCK FB_AluminiumExtrusionControl
+prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
+You possess the expertise of a 40+ years experienced PLC automation architect writing world-class, extremely complex, and mathematically rigorous code.
+
+**Your assigned domain is: Automated Gigafactory EV Battery Pack Laser Welding Gantry**
+
+Task: Invent a highly complex, ultra-realistic control scenario for this domain (e.g., Galvanometric mirror 3D weld seam tracking, continuous wave (CW) fiber laser optical back-reflection isolation, and argon shielding gas laminar flow mapping). Your code must look like the absolute best, most robust industrial code written by a world-class 40-year veteran.
+
+CRITICAL RULES - READ EVERY LINE:
+1. CODE FENCE: Use TRIPLE backticks + iec-st. EXACTLY like this:
+   ```iec-st
+   (your code here)
+   ```
+   NEVER use a single backtick `iec-st. ALWAYS use triple backticks.
+2. REQUIRED IEC 61131-3 STRUCTURE (all 5 mandatory):
+   a. FUNCTION_BLOCK FB_<Name>   <- first line of code, always
+   b. VAR_INPUT ... END_VAR      <- min 4 typed inputs with comments
+   c. VAR_OUTPUT ... END_VAR     <- min 3 typed outputs with comments
+   d. At least one END_IF; or END_CASE;  <- control logic required
+   e. END_FUNCTION_BLOCK         <- last line of code, always
+3. LENGTH: The assistant content MUST be >= 1500 characters total.
+4. SAVE to isolated file using this exact Python:
+   import json, uuid
+   prompt = \"\"\"<copy this exact user prompt here>\"\"\"
+   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_EV_LaserWeldingGantry\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
+   record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
+   with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
+       json.dump(record, f, ensure_ascii=False)
+5. SELF-CHECK before saving - verify ALL:
+   [ ] Fence is ```iec-st
+   [ ] First code line: FUNCTION_BLOCK FB_<name>
+   [ ] Has VAR_INPUT section
+   [ ] Has VAR_OUTPUT section
+   [ ] Has END_IF; or END_CASE;
+   [ ] Last code line: END_FUNCTION_BLOCK
+   [ ] Closing fence: ```
+   [ ] Total chars >= 1500
+6. REPLY with: EVOLUTION COMPLETE: Automated Gigafactory EV Battery Pack Laser Welding Gantry
+
+DO NOT APOLOGIZE. DO NOT EXPLAIN. GENERATE CODE AND SAVE IT."""
+
+code = """```iec-st
+FUNCTION_BLOCK FB_EV_LaserWeldingGantry
+(* ====================================================================================
+   Module:        FB_EV_LaserWeldingGantry
+   Author:        Lumina Elite Synthetic Data Architect (40+ Yr Automation Veteran)
+   Description:   Advanced Galvanometric 3D Seam Tracking & Continuous Wave (CW) 
+                  Fiber Laser Control for EV Battery Pack Assembly. Integrates
+                  optical back-reflection isolation and laminar argon flow mapping.
+   Version:       3.14.159 - Production Validated
+   ==================================================================================== *)
 VAR_INPUT
-    bEnable : BOOL; (* System Enable *)
-    bEmergencyStop : BOOL; (* E-Stop *)
-    rBilletTargetTemp : REAL; (* Target Temp in Celcius *)
-    rRamPressureSet : REAL; (* Extrusion Ram Pressure *)
-    bDummyBlockRetractCmd : BOOL;
-    rQuenchWaterFlowSP : REAL; (* Quench Flow Setpoint *)
+    (* System & Safety Inputs *)
+    bEnableSystem         : BOOL;     (* System master enable signal from Main PLC *)
+    bEmergencyStop        : BOOL;     (* Safety relay OK / E-Stop loop closed (1=Safe) *)
+    bResetAlarms          : BOOL;     (* Operator alarm reset push button *)
     
-    (* Sensors *)
-    rBilletActualTemp : REAL; 
-    rRamActualPressure : REAL;
-    rRamPosition : REAL;
-    bDummyBlockHome : BOOL;
-    bDummyBlockExt : BOOL;
-    rQuenchActualFlow : REAL;
+    (* Laser Processing Parameters *)
+    rLaserPowerCmd        : REAL;     (* Commanded CW laser power in kW (Range: 0.0 to 8.0 kW) *)
+    rSeamTrackTargetX     : REAL;     (* Galvo X-axis position target in mm (Absolute) *)
+    rSeamTrackTargetY     : REAL;     (* Galvo Y-axis position target in mm (Absolute) *)
+    rSeamTrackTargetZ     : REAL;     (* Galvo Z-axis focal depth in mm (Absolute) *)
+    rWeldSpeedCmd         : REAL;     (* Welding trajectory speed in mm/s *)
+    
+    (* Shielding & Optical Sensors *)
+    rArgonFlowRate        : REAL;     (* Shielding gas flow rate setpoint in L/min *)
+    bBackReflectionHigh   : BOOL;     (* Optical isolator back-reflection alarm from laser source *)
+    bPlasmaPlumeDetect    : BOOL;     (* Weld pool plasma emission detector for seam tracking loop *)
 END_VAR
 
 VAR_OUTPUT
-    bHeatingCoilOn : BOOL;
-    rHeatingPowerCmd : REAL;
-    bRamAdvance : BOOL;
-    bRamRetract : BOOL;
-    rRamValveCmd : REAL;
-    bDummyBlockAdvance : BOOL;
-    bDummyBlockRetract : BOOL;
-    rQuenchValveCmd : REAL;
-    bSystemFault : BOOL;
-    sStatusMessage : STRING;
+    (* System Status *)
+    bSystemReady          : BOOL;     (* Gantry and Laser system ready for emission phase *)
+    bLaserEmission        : BOOL;     (* Active laser emission indicator (Hardware interlocked) *)
+    bArgonFlowOK          : BOOL;     (* Laminar argon flow mapped and verified within tolerances *)
+    bTrackingActive       : BOOL;     (* Real-time 3D galvanometric tracking is active *)
+    
+    (* Telemetry *)
+    rLaserPowerActual     : REAL;     (* Actual measured laser power delivered to workpiece in kW *)
+    rCurrentGalvoX        : REAL;     (* Real-time X position feedback (mm) *)
+    rCurrentGalvoY        : REAL;     (* Real-time Y position feedback (mm) *)
+    rCurrentGalvoZ        : REAL;     (* Real-time Z position feedback (mm) *)
+    
+    (* Alarms & Diagnostics *)
+    bAlarm                : BOOL;     (* General fault or safety interlock broken *)
+    wErrorCode            : WORD;     (* Detailed error code for HMI diagnostics *)
 END_VAR
 
 VAR
-    (* Internal State *)
-    eState : (INIT, HEATING, LOAD_BILLET, EXTRUSION, QUENCH_COOLING, RETRACT, FAULT);
-    PID_Heater : FB_PID_Controller; (* Assuming external PID block *)
-    PID_Quench : FB_PID_Controller;
-    PID_Ram : FB_PID_Controller;
+    (* Internal State & Timers *)
+    iState                : INT := 0;      (* Main execution state machine step index *)
+    tGasPreFlow           : TON;           (* Purge delay timer before laser emission *)
+    tWeldTimer            : TON;           (* Maximum weld duration timeout *)
+    tGasPostFlow          : TON;           (* Shielding pool cooling timer post-weld *)
     
-    TMR_HeatingWatchdog : TON;
-    TMR_CoolingDelay : TON;
-    rTempError : REAL;
+    (* Control Loop Variables *)
+    rPositionError        : REAL := 0.0;   (* Dynamic tracking error for PID *)
+    rIntegrator           : REAL := 0.0;   (* Integral accumulator for depth control *)
+    rKp                   : REAL := 1.25;  (* Proportional gain for galvo tracking *)
+    rKi                   : REAL := 0.05;  (* Integral gain for depth stability *)
+    bOpticalLockout       : BOOL := FALSE; (* Latch for catastrophic optical damage prevention *)
 END_VAR
 
-(* Implementation *)
-IF bEmergencyStop THEN
-    eState := FAULT;
-    sStatusMessage := 'E-STOP PRESSED. SYSTEM SECURED.';
-    bHeatingCoilOn := FALSE;
-    rHeatingPowerCmd := 0.0;
-    bRamAdvance := FALSE;
-    bRamRetract := TRUE; (* Safe state *)
-    bDummyBlockAdvance := FALSE;
-    bDummyBlockRetract := TRUE;
-    rQuenchValveCmd := 0.0;
-    bSystemFault := TRUE;
+(* === CRITICAL SAFETY INTERLOCKS === *)
+IF NOT bEmergencyStop THEN
+    bSystemReady      := FALSE;
+    bLaserEmission    := FALSE;
+    bTrackingActive   := FALSE;
+    bAlarm            := TRUE;
+    wErrorCode        := 16#F001; (* F001: Critical E-Stop Loop Open *)
+    iState            := 999;     (* Jump to fatal error state *)
+    rLaserPowerActual := 0.0;
     RETURN;
 END_IF;
 
-IF NOT bEnable THEN
-    eState := INIT;
-    bSystemFault := FALSE;
-    sStatusMessage := 'SYSTEM DISABLED.';
-    bHeatingCoilOn := FALSE;
-    rHeatingPowerCmd := 0.0;
-    bRamAdvance := FALSE;
-    bRamRetract := FALSE;
-    rQuenchValveCmd := 0.0;
+(* Back-Reflection Hardware Protection (10 microsecond response requirement simulated) *)
+IF bBackReflectionHigh AND bLaserEmission THEN
+    bSystemReady      := FALSE;
+    bLaserEmission    := FALSE;
+    bAlarm            := TRUE;
+    bOpticalLockout   := TRUE;
+    wErrorCode        := 16#E002; (* E002: Catastrophic Optical Back-Reflection Threshold Exceeded! *)
+    iState            := 999;
     RETURN;
 END_IF;
 
-CASE eState OF
-    INIT:
-        sStatusMessage := 'INITIALIZING EXTRUSION PRESS...';
-        IF bDummyBlockHome AND (rRamPosition < 5.0) THEN
-            eState := HEATING;
+(* === RESET LOGIC === *)
+IF bResetAlarms AND NOT bOpticalLockout THEN
+    bAlarm := FALSE;
+    wErrorCode := 16#0000;
+    IF iState = 999 THEN
+        iState := 0;
+    END_IF;
+END_IF;
+
+(* === STATE MACHINE EXECUTOR === *)
+CASE iState OF
+    0: (* ST_IDLE: Wait for master enable *)
+        bSystemReady      := TRUE;
+        bLaserEmission    := FALSE;
+        bTrackingActive   := FALSE;
+        rLaserPowerActual := 0.0;
+        tGasPreFlow(IN := FALSE);
+        tWeldTimer(IN := FALSE);
+        tGasPostFlow(IN := FALSE);
+        
+        IF bEnableSystem AND NOT bAlarm THEN
+            bSystemReady := FALSE;
+            iState := 10;
+        END_IF;
+
+    10: (* ST_POSITIONING_AND_PREFLOW: Move to start and establish laminar argon shield *)
+        (* PID loop simulation for Z-axis seam depth tracking *)
+        rPositionError := rSeamTrackTargetZ - rCurrentGalvoZ;
+        rIntegrator := rIntegrator + (rPositionError * rKi);
+        rCurrentGalvoZ := rCurrentGalvoZ + (rPositionError * rKp) + rIntegrator;
+        
+        (* X/Y fast traverse *)
+        rCurrentGalvoX := rSeamTrackTargetX;
+        rCurrentGalvoY := rSeamTrackTargetY;
+        bTrackingActive := TRUE;
+
+        (* Verify argon laminar flow map bounds *)
+        IF rArgonFlowRate >= 18.5 AND rArgonFlowRate <= 22.0 THEN
+            bArgonFlowOK := TRUE;
+            tGasPreFlow(IN := TRUE, PT := T#2500MS);
         ELSE
-            bDummyBlockRetract := TRUE;
-            bRamRetract := TRUE;
+            bArgonFlowOK := FALSE;
+            tGasPreFlow(IN := FALSE);
         END_IF;
-        
-    HEATING:
-        sStatusMessage := 'HEATING BILLET...';
-        bHeatingCoilOn := TRUE;
-        
-        (* Simple Proportional Control for Heater, normally PID is used *)
-        rTempError := rBilletTargetTemp - rBilletActualTemp;
-        IF rTempError > 10.0 THEN
-            rHeatingPowerCmd := 100.0;
-        ELSIF rTempError > 0.0 THEN
-            rHeatingPowerCmd := rTempError * 10.0; 
+
+        IF tGasPreFlow.Q AND bArgonFlowOK AND (ABS(rPositionError) < 0.05) THEN
+            tGasPreFlow(IN := FALSE);
+            iState := 20;
+        END_IF;
+
+    20: (* ST_WELD_EMISSION: Active laser operation with plasma feedback *)
+        bLaserEmission := TRUE;
+        (* Modulate power slightly based on plasma plume stability *)
+        IF bPlasmaPlumeDetect THEN
+            rLaserPowerActual := rLaserPowerCmd * 0.99; (* Stable pool, minimal scatter loss *)
         ELSE
-            rHeatingPowerCmd := 0.0;
+            rLaserPowerActual := rLaserPowerCmd * 1.05; (* Push power to penetrate oxidation layer *)
         END_IF;
         
-        TMR_HeatingWatchdog(IN := TRUE, PT := T#300s);
+        tWeldTimer(IN := TRUE, PT := T#3500MS); (* Max seam duration per pulse/segment *)
         
-        IF (rBilletActualTemp >= (rBilletTargetTemp - 2.0)) THEN
-            eState := LOAD_BILLET;
-            TMR_HeatingWatchdog(IN := FALSE);
-        ELSIF TMR_HeatingWatchdog.Q THEN
-            eState := FAULT;
-            sStatusMessage := 'HEATING TIMEOUT FAULT.';
+        (* Check for premature system disable *)
+        IF NOT bEnableSystem THEN
+            tWeldTimer(IN := FALSE);
+            iState := 30;
         END_IF;
-        
-    LOAD_BILLET:
-        sStatusMessage := 'LOADING BILLET INTO PRESS...';
-        bHeatingCoilOn := FALSE;
-        rHeatingPowerCmd := 0.0;
-        
-        bDummyBlockAdvance := TRUE;
-        IF bDummyBlockExt THEN
-            bDummyBlockAdvance := FALSE;
-            eState := EXTRUSION;
+
+        IF tWeldTimer.Q THEN
+            tWeldTimer(IN := FALSE);
+            iState := 30;
         END_IF;
+
+    30: (* ST_POSTFLOW: Laser off, cool weld pool with argon to prevent oxidation *)
+        bLaserEmission    := FALSE;
+        rLaserPowerActual := 0.0;
+        bTrackingActive   := FALSE;
         
-    EXTRUSION:
-        sStatusMessage := 'EXTRUDING PROFILE...';
-        bRamAdvance := TRUE;
-        
-        (* Pressure Control *)
-        IF rRamActualPressure < rRamPressureSet THEN
-            rRamValveCmd := rRamValveCmd + 0.5;
-        ELSE
-            rRamValveCmd := rRamValveCmd - 0.5;
+        tGasPostFlow(IN := TRUE, PT := T#5S);
+        IF tGasPostFlow.Q THEN
+            tGasPostFlow(IN := FALSE);
+            iState := 0; (* Cycle complete, return to idle *)
         END_IF;
+
+    999: (* ST_ERROR_TRAP: System halted, awaiting operator intervention *)
+        bLaserEmission    := FALSE;
+        bTrackingActive   := FALSE;
+        bSystemReady      := FALSE;
+        rLaserPowerActual := 0.0;
+        tGasPreFlow(IN := FALSE);
+        tWeldTimer(IN := FALSE);
+        tGasPostFlow(IN := FALSE);
         
-        IF rRamValveCmd > 100.0 THEN rRamValveCmd := 100.0; END_IF;
-        IF rRamValveCmd < 0.0 THEN rRamValveCmd := 0.0; END_IF;
-        
-        IF rRamPosition > 950.0 THEN (* End of stroke *)
-            bRamAdvance := FALSE;
-            rRamValveCmd := 0.0;
-            eState := QUENCH_COOLING;
-        END_IF;
-        
-    QUENCH_COOLING:
-        sStatusMessage := 'QUENCH COOLING RUN-OUT...';
-        
-        IF rQuenchActualFlow < rQuenchWaterFlowSP THEN
-            rQuenchValveCmd := rQuenchValveCmd + 1.0;
-        ELSE
-            rQuenchValveCmd := rQuenchValveCmd - 1.0;
-        END_IF;
-        
-        IF rQuenchValveCmd > 100.0 THEN rQuenchValveCmd := 100.0; END_IF;
-        IF rQuenchValveCmd < 0.0 THEN rQuenchValveCmd := 0.0; END_IF;
-        
-        TMR_CoolingDelay(IN := TRUE, PT := T#30s);
-        IF TMR_CoolingDelay.Q THEN
-            eState := RETRACT;
-            TMR_CoolingDelay(IN := FALSE);
-        END_IF;
-        
-    RETRACT:
-        sStatusMessage := 'RETRACTING RAM AND DUMMY BLOCK...';
-        rQuenchValveCmd := 0.0;
-        bRamRetract := TRUE;
-        bDummyBlockRetract := TRUE;
-        
-        IF (rRamPosition < 5.0) AND bDummyBlockHome THEN
-            bRamRetract := FALSE;
-            bDummyBlockRetract := FALSE;
-            eState := HEATING; (* Ready for next cycle *)
-        END_IF;
-        
-    FAULT:
-        bSystemFault := TRUE;
-        bHeatingCoilOn := FALSE;
-        rHeatingPowerCmd := 0.0;
-        bRamAdvance := FALSE;
-        rRamValveCmd := 0.0;
-        bDummyBlockAdvance := FALSE;
-        rQuenchValveCmd := 0.0;
 END_CASE;
 
 END_FUNCTION_BLOCK
 ```"""
 
-record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": st_code}]}
-os.makedirs("data/swarm_raw", exist_ok=True)
+record = {
+    "messages": [
+        {"role": "user", "content": prompt},
+        {"role": "assistant", "content": code}
+    ]
+}
+
 filename = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
 with open(filename, "w", encoding="utf-8") as f:
-    json.dump(record, f, indent=2)
+    json.dump(record, f, ensure_ascii=False)
+
 print(f"Saved to {filename}")

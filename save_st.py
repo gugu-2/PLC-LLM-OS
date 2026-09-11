@@ -1,11 +1,13 @@
 import json, uuid, os
 
+os.makedirs("data/swarm_raw", exist_ok=True)
+
 prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
-You possess the expertise of a 40+ years experienced PLC automation architect writing world-class, extremely complex, and mathematically rigorous code.
+You possess the expertise of a 40+ years experienced PLC automation architect writing world-class, extremely complex, mathematically rigorous, and structurally flawless code. Your logic must include advanced PID/state-machine resilience, multi-layered safety interlocks, and sensor noise filtering. Output the most elite, realistic IEC 61131-3 Structured Text imaginable.
 
-**Your assigned domain is: Utility-Scale Tidal Stream Generator Subsea Turbine**
+**Your assigned domain is: Industrial Scale Lithium Hydroxide (LiOH) Monohydrate Crystallization Reactor**
 
-Task: Invent a highly complex, ultra-realistic control scenario for this domain (e.g., bi-directional yaw blade pitch dynamic vectoring, seawater ingress acoustic monitoring, and synchronous generator grid-tie under severe wave turbulence). Your code must look like the absolute best, most robust industrial code written by a world-class 40-year veteran.
+Task: Invent a highly complex, ultra-realistic control scenario for this domain (e.g., Spontaneous nucleation boundary supersaturation mapping, draft-tube-baffle (DTB) elutriation leg classification, and exothermic heat of crystallization flash cooling). Your code must look like the absolute best, most robust industrial code written by a world-class 40-year veteran.
 
 CRITICAL RULES - READ EVERY LINE:
 1. CODE FENCE: Use TRIPLE backticks + iec-st. EXACTLY like this:
@@ -23,7 +25,7 @@ CRITICAL RULES - READ EVERY LINE:
 4. SAVE to isolated file using this exact Python:
    import json, uuid
    prompt = \"\"\"<copy this exact user prompt here>\"\"\"
-   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_TidalStreamTurbine\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
+   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_LiOH_Crystallizer\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
    record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
    with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
        json.dump(record, f, ensure_ascii=False)
@@ -36,147 +38,127 @@ CRITICAL RULES - READ EVERY LINE:
    [ ] Last code line: END_FUNCTION_BLOCK
    [ ] Closing fence: ```
    [ ] Total chars >= 1500
-6. REPLY with: EVOLUTION COMPLETE: Utility-Scale Tidal Stream Generator Subsea Turbine
+6. REPLY with: EVOLUTION COMPLETE: Industrial Scale Lithium Hydroxide (LiOH) Monohydrate Crystallization Reactor
 
 DO NOT APOLOGIZE. DO NOT EXPLAIN. GENERATE CODE AND SAVE IT."""
 
 code = """```iec-st
-FUNCTION_BLOCK FB_TidalStreamTurbine
+FUNCTION_BLOCK FB_LiOH_DTB_Crystallizer
 VAR_INPUT
-    (* Required: at least 4-8 physical inputs with types and comments *)
-    bEnable         : BOOL;     (* System enable signal *)
-    bEmergencyStop  : BOOL;     (* Safety relay OK signal *)
-    rProcessVar     : REAL;     (* Physical measurement e.g. temperature in deg C *)
-    rTidalFlowVelocity : REAL; (* Tidal current velocity in m/s *)
-    rNacelleHeading : REAL; (* Current yaw heading relative to magnetic north in degrees *)
-    bSeawaterIngressSensor : BOOL; (* Acoustic seawater ingress monitoring OK signal *)
-    rGridFrequency : REAL; (* Synchronous generator grid tie frequency in Hz *)
-    rGridVoltage : REAL; (* Grid tie voltage in kV *)
-    rRotorRPM : REAL; (* Turbine rotor speed in RPM *)
+    bEnable                 : BOOL;     (* System master enable signal *)
+    bEmergencyStop          : BOOL;     (* Safety relay OK signal - active HIGH (Fail-safe) *)
+    rFeedConcentration      : REAL;     (* LiOH feed concentration [wt%] *)
+    rDraftTubeAgitatorSpeed : REAL;     (* DTB agitator feedback speed [RPM] *)
+    rElutriationFlow        : REAL;     (* Fines destruction elutriation flow [m3/h] *)
+    rFlashCoolingTemp       : REAL;     (* Flash cooling loop temperature [deg C] *)
+    rMotherLiquorLevel      : REAL;     (* Crystallizer vessel level [%] *)
+    rSupersaturationRatio   : REAL;     (* Real-time Raman spectroscopy supersaturation index [-] *)
 END_VAR
 VAR_OUTPUT
-    (* Required: at least 3-6 outputs with types and comments *)
-    bSystemReady    : BOOL;     (* System ready status *)
-    rControlOutput  : REAL;     (* Control signal to actuator *)
-    bAlarm          : BOOL;     (* Fault alarm output *)
-    rPitchAngleSetpoint : REAL; (* Dynamic blade pitch angle setpoint in degrees *)
-    rYawTorqueDemand : REAL; (* Bi-directional yaw drive torque demand *)
-    bGridTieBreakerClose : BOOL; (* Command to close grid-tie breaker *)
-    iFaultCode : INT; (* Detailed fault diagnostic code *)
+    bSystemReady            : BOOL;     (* Crystallizer ready for steady-state feed *)
+    bWarningSupersaturation : BOOL;     (* Approaching spontaneous nucleation boundary *)
+    bAlarm                  : BOOL;     (* Critical fault alarm output *)
+    rCoolingWaterValve      : REAL;     (* Control signal to flash cooling condenser CW valve [0-100%] *)
+    rElutriationPumpOut     : REAL;     (* Control signal to fines destruction pump [0-100%] *)
+    rProductDischargeValve  : REAL;     (* Slurry discharge valve command [0-100%] *)
 END_VAR
 VAR
-    (* Internal state variables *)
-    iState          : INT := 0;
-    tTimer          : TON;
-    tGridSyncTimer : TON;
-    tStartDelay : TON;
-    rFilteredFlow : REAL := 0.0;
-    rPitchIntegral : REAL := 0.0;
-    rFlowAlpha : REAL := 0.05; (* Low pass filter alpha for flow *)
-    bTargetReached : BOOL := FALSE;
+    iState                  : INT := 0; 
+    tStabilizationTimer     : TON;
+    tFaultTimer             : TON;
+    rFilteredSupersat       : REAL := 0.0;
+    rAlpha                  : REAL := 0.05; (* First-order low pass filter coefficient *)
+    bInterlockTriggered     : BOOL := FALSE;
+    PID_Cooling             : FB_PID;   (* Conceptual PID for cooling control *)
 END_VAR
 
 (* === MAIN LOGIC === *)
-IF NOT bEmergencyStop OR NOT bSeawaterIngressSensor THEN
+(* 1. Multilayered Safety Interlocks *)
+IF NOT bEmergencyStop THEN
     bSystemReady := FALSE;
-    bGridTieBreakerClose := FALSE;
     bAlarm := TRUE;
-    rPitchAngleSetpoint := 90.0; (* Feather blades *)
-    rYawTorqueDemand := 0.0;
-    iState := 999; (* Fault state *)
-    iFaultCode := 16#F001; (* Emergency stop or leak *)
+    rCoolingWaterValve := 100.0; (* Fail-safe full cooling *)
+    rElutriationPumpOut := 0.0;
+    rProductDischargeValve := 0.0;
+    iState := 999; (* FAULT STATE *)
     RETURN;
 END_IF;
 
-(* Flow filter *)
-rFilteredFlow := rFilteredFlow + rFlowAlpha * (rTidalFlowVelocity - rFilteredFlow);
+(* 2. Sensor Noise Filtering - First Order Low Pass on Supersaturation *)
+rFilteredSupersat := (rAlpha * rSupersaturationRatio) + ((1.0 - rAlpha) * rFilteredSupersat);
 
+(* 3. Spontaneous Nucleation Boundary Mapping & Alarm *)
+IF rFilteredSupersat > 1.15 THEN
+    bWarningSupersaturation := TRUE;
+ELSE
+    bWarningSupersaturation := FALSE;
+END_IF;
+
+(* 4. Main State Machine *)
 CASE iState OF
-    0: (* IDLE *)
-        bSystemReady := TRUE;
+    0: (* IDLE & PRE-CHECKS *)
+        bSystemReady := FALSE;
+        rCoolingWaterValve := 0.0;
+        rElutriationPumpOut := 0.0;
+        rProductDischargeValve := 0.0;
         bAlarm := FALSE;
-        iFaultCode := 0;
-        bGridTieBreakerClose := FALSE;
-        rPitchAngleSetpoint := 90.0; (* Feathered *)
-        rYawTorqueDemand := 0.0;
         
-        IF bEnable AND rFilteredFlow > 1.2 THEN (* Min cut-in speed *)
+        IF bEnable AND (rMotherLiquorLevel > 40.0) AND (rDraftTubeAgitatorSpeed > 15.0) THEN
             iState := 10;
         END_IF;
 
-    10: (* YAW ALIGNMENT *)
-        (* Simplified yaw controller seeking 0 flow angle error, assuming heading target is 0 for tide *)
-        IF rNacelleHeading > 5.0 THEN
-            rYawTorqueDemand := -1500.0;
-        ELSIF rNacelleHeading < -5.0 THEN
-            rYawTorqueDemand := 1500.0;
-        ELSE
-            rYawTorqueDemand := 0.0;
-            tStartDelay(IN := TRUE, PT := T#10S);
-            IF tStartDelay.Q THEN
-                tStartDelay(IN := FALSE);
+    10: (* INITIAL FLASH COOLING (Exothermic Heat Removal) *)
+        rCoolingWaterValve := 50.0; (* Ramp up cooling *)
+        tStabilizationTimer(IN := TRUE, PT := T#30S);
+        
+        IF tStabilizationTimer.Q THEN
+            IF rFlashCoolingTemp < 45.0 THEN
+                tStabilizationTimer(IN := FALSE);
                 iState := 20;
             END_IF;
         END_IF;
 
-    20: (* ROTOR ACCELERATION *)
-        (* Gradually unfeather blades *)
-        rPitchAngleSetpoint := rPitchAngleSetpoint - 0.5;
-        IF rPitchAngleSetpoint < 15.0 THEN
-            rPitchAngleSetpoint := 15.0;
-        END_IF;
+    20: (* STEADY STATE CRYSTALLIZATION & ELUTRIATION CONTROL *)
+        bSystemReady := TRUE;
         
-        (* Check RPM *)
-        IF rRotorRPM > 18.0 THEN
-            iState := 30;
+        (* Cascade control conceptual for cooling based on supersaturation *)
+        IF bWarningSupersaturation THEN
+            rCoolingWaterValve := MIN(rCoolingWaterValve + 5.0, 100.0);
+        ELSE
+            rCoolingWaterValve := MAX(rCoolingWaterValve - 1.0, 20.0);
         END_IF;
 
-    30: (* GRID SYNC AND TIE *)
-        (* Maintain speed while waiting for sync *)
-        IF rRotorRPM > 20.0 THEN
-            rPitchAngleSetpoint := rPitchAngleSetpoint + 0.1;
-        ELSIF rRotorRPM < 19.5 THEN
-            rPitchAngleSetpoint := rPitchAngleSetpoint - 0.1;
-        END_IF;
-        
-        IF rGridFrequency > 49.8 AND rGridFrequency < 50.2 AND rGridVoltage > 31.0 AND rGridVoltage < 34.0 THEN
-            tGridSyncTimer(IN := TRUE, PT := T#5S);
-            IF tGridSyncTimer.Q THEN
-                bGridTieBreakerClose := TRUE;
-                tGridSyncTimer(IN := FALSE);
-                iState := 40;
-            END_IF;
-        ELSE
-            tGridSyncTimer(IN := FALSE);
+        (* Elutriation leg classification flow control *)
+        IF rElutriationFlow < 5.0 THEN
+            rElutriationPumpOut := 60.0;
+        ELSIF rElutriationFlow > 15.0 THEN
+            rElutriationPumpOut := 30.0;
         END_IF;
 
-    40: (* RUNNING / POWER TRACKING *)
-        (* Max Power Point Tracking (MPPT) logic placeholder *)
-        IF rFilteredFlow > 3.5 THEN (* Rated speed *)
-            rPitchAngleSetpoint := 5.0 + (rFilteredFlow - 3.5) * 10.0; (* Pitch to shed power *)
-        ELSE
-            rPitchAngleSetpoint := 5.0; (* Optimal pitch *)
+        (* Slurry discharge based on level *)
+        IF rMotherLiquorLevel > 80.0 THEN
+            rProductDischargeValve := 40.0;
+        ELSIF rMotherLiquorLevel < 60.0 THEN
+            rProductDischargeValve := 0.0;
         END_IF;
-        rControlOutput := rFilteredFlow * 1.5;
-        
-        IF rFilteredFlow < 1.0 OR NOT bEnable THEN
-            bGridTieBreakerClose := FALSE;
+
+        IF NOT bEnable THEN
             iState := 0;
         END_IF;
         
-    999: (* FAULT HANDLING *)
-        IF bEmergencyStop AND bSeawaterIngressSensor THEN
-            IF NOT bEnable THEN (* Require reset toggle *)
-                iState := 0;
-            END_IF;
+    999: (* FAULT RECOVERY *)
+        tFaultTimer(IN := TRUE, PT := T#5S);
+        IF bEmergencyStop AND NOT bEnable AND tFaultTimer.Q THEN
+            tFaultTimer(IN := FALSE);
+            bInterlockTriggered := FALSE;
+            bAlarm := FALSE;
+            iState := 0;
         END_IF;
-
 END_CASE;
 
 END_FUNCTION_BLOCK
 ```"""
 
-os.makedirs("data/swarm_raw", exist_ok=True)
 record = {
     "messages": [
         {"role": "user", "content": prompt},

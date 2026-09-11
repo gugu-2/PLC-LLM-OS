@@ -1,13 +1,11 @@
 import json, uuid, os
 
-os.makedirs('data/swarm_raw', exist_ok=True)
-
 prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
-You possess the expertise of a 40+ years experienced PLC automation architect writing world-class, extremely complex, and mathematically rigorous code.
+You possess the expertise of a 40+ years experienced PLC automation architect writing world-class, extremely complex, mathematically rigorous, and structurally flawless code. Your logic must include advanced PID/state-machine resilience, multi-layered safety interlocks, and sensor noise filtering. Output the most elite, realistic IEC 61131-3 Structured Text imaginable.
 
-**Your assigned domain is: High-Speed Submarine Fiber Optic Cable Extrusion Line**
+**Your assigned domain is: Deep-Sea Oil Platform Active Heave Compensation (AHC) Drawworks**
 
-Task: Invent a highly complex, ultra-realistic control scenario for this domain (e.g., multi-layer concentricity control, laser micrometer feedback loops, dual-capstan precise tension cascading, and extreme pressure crosshead die regulation). Your code must look like the absolute best, most robust industrial code written by a world-class 40-year veteran.
+Task: Invent a highly complex, ultra-realistic control scenario for this domain (e.g., Mooring line dynamic tension filtering, hydraulic motor torque override, and variable sea-state spectral period estimation). Your code must look like the absolute best, most robust industrial code written by a world-class 40-year veteran.
 
 CRITICAL RULES - READ EVERY LINE:
 1. CODE FENCE: Use TRIPLE backticks + iec-st. EXACTLY like this:
@@ -25,7 +23,7 @@ CRITICAL RULES - READ EVERY LINE:
 4. SAVE to isolated file using this exact Python:
    import json, uuid
    prompt = \"\"\"<copy this exact user prompt here>\"\"\"
-   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_CableExtrusion\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
+   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_AHC_Drawworks\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
    record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
    with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
        json.dump(record, f, ensure_ascii=False)
@@ -38,143 +36,159 @@ CRITICAL RULES - READ EVERY LINE:
    [ ] Last code line: END_FUNCTION_BLOCK
    [ ] Closing fence: ```
    [ ] Total chars >= 1500
-6. REPLY with: EVOLUTION COMPLETE: High-Speed Submarine Fiber Optic Cable Extrusion Line
+6. REPLY with: EVOLUTION COMPLETE: Deep-Sea Oil Platform Active Heave Compensation (AHC) Drawworks
 
 DO NOT APOLOGIZE. DO NOT EXPLAIN. GENERATE CODE AND SAVE IT."""
 
 code = """```iec-st
-FUNCTION_BLOCK FB_SubmarineFiberExtrusion
+FUNCTION_BLOCK FB_AHC_Drawworks
 VAR_INPUT
-    bEnable               : BOOL;     (* Main system run command *)
-    bEmergencyStop        : BOOL;     (* Safety circuit healthy signal (NC) *)
-    rLaserDiameterMicron  : REAL;     (* Feedback from dual-axis laser micrometer [um] *)
-    rConcentricityDev_X   : REAL;     (* X-axis deviation from ultrasonic concentricity gauge [um] *)
-    rConcentricityDev_Y   : REAL;     (* Y-axis deviation from ultrasonic concentricity gauge [um] *)
-    rLineSpeedMpm         : REAL;     (* Master line speed feedback [m/min] *)
-    rCrossheadTempC       : REAL;     (* Extruder crosshead melt temperature [deg C] *)
-    rCapstanTensionN      : REAL;     (* Feedback from dual-capstan tension loadcell [N] *)
+    bSystemEnable       : BOOL;     (* Main AHC System Enable *)
+    bEmergencyStop      : BOOL;     (* Safety loop status (TRUE = OK) *)
+    rMRUSensorHeave     : REAL;     (* Motion Reference Unit - Heave (meters) *)
+    rMRUSensorVel       : REAL;     (* Motion Reference Unit - Heave Velocity (m/s) *)
+    rDrawworksTension   : REAL;     (* Dynamic tension from load cell (kN) *)
+    rHydraulicPress     : REAL;     (* Main hydraulic ring pressure (bar) *)
 END_VAR
 VAR_OUTPUT
-    bSystemReady          : BOOL;     (* System is heated and ready for line start *)
-    rScrewSpeedRPM        : REAL;     (* Output speed reference to main extruder drive *)
-    rCapstanSpeedTrim     : REAL;     (* Speed trim cascade to capstan drive for tension control *)
-    rDieCentering_X       : REAL;     (* Servo position for X-axis crosshead centering *)
-    rDieCentering_Y       : REAL;     (* Servo position for Y-axis crosshead centering *)
-    bAlarm                : BOOL;     (* General fault flag *)
-    iErrorCode            : INT;      (* Specific fault code for HMI display *)
+    bSystemReady        : BOOL;     (* System ready for operation *)
+    bActiveComp         : BOOL;     (* Active Heave Compensation running *)
+    rWinchSpeedCmd      : REAL;     (* Speed command to drawworks winch (m/s) *)
+    rWinchTorqueCmd     : REAL;     (* Torque limit command (Nm) *)
+    bAlarmFault         : BOOL;     (* General system fault / alarm *)
+    iFaultCode          : INT;      (* Specific fault code for SCADA *)
 END_VAR
 VAR
-    iState                : INT := 0; (* Main state machine sequencer *)
-    tWarmupTimer          : TON;
-    rTargetDiameter       : REAL := 17000.0; (* Submarine cable target OD: 17.0 mm *)
-    rTargetTension        : REAL := 2500.0;  (* Target tension: 2500 N *)
+    iState              : INT := 0; (* Internal state machine *)
+    rFilteredHeave      : REAL := 0.0;
+    rFilteredTension    : REAL := 0.0;
+    rAlphaHeave         : REAL := 0.15; (* Low-pass filter constant for Heave *)
+    rAlphaTension       : REAL := 0.05; (* Low-pass filter constant for Tension *)
     
-    (* PID state variables for Diameter Control *)
-    rDiaError             : REAL;
-    rDiaIntegral          : REAL := 0.0;
-    rDiaKp                : REAL := 0.05;
-    rDiaKi                : REAL := 0.001;
+    tStartDelay         : TON;      (* Startup sequence timer *)
+    tFaultReset         : TON;      (* Fault reset timer limit *)
     
-    (* PID state variables for Tension Control *)
-    rTenError             : REAL;
-    rTenIntegral          : REAL := 0.0;
-    rTenKp                : REAL := 0.01;
-    rTenKi                : REAL := 0.005;
+    (* Internal Limits *)
+    rMaxHeave           : REAL := 8.5;  (* Max allowable heave compensation range *)
+    rMinTension         : REAL := 15.0; (* Minimum snap-load tension limit *)
+    rMaxTension         : REAL := 450.0;(* Maximum overload tension limit *)
+    
+    (* Sea-State Estimation *)
+    rPeakHeaveLast      : REAL;
+    tSeaStateTimer      : TON;
 END_VAR
 
-(* === MAIN SAFETY INTERLOCKS === *)
-IF NOT bEmergencyStop THEN
+(* === MAIN LOGIC === *)
+(* 1. Multi-Layered Safety Interlocks & E-Stop *)
+IF NOT bEmergencyStop OR rHydraulicPress < 150.0 THEN
     bSystemReady := FALSE;
-    rScrewSpeedRPM := 0.0;
-    rCapstanSpeedTrim := 0.0;
-    bAlarm := TRUE;
-    iErrorCode := 999; (* 999: E-STOP Active *)
-    iState := 0;
+    bActiveComp  := FALSE;
+    rWinchSpeedCmd := 0.0;
+    rWinchTorqueCmd := 0.0;
+    bAlarmFault := TRUE;
+    iState := 999; (* FAULT STATE *)
+    IF NOT bEmergencyStop THEN
+        iFaultCode := 101; (* E-STOP Active *)
+    ELSE
+        iFaultCode := 102; (* Low Hydraulic Pressure *)
+    END_IF;
     RETURN;
 END_IF;
 
-(* === STATE MACHINE SUPERVISOR === *)
+(* 2. Sensor Noise Filtering (Low-Pass IIR) *)
+rFilteredHeave := rFilteredHeave + rAlphaHeave * (rMRUSensorHeave - rFilteredHeave);
+rFilteredTension := rFilteredTension + rAlphaTension * (rDrawworksTension - rFilteredTension);
+
+(* 3. Tension Out-of-Bounds Detection *)
+IF (rFilteredTension < rMinTension) OR (rFilteredTension > rMaxTension) THEN
+    bAlarmFault := TRUE;
+    iFaultCode := 201; (* Tension out of limits *)
+    iState := 999;
+    RETURN;
+END_IF;
+
+(* 4. Main State Machine for AHC Drawworks *)
 CASE iState OF
-    0: (* IDLE & SAFETY CHECKS *)
-        bAlarm := FALSE;
-        iErrorCode := 0;
+    0: (* IDLE & SYSTEM CHECKS *)
         bSystemReady := FALSE;
-        rScrewSpeedRPM := 0.0;
-        IF bEnable THEN
+        bActiveComp  := FALSE;
+        rWinchSpeedCmd := 0.0;
+        bAlarmFault := FALSE;
+        iFaultCode := 0;
+        
+        IF bSystemEnable AND bEmergencyStop THEN
             iState := 10;
         END_IF;
+
+    10: (* STARTUP SEQUENCE *)
+        tStartDelay(IN := TRUE, PT := T#3S);
+        IF tStartDelay.Q THEN
+            tStartDelay(IN := FALSE);
+            bSystemReady := TRUE;
+            iState := 20;
+        END_IF;
+
+    20: (* READY / PASSIVE HEAVE COMP *)
+        bSystemReady := TRUE;
+        bActiveComp := FALSE;
+        rWinchSpeedCmd := 0.0;
         
-    10: (* HEATING & SOAKING PHASE *)
-        (* Wait for crosshead to reach process temperature (e.g., 210C) *)
-        IF rCrossheadTempC > 210.0 THEN
-            tWarmupTimer(IN := TRUE, PT := T#300S); (* 5 min thermal soak *)
-            IF tWarmupTimer.Q THEN
-                tWarmupTimer(IN := FALSE);
-                bSystemReady := TRUE;
-                iState := 20;
-            END_IF;
+        IF ABS(rFilteredHeave) > 0.5 THEN
+            iState := 30; (* Engage Active Compensation *)
+        END_IF;
+        
+        IF NOT bSystemEnable THEN
+            iState := 0;
+        END_IF;
+
+    30: (* ACTIVE HEAVE COMPENSATION RUNNING *)
+        bActiveComp := TRUE;
+        
+        (* Core AHC Kinematic Speed Command Calculation: Target inverse velocity *)
+        rWinchSpeedCmd := -1.0 * rMRUSensorVel * 0.98; (* 98% efficiency tracking factor *)
+        
+        (* Dynamic Torque Override based on Tension *)
+        IF rFilteredTension > (rMaxTension * 0.8) THEN
+            (* Throttle torque if nearing max safe working load *)
+            rWinchTorqueCmd := 15000.0 * ((rMaxTension - rFilteredTension) / (rMaxTension * 0.2));
         ELSE
-            tWarmupTimer(IN := FALSE);
+            rWinchTorqueCmd := 15000.0; (* Nominal AHC working torque *)
         END_IF;
         
-        IF NOT bEnable THEN
+        (* Soft Limit Handling *)
+        IF ABS(rFilteredHeave) > rMaxHeave THEN
+            rWinchSpeedCmd := 0.0;
+            bAlarmFault := TRUE;
+            iFaultCode := 301; (* Soft stroke limit reached *)
+            iState := 999;
+        END_IF;
+
+        IF NOT bSystemEnable THEN
             iState := 0;
         END_IF;
+
+    999: (* FAULT HANDLING *)
+        bSystemReady := FALSE;
+        bActiveComp := FALSE;
+        rWinchSpeedCmd := 0.0;
         
-    20: (* RUNNING & DYNAMIC CONTROL REGULATION *)
-        (* Loop 1: Outer Diameter Control (Extruder Speed) *)
-        rDiaError := rTargetDiameter - rLaserDiameterMicron;
-        rDiaIntegral := rDiaIntegral + rDiaError;
-        
-        (* Anti-windup for diameter loop *)
-        IF rDiaIntegral > 5000.0 THEN rDiaIntegral := 5000.0; END_IF;
-        IF rDiaIntegral < -5000.0 THEN rDiaIntegral := -5000.0; END_IF;
-        
-        rScrewSpeedRPM := (rDiaError * rDiaKp) + (rDiaIntegral * rDiaKi) + (rLineSpeedMpm * 0.12);
-        IF rScrewSpeedRPM < 0.0 THEN rScrewSpeedRPM := 0.0; END_IF;
-        IF rScrewSpeedRPM > 1500.0 THEN rScrewSpeedRPM := 1500.0; END_IF;
-        
-        (* Loop 2: Capstan Tension Control (Trim Speed) *)
-        rTenError := rTargetTension - rCapstanTensionN;
-        rTenIntegral := rTenIntegral + rTenError;
-        rCapstanSpeedTrim := (rTenError * rTenKp) + (rTenIntegral * rTenKi);
-        
-        (* Limit capstan trim to +/- 5% of base speed *)
-        IF rCapstanSpeedTrim > 5.0 THEN rCapstanSpeedTrim := 5.0; END_IF;
-        IF rCapstanSpeedTrim < -5.0 THEN rCapstanSpeedTrim := -5.0; END_IF;
-        
-        (* Sub-Routine: Extrusion Die Centering (Concentricity) *)
-        (* Proportional adjustment based on ultrasonic gauge feedback *)
-        rDieCentering_X := rConcentricityDev_X * -0.05;
-        rDieCentering_Y := rConcentricityDev_Y * -0.05;
-        
-        (* Fault Monitoring During Run *)
-        IF rLaserDiameterMicron < 15000.0 OR rLaserDiameterMicron > 19000.0 THEN
-            bAlarm := TRUE;
-            iErrorCode := 101; (* OD Out of tolerance limits *)
+        tFaultReset(IN := bSystemEnable, PT := T#5S);
+        IF tFaultReset.Q THEN
+            IF bEmergencyStop AND rHydraulicPress >= 150.0 AND rFilteredTension > rMinTension THEN
+                bAlarmFault := FALSE;
+                iFaultCode := 0;
+                iState := 0;
+                tFaultReset(IN := FALSE);
+            END_IF;
         END_IF;
-        
-        IF NOT bEnable THEN
-            iState := 0;
-        END_IF;
-        
-    ELSE
-        (* CATCH-ALL FAULT STATE *)
-        iState := 0;
+
 END_CASE;
 
 END_FUNCTION_BLOCK
 ```"""
 
-record = {
-    "messages": [
-        {"role": "user", "content": prompt},
-        {"role": "assistant", "content": code}
-    ]
-}
-
-filename = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
+os.makedirs("C:/Users/majip/Downloads/LLM REASEARCH/data/swarm_raw", exist_ok=True)
+filename = f"C:/Users/majip/Downloads/LLM REASEARCH/data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
 with open(filename, "w", encoding="utf-8") as f:
-    json.dump(record, f, ensure_ascii=False)
-
+    json.dump({"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}, f, ensure_ascii=False)
 print(f"Saved to {filename}")
