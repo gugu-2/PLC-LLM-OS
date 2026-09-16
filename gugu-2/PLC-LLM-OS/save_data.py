@@ -3,9 +3,9 @@ import os, json, uuid
 prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
 You possess the expertise of a 40+ years experienced PLC automation architect writing world-class, extremely complex, mathematically rigorous, and structurally flawless code. Your logic must include advanced PID/state-machine resilience, multi-layered safety interlocks, and sensor noise filtering. Output the most elite, realistic IEC 61131-3 Structured Text imaginable.
 
-**Your assigned domain is: Next-Gen Aerospace Reusable Launch Vehicle (RLV) Supersonic Retro-Propulsion**
+**Your assigned domain is: Ultra-High Vacuum (UHV) Molecular Beam Epitaxy (MBE) Chamber**
 
-Task: Invent a highly complex, ultra-realistic control scenario for this domain (e.g., Plume-induced flow separation hypersonic drag modulation, grid fin differential aerodynamic torque vectoring, and cryogenic engine continuous deep throttling). Your code must look like the absolute best, most robust industrial code written by a world-class 40-year veteran.
+Task: Invent a highly complex, ultra-realistic control scenario for this domain (e.g., Effusion cell thermal profile management, cryopump regeneration sequence, and atomic flux reflection high-energy electron diffraction (RHEED) timing). Your code must look like the absolute best, most robust industrial code written by a world-class 40-year veteran.
 
 CRITICAL RULES - READ EVERY LINE:
 1. CODE FENCE: Use TRIPLE backticks + iec-st. EXACTLY like this:
@@ -23,7 +23,7 @@ CRITICAL RULES - READ EVERY LINE:
 4. SAVE to isolated file using this exact Python:
    import json, uuid
    prompt = \"\"\"<copy this exact user prompt here>\"\"\"
-   code = \"\"\"```iec-st\nFUNCTION_BLOCK FB_RLV_RetroPropulsion\n//...\nEND_FUNCTION_BLOCK\n```\"\"\"
+   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_MBE_VacuumChamber\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
    record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
    with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
        json.dump(record, f, ensure_ascii=False)
@@ -36,138 +36,152 @@ CRITICAL RULES - READ EVERY LINE:
    [ ] Last code line: END_FUNCTION_BLOCK
    [ ] Closing fence: ```
    [ ] Total chars >= 1500
-6. REPLY with: EVOLUTION COMPLETE: Next-Gen Aerospace Reusable Launch Vehicle (RLV) Supersonic Retro-Propulsion
+6. REPLY with: EVOLUTION COMPLETE: Ultra-High Vacuum (UHV) Molecular Beam Epitaxy (MBE) Chamber
 
 DO NOT APOLOGIZE. DO NOT EXPLAIN. GENERATE CODE AND SAVE IT."""
 
 code = """```iec-st
-FUNCTION_BLOCK FB_RLV_RetroPropulsion_Control
+FUNCTION_BLOCK FB_MBE_UHV_Control
 VAR_INPUT
-    (* Required: at least 4-8 physical inputs with types and comments *)
-    bEnable                 : BOOL;     (* System enable signal for Retro-propulsion sequence *)
-    bEmergencyStop          : BOOL;     (* Safety interlock / Flight Termination System (FTS) OK signal *)
-    rAltitude               : REAL;     (* Current radar altitude in meters *)
-    rVelocity               : REAL;     (* Current vertical velocity in m/s (negative for descent) *)
-    rMachNumber             : REAL;     (* Current Mach number for aerodynamic torque scheduling *)
-    rTargetThrust           : REAL;     (* Commanded target thrust level (0.0 to 100.0%) *)
-    aIMU_PitchYawRoll       : ARRAY[0..2] OF REAL; (* Inertial Measurement Unit pitch, yaw, roll rates *)
+    (* Essential Safety and System Status *)
+    bSystemEnable       : BOOL;     (* Global enable for the MBE process *)
+    bEmergencyStop      : BOOL;     (* Main safety loop OK - Active High *)
+    bCoolingWaterOK     : BOOL;     (* Cryopump and cell water jacket flow OK *)
+    
+    (* Process Variables *)
+    rChamberPressure    : REAL;     (* Current main chamber pressure in Torr (e.g. 1.0E-10) *)
+    rCryoTemp           : REAL;     (* Cryopump temperature in Kelvin *)
+    rEffusionCellTemp   : REAL;     (* Effusion cell actual temperature in deg C *)
+    rRHEED_Intensity    : REAL;     (* RHEED specular spot intensity (normalized 0-1) *)
+    
+    (* Setpoints *)
+    rCellTempSetpoint   : REAL;     (* Target effusion cell temperature in deg C *)
+    rBasePressureSp     : REAL;     (* Target base pressure before deposition *)
 END_VAR
 VAR_OUTPUT
-    (* Required: at least 3-6 outputs with types and comments *)
-    bSystemReady            : BOOL;     (* True when engines are chilled, purged, and ready for ignition *)
-    rEngineThrottleOut      : REAL;     (* Commanded deep throttling value to Main Engine Controllers (MEC) *)
-    aGridFinActuatorCmd     : ARRAY[0..3] OF REAL; (* Differential aerodynamic torque vectoring commands *)
-    bAlarm                  : BOOL;     (* Major fault or anomaly detection flag *)
-    bIgnitionCmd            : BOOL;     (* Engine ignition sequence start command *)
+    (* Actuators and Status *)
+    bSystemReady        : BOOL;     (* UHV condition met, ready for epitaxy *)
+    bGateValveOpen      : BOOL;     (* Main isolation gate valve control *)
+    bCryopumpRegen      : BOOL;     (* Initiate cryopump regeneration cycle *)
+    rCellHeaterPWM      : REAL;     (* Effusion cell heater power output (0-100%) *)
+    bShutterOpen        : BOOL;     (* Effusion cell pneumatic shutter control *)
+    
+    (* Diagnostics *)
+    bAlarm              : BOOL;     (* General fault alarm *)
+    iFaultCode          : INT;      (* Detailed fault code for HMI *)
 END_VAR
 VAR
-    (* Internal state variables *)
-    iState                  : INT := 0; (* Internal state machine sequence ID *)
-    tTimer                  : TON;      (* General purpose step timer *)
-    rFilteredAltitude       : REAL;     (* Exponential moving average of altitude *)
-    rAltitudeAlpha          : REAL := 0.2; (* Filter coefficient *)
-    rKp_Throttling          : REAL := 1.25;(* Proportional gain for throttle control *)
-    rKd_Throttling          : REAL := 0.45;(* Derivative gain for throttle control *)
-    rErrorVal               : REAL;
-    rLastErrorVal           : REAL;
-    rMachDragLimit          : REAL;
+    (* Internal State *)
+    iState              : INT := 0; (* Main state machine step *)
+    iCellState          : INT := 0; (* Effusion cell thermal state *)
+    
+    (* Timers and Filters *)
+    tSoakTimer          : TON;
+    tRegenTimer         : TON;
+    rPressureFiltered   : REAL := 1.0;
+    
+    (* PID Control for Effusion Cell *)
+    rErrorSum           : REAL := 0.0;
+    rLastError          : REAL := 0.0;
+    rKp                 : REAL := 2.5;
+    rKi                 : REAL := 0.05;
+    rKd                 : REAL := 0.1;
+    rError              : REAL;
+    rDerivative         : REAL;
 END_VAR
 
 (* === MAIN LOGIC === *)
-(* First layer of defense: Hard-wired Flight Termination or manual E-Stop *)
-IF NOT bEmergencyStop THEN
-    bSystemReady := FALSE;
-    bIgnitionCmd := FALSE;
-    rEngineThrottleOut := 0.0;
-    aGridFinActuatorCmd[0] := 0.0;
-    aGridFinActuatorCmd[1] := 0.0;
-    aGridFinActuatorCmd[2] := 0.0;
-    aGridFinActuatorCmd[3] := 0.0;
-    bAlarm := TRUE;
-    iState := 999; (* FAULT STATE *)
+(* 1. Safety Interlocks and Hardware Protection *)
+IF NOT bEmergencyStop OR NOT bCoolingWaterOK THEN
+    bSystemReady   := FALSE;
+    bGateValveOpen := FALSE;
+    bShutterOpen   := FALSE;
+    rCellHeaterPWM := 0.0;
+    bAlarm         := TRUE;
+    iFaultCode     := 99; (* 99 = Critical Hardware Safety Fault *)
+    iState         := 0;
     RETURN;
 END_IF;
 
-(* Sensor Noise Filtering - EMA for radar altitude smoothing during supersonic plume interference *)
-rFilteredAltitude := (rAltitudeAlpha * rAltitude) + ((1.0 - rAltitudeAlpha) * rFilteredAltitude);
+(* 2. Sensor Noise Filtering (Exponential Moving Average) *)
+rPressureFiltered := rPressureFiltered + 0.1 * (rChamberPressure - rPressureFiltered);
 
+(* 3. Main Chamber State Machine *)
 CASE iState OF
-    0: (* IDLE & PRE-CHILL *)
-        bSystemReady := TRUE;
-        bAlarm := FALSE;
-        rEngineThrottleOut := 0.0;
-        bIgnitionCmd := FALSE;
-        IF bEnable AND rAltitude < 40000.0 AND rVelocity < 0.0 THEN
+    0: (* IDLE *)
+        bSystemReady := FALSE;
+        bAlarm       := FALSE;
+        iFaultCode   := 0;
+        IF bSystemEnable THEN
             iState := 10;
         END_IF;
-
-    10: (* ENGINE IGNITION SEQUENCE *)
-        bSystemReady := FALSE;
-        bIgnitionCmd := TRUE;
-        rEngineThrottleOut := 40.0; (* Minimum ignition thrust *)
-        tTimer(IN := TRUE, PT := T#2S);
-        IF tTimer.Q THEN
-            tTimer(IN := FALSE);
-            iState := 20;
-        END_IF;
-
-    20: (* SUPERSONIC RETRO-PROPULSION THROTTLE MODULATION *)
-        (* Calculate dynamic pressure proxy and aerodynamic drag limits for grid fin deploy *)
-        rMachDragLimit := rMachNumber * 1.5; 
-        IF rMachNumber > 1.2 THEN
-            aGridFinActuatorCmd[0] := aIMU_PitchYawRoll[0] * 5.0 + rMachDragLimit;
-            aGridFinActuatorCmd[1] := aIMU_PitchYawRoll[0] * -5.0 + rMachDragLimit;
-            aGridFinActuatorCmd[2] := aIMU_PitchYawRoll[1] * 5.0 + rMachDragLimit;
-            aGridFinActuatorCmd[3] := aIMU_PitchYawRoll[1] * -5.0 + rMachDragLimit;
+        
+    10: (* PUMPDOWN & CRYO CHECK *)
+        IF rCryoTemp > 15.0 THEN
+            bCryopumpRegen := TRUE;
+            tRegenTimer(IN := TRUE, PT := T#12H);
+            IF tRegenTimer.Q THEN
+                bCryopumpRegen := FALSE;
+                tRegenTimer(IN := FALSE);
+            END_IF;
+        ELSE
+            bCryopumpRegen := FALSE;
+            IF rPressureFiltered <= rBasePressureSp THEN
+                bGateValveOpen := TRUE;
+                iState := 20;
+            END_IF;
         END_IF;
         
-        (* Deep Throttling PD Controller to manage velocity profile *)
-        rErrorVal := rTargetThrust - rVelocity; 
-        rEngineThrottleOut := rEngineThrottleOut + (rKp_Throttling * rErrorVal) + (rKd_Throttling * (rErrorVal - rLastErrorVal));
-        rLastErrorVal := rErrorVal;
+    20: (* THERMAL PREP *)
+        IF rEffusionCellTemp >= (rCellTempSetpoint - 2.0) THEN
+            tSoakTimer(IN := TRUE, PT := T#30M);
+            IF tSoakTimer.Q THEN
+                iState := 30;
+                bSystemReady := TRUE;
+            END_IF;
+        ELSE
+            tSoakTimer(IN := FALSE);
+        END_IF;
         
-        (* Clamp throttle between 30% and 100% (Deep throttle limits) *)
-        IF rEngineThrottleOut > 100.0 THEN
-            rEngineThrottleOut := 100.0;
-        ELSIF rEngineThrottleOut < 30.0 THEN
-            rEngineThrottleOut := 30.0;
+    30: (* DEPOSITION *)
+        IF rRHEED_Intensity > 0.8 THEN
+            bShutterOpen := TRUE;
         END_IF;
-
-        IF rFilteredAltitude < 50.0 THEN
-            iState := 30;
-        END_IF;
-
-    30: (* TERMINAL HOVER & TOUCHDOWN *)
-        rEngineThrottleOut := 35.0; (* Hover thrust *)
-        aGridFinActuatorCmd[0] := 0.0;
-        aGridFinActuatorCmd[1] := 0.0;
-        aGridFinActuatorCmd[2] := 0.0;
-        aGridFinActuatorCmd[3] := 0.0;
-        IF rVelocity > -1.0 AND rFilteredAltitude < 2.0 THEN
-            iState := 40;
-        END_IF;
-
-    40: (* TOUCHDOWN COMPLETE - ENGINE SHUTDOWN *)
-        bIgnitionCmd := FALSE;
-        rEngineThrottleOut := 0.0;
-        bSystemReady := TRUE;
-        IF NOT bEnable THEN
+        
+        IF NOT bSystemEnable THEN
+            bShutterOpen := FALSE;
+            bSystemReady := FALSE;
             iState := 0;
         END_IF;
-
-    999: (* FAULT HANDLING *)
-        bAlarm := TRUE;
-        bIgnitionCmd := FALSE;
-        rEngineThrottleOut := 0.0;
-        IF bEmergencyStop AND NOT bEnable THEN
-            iState := 0;
-        END_IF;
+        
+    ELSE
+        iState := 0;
 END_CASE;
+
+(* 4. PID Controller *)
+IF iState >= 20 THEN
+    rError := rCellTempSetpoint - rEffusionCellTemp;
+    rErrorSum := rErrorSum + rError;
+    
+    IF rErrorSum > 1000.0 THEN rErrorSum := 1000.0; END_IF;
+    IF rErrorSum < -1000.0 THEN rErrorSum := -1000.0; END_IF;
+    
+    rDerivative := rError - rLastError;
+    rLastError := rError;
+    
+    rCellHeaterPWM := (rKp * rError) + (rKi * rErrorSum) + (rKd * rDerivative);
+    
+    IF rCellHeaterPWM > 100.0 THEN rCellHeaterPWM := 100.0; END_IF;
+    IF rCellHeaterPWM < 0.0 THEN rCellHeaterPWM := 0.0; END_IF;
+ELSE
+    rCellHeaterPWM := 0.0;
+    rErrorSum := 0.0;
+    rLastError := 0.0;
+END_IF;
 
 END_FUNCTION_BLOCK
 ```"""
 
-os.makedirs("data/swarm_raw", exist_ok=True)
 record = {
     "messages": [
         {"role": "user", "content": prompt},
@@ -175,6 +189,7 @@ record = {
     ]
 }
 
+os.makedirs("data/swarm_raw", exist_ok=True)
 filename = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
 with open(filename, "w", encoding="utf-8") as f:
     json.dump(record, f, ensure_ascii=False)

@@ -1,15 +1,11 @@
-import json
-import uuid
-import os
-
-os.makedirs("data/swarm_raw", exist_ok=True)
+import json, uuid, os
 
 prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
-You possess the expertise of a 40+ years experienced PLC automation architect writing world-class, extremely complex, and mathematically rigorous code.
+You possess the expertise of a 40+ years experienced PLC automation architect writing world-class, extremely complex, mathematically rigorous, and structurally flawless code. Your logic must include advanced PID/state-machine resilience, multi-layered safety interlocks, and sensor noise filtering. Output the most elite, realistic IEC 61131-3 Structured Text imaginable.
 
-**Your assigned domain is: Utility-Scale Concentrating Photovoltaic (CPV) Dual-Axis Tracker**
+**Your assigned domain is: Automated Tire Manufacturing Tread Extrusion and Calendering Synchronization**
 
-Task: Invent a highly complex, ultra-realistic control scenario for this domain (e.g., direct normal irradiance (DNI) micro-step algorithm optimization, multi-junction cell active thermal cooling loops, and severe weather flat-stow dynamic braking). Your code must look like the absolute best, most robust industrial code written by a world-class 40-year veteran.
+Task: Invent a highly complex, ultra-realistic control scenario for this domain. Your code must look like the absolute best, most robust industrial code written by a world-class 40-year veteran.
 
 CRITICAL RULES - READ EVERY LINE:
 1. CODE FENCE: Use TRIPLE backticks + iec-st. EXACTLY like this:
@@ -27,7 +23,7 @@ CRITICAL RULES - READ EVERY LINE:
 4. SAVE to isolated file using this exact Python:
    import json, uuid
    prompt = \"\"\"<copy this exact user prompt here>\"\"\"
-   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_CPV_DualAxisTracker\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
+   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_Tire_TreadExtrusion\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
    record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
    with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
        json.dump(record, f, ensure_ascii=False)
@@ -40,179 +36,159 @@ CRITICAL RULES - READ EVERY LINE:
    [ ] Last code line: END_FUNCTION_BLOCK
    [ ] Closing fence: ```
    [ ] Total chars >= 1500
-6. REPLY with: EVOLUTION COMPLETE: Utility-Scale Concentrating Photovoltaic (CPV) Dual-Axis Tracker
+6. REPLY with: EVOLUTION COMPLETE: Automated Tire Manufacturing Tread Extrusion and Calendering Synchronization
 
 DO NOT APOLOGIZE. DO NOT EXPLAIN. GENERATE CODE AND SAVE IT."""
 
 code = """```iec-st
-FUNCTION_BLOCK FB_CPV_DualAxisTracker
+FUNCTION_BLOCK FB_Tire_TreadExtrusion_Sync
 VAR_INPUT
-    bEnable                 : BOOL;     (* System global enable command *)
-    bEmergencyStop          : BOOL;     (* Safety relay OK / E-Stop loop *)
-    rWindSpeed              : REAL;     (* Measured wind speed in m/s for stow calculation *)
-    rDNI                    : REAL;     (* Direct Normal Irradiance in W/m^2 from pyrheliometer *)
-    rAzimuthTarget          : REAL;     (* Solar ephemeris calculated target azimuth angle (deg) *)
-    rElevationTarget        : REAL;     (* Solar ephemeris calculated target elevation angle (deg) *)
-    rCurrentAzimuth         : REAL;     (* Measured azimuth angle from high-res encoder (deg) *)
-    rCurrentElevation       : REAL;     (* Measured elevation angle from high-res encoder (deg) *)
-    rCellTemp               : REAL;     (* Maximum measured multi-junction cell temperature (deg C) *)
+    bEnable                 : BOOL;     (* System master enable signal *)
+    bEmergencyStop          : BOOL;     (* Safety relay OK signal (Active HIGH) *)
+    rExtruderPressure       : REAL;     (* Melt pressure at extruder head [Bar] *)
+    rExtruderTempZ1         : REAL;     (* Extruder zone 1 temperature [DegC] *)
+    rExtruderTempZ2         : REAL;     (* Extruder zone 2 temperature [DegC] *)
+    rCalenderSpeedMaster    : REAL;     (* Master line speed reference from calender [m/min] *)
+    rTreadThicknessRef      : REAL;     (* Target tread thickness setpoint [mm] *)
+    rTreadThicknessAct      : REAL;     (* Actual measured tread thickness via laser [mm] *)
+    rTensionLoadCell        : REAL;     (* Measured web tension between extruder and calender [N] *)
 END_VAR
 VAR_OUTPUT
-    bSystemReady            : BOOL;     (* True when ready to track *)
-    bTrackingActive         : BOOL;     (* True when actively pursuing DNI target *)
-    bStowMode               : BOOL;     (* True when system is in flat stow due to wind or night *)
-    rAzimuthVelocityCmd     : REAL;     (* Commanded azimuth rotational velocity (deg/s) *)
-    rElevationVelocityCmd   : REAL;     (* Commanded elevation rotational velocity (deg/s) *)
-    rCoolingPumpPwm         : REAL;     (* PWM duty cycle 0.0-100.0 for active thermal loop cooling pump *)
-    bAlarm                  : BOOL;     (* General fault alarm output *)
+    bSystemReady            : BOOL;     (* System is ready for production *)
+    rExtruderSpeedCmd       : REAL;     (* Extruder screw speed command to drive [RPM] *)
+    rTakeawayConveyorSpeed  : REAL;     (* Takeaway conveyor speed command [m/min] *)
+    rCoolingWaterValveCmd   : REAL;     (* Cooling water valve position command [0-100%] *)
+    bAlarmThicknessLimit    : BOOL;     (* Tread thickness out of tolerance alarm *)
+    bAlarmTensionLimit      : BOOL;     (* Web tension out of tolerance alarm *)
+    bAlarmThermal           : BOOL;     (* Thermal zone out of limits alarm *)
 END_VAR
 VAR
-    iState                  : INT := 0; (* Internal state machine sequence *)
-    rAzimuthError           : REAL;     (* Calculated azimuth error *)
-    rElevationError         : REAL;     (* Calculated elevation error *)
-    bHighWind               : BOOL;     (* Wind speed > threshold latch *)
-    bThermalOverload        : BOOL;     (* Temp > threshold latch *)
-    tStowTimer              : TON;      (* Timer for wind stow hysteresis *)
-    tCoolingTimer           : TON;      (* Timer for active cooling run-on *)
+    iState                  : INT := 0; (* Internal state machine state *)
+    tStartupDelay           : TON;      (* Delay timer for startup sequence *)
+    tStabilizationTimer     : TON;      (* Timer to wait for thermal stabilization *)
     
-    (* PI Controller States *)
-    rAzimuthIntegral        : REAL := 0.0;
-    rElevationIntegral      : REAL := 0.0;
+    (* Filter variables *)
+    rFilteredThickness      : REAL := 0.0;
+    rFilteredTension        : REAL := 0.0;
+    
+    (* PID Controller for Tension *)
+    rTensionSetpoint        : REAL := 150.0; (* N *)
+    rTensionKp              : REAL := 0.5;
+    rTensionKi              : REAL := 0.1;
+    rTensionError           : REAL := 0.0;
+    rTensionIntegral        : REAL := 0.0;
     
     (* Constants *)
-    c_rWindStowLimit        : REAL := 15.0; (* m/s threshold for stow mode *)
-    c_rTempLimit            : REAL := 85.0; (* deg C threshold for CPV cooling override *)
-    c_rKp                   : REAL := 2.5;  (* Proportional gain *)
-    c_rKi                   : REAL := 0.1;  (* Integral gain *)
-    c_rDeadband             : REAL := 0.05; (* Micro-step deadband in degrees *)
+    rALPHA                  : REAL := 0.1; (* Low pass filter coefficient *)
 END_VAR
 
 (* === MAIN LOGIC === *)
+(* 1. Safety and Interlocks *)
 IF NOT bEmergencyStop THEN
     bSystemReady := FALSE;
-    bTrackingActive := FALSE;
-    bStowMode := FALSE;
-    rAzimuthVelocityCmd := 0.0;
-    rElevationVelocityCmd := 0.0;
-    rCoolingPumpPwm := 100.0; (* Fail-safe cooling ON *)
-    bAlarm := TRUE;
+    rExtruderSpeedCmd := 0.0;
+    rTakeawayConveyorSpeed := 0.0;
+    rCoolingWaterValveCmd := 0.0;
+    bAlarmThicknessLimit := FALSE;
+    bAlarmTensionLimit := FALSE;
+    bAlarmThermal := FALSE;
     iState := 0;
     RETURN;
 END_IF;
 
-(* Wind monitoring with hysteresis timer *)
-IF rWindSpeed >= c_rWindStowLimit THEN
-    bHighWind := TRUE;
+(* 2. Signal Filtering (Exponential Moving Average) *)
+rFilteredThickness := (rALPHA * rTreadThicknessAct) + ((1.0 - rALPHA) * rFilteredThickness);
+rFilteredTension := (rALPHA * rTensionLoadCell) + ((1.0 - rALPHA) * rFilteredTension);
+
+(* 3. Alarm Checks *)
+IF (rFilteredThickness > rTreadThicknessRef * 1.1) OR (rFilteredThickness < rTreadThicknessRef * 0.9) THEN
+    bAlarmThicknessLimit := TRUE;
 ELSE
-    bHighWind := FALSE;
+    bAlarmThicknessLimit := FALSE;
 END_IF;
 
-tStowTimer(IN := bHighWind, PT := T#3S);
-
-(* Active Cooling Thermal Loop Management *)
-IF rCellTemp > c_rTempLimit THEN
-    bThermalOverload := TRUE;
-    rCoolingPumpPwm := 100.0; (* Max cooling capacity *)
-ELSIF rCellTemp > (c_rTempLimit - 20.0) THEN
-    bThermalOverload := FALSE;
-    (* Proportional cooling based on temp delta *)
-    rCoolingPumpPwm := 50.0 + ((rCellTemp - (c_rTempLimit - 20.0)) * 2.5);
+IF (rFilteredTension > 300.0) OR (rFilteredTension < 50.0) THEN
+    bAlarmTensionLimit := TRUE;
 ELSE
-    bThermalOverload := FALSE;
-    rCoolingPumpPwm := 20.0; (* Minimum idle circulation *)
+    bAlarmTensionLimit := FALSE;
 END_IF;
 
-(* Main State Machine *)
+IF (rExtruderTempZ1 > 150.0) OR (rExtruderTempZ2 > 160.0) THEN
+    bAlarmThermal := TRUE;
+ELSE
+    bAlarmThermal := FALSE;
+END_IF;
+
+(* 4. State Machine Control *)
 CASE iState OF
-    0: (* IDLE & INIT *)
+    0: (* IDLE - Wait for Enable *)
         bSystemReady := FALSE;
-        bTrackingActive := FALSE;
-        rAzimuthVelocityCmd := 0.0;
-        rElevationVelocityCmd := 0.0;
-        rAzimuthIntegral := 0.0;
-        rElevationIntegral := 0.0;
+        rExtruderSpeedCmd := 0.0;
+        rTakeawayConveyorSpeed := 0.0;
+        rCoolingWaterValveCmd := 0.0;
         
-        IF bEnable AND NOT bAlarm THEN
+        IF bEnable AND NOT bAlarmThermal THEN
             iState := 10;
         END_IF;
 
-    10: (* READY TO TRACK OR STOW *)
-        bSystemReady := TRUE;
+    10: (* HEATING STABILIZATION *)
+        rCoolingWaterValveCmd := 50.0; (* Standby cooling *)
+        tStabilizationTimer(IN := TRUE, PT := T#30S);
         
-        IF tStowTimer.Q THEN
-            iState := 99; (* Enter wind stow sequence *)
-        ELSIF rDNI > 150.0 AND NOT bThermalOverload THEN
-            iState := 20; (* Sufficient irradiance, begin precise tracking *)
+        IF tStabilizationTimer.Q THEN
+            tStabilizationTimer(IN := FALSE);
+            iState := 20;
         END_IF;
 
+    20: (* RAMP UP *)
+        bSystemReady := TRUE;
+        rExtruderSpeedCmd := rExtruderSpeedCmd + 0.1; (* Ramp up extruder speed *)
+        rTakeawayConveyorSpeed := rCalenderSpeedMaster * 0.8; (* Start takeaway conveyor slightly slower *)
+        
+        IF rExtruderSpeedCmd >= 50.0 THEN (* Target initial speed *)
+            iState := 30;
+        END_IF;
+        
         IF NOT bEnable THEN
             iState := 0;
         END_IF;
 
-    20: (* ACTIVE MICRO-STEP TRACKING *)
-        bTrackingActive := TRUE;
-        bStowMode := FALSE;
+    30: (* SYNCHRONIZED RUNNING *)
+        (* Tension PID Control modifying takeaway speed *)
+        rTensionError := rTensionSetpoint - rFilteredTension;
+        rTensionIntegral := rTensionIntegral + rTensionError * 0.1; (* dt approx 0.1s *)
         
-        IF tStowTimer.Q THEN
-            iState := 99;
+        (* Anti-windup *)
+        IF rTensionIntegral > 50.0 THEN
+            rTensionIntegral := 50.0;
+        ELSIF rTensionIntegral < -50.0 THEN
+            rTensionIntegral := -50.0;
         END_IF;
         
-        IF rDNI <= 150.0 OR bThermalOverload THEN
-            iState := 10; (* Return to ready, pause tracking *)
-        END_IF;
+        (* Calculate Conveyor speed command based on master speed and tension correction *)
+        rTakeawayConveyorSpeed := rCalenderSpeedMaster + (rTensionError * rTensionKp) + (rTensionIntegral * rTensionKi);
         
-        (* Calculate angular errors *)
-        rAzimuthError := rAzimuthTarget - rCurrentAzimuth;
-        rElevationError := rElevationTarget - rCurrentElevation;
+        (* Feed-forward Extruder Control based on target thickness and master line speed *)
+        rExtruderSpeedCmd := (rCalenderSpeedMaster * rTreadThicknessRef) * 2.5; (* Calibration factor 2.5 *)
         
-        (* Micro-step deadband logic for Azimuth *)
-        IF ABS(rAzimuthError) > c_rDeadband THEN
-            rAzimuthIntegral := rAzimuthIntegral + (rAzimuthError * 0.1); (* Assuming 100ms cycle *)
-            rAzimuthVelocityCmd := (rAzimuthError * c_rKp) + (rAzimuthIntegral * c_rKi);
+        (* Cooling control based on extruder temp *)
+        IF rExtruderTempZ1 > 120.0 THEN
+            rCoolingWaterValveCmd := 100.0;
         ELSE
-            rAzimuthVelocityCmd := 0.0;
-            rAzimuthIntegral := rAzimuthIntegral * 0.9; (* Bleed off integral when on target *)
+            rCoolingWaterValveCmd := 20.0;
         END_IF;
         
-        (* Micro-step deadband logic for Elevation *)
-        IF ABS(rElevationError) > c_rDeadband THEN
-            rElevationIntegral := rElevationIntegral + (rElevationError * 0.1);
-            rElevationVelocityCmd := (rElevationError * c_rKp) + (rElevationIntegral * c_rKi);
-        ELSE
-            rElevationVelocityCmd := 0.0;
-            rElevationIntegral := rElevationIntegral * 0.9;
+        IF NOT bEnable OR bAlarmTensionLimit THEN
+            iState := 40; (* Go to safe shutdown *)
         END_IF;
+
+    40: (* SHUTDOWN SEQUENCE *)
+        rExtruderSpeedCmd := 0.0;
+        rTakeawayConveyorSpeed := rTakeawayConveyorSpeed * 0.9; (* Ramp down *)
         
-        (* Velocity Limiters *)
-        IF rAzimuthVelocityCmd > 5.0 THEN rAzimuthVelocityCmd := 5.0; END_IF;
-        IF rAzimuthVelocityCmd < -5.0 THEN rAzimuthVelocityCmd := -5.0; END_IF;
-        IF rElevationVelocityCmd > 5.0 THEN rElevationVelocityCmd := 5.0; END_IF;
-        IF rElevationVelocityCmd < -5.0 THEN rElevationVelocityCmd := -5.0; END_IF;
-        
-    99: (* WIND STOW & DYNAMIC BRAKING *)
-        bTrackingActive := FALSE;
-        bStowMode := TRUE;
-        
-        (* Override target to safe stow position (0 elevation, 0 azimuth relative) *)
-        rAzimuthError := 0.0 - rCurrentAzimuth;
-        rElevationError := 0.0 - rCurrentElevation;
-        
-        (* Aggressive return to stow *)
-        rAzimuthVelocityCmd := rAzimuthError * (c_rKp * 1.5);
-        rElevationVelocityCmd := rElevationError * (c_rKp * 1.5);
-        
-        IF (ABS(rAzimuthError) < 0.5) AND (ABS(rElevationError) < 0.5) THEN
-            (* Locked in stow, apply dynamic braking by holding 0 velocity cmd tightly *)
-            rAzimuthVelocityCmd := 0.0;
-            rElevationVelocityCmd := 0.0;
-        END_IF;
-        
-        (* Exit stow if wind subsides for prolonged period (using inverted logic and timer in external real-world code) *)
-        IF NOT bHighWind THEN
-            (* For safety, stow is manual reset or long timer reset, assuming manual/remote reset here *)
-            IF NOT bEnable THEN
-                iState := 0;
-            END_IF;
+        IF rTakeawayConveyorSpeed < 1.0 THEN
+            rTakeawayConveyorSpeed := 0.0;
+            iState := 0;
         END_IF;
 
 END_CASE;
@@ -227,6 +203,7 @@ record = {
     ]
 }
 
+os.makedirs("data/swarm_raw", exist_ok=True)
 filename = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
 with open(filename, "w", encoding="utf-8") as f:
     json.dump(record, f, ensure_ascii=False)
