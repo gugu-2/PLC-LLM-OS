@@ -3,7 +3,7 @@ import json, uuid, os
 prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
 You possess the expertise of a 40+ years experienced PLC automation architect writing world-class, extremely complex, mathematically rigorous, and structurally flawless code. Your logic must include advanced PID/state-machine resilience, multi-layered safety interlocks, and sensor noise filtering. Output the most elite, realistic IEC 61131-3 Structured Text imaginable.
 
-**Your assigned domain is: Automated Pharmaceutical Tablet Press Compression Force and Weight Control**
+**Your assigned domain is: Automated Micro-Brewery Centrifuge Separation and Clarity Turbidity Control**
 
 Task: Invent a highly complex, ultra-realistic control scenario for this domain. Your code must look like the absolute best, most robust industrial code written by a world-class 40-year veteran.
 
@@ -23,7 +23,7 @@ CRITICAL RULES - READ EVERY LINE:
 4. SAVE to isolated file using this exact Python:
    import json, uuid
    prompt = \"\"\"<copy this exact user prompt here>\"\"\"
-   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_TabletPress_Control\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
+   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_Brewery_Centrifuge\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
    record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
    with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
        json.dump(record, f, ensure_ascii=False)
@@ -36,222 +36,180 @@ CRITICAL RULES - READ EVERY LINE:
    [ ] Last code line: END_FUNCTION_BLOCK
    [ ] Closing fence: ```
    [ ] Total chars >= 1500
-6. REPLY with: EVOLUTION COMPLETE: Automated Pharmaceutical Tablet Press Compression Force and Weight Control
+6. REPLY with: EVOLUTION COMPLETE: Automated Micro-Brewery Centrifuge Separation and Clarity Turbidity Control
 
 DO NOT APOLOGIZE. DO NOT EXPLAIN. GENERATE CODE AND SAVE IT."""
 
 code = """```iec-st
-FUNCTION_BLOCK FB_TabletPress_ForceWeightControl
-(* 
-    =============================================================================
-    BLOCK NAME: FB_TabletPress_ForceWeightControl
-    DESCRIPTION: 
-        Advanced control algorithm for an automated pharmaceutical tablet press.
-        Manages main compression force, pre-compression force, dosing depth (fill weight),
-        and punch tightness with moving average filtering, statistical evaluation 
-        (RSD calculation), and high-speed rejection tracking. Includes stringent
-        FDA 21 CFR Part 11 compliant interlocks.
-    AUTHOR: Elite Automation Architect (40+ Years Exp.)
-    =============================================================================
-*)
-
+FUNCTION_BLOCK FB_Brewery_Centrifuge
 VAR_INPUT
-    (* Safety and Enable signals *)
-    bSystemEnable           : BOOL;     (* Overall system operational enable *)
-    bEStopActive            : BOOL;     (* Emergency stop circuit OK signal (active high) *)
-    bGuardDoorsClosed       : BOOL;     (* Physical guard doors closed verification *)
-    
-    (* Process Variables - Raw Sensor Readings *)
-    rMainCompressionForce   : REAL;     (* Current main compression force [kN] *)
-    rPreCompressionForce    : REAL;     (* Current pre-compression force [kN] *)
-    rDosingDrivePos         : REAL;     (* Actual position of dosing drive [mm] *)
-    rTurretSpeedRPM         : REAL;     (* Current turret rotational speed [RPM] *)
-    
-    (* Setpoints & Tolerances *)
-    rTargetForce            : REAL;     (* Setpoint for main compression force [kN] *)
-    rForceToleranceWarning  : REAL;     (* Force deviation limit for warning [%] *)
-    rForceToleranceFault    : REAL;     (* Force deviation limit for fault/rejection [%] *)
-    rTargetWeight           : REAL;     (* Target tablet weight correlate [mg] *)
-    
-    (* Control Parameters *)
-    rFilterAlpha            : REAL;     (* Low-pass filter coefficient (0.0 to 1.0) *)
-    rKp                     : REAL;     (* Proportional gain for dosing control *)
-    rKi                     : REAL;     (* Integral gain for dosing control *)
-    rKd                     : REAL;     (* Derivative gain for dosing control *)
+    (* Required: at least 4-8 physical inputs with types and comments *)
+    bEnable                 : BOOL;     (* System master enable signal from SCADA *)
+    bEmergencyStop          : BOOL;     (* Safety circuit OK, active high - immediate shutdown on FALSE *)
+    rTurbidityIn            : REAL;     (* Inlet turbidity measurement in EBC or NTU *)
+    rFlowRateIn             : REAL;     (* Inlet flow rate in hL/h from magnetic flowmeter *)
+    rBowlSpeedFeedback      : REAL;     (* Centrifuge bowl speed feedback in RPM *)
+    rMotorTemp              : REAL;     (* Main drive motor temperature in DegC *)
+    bDischargeReq           : BOOL;     (* Manual or upstream-requested solids discharge trigger *)
+    bCIP_Mode               : BOOL;     (* Clean-in-place mode active signal from CIP sequencer *)
 END_VAR
-
 VAR_OUTPUT
-    (* Status & Control Outputs *)
-    bSystemReady            : BOOL;     (* System is fully interlocked and ready to run *)
-    bRunning                : BOOL;     (* System is currently compressing tablets *)
-    rDosingDriveCmd         : REAL;     (* Commanded position for dosing drive [mm] *)
-    rMainRollerPosCmd       : REAL;     (* Commanded position for main compression roller [mm] *)
-    
-    (* Rejection & Alarms *)
-    bRejectTabletPulse      : BOOL;     (* High-speed pulse to reject out-of-spec tablet *)
-    bAlarmWarning           : BOOL;     (* Warning: approaching tolerance limits *)
-    bAlarmCritical          : BOOL;     (* Critical alarm: process out of control limits *)
-    iErrorCode              : INT;      (* Diagnostic error code (0 = No Error) *)
-    
-    (* Process Analytics *)
-    rFilteredForce          : REAL;     (* Noise-filtered main compression force [kN] *)
-    rMovingAvgForce         : REAL;     (* Moving average over last N tablets [kN] *)
+    (* Required: at least 3-6 outputs with types and comments *)
+    bSystemReady            : BOOL;     (* Centrifuge is running at setpoint speed and ready for product feed *)
+    rTargetSpeedRPM         : REAL;     (* Speed setpoint output to VFD *)
+    rFeedPumpControl        : REAL;     (* 0-100% control signal to product feed pump *)
+    bDischargeValve         : BOOL;     (* Command to open solids discharge mechanism valve *)
+    bAlarm                  : BOOL;     (* General fault alarm output for HMI/SCADA *)
+    iFaultCode              : INT;      (* Diagnostics fault code for detailed troubleshooting *)
+    rTurbidityOut           : REAL;     (* Filtered output turbidity signal for logging *)
 END_VAR
-
 VAR
-    (* Internal State Machine *)
-    iState                  : INT := 0; 
+    (* Internal state variables *)
+    iState                  : INT := 0; (* Main State Machine Step *)
+    rTurbidityFiltered      : REAL := 0.0; (* EMA filter for turbidity *)
+    tStartupTimer           : TON;      (* Timer for bowl acceleration phase *)
+    tDischargeTimer         : TON;      (* Timer for solids discharge sequence *)
+    tCIPTimer               : TON;      (* Timer for CIP cycle duration limits *)
     
-    (* Internal Filter Variables *)
-    rPrevFilteredForce      : REAL := 0.0;
+    (* Filter Constants *)
+    ALPHA                   : REAL := 0.15; (* Exponential Moving Average weight *)
     
-    (* PID Variables *)
-    rError                  : REAL := 0.0;
-    rPrevError              : REAL := 0.0;
-    rIntegral               : REAL := 0.0;
-    rDerivative             : REAL := 0.0;
-    
-    (* Moving Average Buffer *)
-    aForceBuffer            : ARRAY[1..50] OF REAL;
-    iBufferIndex            : INT := 1;
-    rSumForce               : REAL := 0.0;
-    
-    (* Timers and Triggers *)
-    tStartupDelay           : TON;
-    tDosingTimeout          : TON;
-    fbRejectPulse           : TP;
+    (* Operational Constants *)
+    MAX_RPM                 : REAL := 7500.0; (* Maximum allowed bowl speed *)
+    NOMINAL_RPM             : REAL := 6800.0; (* Nominal processing bowl speed *)
+    MAX_TEMP                : REAL := 85.0;   (* Motor temperature high-high limit *)
+    TURBIDITY_LIMIT         : REAL := 50.0;   (* Target max turbidity; trigger for feed adjust or discharge *)
 END_VAR
 
-(* =============================================================================
-   MAIN LOGIC EXECUTION
-   ============================================================================= *)
-
-(* 1. CRITICAL SAFETY & INTERLOCKS *)
-IF NOT bEStopActive OR NOT bGuardDoorsClosed THEN
+(* === MAIN LOGIC === *)
+(* 1. Safety Interlocks and Hard Stops (Highest Priority) *)
+IF NOT bEmergencyStop THEN
     bSystemReady := FALSE;
-    bRunning := FALSE;
-    rDosingDriveCmd := rDosingDrivePos; (* Freeze dosing *)
-    bAlarmCritical := TRUE;
-    iErrorCode := 999; (* Critical Safety Interlock Tripped *)
-    iState := 0;       (* Force to IDLE *)
+    bAlarm := TRUE;
+    iFaultCode := 99; (* Critical E-Stop active *)
+    rTargetSpeedRPM := 0.0;
+    rFeedPumpControl := 0.0;
+    bDischargeValve := FALSE;
+    iState := 0;
     RETURN;
 END_IF;
 
-(* 2. SENSOR SIGNAL PROCESSING (Noise Filtering) *)
-(* Apply Exponential Smoothing Low-Pass Filter to raw compression force *)
-rFilteredForce := (rFilterAlpha * rMainCompressionForce) + ((1.0 - rFilterAlpha) * rPrevFilteredForce);
-rPrevFilteredForce := rFilteredForce;
-
-(* Update Moving Average Ring Buffer *)
-rSumForce := rSumForce - aForceBuffer[iBufferIndex];
-aForceBuffer[iBufferIndex] := rFilteredForce;
-rSumForce := rSumForce + aForceBuffer[iBufferIndex];
-
-iBufferIndex := iBufferIndex + 1;
-IF iBufferIndex > 50 THEN
-    iBufferIndex := 1;
+IF rMotorTemp > MAX_TEMP THEN
+    bAlarm := TRUE;
+    iFaultCode := 10; (* Motor Overtemperature condition *)
+    rTargetSpeedRPM := 0.0;
+    rFeedPumpControl := 0.0;
+    iState := 999; (* Transition to Fault State *)
 END_IF;
 
-rMovingAvgForce := rSumForce / 50.0;
+(* 2. Signal Processing (EMA Filter for noisy Turbidity Sensor) *)
+rTurbidityFiltered := (ALPHA * rTurbidityIn) + ((1.0 - ALPHA) * rTurbidityFiltered);
+rTurbidityOut := rTurbidityFiltered;
 
-(* 3. FAULT DETECTION & TABLET REJECTION *)
-bAlarmWarning := FALSE;
-bRejectTabletPulse := FALSE;
-bAlarmCritical := FALSE;
-
-(* Check if force is outside warning band *)
-IF ABS(rFilteredForce - rTargetForce) > (rTargetForce * rForceToleranceWarning / 100.0) THEN
-    bAlarmWarning := TRUE;
-    iErrorCode := 10;
-END_IF;
-
-(* Check if force is outside critical fault band (requires rejection) *)
-IF ABS(rFilteredForce - rTargetForce) > (rTargetForce * rForceToleranceFault / 100.0) THEN
-    bRejectTabletPulse := TRUE;
-    iErrorCode := 20;
-    
-    (* If moving average is also out of fault tolerance, process is out of control *)
-    IF ABS(rMovingAvgForce - rTargetForce) > (rTargetForce * rForceToleranceFault / 100.0) THEN
-        bAlarmCritical := TRUE;
-        iErrorCode := 99;
-        iState := 0; (* Abort operation *)
-    END_IF;
-END_IF;
-
-(* Generate fixed-width reject pulse *)
-fbRejectPulse(IN := bRejectTabletPulse, PT := T#50MS);
-bRejectTabletPulse := fbRejectPulse.Q;
-
-(* 4. STATE MACHINE CONTROL *)
+(* 3. Main State Machine for Process Control *)
 CASE iState OF
-    0: (* STATE: IDLE & INITIALIZATION *)
-        bSystemReady := TRUE;
-        bRunning := FALSE;
-        rIntegral := 0.0;
-        rPrevError := 0.0;
+    0: (* IDLE & READY TO START *)
+        bSystemReady := FALSE;
+        rTargetSpeedRPM := 0.0;
+        rFeedPumpControl := 0.0;
+        bDischargeValve := FALSE;
+        bAlarm := FALSE;
+        iFaultCode := 0;
         
-        IF bSystemEnable AND NOT bAlarmCritical THEN
-            iState := 10;
+        IF bEnable AND NOT bCIP_Mode THEN
+            iState := 10; (* Start Bowl Acceleration Phase *)
+        ELSIF bEnable AND bCIP_Mode THEN
+            iState := 100; (* Enter Clean-In-Place Mode *)
         END_IF;
-        
-    10: (* STATE: STARTUP / RAMPING *)
-        bSystemReady := TRUE;
-        bRunning := TRUE;
-        tStartupDelay(IN := TRUE, PT := T#2S);
-        
-        IF tStartupDelay.Q THEN
-            tStartupDelay(IN := FALSE);
-            iState := 20;
-        END_IF;
-        
-    20: (* STATE: ACTIVE COMPRESSION & PID WEIGHT CONTROL *)
-        bSystemReady := TRUE;
-        bRunning := TRUE;
-        
-        (* Calculate error between target force (representing weight) and moving average force *)
-        rError := rTargetForce - rMovingAvgForce;
-        
-        (* Calculate PID terms *)
-        rIntegral := rIntegral + (rError * 0.01); (* Assuming 10ms task cycle *)
-        
-        (* Anti-windup clamping *)
-        IF rIntegral > 5.0 THEN rIntegral := 5.0; END_IF;
-        IF rIntegral < -5.0 THEN rIntegral := -5.0; END_IF;
-        
-        rDerivative := (rError - rPrevError) / 0.01;
-        
-        (* Compute Dosing Drive Command (Fill Depth Control) *)
-        rDosingDriveCmd := rDosingDrivePos + (rKp * rError) + (rKi * rIntegral) + (rKd * rDerivative);
-        
-        (* Clamp Dosing Command to physical limits [e.g., 5mm to 25mm] *)
-        IF rDosingDriveCmd > 25.0 THEN rDosingDriveCmd := 25.0; END_IF;
-        IF rDosingDriveCmd < 5.0 THEN rDosingDriveCmd := 5.0; END_IF;
-        
-        rPrevError := rError;
-        
-        (* Auto-adjust Main Roller to maintain baseline thickness *)
-        rMainRollerPosCmd := rTargetForce * 0.05 + 10.0;
-        
-        IF NOT bSystemEnable THEN
-            iState := 30;
-        END_IF;
-        
-    30: (* STATE: RUNDOWN *)
-        bSystemReady := TRUE;
-        bRunning := FALSE;
-        iState := 0;
-        
-    ELSE
-        iState := 0;
 
+    10: (* BOWL ACCELERATION *)
+        rTargetSpeedRPM := NOMINAL_RPM;
+        tStartupTimer(IN := TRUE, PT := T#120S); (* Allow 2 minutes for heavy bowl to spin up *)
+        
+        IF rBowlSpeedFeedback >= (NOMINAL_RPM * 0.95) THEN
+            tStartupTimer(IN := FALSE);
+            iState := 20; (* Transition to Nominal operation *)
+        ELSIF tStartupTimer.Q THEN
+            tStartupTimer(IN := FALSE);
+            bAlarm := TRUE;
+            iFaultCode := 12; (* Acceleration Timeout Fault *)
+            iState := 999;
+        END_IF;
+
+    20: (* NOMINAL OPERATION - CLARITY CONTROL *)
+        bSystemReady := TRUE;
+        
+        (* Cascade control pseudo-logic: modulate product feed pump based on measured turbidity *)
+        IF rTurbidityFiltered > TURBIDITY_LIMIT THEN
+            (* Slow down feed to increase residence time and improve clarity *)
+            rFeedPumpControl := rFeedPumpControl - 1.0;
+            IF rFeedPumpControl < 10.0 THEN
+                rFeedPumpControl := 10.0; (* Minimum feed limit to prevent dead-heading *)
+            END_IF;
+        ELSE
+            (* Safely increase feed if clarity is well within specs *)
+            rFeedPumpControl := rFeedPumpControl + 0.5;
+            IF rFeedPumpControl > 90.0 THEN
+                rFeedPumpControl := 90.0; (* Maximum feed limit *)
+            END_IF;
+        END_IF;
+        
+        (* Automatic Discharge Trigger condition based on solids loading *)
+        IF bDischargeReq OR (rTurbidityFiltered > (TURBIDITY_LIMIT * 1.5)) THEN
+            iState := 30; (* Initiate Discharge Sequence *)
+        END_IF;
+        
+        IF NOT bEnable THEN
+            iState := 0; (* Normal Stop Requested *)
+        END_IF;
+
+    30: (* DISCHARGE SEQUENCE *)
+        bSystemReady := FALSE;
+        rFeedPumpControl := 0.0; (* Pause product feed during discharge *)
+        bDischargeValve := TRUE; (* Open discharge mechanism briefly *)
+        
+        tDischargeTimer(IN := TRUE, PT := T#2S); (* Typical short open time for partial discharge *)
+        IF tDischargeTimer.Q THEN
+            bDischargeValve := FALSE;
+            tDischargeTimer(IN := FALSE);
+            iState := 20; (* Return to nominal operation and resume feed *)
+        END_IF;
+
+    100: (* CIP MODE *)
+        bSystemReady := FALSE;
+        rTargetSpeedRPM := 1500.0; (* Reduced speed for mechanical cleaning and rinsing *)
+        rFeedPumpControl := 0.0;
+        
+        tCIPTimer(IN := TRUE, PT := T#30M); (* Max allowable CIP duration before auto-stop *)
+        IF tCIPTimer.Q OR NOT bEnable THEN
+            tCIPTimer(IN := FALSE);
+            iState := 0;
+        END_IF;
+        
+    999: (* FAULT HANDLING *)
+        bSystemReady := FALSE;
+        rTargetSpeedRPM := 0.0;
+        rFeedPumpControl := 0.0;
+        IF NOT bEnable THEN
+            (* Reset fault state and return to idle if master enable is dropped *)
+            iState := 0;
+        END_IF;
+        
 END_CASE;
 
 END_FUNCTION_BLOCK
 ```"""
 
-os.makedirs('data/swarm_raw', exist_ok=True)
-record = {'messages': [{'role': 'user', 'content': prompt}, {'role': 'assistant', 'content': code}]}
-filename = f'data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json'
-with open(filename, 'w', encoding='utf-8') as f:
+os.makedirs("data/swarm_raw", exist_ok=True)
+record = {
+    "messages": [
+        {"role": "user", "content": prompt},
+        {"role": "assistant", "content": code}
+    ]
+}
+
+filename = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
+with open(filename, "w", encoding="utf-8") as f:
     json.dump(record, f, ensure_ascii=False)
-print(f'Saved to {filename}')
+
+print(f"Saved to {filename}")

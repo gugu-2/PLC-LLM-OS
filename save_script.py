@@ -1,9 +1,9 @@
 import json, uuid, os
-
+os.makedirs('data/swarm_raw', exist_ok=True)
 prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
 You possess the expertise of a 40+ years experienced PLC automation architect writing world-class, extremely complex, mathematically rigorous, and structurally flawless code. Your logic must include advanced PID/state-machine resilience, multi-layered safety interlocks, and sensor noise filtering. Output the most elite, realistic IEC 61131-3 Structured Text imaginable.
 
-**Your assigned domain is: Automated Commercial Ski Lift Chair Gripper Force and Variable Rope Speed Synchronization**
+**Your assigned domain is: Large-Scale Civil Subway Station Escalator Cascade and Platform Fire Evacuation Interlock**
 
 Task: Invent a highly complex, ultra-realistic control scenario for this domain. Your code must look like the absolute best, most robust industrial code written by a world-class 40-year veteran.
 
@@ -23,7 +23,7 @@ CRITICAL RULES - READ EVERY LINE:
 4. SAVE to isolated file using this exact Python:
    import json, uuid
    prompt = \"\"\"<copy this exact user prompt here>\"\"\"
-   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_SkiLift_Gripper\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
+   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_Subway_EscalatorEvac\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
    record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
    with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
        json.dump(record, f, ensure_ascii=False)
@@ -36,141 +36,193 @@ CRITICAL RULES - READ EVERY LINE:
    [ ] Last code line: END_FUNCTION_BLOCK
    [ ] Closing fence: ```
    [ ] Total chars >= 1500
-6. REPLY with: EVOLUTION COMPLETE: Automated Commercial Ski Lift Chair Gripper Force and Variable Rope Speed Synchronization
+6. REPLY with: EVOLUTION COMPLETE: Large-Scale Civil Subway Station Escalator Cascade and Platform Fire Evacuation Interlock
 
 DO NOT APOLOGIZE. DO NOT EXPLAIN. GENERATE CODE AND SAVE IT."""
 
 code = """```iec-st
-FUNCTION_BLOCK FB_SkiLift_RopeGripSync
-(* 
-   Advanced Chairlift Gripper Force and Variable Rope Speed Synchronization Control
-   Developed for High-Speed Detachable Grip Systems (EN 12929-1 compliance)
+FUNCTION_BLOCK FB_SubwayEscalatorEvacuationInterlock
+(*
+    ================================================================================
+    BLOCK NAME: FB_SubwayEscalatorEvacuationInterlock
+    DESCRIPTION:
+        Controls a cascade of escalators in a large-scale subway station during 
+        both normal operation and critical fire evacuation scenarios.
+        Integrates fire alarm panels (FAP), smoke detectors, overspeed monitors,
+        and passenger flow sensors. Features multi-layered safety interlocks,
+        debouncing algorithms for sensor inputs, and failsafe state machines.
+    AUTHOR: 40-Year Veteran PLC Architect
+    VERSION: 4.2.0 (SIL-3 Compliant Core Logic)
+    ================================================================================
 *)
+
 VAR_INPUT
-    bEnableSystem          : BOOL;  (* System enable switch from main panel *)
-    bSafetyRelayOK         : BOOL;  (* Hardwired safety loop status (E-Stop, derailment) *)
-    rHaulRopeSpeed         : REAL;  (* Current haul rope speed in m/s (0.0 to 6.0) *)
-    rChairVelocity         : REAL;  (* Velocity of the chair approaching the grip area in m/s *)
-    rAmbientTemp           : REAL;  (* Ambient temperature in deg C to compensate spring stiffness *)
-    rTargetGripForce       : REAL;  (* Desired gripping force setpoint in kN *)
-    bTerminalArrivalSignal : BOOL;  (* Proximity sensor indicating chair arrival at grip point *)
-    rWindSpeed             : REAL;  (* Anemometer reading in m/s for safety speed limits *)
+    bSystemEnable           : BOOL;     (* Main control power enable *)
+    bFireAlarmPanelActive   : BOOL;     (* Primary fire alarm signal from FAP *)
+    bSmokeDetectorsZoneA    : BOOL;     (* Secondary smoke detection, Concourse A *)
+    bSmokeDetectorsZoneB    : BOOL;     (* Secondary smoke detection, Platform B *)
+    bEscalator1_Fault       : BOOL;     (* Motor fault or VFD trip Escalator 1 *)
+    bEscalator2_Fault       : BOOL;     (* Motor fault or VFD trip Escalator 2 *)
+    bEscalator3_Fault       : BOOL;     (* Motor fault or VFD trip Escalator 3 *)
+    rPassengerDensity       : REAL;     (* Vision-based passenger density (passengers/m^2) *)
+    bEmergencyStopButtons   : BOOL;     (* E-stop button daisy-chain (normally closed, FALSE=Tripped) *)
+    bGridPowerOK            : BOOL;     (* Main AC grid power status (TRUE=OK) *)
 END_VAR
+
 VAR_OUTPUT
-    bSystemReady           : BOOL;  (* Ready for engagement sequence *)
-    rActualGripForce       : REAL;  (* Applied and verified gripping force in kN *)
-    rSynchronizedSpeedCmd  : REAL;  (* Speed command for terminal conveyor to match haul rope *)
-    bGripFault             : BOOL;  (* Fault detected during gripping process *)
-    bEmergencyBrake        : BOOL;  (* Command to trigger bullwheel emergency brakes *)
-    iOperationState        : INT;   (* Current state of the synchronization state machine *)
+    bSystemReady            : BOOL;     (* System is initialized and ready *)
+    bEvacuationModeActive   : BOOL;     (* Fire evacuation mode is locked in *)
+    bCmdEscalator1_Up       : BOOL;     (* Command Esc 1 UP (Evacuation Direction) *)
+    bCmdEscalator2_Up       : BOOL;     (* Command Esc 2 UP (Evacuation Direction) *)
+    bCmdEscalator3_Up       : BOOL;     (* Command Esc 3 UP (Evacuation Direction) *)
+    bCmdEscalator1_Down     : BOOL;     (* Command Esc 1 DOWN (Normal Direction) *)
+    bCmdBrakeApply          : BOOL;     (* Command dynamic braking (TRUE=Apply brakes) *)
+    rVFD_SpeedReference     : REAL;     (* VFD frequency reference 0.0 - 50.0 Hz *)
+    bAudioAnnounceEvac      : BOOL;     (* Trigger PA system evacuation message *)
+    bCriticalAlarm          : BOOL;     (* Critical fault requiring maintenance *)
 END_VAR
+
 VAR
-    iState                 : INT := 0; (* Internal state machine counter *)
-    tGripTimeout           : TON;      (* Timeout for gripping engagement sequence *)
-    tBrakeDelay            : TON;      (* Delay before applying brake on fault *)
-    rSpeedError            : REAL;     (* Error between rope speed and chair speed *)
-    rForceError            : REAL;     (* Error between target and actual force *)
-    rIntegrationAcc        : REAL;     (* Integral accumulator for speed PID *)
-    bForceEstablished      : BOOL;
+    iMainState              : INT := 0; (* Main state machine variable *)
+    tFireAlarmDebounce      : TON;      (* Filter for FAP signal bouncing *)
+    tEvacuationTimer        : TON;      (* Timer for cascade sequence *)
+    tPassengerClearingTimer : TON;      (* Timer to allow passenger clearing before reversing *)
     
-    (* Constants *)
-    MAX_SPEED_ERROR        : REAL := 0.05; (* Max allowed speed diff in m/s *)
-    MIN_GRIP_FORCE         : REAL := 25.0; (* Minimum safe gripping force in kN *)
+    bFireConfirmed          : BOOL;     (* Internally verified fire state *)
+    bSafeToReverse          : BOOL;     (* Interlock condition to reverse escalator direction *)
+    rTargetSpeed            : REAL := 0.0; (* Ramping target speed *)
 END_VAR
 
-(* === MAIN LOGIC === *)
-(* Emergency Safety Interlock *)
-IF NOT bSafetyRelayOK OR (rWindSpeed > 20.0) THEN
-    bSystemReady := FALSE;
-    bGripFault := TRUE;
-    bEmergencyBrake := TRUE;
-    iOperationState := 999;
-    RETURN;
+(* === SENSOR DEBOUNCING & SAFETY INTEGRITY CHECKS === *)
+(* Ensure E-Stop is not active - Safety First *)
+IF NOT bEmergencyStopButtons THEN
+    iMainState := 999; (* CRITICAL FAULT / STOP STATE *)
+    bCmdBrakeApply := TRUE;
+    bCriticalAlarm := TRUE;
 END_IF;
 
-(* Temperature Compensation for Spring Washers (Belleville Springs) *)
-(* As temp drops, stiffness increases slightly, requiring more applied pressure *)
-VAR
-    rTempCompFactor : REAL;
-END_VAR
-IF rAmbientTemp < 0.0 THEN
-    rTempCompFactor := 1.0 + (ABS(rAmbientTemp) * 0.005);
-ELSE
-    rTempCompFactor := 1.0;
+(* Validate Fire Alarm - Use 2-out-of-3 logic or debounce *)
+tFireAlarmDebounce(IN := (bFireAlarmPanelActive OR (bSmokeDetectorsZoneA AND bSmokeDetectorsZoneB)), PT := T#2S);
+IF tFireAlarmDebounce.Q AND NOT bFireConfirmed THEN
+    bFireConfirmed := TRUE;
+    iMainState := 100; (* Transition to Evacuation State *)
 END_IF;
 
-(* Main State Machine *)
-CASE iState OF
-    0: (* IDLE & INITIATION *)
+(* === MAIN CONTROL STATE MACHINE === *)
+CASE iMainState OF
+
+    0: (* IDLE / INITIALIZATION *)
         bSystemReady := FALSE;
-        bGripFault := FALSE;
-        bEmergencyBrake := FALSE;
-        rSynchronizedSpeedCmd := 0.0;
+        bCmdEscalator1_Up := FALSE;
+        bCmdEscalator2_Up := FALSE;
+        bCmdEscalator3_Up := FALSE;
+        bCmdEscalator1_Down := FALSE;
+        bCmdBrakeApply := TRUE;
+        rVFD_SpeedReference := 0.0;
         
-        IF bEnableSystem AND bSafetyRelayOK THEN
-            bSystemReady := TRUE;
-            iState := 10;
+        IF bSystemEnable AND bGridPowerOK AND bEmergencyStopButtons THEN
+            iMainState := 10; (* Transition to Normal Operations *)
         END_IF;
 
-    10: (* SPEED SYNCHRONIZATION *)
-        iOperationState := 10;
-        (* PID loop to match terminal chair speed to haul rope speed *)
-        rSpeedError := rHaulRopeSpeed - rChairVelocity;
-        rIntegrationAcc := rIntegrationAcc + (rSpeedError * 0.01); (* Simplified dt *)
+    10: (* NORMAL OPERATION *)
+        bSystemReady := TRUE;
+        bCmdBrakeApply := FALSE;
         
-        (* Anti-windup *)
-        IF rIntegrationAcc > 2.0 THEN rIntegrationAcc := 2.0; END_IF;
-        IF rIntegrationAcc < -2.0 THEN rIntegrationAcc := -2.0; END_IF;
+        (* In normal operation, Esc 1 is Down, Esc 2 & 3 are Up *)
+        bCmdEscalator1_Down := NOT bEscalator1_Fault;
+        bCmdEscalator2_Up := NOT bEscalator2_Fault;
+        bCmdEscalator3_Up := NOT bEscalator3_Fault;
         
-        rSynchronizedSpeedCmd := rHaulRopeSpeed + (rSpeedError * 1.5) + (rIntegrationAcc * 0.5);
+        (* Speed control based on passenger density *)
+        IF rPassengerDensity > 3.0 THEN
+            rTargetSpeed := 45.0;
+        ELSE
+            rTargetSpeed := 30.0;
+        END_IF;
         
-        IF bTerminalArrivalSignal THEN
-            IF ABS(rSpeedError) <= MAX_SPEED_ERROR THEN
-                iState := 20; (* Speeds matched, begin gripping *)
-            ELSE
-                bGripFault := TRUE;
-                iState := 99; (* Fault state *)
+        (* Simple ramp *)
+        IF rVFD_SpeedReference < rTargetSpeed THEN
+            rVFD_SpeedReference := rVFD_SpeedReference + 0.5;
+        ELSIF rVFD_SpeedReference > rTargetSpeed THEN
+            rVFD_SpeedReference := rVFD_SpeedReference - 0.5;
+        END_IF;
+
+    100: (* FIRE EVACUATION INITIATED *)
+        bEvacuationModeActive := TRUE;
+        bAudioAnnounceEvac := TRUE;
+        bSystemReady := FALSE;
+        
+        (* Step 1: Stop all normal downward operations *)
+        bCmdEscalator1_Down := FALSE;
+        
+        (* Allow 5 seconds for passengers to brace before deceleration *)
+        tPassengerClearingTimer(IN := TRUE, PT := T#5S);
+        
+        IF tPassengerClearingTimer.Q THEN
+            bCmdBrakeApply := TRUE; (* Bring down-running escalators to halt *)
+            rVFD_SpeedReference := 0.0;
+            
+            IF (rVFD_SpeedReference < 1.0) THEN
+                iMainState := 110;
+                tPassengerClearingTimer(IN := FALSE);
             END_IF;
         END_IF;
 
-    20: (* GRIP ENGAGEMENT AND FORCE APPLICATION *)
-        iOperationState := 20;
-        tGripTimeout(IN := TRUE, PT := T#1S);
+    110: (* EVACUATION CASCADE - REVERSE TO UP *)
+        bCmdBrakeApply := FALSE;
         
-        (* Simulate force application feedback - in reality read from load cell *)
-        rActualGripForce := rTargetGripForce * rTempCompFactor;
-        
-        IF rActualGripForce >= MIN_GRIP_FORCE THEN
-            bForceEstablished := TRUE;
-            tGripTimeout(IN := FALSE);
-            iState := 30;
-        END_IF;
-        
-        IF tGripTimeout.Q THEN
-            bGripFault := TRUE;
-            iState := 99; (* Fault: Failed to establish force *)
+        (* Set maximum safe evacuation speed (not too fast to trip) *)
+        rTargetSpeed := 40.0; 
+        IF rVFD_SpeedReference < rTargetSpeed THEN
+            rVFD_SpeedReference := rVFD_SpeedReference + 1.0;
         END_IF;
 
-    30: (* GRIP SECURED, TRANSIT *)
-        iOperationState := 30;
-        IF NOT bEnableSystem THEN
-            iState := 0;
-        END_IF;
+        (* Cascade start to prevent grid voltage sag *)
+        bCmdEscalator3_Up := NOT bEscalator3_Fault;
         
-    99: (* FAULT HANDLING *)
-        iOperationState := 99;
-        bEmergencyBrake := TRUE;
-        bSystemReady := FALSE;
-        IF NOT bEnableSystem THEN
-            iState := 0; (* Reset on disable *)
+        tEvacuationTimer(IN := TRUE, PT := T#3S);
+        IF tEvacuationTimer.Q THEN
+            bCmdEscalator2_Up := NOT bEscalator2_Fault;
+            tEvacuationTimer(IN := FALSE, PT := T#6S); (* Re-trigger for Esc 1 *)
+            iMainState := 120;
         END_IF;
+
+    120: (* FINAL CASCADE START *)
+        tEvacuationTimer(IN := TRUE);
+        IF tEvacuationTimer.Q THEN
+            bCmdEscalator1_Up := NOT bEscalator1_Fault;
+            iMainState := 130;
+        END_IF;
+
+    130: (* EVACUATION RUNNING *)
+        (* Maintain state until manual reset or power loss *)
+        IF NOT bGridPowerOK THEN
+            iMainState := 999;
+        END_IF;
+
+    999: (* EMERGENCY E-STOP / GRID FAIL / SYSTEM FAULT *)
+        bCmdEscalator1_Up := FALSE;
+        bCmdEscalator2_Up := FALSE;
+        bCmdEscalator3_Up := FALSE;
+        bCmdEscalator1_Down := FALSE;
+        
+        (* Immediately apply mechanical holding brakes *)
+        bCmdBrakeApply := TRUE;
+        rVFD_SpeedReference := 0.0;
+        bSystemReady := FALSE;
+        
+        IF bEmergencyStopButtons AND bGridPowerOK AND NOT bFireConfirmed THEN
+            (* Require manual intervention to reset from 999 *)
+            IF NOT bSystemEnable THEN 
+                iMainState := 0;
+            END_IF;
+        END_IF;
+
 END_CASE;
 
 END_FUNCTION_BLOCK
 ```"""
 
-import os
-os.makedirs('data/swarm_raw', exist_ok=True)
 record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
 filename = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
 with open(filename, "w", encoding="utf-8") as f:
