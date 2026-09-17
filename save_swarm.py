@@ -3,7 +3,7 @@ import json, uuid, os
 prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
 You possess the expertise of a 40+ years experienced PLC automation architect writing world-class, extremely complex, mathematically rigorous, and structurally flawless code. Your logic must include advanced PID/state-machine resilience, multi-layered safety interlocks, and sensor noise filtering. Output the most elite, realistic IEC 61131-3 Structured Text imaginable.
 
-**Your assigned domain is: Industrial Scale Animal Feed Pelletizing Die Roll Pressure and Steam Conditioning**
+**Your assigned domain is: Commercial Printing Press High-Speed Web Tension and Color Registration**
 
 Task: Invent a highly complex, ultra-realistic control scenario for this domain. Your code must look like the absolute best, most robust industrial code written by a world-class 40-year veteran.
 
@@ -23,7 +23,7 @@ CRITICAL RULES - READ EVERY LINE:
 4. SAVE to isolated file using this exact Python:
    import json, uuid
    prompt = \"\"\"<copy this exact user prompt here>\"\"\"
-   code = \"\"\"```iec-st\nFUNCTION_BLOCK FB_FeedPelletizer_Conditioning\n//...\nEND_FUNCTION_BLOCK\n```\"\"\"
+   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_PrintingPress_WebTension\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
    record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
    with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
        json.dump(record, f, ensure_ascii=False)
@@ -36,177 +36,146 @@ CRITICAL RULES - READ EVERY LINE:
    [ ] Last code line: END_FUNCTION_BLOCK
    [ ] Closing fence: ```
    [ ] Total chars >= 1500
-6. REPLY with: EVOLUTION COMPLETE: Industrial Scale Animal Feed Pelletizing Die Roll Pressure and Steam Conditioning
+6. REPLY with: EVOLUTION COMPLETE: Commercial Printing Press High-Speed Web Tension and Color Registration
 
 DO NOT APOLOGIZE. DO NOT EXPLAIN. GENERATE CODE AND SAVE IT."""
 
 code = """```iec-st
-FUNCTION_BLOCK FB_FeedPelletizer_Conditioning
+FUNCTION_BLOCK FB_PrintingPress_WebTension
 VAR_INPUT
     (* Required: at least 4-8 physical inputs with types and comments *)
-    bEnable               : BOOL;   (* System enable command *)
-    bEmergencyStop        : BOOL;   (* Master safety relay OK signal, active high = OK *)
-    rSteamTemp            : REAL;   (* Conditioning steam temperature [deg C] *)
-    rDiePressure_Left     : REAL;   (* Hydraulic pressure on left die roll [Bar] *)
-    rDiePressure_Right    : REAL;   (* Hydraulic pressure on right die roll [Bar] *)
-    rMainMotorLoad        : REAL;   (* Main pellet mill motor load [Amps] *)
-    rMoistureFeed         : REAL;   (* Mash feed moisture content [%] *)
-    rTargetPressure       : REAL;   (* Setpoint for die roll pressure [Bar] *)
+    bEnable                 : BOOL;     (* System enable signal *)
+    bEmergencyStop          : BOOL;     (* Safety relay OK signal (TRUE = OK) *)
+    rWebSpeedActual         : REAL;     (* Current web speed in m/min *)
+    rWebSpeedSetpoint       : REAL;     (* Target web speed in m/min *)
+    rTensionSensorFront     : REAL;     (* Front tension sensor reading in N *)
+    rTensionSensorRear      : REAL;     (* Rear tension sensor reading in N *)
+    rColorRegMarkError      : REAL;     (* Vision system color registration error in mm *)
+    bSpliceApproaching      : BOOL;     (* True if a paper splice is approaching the nip *)
 END_VAR
 VAR_OUTPUT
     (* Required: at least 3-6 outputs with types and comments *)
-    bSystemReady          : BOOL;   (* Interlocks satisfied, ready for operation *)
-    rSteamValveCommand    : REAL;   (* Steam proportional valve output [0-100%] *)
-    rDiePressureCommand   : REAL;   (* Roll pressure hydraulic servo command [0-100%] *)
-    bAlarm                : BOOL;   (* Critical system fault active *)
-    iFaultCode            : INT;    (* Active fault diagnostic code *)
-    bMainMotorEnable      : BOOL;   (* Run permissive to main pelletizing motor *)
+    bSystemReady            : BOOL;     (* System ready status *)
+    rTensionControlOut      : REAL;     (* Tension servo torque/speed trim command (-100 to 100%) *)
+    rColorRegCorrectionOut  : REAL;     (* Color registration compensator stepper command *)
+    bAlarm                  : BOOL;     (* Fault alarm output *)
+    bWebBreakDetected       : BOOL;     (* Web break fault triggered *)
+    bWarning                : BOOL;     (* Non-critical warning (e.g., tension tracking error) *)
 END_VAR
 VAR
-    (* Internal State and Timers *)
-    iState                : INT := 0; 
-    tSteamWarmupTimer     : TON;
-    tPressureDwellTimer   : TON;
-    tFaultDelay           : TON;
+    (* Internal state variables *)
+    iState                  : INT := 0;
+    tTimer                  : TON;
+    tSpliceTimer            : TON;
+    rFilteredTension        : REAL := 0.0;
+    rTensionError           : REAL := 0.0;
+    rTensionIntegral        : REAL := 0.0;
+    rTensionDerivative      : REAL := 0.0;
+    rTensionPrevError       : REAL := 0.0;
+    rTensionKp              : REAL := 2.5;
+    rTensionKi              : REAL := 0.15;
+    rTensionKd              : REAL := 0.05;
     
-    (* Filtering arrays for hydraulic pressure noise mitigation *)
-    rPressureLeft_Array   : ARRAY[0..4] OF REAL;
-    rPressureRight_Array  : ARRAY[0..4] OF REAL;
-    rFilteredPressLeft    : REAL;
-    rFilteredPressRight   : REAL;
-    iFilterIdx            : INT := 0;
+    rColorRegIntegral       : REAL := 0.0;
     
-    (* PID state variables for Steam Conditioning Control *)
-    rSteamError           : REAL;
-    rSteamIntegral        : REAL;
-    rSteamDerivative      : REAL;
-    rSteamPrevError       : REAL;
+    (* Filter Constants *)
+    rAlpha                  : REAL := 0.2; (* Low pass filter coefficient for tension noise *)
     
-    (* PID Tuning Parameters for Steam *)
-    rKp_Steam             : REAL := 2.85;
-    rKi_Steam             : REAL := 0.12;
-    rKd_Steam             : REAL := 0.045;
-    
-    rPressureAvg          : REAL;
-    rPressureError        : REAL;
+    (* Safety limits *)
+    rMaxTension             : REAL := 500.0; (* N *)
+    rMinTension             : REAL := 50.0;  (* N *)
+    rWebBreakThreshold      : REAL := 20.0;  (* N *)
 END_VAR
 
 (* === MAIN LOGIC === *)
-(* 1. Multi-layered Safety Interlocks and Fault Handling *)
+
+(* Emergency Stop Interlock *)
 IF NOT bEmergencyStop THEN
     bSystemReady := FALSE;
-    bMainMotorEnable := FALSE;
-    rSteamValveCommand := 0.0;
-    rDiePressureCommand := 0.0;
     bAlarm := TRUE;
-    iFaultCode := 999; (* FATAL: E-STOP Active - Immediate safe state *)
-    iState := 0;
+    rTensionControlOut := 0.0;
+    rColorRegCorrectionOut := 0.0;
+    iState := 999; (* Fault state *)
     RETURN;
 END_IF;
 
-(* 2. Sensor Noise Filtering - 5-Point Moving Average for Die Roll Pressures *)
-rPressureLeft_Array[iFilterIdx]  := rDiePressure_Left;
-rPressureRight_Array[iFilterIdx] := rDiePressure_Right;
+(* Sensor Noise Filtering (First-Order Low Pass) *)
+rFilteredTension := (rAlpha * ((rTensionSensorFront + rTensionSensorRear) / 2.0)) + ((1.0 - rAlpha) * rFilteredTension);
 
-rFilteredPressLeft := (rPressureLeft_Array[0] + rPressureLeft_Array[1] + rPressureLeft_Array[2] + 
-                       rPressureLeft_Array[3] + rPressureLeft_Array[4]) / 5.0;
-rFilteredPressRight:= (rPressureRight_Array[0] + rPressureRight_Array[1] + rPressureRight_Array[2] + 
-                       rPressureRight_Array[3] + rPressureRight_Array[4]) / 5.0;
-
-iFilterIdx := (iFilterIdx + 1) MOD 5;
-
-(* Calculate averaged symmetric pressure for control algorithms *)
-rPressureAvg := (rFilteredPressLeft + rFilteredPressRight) / 2.0;
-
-(* 3. Hard Safety Envelope - Over-pressure mechanical interlock *)
-IF rPressureAvg > 280.0 THEN (* 280 Bar absolute physical limit for die integrity *)
+(* Web Break Detection *)
+IF (iState = 20) AND (rFilteredTension < rWebBreakThreshold) AND (rWebSpeedActual > 10.0) THEN
+    bWebBreakDetected := TRUE;
     bAlarm := TRUE;
-    iFaultCode := 101; (* CRITICAL: Over-pressure detected, entering fault containment *)
-    iState := 99;
+    iState := 999; (* Drop to fault on web break *)
 END_IF;
 
-(* 4. Main Process Control State Machine *)
 CASE iState OF
-    0: (* IDLE / READY TO START *)
-        bSystemReady := TRUE;
-        bMainMotorEnable := FALSE;
-        rSteamValveCommand := 0.0;
-        rDiePressureCommand := 0.0;
-        IF bEnable THEN
-            bSystemReady := FALSE;
+    0: (* IDLE *)
+        bSystemReady := FALSE;
+        rTensionControlOut := 0.0;
+        rColorRegCorrectionOut := 0.0;
+        rTensionIntegral := 0.0;
+        rColorRegIntegral := 0.0;
+        IF bEnable AND bEmergencyStop THEN
             iState := 10;
         END_IF;
-        
-    10: (* WARMUP: STEAM CONDITIONING STABILIZATION *)
-        (* Advanced PID calculation for optimal mash gelatinization *)
-        rSteamError := 85.0 - rSteamTemp; (* Target 85 deg C for optimal starch breakdown *)
-        rSteamIntegral := rSteamIntegral + rSteamError;
-        rSteamDerivative := rSteamError - rSteamPrevError;
-        
-        rSteamValveCommand := (rKp_Steam * rSteamError) + (rKi_Steam * rSteamIntegral) + (rKd_Steam * rSteamDerivative);
-        rSteamPrevError := rSteamError;
-        
-        (* Anti-Windup / Valve Command Clamping *)
-        IF rSteamValveCommand > 100.0 THEN 
-            rSteamValveCommand := 100.0; 
-            rSteamIntegral := rSteamIntegral - rSteamError; (* Halt integral accumulation *)
-        ELSIF rSteamValveCommand < 0.0 THEN 
-            rSteamValveCommand := 0.0; 
-            rSteamIntegral := 0.0; 
-        END_IF;
-        
-        (* Wait for temperature stabilization using timer hysteresis *)
-        tSteamWarmupTimer(IN := (rSteamTemp >= 83.5 AND rSteamTemp <= 86.5), PT := T#20S);
-        IF tSteamWarmupTimer.Q THEN
-            tSteamWarmupTimer(IN := FALSE);
+
+    10: (* RAMP UP / INITIALIZATION *)
+        bSystemReady := TRUE;
+        (* Apply initial pre-tension before high-speed run *)
+        rTensionControlOut := 15.0; 
+        tTimer(IN := TRUE, PT := T#3S);
+        IF tTimer.Q THEN
+            tTimer(IN := FALSE);
             iState := 20;
         END_IF;
+
+    20: (* RUNNING (PID TENSION CONTROL & REGISTRATION) *)
+        bSystemReady := TRUE;
         
-    20: (* RAMP-UP: PRESSURIZE DIE ROLLS *)
-        rPressureError := rTargetPressure - rPressureAvg;
-        rDiePressureCommand := rDiePressureCommand + (rPressureError * 0.15); (* Proportional pressure ramp *)
+        (* Tension PID Control *)
+        rTensionError := (rMaxTension / 2.0) - rFilteredTension; (* Target is mid-range tension *)
+        rTensionIntegral := rTensionIntegral + rTensionError;
         
-        IF rDiePressureCommand > 100.0 THEN rDiePressureCommand := 100.0; END_IF;
-        IF rDiePressureCommand < 0.0 THEN rDiePressureCommand := 0.0; END_IF;
+        (* Anti-windup for tension integral *)
+        IF rTensionIntegral > 1000.0 THEN rTensionIntegral := 1000.0; END_IF;
+        IF rTensionIntegral < -1000.0 THEN rTensionIntegral := -1000.0; END_IF;
         
-        (* Verify hydraulic pressure matches setpoint before introducing load *)
-        tPressureDwellTimer(IN := (ABS(rPressureError) < 3.5), PT := T#8S);
-        IF tPressureDwellTimer.Q THEN
-            tPressureDwellTimer(IN := FALSE);
-            iState := 30;
+        rTensionDerivative := rTensionError - rTensionPrevError;
+        rTensionControlOut := (rTensionKp * rTensionError) + (rTensionKi * rTensionIntegral) + (rTensionKd * rTensionDerivative);
+        rTensionPrevError := rTensionError;
+        
+        (* Clamp Output (-100% to 100%) *)
+        IF rTensionControlOut > 100.0 THEN rTensionControlOut := 100.0; END_IF;
+        IF rTensionControlOut < -100.0 THEN rTensionControlOut := -100.0; END_IF;
+
+        (* Color Registration PI Control (only active when speed is stable) *)
+        IF ABS(rWebSpeedActual - rWebSpeedSetpoint) < 5.0 THEN
+            rColorRegIntegral := rColorRegIntegral + rColorRegMarkError;
+            rColorRegCorrectionOut := (rColorRegMarkError * 1.2) + (rColorRegIntegral * 0.05);
+        ELSE
+            rColorRegCorrectionOut := 0.0; (* Suspend color reg correction during speed transients *)
         END_IF;
-        
-    30: (* NORMAL OPERATION / ACTIVE PELLETIZING *)
-        bMainMotorEnable := TRUE;
-        
-        (* Real-time adaptive slip-control load shedding *)
-        IF rMainMotorLoad > 400.0 THEN (* Nearing main motor thermal overload *)
-            rDiePressureCommand := rDiePressureCommand - 2.5; (* Back off pressure dynamically to prevent slip/jam *)
+
+        (* Splice handling (temporary tension drop to prevent breaks at splice tape) *)
+        IF bSpliceApproaching THEN
+            rTensionControlOut := rTensionControlOut * 0.8; (* Reduce tension by 20% *)
+            bWarning := TRUE;
+        ELSE
+            bWarning := FALSE;
         END_IF;
         
         IF NOT bEnable THEN
-            iState := 40;
-        END_IF;
-        
-    40: (* CONTROLLED SHUTDOWN SEQUENCE *)
-        bMainMotorEnable := FALSE;
-        rSteamValveCommand := 0.0; (* Secure steam immediately *)
-        rDiePressureCommand := rDiePressureCommand - 3.0; (* Controlled pressure bleed-off *)
-        
-        IF rDiePressureCommand <= 0.0 THEN
-            rDiePressureCommand := 0.0;
             iState := 0;
         END_IF;
-        
-    99: (* FAULT CONTAINMENT STATE *)
-        bMainMotorEnable := FALSE;
-        rSteamValveCommand := 0.0;
-        rDiePressureCommand := 0.0; (* Release all roll pressure to clear blockages *)
-        
-        (* Fault reset mechanism *)
-        IF NOT bEnable AND bEmergencyStop THEN 
+
+    999: (* FAULT STATE *)
+        bSystemReady := FALSE;
+        rTensionControlOut := 0.0;
+        rColorRegCorrectionOut := 0.0;
+        (* Requires bEnable to be toggled off to reset, assuming E-Stop is clear *)
+        IF NOT bEnable AND bEmergencyStop AND NOT bWebBreakDetected THEN
             bAlarm := FALSE;
-            iFaultCode := 0;
             iState := 0;
         END_IF;
         
@@ -215,8 +184,16 @@ END_CASE;
 END_FUNCTION_BLOCK
 ```"""
 
+record = {
+    "messages": [
+        {"role": "user", "content": prompt},
+        {"role": "assistant", "content": code}
+    ]
+}
+
 os.makedirs("data/swarm_raw", exist_ok=True)
 filename = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
 with open(filename, "w", encoding="utf-8") as f:
-    json.dump({"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}, f, ensure_ascii=False)
+    json.dump(record, f, ensure_ascii=False)
+
 print(f"Saved to {filename}")

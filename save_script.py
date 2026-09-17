@@ -1,11 +1,9 @@
 import json, uuid, os
 
-os.makedirs('data/swarm_raw', exist_ok=True)
-
 prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
 You possess the expertise of a 40+ years experienced PLC automation architect writing world-class, extremely complex, mathematically rigorous, and structurally flawless code. Your logic must include advanced PID/state-machine resilience, multi-layered safety interlocks, and sensor noise filtering. Output the most elite, realistic IEC 61131-3 Structured Text imaginable.
 
-**Your assigned domain is: Automated Commercial Laundry Continuous Batch Tunnel Washer Chemical Dosing**
+**Your assigned domain is: Automated Commercial Ski Lift Chair Gripper Force and Variable Rope Speed Synchronization**
 
 Task: Invent a highly complex, ultra-realistic control scenario for this domain. Your code must look like the absolute best, most robust industrial code written by a world-class 40-year veteran.
 
@@ -25,9 +23,9 @@ CRITICAL RULES - READ EVERY LINE:
 4. SAVE to isolated file using this exact Python:
    import json, uuid
    prompt = \"\"\"<copy this exact user prompt here>\"\"\"
-   code = \"\"\"```iec-st\nFUNCTION_BLOCK FB_Laundry_TunnelWasher\n//...\nEND_FUNCTION_BLOCK\n```\"\"\"
-   record = {\"messages\": [{\"role\": \"user\", \"content\": prompt}, {\"role\": \"assistant\", \"content\": code}]}
-   with open(f\"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json\", \"w\", encoding=\"utf-8\") as f:
+   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_SkiLift_Gripper\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
+   record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
+   with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
        json.dump(record, f, ensure_ascii=False)
 5. SELF-CHECK before saving - verify ALL:
    [ ] Fence is ```iec-st
@@ -38,194 +36,141 @@ CRITICAL RULES - READ EVERY LINE:
    [ ] Last code line: END_FUNCTION_BLOCK
    [ ] Closing fence: ```
    [ ] Total chars >= 1500
-6. REPLY with: EVOLUTION COMPLETE: Automated Commercial Laundry Continuous Batch Tunnel Washer Chemical Dosing
+6. REPLY with: EVOLUTION COMPLETE: Automated Commercial Ski Lift Chair Gripper Force and Variable Rope Speed Synchronization
 
 DO NOT APOLOGIZE. DO NOT EXPLAIN. GENERATE CODE AND SAVE IT."""
 
 code = """```iec-st
-FUNCTION_BLOCK FB_Laundry_TunnelWasher_ChemDose
+FUNCTION_BLOCK FB_SkiLift_RopeGripSync
+(* 
+   Advanced Chairlift Gripper Force and Variable Rope Speed Synchronization Control
+   Developed for High-Speed Detachable Grip Systems (EN 12929-1 compliance)
+*)
 VAR_INPUT
-    (* Required physical inputs *)
-    bEnable               : BOOL;     (* System master enable signal *)
-    bEmergencyStop        : BOOL;     (* Safety circuit OK (Active High) *)
-    bFlowSensorOk         : BOOL;     (* Main water flow sensor active *)
-    bChemicalLowLevel     : BOOL;     (* Chemical supply tank low level switch (Active Low) *)
-    rMainWaterTemp        : REAL;     (* Wash zone water temperature in Celsius *)
-    rLinenWeight          : REAL;     (* Batch weight transferred in kg *)
-    rpH_Sensor            : REAL;     (* pH level measured in the wash zone *)
-    iWashCategory         : INT;      (* Recipe ID for linen type (1=Light, 2=Heavy, 3=Healthcare) *)
+    bEnableSystem          : BOOL;  (* System enable switch from main panel *)
+    bSafetyRelayOK         : BOOL;  (* Hardwired safety loop status (E-Stop, derailment) *)
+    rHaulRopeSpeed         : REAL;  (* Current haul rope speed in m/s (0.0 to 6.0) *)
+    rChairVelocity         : REAL;  (* Velocity of the chair approaching the grip area in m/s *)
+    rAmbientTemp           : REAL;  (* Ambient temperature in deg C to compensate spring stiffness *)
+    rTargetGripForce       : REAL;  (* Desired gripping force setpoint in kN *)
+    bTerminalArrivalSignal : BOOL;  (* Proximity sensor indicating chair arrival at grip point *)
+    rWindSpeed             : REAL;  (* Anemometer reading in m/s for safety speed limits *)
 END_VAR
 VAR_OUTPUT
-    (* Required physical outputs *)
-    bSystemReady          : BOOL;     (* Dosing system ready for sequence *)
-    bDosingPumpRun        : BOOL;     (* Command to run the chemical dosing pump *)
-    rDosingPumpSpeed      : REAL;     (* Dosing pump VFD speed reference 0-100% *)
-    bDosingValveOpen      : BOOL;     (* Command to open the injection valve *)
-    bAlarm                : BOOL;     (* General fault alarm output *)
-    iAlarmCode            : INT;      (* Specific fault code for HMI *)
-    rActualDosedVolume    : REAL;     (* Calculated volume of chemical dosed (ml) *)
+    bSystemReady           : BOOL;  (* Ready for engagement sequence *)
+    rActualGripForce       : REAL;  (* Applied and verified gripping force in kN *)
+    rSynchronizedSpeedCmd  : REAL;  (* Speed command for terminal conveyor to match haul rope *)
+    bGripFault             : BOOL;  (* Fault detected during gripping process *)
+    bEmergencyBrake        : BOOL;  (* Command to trigger bullwheel emergency brakes *)
+    iOperationState        : INT;   (* Current state of the synchronization state machine *)
 END_VAR
 VAR
-    (* Internal State and Timers *)
-    iState                : INT := 0; (* Internal state machine step *)
-    iPrevState            : INT := 0; (* Previous state for transition tracking *)
-    tPumpRunTimer         : TON;      (* Timer for maximum dosing duration *)
-    tValveDelayTimer      : TON;      (* Valve open settling time before pumping *)
-    tSafetyTimeout        : TON;      (* Timeout for safety interlocks *)
+    iState                 : INT := 0; (* Internal state machine counter *)
+    tGripTimeout           : TON;      (* Timeout for gripping engagement sequence *)
+    tBrakeDelay            : TON;      (* Delay before applying brake on fault *)
+    rSpeedError            : REAL;     (* Error between rope speed and chair speed *)
+    rForceError            : REAL;     (* Error between target and actual force *)
+    rIntegrationAcc        : REAL;     (* Integral accumulator for speed PID *)
+    bForceEstablished      : BOOL;
     
-    (* Internal process variables *)
-    rTargetDoseVolume     : REAL := 0.0;
-    rDoseRateMlPerSec     : REAL := 15.5; (* Calibration constant for pump rate *)
-    rCalculatedDuration   : REAL := 0.0;
-    rTempCompensation     : REAL := 1.0;
-    
-    (* Filtered Inputs *)
-    rFilteredPH           : REAL := 7.0;
-    rAlpha                : REAL := 0.1; (* Low pass filter coefficient *)
+    (* Constants *)
+    MAX_SPEED_ERROR        : REAL := 0.05; (* Max allowed speed diff in m/s *)
+    MIN_GRIP_FORCE         : REAL := 25.0; (* Minimum safe gripping force in kN *)
 END_VAR
 
 (* === MAIN LOGIC === *)
-(* 1. Safety and Interlock Processing *)
-IF NOT bEmergencyStop THEN
-    bSystemReady     := FALSE;
-    bDosingPumpRun   := FALSE;
-    bDosingValveOpen := FALSE;
-    rDosingPumpSpeed := 0.0;
-    bAlarm           := TRUE;
-    iAlarmCode       := 999; (* E-Stop Active *)
-    iState           := 0;
+(* Emergency Safety Interlock *)
+IF NOT bSafetyRelayOK OR (rWindSpeed > 20.0) THEN
+    bSystemReady := FALSE;
+    bGripFault := TRUE;
+    bEmergencyBrake := TRUE;
+    iOperationState := 999;
     RETURN;
 END_IF;
 
-IF NOT bFlowSensorOk THEN
-    bDosingPumpRun   := FALSE;
-    bDosingValveOpen := FALSE;
-    bAlarm           := TRUE;
-    iAlarmCode       := 101; (* No main flow *)
-    iState           := 0;
-    RETURN;
+(* Temperature Compensation for Spring Washers (Belleville Springs) *)
+(* As temp drops, stiffness increases slightly, requiring more applied pressure *)
+VAR
+    rTempCompFactor : REAL;
+END_VAR
+IF rAmbientTemp < 0.0 THEN
+    rTempCompFactor := 1.0 + (ABS(rAmbientTemp) * 0.005);
+ELSE
+    rTempCompFactor := 1.0;
 END_IF;
 
-IF NOT bChemicalLowLevel THEN
-    bAlarm           := TRUE;
-    iAlarmCode       := 102; (* Chemical empty *)
-END_IF;
-
-(* 2. Input Filtering *)
-(* Simple First-Order Low-Pass Filter for pH sensor noise reduction *)
-rFilteredPH := (rAlpha * rpH_Sensor) + ((1.0 - rAlpha) * rFilteredPH);
-
-(* 3. State Machine Processing *)
+(* Main State Machine *)
 CASE iState OF
-    0: (* IDLE & READY CHECK *)
-        bDosingPumpRun   := FALSE;
-        bDosingValveOpen := FALSE;
-        rDosingPumpSpeed := 0.0;
-        iAlarmCode       := 0;
-        bAlarm           := FALSE;
+    0: (* IDLE & INITIATION *)
+        bSystemReady := FALSE;
+        bGripFault := FALSE;
+        bEmergencyBrake := FALSE;
+        rSynchronizedSpeedCmd := 0.0;
         
-        IF bEnable AND bFlowSensorOk AND bChemicalLowLevel THEN
+        IF bEnableSystem AND bSafetyRelayOK THEN
             bSystemReady := TRUE;
-            (* Check for trigger condition based on recipe and batch arrival *)
-            IF rLinenWeight > 5.0 THEN
-                bSystemReady := FALSE;
-                iState := 10;
-            END_IF;
-        ELSE
-            bSystemReady := FALSE;
+            iState := 10;
         END_IF;
 
-    10: (* RECIPE CALCULATION *)
-        (* Temperature compensation factor: lower temp requires slightly more chemical *)
-        IF rMainWaterTemp < 40.0 THEN
-            rTempCompensation := 1.15;
-        ELSIF rMainWaterTemp > 70.0 THEN
-            rTempCompensation := 0.90;
-        ELSE
-            rTempCompensation := 1.0;
-        END_IF;
+    10: (* SPEED SYNCHRONIZATION *)
+        iOperationState := 10;
+        (* PID loop to match terminal chair speed to haul rope speed *)
+        rSpeedError := rHaulRopeSpeed - rChairVelocity;
+        rIntegrationAcc := rIntegrationAcc + (rSpeedError * 0.01); (* Simplified dt *)
         
-        (* Base dose per kg depends on wash category *)
-        CASE iWashCategory OF
-            1: (* Light Soil *)
-                rTargetDoseVolume := rLinenWeight * 2.5 * rTempCompensation;
-            2: (* Heavy Soil *)
-                rTargetDoseVolume := rLinenWeight * 5.0 * rTempCompensation;
-            3: (* Healthcare / Infectious *)
-                rTargetDoseVolume := rLinenWeight * 8.5 * rTempCompensation;
+        (* Anti-windup *)
+        IF rIntegrationAcc > 2.0 THEN rIntegrationAcc := 2.0; END_IF;
+        IF rIntegrationAcc < -2.0 THEN rIntegrationAcc := -2.0; END_IF;
+        
+        rSynchronizedSpeedCmd := rHaulRopeSpeed + (rSpeedError * 1.5) + (rIntegrationAcc * 0.5);
+        
+        IF bTerminalArrivalSignal THEN
+            IF ABS(rSpeedError) <= MAX_SPEED_ERROR THEN
+                iState := 20; (* Speeds matched, begin gripping *)
             ELSE
-                rTargetDoseVolume := rLinenWeight * 3.0; (* Default fallback *)
-        END_CASE;
-        
-        (* Calculate required pump run time based on calibrated dose rate *)
-        IF rTargetDoseVolume > 0.0 AND rDoseRateMlPerSec > 0.0 THEN
-            rCalculatedDuration := rTargetDoseVolume / rDoseRateMlPerSec;
-            iState := 20;
-        ELSE
-            iState := 0; (* Nothing to dose *)
+                bGripFault := TRUE;
+                iState := 99; (* Fault state *)
+            END_IF;
         END_IF;
 
-    20: (* OPEN VALVE *)
-        bDosingValveOpen := TRUE;
-        tValveDelayTimer(IN := TRUE, PT := T#2S);
-        IF tValveDelayTimer.Q THEN
-            tValveDelayTimer(IN := FALSE);
+    20: (* GRIP ENGAGEMENT AND FORCE APPLICATION *)
+        iOperationState := 20;
+        tGripTimeout(IN := TRUE, PT := T#1S);
+        
+        (* Simulate force application feedback - in reality read from load cell *)
+        rActualGripForce := rTargetGripForce * rTempCompFactor;
+        
+        IF rActualGripForce >= MIN_GRIP_FORCE THEN
+            bForceEstablished := TRUE;
+            tGripTimeout(IN := FALSE);
             iState := 30;
         END_IF;
-
-    30: (* RUN PUMP *)
-        bDosingPumpRun := TRUE;
-        (* Use PID or lookup table for speed; here we use a fixed 80% for stable flow *)
-        rDosingPumpSpeed := 80.0;
         
-        (* Dynamic timeout based on calculated duration *)
-        (* Note: In strict IEC 61131-3, PT must be a TIME type, assuming conversion here *)
-        tPumpRunTimer(IN := TRUE, PT := REAL_TO_TIME(rCalculatedDuration * 1000.0));
-        
-        IF tPumpRunTimer.Q THEN
-            bDosingPumpRun := FALSE;
-            rDosingPumpSpeed := 0.0;
-            tPumpRunTimer(IN := FALSE);
-            
-            (* Record volume dosed for reporting *)
-            rActualDosedVolume := rTargetDoseVolume;
-            
-            iState := 40;
-        END_IF;
-        
-        (* Over-pressure or pH overshoot safety interrupt could go here *)
-        IF rFilteredPH > 11.5 AND iWashCategory <> 2 THEN
-            bDosingPumpRun := FALSE;
-            bAlarm := TRUE;
-            iAlarmCode := 201; (* High pH fault *)
-            iState := 50; (* Goto safe shutdown *)
+        IF tGripTimeout.Q THEN
+            bGripFault := TRUE;
+            iState := 99; (* Fault: Failed to establish force *)
         END_IF;
 
-    40: (* POST DOSE FLUSH *)
-        (* Leave valve open a bit to let main line pressure flush the injection nozzle *)
-        tValveDelayTimer(IN := TRUE, PT := T#3S);
-        IF tValveDelayTimer.Q THEN
-            tValveDelayTimer(IN := FALSE);
-            bDosingValveOpen := FALSE;
-            IF NOT bEnable THEN
-                iState := 0;
-            END_IF;
+    30: (* GRIP SECURED, TRANSIT *)
+        iOperationState := 30;
+        IF NOT bEnableSystem THEN
+            iState := 0;
         END_IF;
         
-    50: (* FAULT SHUTDOWN *)
-        bDosingPumpRun := FALSE;
-        bDosingValveOpen := FALSE;
-        rDosingPumpSpeed := 0.0;
+    99: (* FAULT HANDLING *)
+        iOperationState := 99;
+        bEmergencyBrake := TRUE;
         bSystemReady := FALSE;
-        IF NOT bEnable THEN
-            iState := 0; (* Reset sequence on disable *)
+        IF NOT bEnableSystem THEN
+            iState := 0; (* Reset on disable *)
         END_IF;
-
 END_CASE;
 
 END_FUNCTION_BLOCK
 ```"""
 
+import os
+os.makedirs('data/swarm_raw', exist_ok=True)
 record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
 filename = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
 with open(filename, "w", encoding="utf-8") as f:

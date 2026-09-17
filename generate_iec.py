@@ -1,9 +1,11 @@
-import json, uuid, os
+import os, json, uuid
+
+os.makedirs("data/swarm_raw", exist_ok=True)
 
 prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
 You possess the expertise of a 40+ years experienced PLC automation architect writing world-class, extremely complex, mathematically rigorous, and structurally flawless code. Your logic must include advanced PID/state-machine resilience, multi-layered safety interlocks, and sensor noise filtering. Output the most elite, realistic IEC 61131-3 Structured Text imaginable.
 
-**Your assigned domain is: Deep-Sea Manganese Nodule Mining Crawler Tracks Synchronisation**
+**Your assigned domain is: Industrial Scale Wind Turbine Nacelle Yaw Drive and Cable Untwist Synchronization**
 
 Task: Invent a highly complex, ultra-realistic control scenario for this domain. Your code must look like the absolute best, most robust industrial code written by a world-class 40-year veteran.
 
@@ -23,7 +25,7 @@ CRITICAL RULES - READ EVERY LINE:
 4. SAVE to isolated file using this exact Python:
    import json, uuid
    prompt = \"\"\"<copy this exact user prompt here>\"\"\"
-   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_DeepSea_Crawler\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
+   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_WindTurbine_Yaw\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
    record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
    with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
        json.dump(record, f, ensure_ascii=False)
@@ -36,154 +38,226 @@ CRITICAL RULES - READ EVERY LINE:
    [ ] Last code line: END_FUNCTION_BLOCK
    [ ] Closing fence: ```
    [ ] Total chars >= 1500
-6. REPLY with: EVOLUTION COMPLETE: Deep-Sea Manganese Nodule Mining Crawler Tracks Synchronisation
+6. REPLY with: EVOLUTION COMPLETE: Industrial Scale Wind Turbine Nacelle Yaw Drive and Cable Untwist Synchronization
 
 DO NOT APOLOGIZE. DO NOT EXPLAIN. GENERATE CODE AND SAVE IT."""
 
 code = """```iec-st
-FUNCTION_BLOCK FB_DeepSeaTrackSync
+FUNCTION_BLOCK FB_WTG_YawDrive_Untwist_Sync
+(* 
+    Industrial Scale Wind Turbine Nacelle Yaw Drive and Cable Untwist Synchronization
+    Advanced Control Algorithm with Fault Tolerance, PID Filtering, and Safety Interlocks
+*)
 VAR_INPUT
-    bEnable                 : BOOL;       (* Master enable signal from ROV topside control *)
-    bEmergencyStop          : BOOL;       (* Safety relay OK signal; TRUE = OK, FALSE = STOP *)
-    rTrackLeftSpeedSet      : REAL;       (* Desired speed for port-side track (m/s) *)
-    rTrackRightSpeedSet     : REAL;       (* Desired speed for starboard-side track (m/s) *)
-    rTrackLeftActualSpeed   : REAL;       (* Encoder feedback port track (m/s) *)
-    rTrackRightActualSpeed  : REAL;       (* Encoder feedback starboard track (m/s) *)
-    rInclinometerPitch      : REAL;       (* Vehicle pitch angle (degrees) for slope compensation *)
-    rInclinometerRoll       : REAL;       (* Vehicle roll angle (degrees) for slip compensation *)
-    bSlipDetectLeft         : BOOL;       (* Mud slip detection logic on left track *)
-    bSlipDetectRight        : BOOL;       (* Mud slip detection logic on right track *)
+    bEnable                 : BOOL;     (* Master system enable signal from top-level controller *)
+    bEmergencyStop          : BOOL;     (* Safety loop OK signal, MUST be TRUE to operate *)
+    rWindDirection          : REAL;     (* Filtered external wind direction measurement [0..359.9 deg] *)
+    rNacellePosition        : REAL;     (* Current Nacelle absolute position [-720.0 .. 720.0 deg] *)
+    rWindSpeed              : REAL;     (* Free-stream wind speed [m/s] *)
+    bYawMotorThermalFault   : BOOL;     (* Aggregate thermal trip switch from all yaw motors *)
+    rGridVoltage            : REAL;     (* Main grid voltage for active power alignment checks [V] *)
+    iCableTwistCount        : INT;      (* Number of physical cable twists [-3..3], max limit = +/- 3 *)
 END_VAR
-
 VAR_OUTPUT
-    bSystemReady            : BOOL;       (* Sub-sea synchronisation system ready status *)
-    bAlarm                  : BOOL;       (* High severity fault alarm output *)
-    bWarningSlip            : BOOL;       (* Warning indicator for traction slip on seabed *)
-    rControlOutputLeft      : REAL;       (* Actuator signal to port hydraulic drive (-100 to 100%) *)
-    rControlOutputRight     : REAL;       (* Actuator signal to starboard hydraulic drive (-100 to 100%) *)
-    iCurrentStateCode       : INT;        (* Current internal state machine code for telemetry *)
+    bSystemReady            : BOOL;     (* Yaw system ready for autonomous tracking *)
+    bYawCW_Cmd              : BOOL;     (* Digital command to yaw Clockwise *)
+    bYawCCW_Cmd             : BOOL;     (* Digital command to yaw Counter-Clockwise *)
+    rYawSpeedRef            : REAL;     (* Speed reference for VFD driven yaw motors [rpm] *)
+    bUntwistActive          : BOOL;     (* Indicates automated cable untwist sequence is executing *)
+    bCriticalAlarm          : BOOL;     (* Critical fault requiring immediate shutdown and manual reset *)
+    iErrorCode              : INT;      (* Detailed diagnostic error code *)
 END_VAR
-
 VAR
-    iState                  : INT := 0;   (* Internal execution state *)
-    tStartupDelay           : TON;        (* Delay timer for hydraulic pressure stabilization *)
-    tStallTimerLeft         : TON;        (* Timer to detect sustained stalling on port track *)
-    tStallTimerRight        : TON;        (* Timer to detect sustained stalling on starboard track *)
-    rPidErrorLeft           : REAL := 0.0;
-    rPidIntegralLeft        : REAL := 0.0;
-    rPidDerivativeLeft      : REAL := 0.0;
-    rPidPrevErrorLeft       : REAL := 0.0;
-    rPidErrorRight          : REAL := 0.0;
-    rPidIntegralRight       : REAL := 0.0;
-    rPidDerivativeRight     : REAL := 0.0;
-    rPidPrevErrorRight      : REAL := 0.0;
+    iState                  : INT := 0; (* Internal state machine variable *)
+    rFilteredWindDir        : REAL;     (* Low-pass filtered wind direction *)
+    rPositionError          : REAL;     (* Calculated error between target wind dir and actual nacelle pos *)
+    tUntwistTimer           : TON;      (* Timer for untwist duration monitoring to detect mechanical jams *)
+    tDeadbandTimer          : TON;      (* Timer to prevent rapid oscillation in yaw tracking *)
+    bTwistLimitExceeded     : BOOL;     (* Internal flag for cable twist limits *)
     
-    (* PI tuning parameters for deep sea viscous mud dynamics *)
-    Kp                      : REAL := 12.5; 
-    Ki                      : REAL := 2.1; 
-    Kd                      : REAL := 0.05;
-    rDt                     : REAL := 0.01; (* 10ms execution cycle time *)
+    (* Filter Constants *)
+    rAlpha                  : REAL := 0.05; 
+    
+    (* Thresholds *)
+    rYawDeadband            : REAL := 5.0;  (* Deg error required to initiate yaw *)
+    rMaxTwistLimit          : INT := 3;     (* Maximum twists before forced untwist *)
+    rCriticalTwistLimit     : INT := 4;     (* Twist limit requiring e-stop *)
 END_VAR
 
-(* === MAIN LOGIC === *)
+(* === MAIN SAFETY AND PRE-CONDITION LOGIC === *)
 IF NOT bEmergencyStop THEN
     bSystemReady := FALSE;
-    bAlarm := TRUE;
-    rControlOutputLeft := 0.0;
-    rControlOutputRight := 0.0;
-    iState := 99; (* FAULT STATE *)
-    iCurrentStateCode := iState;
+    bYawCW_Cmd := FALSE;
+    bYawCCW_Cmd := FALSE;
+    rYawSpeedRef := 0.0;
+    bCriticalAlarm := TRUE;
+    iErrorCode := 999; (* E-STOP TRIGGERED *)
     RETURN;
 END_IF;
 
+IF bYawMotorThermalFault THEN
+    bSystemReady := FALSE;
+    bYawCW_Cmd := FALSE;
+    bYawCCW_Cmd := FALSE;
+    rYawSpeedRef := 0.0;
+    bCriticalAlarm := TRUE;
+    iErrorCode := 101; (* MOTOR OVERHEAT *)
+    RETURN;
+END_IF;
+
+IF ABS(iCableTwistCount) >= rCriticalTwistLimit THEN
+    bSystemReady := FALSE;
+    bYawCW_Cmd := FALSE;
+    bYawCCW_Cmd := FALSE;
+    rYawSpeedRef := 0.0;
+    bCriticalAlarm := TRUE;
+    iErrorCode := 202; (* CRITICAL CABLE TWIST *)
+    RETURN;
+END_IF;
+
+(* Low-pass filter on Wind Direction to reject sensor noise and turbulence *)
+rFilteredWindDir := (rAlpha * rWindDirection) + ((1.0 - rAlpha) * rFilteredWindDir);
+
+(* Calculate shortest path error accounting for 360 deg wrap-around *)
+rPositionError := rFilteredWindDir - rNacellePosition;
+WHILE rPositionError > 180.0 DO
+    rPositionError := rPositionError - 360.0;
+END_WHILE;
+WHILE rPositionError < -180.0 DO
+    rPositionError := rPositionError + 360.0;
+END_WHILE;
+
+(* === MAIN STATE MACHINE === *)
 CASE iState OF
-    0: (* IDLE - Awaiting Enable and Hydraulic checks *)
+    0: (* IDLE & INIT *)
         bSystemReady := FALSE;
-        bAlarm := FALSE;
-        bWarningSlip := FALSE;
-        rControlOutputLeft := 0.0;
-        rControlOutputRight := 0.0;
+        bUntwistActive := FALSE;
+        bYawCW_Cmd := FALSE;
+        bYawCCW_Cmd := FALSE;
+        rYawSpeedRef := 0.0;
+        bCriticalAlarm := FALSE;
+        iErrorCode := 0;
         
-        IF bEnable THEN
+        IF bEnable AND rWindSpeed > 3.0 THEN
             iState := 10;
         END_IF;
 
-    10: (* HYDRAULIC SPIN-UP DELAY *)
-        tStartupDelay(IN := TRUE, PT := T#3S);
-        IF tStartupDelay.Q THEN
-            tStartupDelay(IN := FALSE);
-            bSystemReady := TRUE;
-            iState := 20;
-        END_IF;
-
-    20: (* RUNNING - SYNCHRONISED CLOSED LOOP CONTROL *)
+    10: (* MONITORING AND DEAD-BAND CHECK *)
         bSystemReady := TRUE;
-        bWarningSlip := bSlipDetectLeft OR bSlipDetectRight;
+        bUntwistActive := FALSE;
+        bYawCW_Cmd := FALSE;
+        bYawCCW_Cmd := FALSE;
+        rYawSpeedRef := 0.0;
         
-        (* Slip Compensation via Speed Setpoint Derating on Roll/Pitch *)
-        IF bSlipDetectLeft THEN
-            rTrackLeftSpeedSet := rTrackLeftSpeedSet * 0.5; (* Cut speed demand to regain traction *)
+        (* Check if untwist is required *)
+        IF ABS(iCableTwistCount) >= rMaxTwistLimit THEN
+            iState := 50; (* Transition to untwist *)
+        ELSIF ABS(rPositionError) > rYawDeadband THEN
+            tDeadbandTimer(IN := TRUE, PT := T#10S);
+            IF tDeadbandTimer.Q THEN
+                tDeadbandTimer(IN := FALSE);
+                iState := 20; (* Transition to tracking *)
+            END_IF;
+        ELSE
+            tDeadbandTimer(IN := FALSE);
         END_IF;
-        IF bSlipDetectRight THEN
-            rTrackRightSpeedSet := rTrackRightSpeedSet * 0.5;
-        END_IF;
-
-        (* Left Track PID Calculation *)
-        rPidErrorLeft := rTrackLeftSpeedSet - rTrackLeftActualSpeed;
-        rPidIntegralLeft := rPidIntegralLeft + (rPidErrorLeft * rDt);
-        rPidDerivativeLeft := (rPidErrorLeft - rPidPrevErrorLeft) / rDt;
-        rControlOutputLeft := (Kp * rPidErrorLeft) + (Ki * rPidIntegralLeft) + (Kd * rPidDerivativeLeft);
-        rPidPrevErrorLeft := rPidErrorLeft;
-
-        (* Right Track PID Calculation *)
-        rPidErrorRight := rTrackRightSpeedSet - rTrackRightActualSpeed;
-        rPidIntegralRight := rPidIntegralRight + (rPidErrorRight * rDt);
-        rPidDerivativeRight := (rPidErrorRight - rPidPrevErrorRight) / rDt;
-        rControlOutputRight := (Kp * rPidErrorRight) + (Ki * rPidIntegralRight) + (Kd * rPidDerivativeRight);
-        rPidPrevErrorRight := rPidErrorRight;
-
-        (* Output saturation limiting *)
-        IF rControlOutputLeft > 100.0 THEN
-            rControlOutputLeft := 100.0;
-            rPidIntegralLeft := rPidIntegralLeft - (rPidErrorLeft * rDt); (* Anti-windup *)
-        ELSIF rControlOutputLeft < -100.0 THEN
-            rControlOutputLeft := -100.0;
-            rPidIntegralLeft := rPidIntegralLeft - (rPidErrorLeft * rDt); (* Anti-windup *)
-        END_IF;
-
-        IF rControlOutputRight > 100.0 THEN
-            rControlOutputRight := 100.0;
-            rPidIntegralRight := rPidIntegralRight - (rPidErrorRight * rDt); (* Anti-windup *)
-        ELSIF rControlOutputRight < -100.0 THEN
-            rControlOutputRight := -100.0;
-            rPidIntegralRight := rPidIntegralRight - (rPidErrorRight * rDt); (* Anti-windup *)
-        END_IF;
-
+        
         IF NOT bEnable THEN
             iState := 0;
-            rPidIntegralLeft := 0.0;
-            rPidIntegralRight := 0.0;
         END_IF;
 
-    99: (* FAULT LOCKOUT *)
-        rControlOutputLeft := 0.0;
-        rControlOutputRight := 0.0;
-        (* Requires bEmergencyStop cycle to reset *)
-        IF bEmergencyStop AND NOT bEnable THEN
-            iState := 0;
-            bAlarm := FALSE;
+    20: (* YAW TRACKING (CW or CCW) *)
+        IF rPositionError > 0.0 THEN
+            bYawCW_Cmd := TRUE;
+            bYawCCW_Cmd := FALSE;
+        ELSE
+            bYawCW_Cmd := FALSE;
+            bYawCCW_Cmd := TRUE;
         END_IF;
+        
+        (* Proportional speed control up to max speed *)
+        rYawSpeedRef := ABS(rPositionError) * 1.2;
+        IF rYawSpeedRef > 15.0 THEN
+            rYawSpeedRef := 15.0; (* Max motor RPM limit *)
+        END_IF;
+        
+        IF ABS(rPositionError) < (rYawDeadband * 0.5) THEN
+            (* Error reduced below half deadband, stop yawing *)
+            iState := 10;
+        END_IF;
+        
+        IF ABS(iCableTwistCount) >= rMaxTwistLimit THEN
+            iState := 50; (* Priority transition to untwist *)
+        END_IF;
+        
+        IF NOT bEnable THEN
+            iState := 0;
+        END_IF;
+
+    50: (* CABLE UNTWIST SEQUENCE INIT *)
+        bSystemReady := FALSE;
+        bUntwistActive := TRUE;
+        tUntwistTimer(IN := FALSE);
+        
+        IF iCableTwistCount > 0 THEN
+            iState := 51; (* Untwist CCW *)
+        ELSE
+            iState := 52; (* Untwist CW *)
+        END_IF;
+
+    51: (* UNTWIST CCW (Negative correction) *)
+        bYawCW_Cmd := FALSE;
+        bYawCCW_Cmd := TRUE;
+        rYawSpeedRef := 10.0; (* Fixed untwist speed *)
+        
+        tUntwistTimer(IN := TRUE, PT := T#300S); (* Max time to untwist *)
+        IF tUntwistTimer.Q THEN
+            bCriticalAlarm := TRUE;
+            iErrorCode := 303; (* UNTWIST TIMEOUT *)
+            iState := 99; (* FAULT STATE *)
+        END_IF;
+        
+        IF iCableTwistCount <= 0 THEN
+            tUntwistTimer(IN := FALSE);
+            iState := 10; (* Return to monitoring *)
+        END_IF;
+
+    52: (* UNTWIST CW (Positive correction) *)
+        bYawCW_Cmd := TRUE;
+        bYawCCW_Cmd := FALSE;
+        rYawSpeedRef := 10.0; (* Fixed untwist speed *)
+        
+        tUntwistTimer(IN := TRUE, PT := T#300S); (* Max time to untwist *)
+        IF tUntwistTimer.Q THEN
+            bCriticalAlarm := TRUE;
+            iErrorCode := 304; (* UNTWIST TIMEOUT *)
+            iState := 99; (* FAULT STATE *)
+        END_IF;
+        
+        IF iCableTwistCount >= 0 THEN
+            tUntwistTimer(IN := FALSE);
+            iState := 10; (* Return to monitoring *)
+        END_IF;
+        
+    99: (* FAULT LATCH STATE *)
+        bSystemReady := FALSE;
+        bYawCW_Cmd := FALSE;
+        bYawCCW_Cmd := FALSE;
+        rYawSpeedRef := 0.0;
+        bUntwistActive := FALSE;
+        (* Requires manual reset which would transition iState back to 0 externally or via another reset input *)
 
 END_CASE;
-
-iCurrentStateCode := iState;
 
 END_FUNCTION_BLOCK
 ```"""
 
-os.makedirs("data/swarm_raw", exist_ok=True)
-record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
-filename = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
-with open(filename, "w", encoding="utf-8") as f:
+record = {
+    "messages": [
+        {"role": "user", "content": prompt},
+        {"role": "assistant", "content": code}
+    ]
+}
+
+with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
     json.dump(record, f, ensure_ascii=False)
-print(f"Saved to {filename}")

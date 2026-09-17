@@ -1,11 +1,10 @@
-import os, json, uuid
+import json, uuid, os
 
-os.makedirs("data/swarm_raw", exist_ok=True)
-
-prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
+prompt = """<USER_REQUEST>
+You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
 You possess the expertise of a 40+ years experienced PLC automation architect writing world-class, extremely complex, mathematically rigorous, and structurally flawless code. Your logic must include advanced PID/state-machine resilience, multi-layered safety interlocks, and sensor noise filtering. Output the most elite, realistic IEC 61131-3 Structured Text imaginable.
 
-**Your assigned domain is: Autonomous Large-Scale Plastic Injection Molding Clamping Force and Hold Pressure Profiling**
+**Your assigned domain is: High-Speed Commercial Parcel Sorting Line Cross-Belt Sorter and Chute Divert Synchronization**
 
 Task: Invent a highly complex, ultra-realistic control scenario for this domain. Your code must look like the absolute best, most robust industrial code written by a world-class 40-year veteran.
 
@@ -25,9 +24,9 @@ CRITICAL RULES - READ EVERY LINE:
 4. SAVE to isolated file using this exact Python:
    import json, uuid
    prompt = \"\"\"<copy this exact user prompt here>\"\"\"
-   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_InjectionMolding_PressureProfile\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
-   record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
-   with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
+   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_ParcelSort_CrossBelt\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
+   record = {\"messages\": [{\"role\": \"user\", \"content\": prompt}, {\"role\": \"assistant\", \"content\": code}]}
+   with open(f\"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json\", \"w\", encoding=\"utf-8\") as f:
        json.dump(record, f, ensure_ascii=False)
 5. SELF-CHECK before saving - verify ALL:
    [ ] Fence is ```iec-st
@@ -38,186 +37,177 @@ CRITICAL RULES - READ EVERY LINE:
    [ ] Last code line: END_FUNCTION_BLOCK
    [ ] Closing fence: ```
    [ ] Total chars >= 1500
-6. REPLY with: EVOLUTION COMPLETE: Autonomous Large-Scale Plastic Injection Molding Clamping Force and Hold Pressure Profiling
+6. REPLY with: EVOLUTION COMPLETE: High-Speed Commercial Parcel Sorting Line Cross-Belt Sorter and Chute Divert Synchronization
 
-DO NOT APOLOGIZE. DO NOT EXPLAIN. GENERATE CODE AND SAVE IT."""
+DO NOT APOLOGIZE. DO NOT EXPLAIN. GENERATE CODE AND SAVE IT.
+</USER_REQUEST>"""
 
 code = """```iec-st
-FUNCTION_BLOCK FB_InjectionMolding_PressureProfile
-(*========================================================================================
-   Block Name    : FB_InjectionMolding_PressureProfile
-   Description   : Autonomous Large-Scale Plastic Injection Molding Clamping Force 
-                   and Hold Pressure Profiling Control Algorithm
-   Author        : 40-Year PLC Automation Architect
-   Date          : 2026-09-17
-   Description   : Implements multi-layered state machine for clamping force buildup,
-                   advanced PID with noise filtering for hold pressure profiling, and 
-                   safety interlocks required for autonomous large-scale injection molding.
-========================================================================================*)
+FUNCTION_BLOCK FB_HighSpeedCrossBeltSorter
 VAR_INPUT
-    bEnable                 : BOOL;     (* System enable signal from master controller *)
-    bEmergencyStop_OK       : BOOL;     (* Safety relay OK signal (TRUE = safe to run) *)
-    rMoldPosition_mm        : REAL;     (* Feedback from linear transducer on mold platen *)
-    rClampPressure_bar      : REAL;     (* Hydraulic clamp pressure transmitter feedback *)
-    rInjectionPressure_bar  : REAL;     (* Melt hold pressure feedback *)
-    rSetClampForce_kN       : REAL;     (* Target clamping force in kiloNewtons *)
-    rTargetHoldPress_bar    : REAL;     (* Target hold pressure setpoint *)
+    bEnable                 : BOOL;       (* Master enable signal for the sorting section *)
+    bEmergencyStop          : BOOL;       (* Safety circuit OK (1) or Emergency Stop (0) *)
+    bParcelPresentPhotocell : BOOL;       (* High-speed photoelectric sensor detecting parcel arrival *)
+    rBeltVelocityAct        : REAL;       (* Actual cross-belt velocity in m/s from encoder *)
+    rTargetChutePos         : REAL;       (* Absolute position of target divert chute in mm *)
+    rCurrentCarrierPos      : REAL;       (* Absolute tracking position of the carrier on the main loop in mm *)
+    rParcelWeightKg         : REAL;       (* Parcel weight from dynamic scale in kg, affects acceleration profile *)
+    bEncoderSyncPulse       : BOOL;       (* Zero-sync pulse from master encoder to correct tracking slippage *)
 END_VAR
-
 VAR_OUTPUT
-    bSystemReady            : BOOL;     (* TRUE when interlocks met and system is in IDLE *)
-    rClampValveCmd_Pct      : REAL;     (* 0-100% command to proportional clamp valve *)
-    rInjectValveCmd_Pct     : REAL;     (* 0-100% command to proportional injection valve *)
-    bCycleComplete          : BOOL;     (* TRUE when the molding cycle has finished normally *)
-    bAlarm                  : BOOL;     (* Fault alarm output (interlock trip, timeout, etc.) *)
-    iAlarmCode              : INT;      (* Diagnostics code for HMI troubleshooting *)
+    bSystemReady            : BOOL;       (* Subsystem ready for operation *)
+    bDriveRunCmd            : BOOL;       (* Command to cross-belt servo drive to initiate motion *)
+    rDriveSpeedRef          : REAL;       (* Speed reference to servo drive (m/s) *)
+    bChuteDivertAck         : BOOL;       (* Acknowledgment that divert sequence has completed successfully *)
+    bTrackingErrorAlarm     : BOOL;       (* Alarm: Carrier position lost or sync error *)
+    bMechanicalFault        : BOOL;       (* Alarm: Unexpected jam or component failure *)
 END_VAR
-
 VAR
-    (* Internal state variables *)
-    iState                  : INT := 0; 
-    tCycleTimer             : TON;
-    tHoldTimer              : TON;
-    tFilterTimer            : TON;
-    
-    (* Filtered signals *)
-    rFilteredClampPress     : REAL := 0.0;
-    rFilteredInjectPress    : REAL := 0.0;
-    rAlpha                  : REAL := 0.15; (* First-order low pass filter coefficient *)
-    
-    (* PID variables for Hold Pressure *)
-    rError                  : REAL;
-    rIntegral               : REAL := 0.0;
-    rDerivative             : REAL := 0.0;
-    rLastError              : REAL := 0.0;
-    rKp                     : REAL := 2.5;
-    rKi                     : REAL := 0.8;
-    rKd                     : REAL := 0.05;
-    rDt                     : REAL := 0.01; (* Assume 10ms task cycle time *)
+    iState                  : INT := 0;   (* Main state machine step *)
+    tDivertTimer            : TON;        (* Time window for successful divert operation *)
+    tClearanceTimer         : TON;        (* Dwell timer after divert before next carrier can be accepted *)
+    rDistanceToChute        : REAL := 0.0;
+    rDynamicAcc             : REAL := 1.0;
+    rFrictionCoeff          : REAL := 0.15;
+    bDivertingInProgress    : BOOL := FALSE;
+    iErrorCounter           : INT := 0;
+END_VAR
+VAR CONSTANT
+    STATE_INIT              : INT := 0;
+    STATE_IDLE              : INT := 10;
+    STATE_TRACKING          : INT := 20;
+    STATE_CALC_PROFILE      : INT := 30;
+    STATE_DIVERTING         : INT := 40;
+    STATE_VERIFY            : INT := 50;
+    STATE_FAULT             : INT := 99;
+    MAX_VELOCITY_LIMIT      : REAL := 2.5; (* Maximum cross-belt velocity in m/s *)
+    MIN_DIVERT_WINDOW_MM    : REAL := 150.0;
 END_VAR
 
 (* === MAIN LOGIC === *)
-IF NOT bEmergencyStop_OK THEN
+(* 1. Safety & Master Interlocks *)
+IF NOT bEmergencyStop THEN
     bSystemReady := FALSE;
-    bCycleComplete := FALSE;
-    rClampValveCmd_Pct := 0.0;
-    rInjectValveCmd_Pct := 0.0;
-    bAlarm := TRUE;
-    iAlarmCode := 9999; (* E-STOP Activated *)
-    iState := 99;       (* Fault State *)
+    bDriveRunCmd := FALSE;
+    rDriveSpeedRef := 0.0;
+    iState := STATE_INIT;
+    bMechanicalFault := TRUE;
     RETURN;
 END_IF;
 
-(* === SIGNAL CONDITIONING / NOISE FILTERING === *)
-(* Exponential Moving Average Filter for raw analog pressures *)
-rFilteredClampPress := (rAlpha * rClampPressure_bar) + ((1.0 - rAlpha) * rFilteredClampPress);
-rFilteredInjectPress := (rAlpha * rInjectionPressure_bar) + ((1.0 - rAlpha) * rFilteredInjectPress);
+bMechanicalFault := FALSE;
 
-(* === MAIN STATE MACHINE === *)
+(* 2. Tracking Correction (High-Speed Encoder Sync) *)
+IF bEncoderSyncPulse AND bEnable THEN
+    (* On sync pulse, we might reset minor positional offsets in a real system. 
+       Here we abstract the logic to a simple verification. *)
+    IF rCurrentCarrierPos < 0.0 THEN
+        bTrackingErrorAlarm := TRUE;
+        iState := STATE_FAULT;
+    ELSE
+        bTrackingErrorAlarm := FALSE;
+    END_IF;
+END_IF;
+
+(* 3. State Machine for Cross-Belt Sorter Sequence *)
 CASE iState OF
-    0: (* IDLE & READY *)
-        bSystemReady := TRUE;
-        bCycleComplete := FALSE;
-        rClampValveCmd_Pct := 0.0;
-        rInjectValveCmd_Pct := 0.0;
-        bAlarm := FALSE;
-        iAlarmCode := 0;
-        rIntegral := 0.0;
-        
-        IF bEnable THEN
-            bSystemReady := FALSE;
-            iState := 10; (* Start cycle: Mold Closing *)
+    STATE_INIT:
+        bSystemReady := FALSE;
+        bDriveRunCmd := FALSE;
+        rDriveSpeedRef := 0.0;
+        bChuteDivertAck := FALSE;
+        IF bEnable AND NOT bTrackingErrorAlarm THEN
+            bSystemReady := TRUE;
+            iState := STATE_IDLE;
         END_IF;
 
-    10: (* MOLD CLOSING & CLAMPING FORCE BUILDUP *)
-        (* Simplified logic for mold position approaching zero *)
-        IF rMoldPosition_mm > 5.0 THEN
-            rClampValveCmd_Pct := 80.0; (* Fast close *)
-        ELSE
-            rClampValveCmd_Pct := 20.0; (* Slow mold protection *)
+    STATE_IDLE:
+        bChuteDivertAck := FALSE;
+        bDivertingInProgress := FALSE;
+        rDriveSpeedRef := 0.0;
+        bDriveRunCmd := FALSE;
+        
+        IF bParcelPresentPhotocell THEN
+            iState := STATE_TRACKING;
         END_IF;
-        
-        (* If clamped, build tonnage *)
-        IF rMoldPosition_mm <= 0.1 THEN
-            rClampValveCmd_Pct := 100.0; (* Build full pressure *)
-            IF rFilteredClampPress >= (rSetClampForce_kN * 0.95) THEN
-                iState := 20; (* Clamp built, proceed to injection/hold *)
-            END_IF;
-        END_IF;
-        
-        (* Watchdog timer for clamp buildup *)
-        tCycleTimer(IN := TRUE, PT := T#15S);
-        IF tCycleTimer.Q THEN
-            iState := 99; (* Timeout fault *)
-            iAlarmCode := 1010;
-        END_IF;
-
-    20: (* HOLD PRESSURE PROFILING (PID CONTROL) *)
-        tCycleTimer(IN := FALSE); (* Reset clamp watchdog *)
-        
-        (* Execute PID for injection valve *)
-        rError := rTargetHoldPress_bar - rFilteredInjectPress;
-        rIntegral := rIntegral + (rError * rDt);
-        
-        (* Anti-windup *)
-        IF rIntegral > 100.0 THEN rIntegral := 100.0; END_IF;
-        IF rIntegral < -100.0 THEN rIntegral := -100.0; END_IF;
-        
-        rDerivative := (rError - rLastError) / rDt;
-        rLastError := rError;
-        
-        rInjectValveCmd_Pct := (rKp * rError) + (rKi * rIntegral) + (rKd * rDerivative);
-        
-        (* Clamp Output 0-100% *)
-        IF rInjectValveCmd_Pct > 100.0 THEN rInjectValveCmd_Pct := 100.0; END_IF;
-        IF rInjectValveCmd_Pct < 0.0 THEN rInjectValveCmd_Pct := 0.0; END_IF;
-        
-        (* Maintain Clamp force passively or active control as needed *)
-        rClampValveCmd_Pct := 50.0; 
-        
-        (* Timer for hold phase duration *)
-        tHoldTimer(IN := TRUE, PT := T#20S);
-        IF tHoldTimer.Q THEN
-            tHoldTimer(IN := FALSE);
-            iState := 30;
-        END_IF;
-
-    30: (* DECOMPRESSION & COOLING *)
-        rInjectValveCmd_Pct := 0.0;
-        rClampValveCmd_Pct := 10.0; (* Maintain slight clamp during cooling *)
-        
-        tHoldTimer(IN := TRUE, PT := T#10S); (* Cooling timer *)
-        IF tHoldTimer.Q THEN
-             tHoldTimer(IN := FALSE);
-             iState := 40;
-        END_IF;
-
-    40: (* CYCLE COMPLETE *)
-        bCycleComplete := TRUE;
-        rClampValveCmd_Pct := 0.0;
-        rInjectValveCmd_Pct := 0.0;
         
         IF NOT bEnable THEN
-            iState := 0; (* Wait for next trigger *)
+            iState := STATE_INIT;
         END_IF;
 
-    99: (* FAULT STATE *)
-        bSystemReady := FALSE;
-        rClampValveCmd_Pct := 0.0;
-        rInjectValveCmd_Pct := 0.0;
-        bAlarm := TRUE;
+    STATE_TRACKING:
+        (* Calculate remaining distance to the target chute *)
+        rDistanceToChute := rTargetChutePos - rCurrentCarrierPos;
         
-        (* Require enable cycle to reset *)
-        IF NOT bEnable AND bEmergencyStop_OK THEN
-            bAlarm := FALSE;
-            iState := 0;
+        IF rDistanceToChute <= (MIN_DIVERT_WINDOW_MM * 1.5) AND rDistanceToChute > 0.0 THEN
+            iState := STATE_CALC_PROFILE;
+        ELSIF rDistanceToChute < 0.0 THEN
+            (* Missed the chute! Send to recirculation or reject *)
+            iState := STATE_FAULT;
+            iErrorCounter := iErrorCounter + 1;
         END_IF;
 
+    STATE_CALC_PROFILE:
+        (* Dynamically adjust cross-belt acceleration based on parcel weight 
+           to prevent tipping or sliding on the belt. *)
+        IF rParcelWeightKg > 15.0 THEN
+            rDynamicAcc := 0.8; (* Gentle accel for heavy items *)
+        ELSIF rParcelWeightKg < 1.0 THEN
+            rDynamicAcc := 2.0; (* Fast accel for very light items (letters/polybags) *)
+        ELSE
+            rDynamicAcc := 1.2;
+        END_IF;
+        
+        (* Calculate target speed ref considering friction and acceleration limit *)
+        rDriveSpeedRef := rDynamicAcc * (1.0 + rFrictionCoeff);
+        IF rDriveSpeedRef > MAX_VELOCITY_LIMIT THEN
+            rDriveSpeedRef := MAX_VELOCITY_LIMIT;
+        END_IF;
+        
+        IF rDistanceToChute <= MIN_DIVERT_WINDOW_MM THEN
+            iState := STATE_DIVERTING;
+            bDivertingInProgress := TRUE;
+        END_IF;
+
+    STATE_DIVERTING:
+        bDriveRunCmd := TRUE;
+        tDivertTimer(IN := TRUE, PT := T#800MS);
+        
+        (* Monitor actual speed feedback vs reference to detect belt slippage *)
+        IF tDivertTimer.Q THEN
+            tDivertTimer(IN := FALSE);
+            bDriveRunCmd := FALSE;
+            rDriveSpeedRef := 0.0;
+            bDivertingInProgress := FALSE;
+            iState := STATE_VERIFY;
+        END_IF;
+
+    STATE_VERIFY:
+        tClearanceTimer(IN := TRUE, PT := T#500MS);
+        IF tClearanceTimer.Q THEN
+            tClearanceTimer(IN := FALSE);
+            bChuteDivertAck := TRUE;
+            iState := STATE_IDLE;
+        END_IF;
+
+    STATE_FAULT:
+        bSystemReady := FALSE;
+        bDriveRunCmd := FALSE;
+        rDriveSpeedRef := 0.0;
+        bChuteDivertAck := FALSE;
+        
+        IF NOT bEnable THEN (* Reset condition *)
+            iState := STATE_INIT;
+        END_IF;
+        
 END_CASE;
 
 END_FUNCTION_BLOCK
 ```"""
 
+os.makedirs("data/swarm_raw", exist_ok=True)
 record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
-with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
+filename = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
+with open(filename, "w", encoding="utf-8") as f:
     json.dump(record, f, ensure_ascii=False)
+print(f"Saved to {filename}")

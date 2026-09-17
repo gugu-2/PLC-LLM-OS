@@ -1,11 +1,12 @@
-import os, json, uuid
+import json, uuid, os
 
-prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
+prompt = """<USER_REQUEST>
+You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
 You possess the expertise of a 40+ years experienced PLC automation architect writing world-class, extremely complex, mathematically rigorous, and structurally flawless code. Your logic must include advanced PID/state-machine resilience, multi-layered safety interlocks, and sensor noise filtering. Output the most elite, realistic IEC 61131-3 Structured Text imaginable.
 
-**Your assigned domain is: Ultra-High Vacuum (UHV) Molecular Beam Epitaxy (MBE) Chamber**
+**Your assigned domain is: Large-Scale Desalination Multi-Stage Flash Distillation (MSF) Brine Heater Control**
 
-Task: Invent a highly complex, ultra-realistic control scenario for this domain (e.g., Effusion cell thermal profile management, cryopump regeneration sequence, and atomic flux reflection high-energy electron diffraction (RHEED) timing). Your code must look like the absolute best, most robust industrial code written by a world-class 40-year veteran.
+Task: Invent a highly complex, ultra-realistic control scenario for this domain. Your code must look like the absolute best, most robust industrial code written by a world-class 40-year veteran.
 
 CRITICAL RULES - READ EVERY LINE:
 1. CODE FENCE: Use TRIPLE backticks + iec-st. EXACTLY like this:
@@ -23,9 +24,9 @@ CRITICAL RULES - READ EVERY LINE:
 4. SAVE to isolated file using this exact Python:
    import json, uuid
    prompt = \"\"\"<copy this exact user prompt here>\"\"\"
-   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_MBE_VacuumChamber\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
-   record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
-   with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
+   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_MSF_BrineHeater\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
+   record = {\"messages\": [{\"role\": \"user\", \"content\": prompt}, {\"role\": \"assistant\", \"content\": code}]}
+   with open(f\"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json\", \"w\", encoding=\"utf-8\") as f:
        json.dump(record, f, ensure_ascii=False)
 5. SELF-CHECK before saving - verify ALL:
    [ ] Fence is ```iec-st
@@ -36,148 +37,140 @@ CRITICAL RULES - READ EVERY LINE:
    [ ] Last code line: END_FUNCTION_BLOCK
    [ ] Closing fence: ```
    [ ] Total chars >= 1500
-6. REPLY with: EVOLUTION COMPLETE: Ultra-High Vacuum (UHV) Molecular Beam Epitaxy (MBE) Chamber
+6. REPLY with: EVOLUTION COMPLETE: Large-Scale Desalination Multi-Stage Flash Distillation (MSF) Brine Heater Control
 
-DO NOT APOLOGIZE. DO NOT EXPLAIN. GENERATE CODE AND SAVE IT."""
+DO NOT APOLOGIZE. DO NOT EXPLAIN. GENERATE CODE AND SAVE IT.
+</USER_REQUEST>"""
 
 code = """```iec-st
-FUNCTION_BLOCK FB_MBE_UHV_Control
+FUNCTION_BLOCK FB_MSF_BrineHeater
 VAR_INPUT
-    (* Essential Safety and System Status *)
-    bSystemEnable       : BOOL;     (* Global enable for the MBE process *)
-    bEmergencyStop      : BOOL;     (* Main safety loop OK - Active High *)
-    bCoolingWaterOK     : BOOL;     (* Cryopump and cell water jacket flow OK *)
-    
-    (* Process Variables *)
-    rChamberPressure    : REAL;     (* Current main chamber pressure in Torr (e.g. 1.0E-10) *)
-    rCryoTemp           : REAL;     (* Cryopump temperature in Kelvin *)
-    rEffusionCellTemp   : REAL;     (* Effusion cell actual temperature in deg C *)
-    rRHEED_Intensity    : REAL;     (* RHEED specular spot intensity (normalized 0-1) *)
-    
-    (* Setpoints *)
-    rCellTempSetpoint   : REAL;     (* Target effusion cell temperature in deg C *)
-    rBasePressureSp     : REAL;     (* Target base pressure before deposition *)
+    (* Physical Inputs from Field Instruments *)
+    bEnable            : BOOL;     (* System master enable command *)
+    bEmergencyStop     : BOOL;     (* Safety loop status (TRUE = Healthy, FALSE = Trip) *)
+    rBrineInletTemp    : REAL;     (* Temperature of brine entering heater [deg C] *)
+    rBrineOutletTemp   : REAL;     (* Top Brine Temperature (TBT) exiting heater [deg C] *)
+    rSteamPressure     : REAL;     (* Supply steam pressure to heater [bar] *)
+    rBrineFlowRate     : REAL;     (* Recirculating brine flow rate [m3/h] *)
+    rTBTSetpoint       : REAL;     (* Desired Top Brine Temperature [deg C] *)
+    rMaxSteamPress     : REAL := 3.5; (* Safety limit for steam pressure [bar] *)
 END_VAR
 VAR_OUTPUT
-    (* Actuators and Status *)
-    bSystemReady        : BOOL;     (* UHV condition met, ready for epitaxy *)
-    bGateValveOpen      : BOOL;     (* Main isolation gate valve control *)
-    bCryopumpRegen      : BOOL;     (* Initiate cryopump regeneration cycle *)
-    rCellHeaterPWM      : REAL;     (* Effusion cell heater power output (0-100%) *)
-    bShutterOpen        : BOOL;     (* Effusion cell pneumatic shutter control *)
-    
-    (* Diagnostics *)
-    bAlarm              : BOOL;     (* General fault alarm *)
-    iFaultCode          : INT;      (* Detailed fault code for HMI *)
+    (* Physical Outputs to Actuators and SCADA *)
+    bSystemReady       : BOOL;     (* Controller initialized and healthy *)
+    rSteamValveCmd     : REAL;     (* Command to steam control valve [0-100%] *)
+    bHeaterTrip        : BOOL;     (* Interlock active - heater tripped *)
+    bTempAlarm         : BOOL;     (* High temperature or deviation alarm *)
+    bLowFlowAlarm      : BOOL;     (* Brine flow is critically low *)
 END_VAR
 VAR
-    (* Internal State *)
-    iState              : INT := 0; (* Main state machine step *)
-    iCellState          : INT := 0; (* Effusion cell thermal state *)
+    (* Internal State and Filtering *)
+    iState             : INT := 0; (* State machine step index *)
+    rFilteredTBT       : REAL;     (* EMA filtered brine outlet temperature *)
+    rFilterAlpha       : REAL := 0.1; (* Exponential Moving Average coefficient *)
     
-    (* Timers and Filters *)
-    tSoakTimer          : TON;
-    tRegenTimer         : TON;
-    rPressureFiltered   : REAL := 1.0;
+    (* PID Control Variables *)
+    rError             : REAL;     (* Control error (Setpoint - Actual) *)
+    rLastError         : REAL;     (* Previous cycle error for derivative calculation *)
+    rIntegral          : REAL := 0.0; (* Integral accumulator *)
+    rDerivative        : REAL;     (* Derivative term *)
+    rKp                : REAL := 2.5; (* Proportional gain *)
+    rKi                : REAL := 0.05; (* Integral gain *)
+    rKd                : REAL := 1.2; (* Derivative gain *)
+    rFeedForward       : REAL;     (* Flow-based feed-forward term *)
     
-    (* PID Control for Effusion Cell *)
-    rErrorSum           : REAL := 0.0;
-    rLastError          : REAL := 0.0;
-    rKp                 : REAL := 2.5;
-    rKi                 : REAL := 0.05;
-    rKd                 : REAL := 0.1;
-    rError              : REAL;
-    rDerivative         : REAL;
+    (* Timers and Safety *)
+    tWarmupTimer       : TON;      (* Timer for gradual steam introduction *)
+    tTripDelay         : TON;      (* Delay timer to prevent nuisance trips *)
+    rMaxTBT_Limit      : REAL := 120.0; (* Absolute maximum Top Brine Temperature limit *)
+    rMinFlow_Limit     : REAL := 1500.0; (* Minimum required flow [m3/h] before steam admitted *)
 END_VAR
 
 (* === MAIN LOGIC === *)
-(* 1. Safety Interlocks and Hardware Protection *)
-IF NOT bEmergencyStop OR NOT bCoolingWaterOK THEN
-    bSystemReady   := FALSE;
-    bGateValveOpen := FALSE;
-    bShutterOpen   := FALSE;
-    rCellHeaterPWM := 0.0;
-    bAlarm         := TRUE;
-    iFaultCode     := 99; (* 99 = Critical Hardware Safety Fault *)
-    iState         := 0;
+
+(* 1. Safety Interlocks & E-Stop *)
+IF NOT bEmergencyStop OR (rSteamPressure > rMaxSteamPress) THEN
+    bHeaterTrip := TRUE;
+    bSystemReady := FALSE;
+    rSteamValveCmd := 0.0;
+    iState := 0; (* Force to IDLE / FAULT state *)
+    rIntegral := 0.0; (* Reset PID integral to prevent windup *)
     RETURN;
 END_IF;
 
-(* 2. Sensor Noise Filtering (Exponential Moving Average) *)
-rPressureFiltered := rPressureFiltered + 0.1 * (rChamberPressure - rPressureFiltered);
+(* 2. Signal Processing (EMA Filter for noisy TBT sensor) *)
+rFilteredTBT := (rFilterAlpha * rBrineOutletTemp) + ((1.0 - rFilterAlpha) * rFilteredTBT);
 
-(* 3. Main Chamber State Machine *)
+(* 3. Alarm Generation *)
+bTempAlarm := (rFilteredTBT > (rTBTSetpoint + 5.0)) OR (rFilteredTBT > rMaxTBT_Limit);
+bLowFlowAlarm := (rBrineFlowRate < rMinFlow_Limit);
+
+(* 4. State Machine for Heater Operation *)
 CASE iState OF
-    0: (* IDLE *)
-        bSystemReady := FALSE;
-        bAlarm       := FALSE;
-        iFaultCode   := 0;
-        IF bSystemEnable THEN
-            iState := 10;
+    0: (* IDLE & SAFETY CHECK *)
+        rSteamValveCmd := 0.0;
+        bSystemReady := TRUE;
+        bHeaterTrip := FALSE;
+        rIntegral := 0.0;
+        tWarmupTimer(IN := FALSE);
+        
+        IF bEnable AND NOT bLowFlowAlarm THEN
+            iState := 10; (* Transition to Pre-Check *)
+        END_IF;
+
+    10: (* WARM-UP (GRADUAL HEATING) *)
+        (* Open valve slightly to avoid thermal shock to heat exchanger tubes *)
+        rSteamValveCmd := 15.0; 
+        tWarmupTimer(IN := TRUE, PT := T#5M);
+        
+        IF tWarmupTimer.Q THEN
+            tWarmupTimer(IN := FALSE);
+            iState := 20; (* Transition to Auto Control *)
         END_IF;
         
-    10: (* PUMPDOWN & CRYO CHECK *)
-        IF rCryoTemp > 15.0 THEN
-            bCryopumpRegen := TRUE;
-            tRegenTimer(IN := TRUE, PT := T#12H);
-            IF tRegenTimer.Q THEN
-                bCryopumpRegen := FALSE;
-                tRegenTimer(IN := FALSE);
-            END_IF;
-        ELSE
-            bCryopumpRegen := FALSE;
-            IF rPressureFiltered <= rBasePressureSp THEN
-                bGateValveOpen := TRUE;
-                iState := 20;
-            END_IF;
-        END_IF;
-        
-    20: (* THERMAL PREP *)
-        IF rEffusionCellTemp >= (rCellTempSetpoint - 2.0) THEN
-            tSoakTimer(IN := TRUE, PT := T#30M);
-            IF tSoakTimer.Q THEN
-                iState := 30;
-                bSystemReady := TRUE;
-            END_IF;
-        ELSE
-            tSoakTimer(IN := FALSE);
-        END_IF;
-        
-    30: (* DEPOSITION *)
-        IF rRHEED_Intensity > 0.8 THEN
-            bShutterOpen := TRUE;
-        END_IF;
-        
-        IF NOT bSystemEnable THEN
-            bShutterOpen := FALSE;
-            bSystemReady := FALSE;
+        (* Abort warm-up if enable drops or flow stops *)
+        IF NOT bEnable OR bLowFlowAlarm THEN
             iState := 0;
         END_IF;
+
+    20: (* PID CONTROL MODE *)
+        (* Calculate Error *)
+        rError := rTBTSetpoint - rFilteredTBT;
         
+        (* Anti-windup for Integral term *)
+        IF (rSteamValveCmd < 100.0 AND rSteamValveCmd > 0.0) OR 
+           (rSteamValveCmd >= 100.0 AND rError < 0.0) OR 
+           (rSteamValveCmd <= 0.0 AND rError > 0.0) THEN
+            rIntegral := rIntegral + (rError * rKi);
+        END_IF;
+        
+        (* Derivative term *)
+        rDerivative := (rError - rLastError) * rKd;
+        rLastError := rError;
+        
+        (* Feed-forward based on Brine Flow Rate to anticipate thermal load changes *)
+        (* Nominal load assumption: baseline steam valve opening scales with flow *)
+        rFeedForward := (rBrineFlowRate / 10000.0) * 10.0; 
+        
+        (* Final PID Equation *)
+        rSteamValveCmd := (rError * rKp) + rIntegral + rDerivative + rFeedForward;
+        
+        (* Actuator limits saturation (0 to 100%) *)
+        IF rSteamValveCmd > 100.0 THEN
+            rSteamValveCmd := 100.0;
+        ELSIF rSteamValveCmd < 0.0 THEN
+            rSteamValveCmd := 0.0;
+        END_IF;
+        
+        (* Return to idle if master enable removed *)
+        IF NOT bEnable OR bLowFlowAlarm THEN
+            iState := 0;
+        END_IF;
+
     ELSE
+        (* Failsafe default *)
         iState := 0;
 END_CASE;
-
-(* 4. PID Controller *)
-IF iState >= 20 THEN
-    rError := rCellTempSetpoint - rEffusionCellTemp;
-    rErrorSum := rErrorSum + rError;
-    
-    IF rErrorSum > 1000.0 THEN rErrorSum := 1000.0; END_IF;
-    IF rErrorSum < -1000.0 THEN rErrorSum := -1000.0; END_IF;
-    
-    rDerivative := rError - rLastError;
-    rLastError := rError;
-    
-    rCellHeaterPWM := (rKp * rError) + (rKi * rErrorSum) + (rKd * rDerivative);
-    
-    IF rCellHeaterPWM > 100.0 THEN rCellHeaterPWM := 100.0; END_IF;
-    IF rCellHeaterPWM < 0.0 THEN rCellHeaterPWM := 0.0; END_IF;
-ELSE
-    rCellHeaterPWM := 0.0;
-    rErrorSum := 0.0;
-    rLastError := 0.0;
-END_IF;
 
 END_FUNCTION_BLOCK
 ```"""

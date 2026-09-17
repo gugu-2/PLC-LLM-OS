@@ -1,11 +1,13 @@
 import json, uuid, os
 
+os.makedirs("data/swarm_raw", exist_ok=True)
+
 prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
-You possess the expertise of a 40+ years experienced PLC automation architect writing world-class, extremely complex, and mathematically rigorous code.
+You possess the expertise of a 40+ years experienced PLC automation architect writing world-class, extremely complex, mathematically rigorous, and structurally flawless code. Your logic must include advanced PID/state-machine resilience, multi-layered safety interlocks, and sensor noise filtering. Output the most elite, realistic IEC 61131-3 Structured Text imaginable.
 
-**Your assigned domain is: Automated High-Speed Wire Bonding for Microelectronics**
+**Your assigned domain is: Commercial Aerospace Carbon Fiber Prepreg Autoclave Pressure and Curing Temperature Cascade**
 
-Task: Invent a highly complex, ultra-realistic control scenario for this domain (e.g., 50-micron gold wire capillary thermocompression ultrasonic welding, piezoelectric transducer frequency locking, and optical pattern recognition dynamic shift tracking). Your code must look like the absolute best, most robust industrial code written by a world-class 40-year veteran.
+Task: Invent a highly complex, ultra-realistic control scenario for this domain. Your code must look like the absolute best, most robust industrial code written by a world-class 40-year veteran.
 
 CRITICAL RULES - READ EVERY LINE:
 1. CODE FENCE: Use TRIPLE backticks + iec-st. EXACTLY like this:
@@ -23,7 +25,7 @@ CRITICAL RULES - READ EVERY LINE:
 4. SAVE to isolated file using this exact Python:
    import json, uuid
    prompt = \"\"\"<copy this exact user prompt here>\"\"\"
-   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_WireBonding\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
+   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_Autoclave_Curing\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
    record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
    with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
        json.dump(record, f, ensure_ascii=False)
@@ -36,133 +38,196 @@ CRITICAL RULES - READ EVERY LINE:
    [ ] Last code line: END_FUNCTION_BLOCK
    [ ] Closing fence: ```
    [ ] Total chars >= 1500
-6. REPLY with: EVOLUTION COMPLETE: Automated High-Speed Wire Bonding for Microelectronics
+6. REPLY with: EVOLUTION COMPLETE: Commercial Aerospace Carbon Fiber Prepreg Autoclave Pressure and Curing Temperature Cascade
 
 DO NOT APOLOGIZE. DO NOT EXPLAIN. GENERATE CODE AND SAVE IT."""
 
 code = """```iec-st
-FUNCTION_BLOCK FB_UltraSpeedWireBondingController
+FUNCTION_BLOCK FB_AeroAutoclaveCascadeControl
 VAR_INPUT
-    bEnableSystem          : BOOL;     (* Main safety and operational enable signal *)
-    bEmergencyStopOk       : BOOL;     (* Safety loop status - HIGH means safe to operate *)
-    rUltrasonicPowerCmd    : REAL;     (* Desired ultrasonic transducer power in Watts *)
-    rTargetWeldForce       : REAL;     (* Target thermocompression force in milliNewtons (mN) *)
-    rHeaterBlockTemp       : REAL;     (* Current capillary heater temperature in deg C *)
-    rOpticsOffsetX         : REAL;     (* Vision system optical X offset error in microns *)
-    rOpticsOffsetY         : REAL;     (* Vision system optical Y offset error in microns *)
-    bBondTrigger           : BOOL;     (* Trigger signal to initiate the wire bonding cycle *)
+    (* Primary operation and safety interlock inputs *)
+    bEnableSequence         : BOOL;      (* Master enable for the cure cycle sequence *)
+    bEmergencyStopOK        : BOOL;      (* Safety circuit healthy (TRUE = OK) *)
+    bDoorLockedAndSealed    : BOOL;      (* Autoclave door mechanical lock limit switch *)
+    bNitrogenSupplyOK       : BOOL;      (* Adequate nitrogen pressure available *)
+    
+    (* Analog process variables *)
+    rAirTempSensor1         : REAL;      (* Primary ambient air temperature inside autoclave [Deg C] *)
+    rAirTempSensor2         : REAL;      (* Redundant ambient air temperature [Deg C] *)
+    rPartTempSensor         : REAL;      (* Prepreg part surface temperature [Deg C] *)
+    rVesselPressure         : REAL;      (* Autoclave internal pressure [Bar] *)
+    
+    (* Recipe setpoints *)
+    rTargetDwellTemp        : REAL;      (* Target curing temperature for carbon fiber [Deg C] *)
+    rTargetDwellPressure    : REAL;      (* Target curing pressure [Bar] *)
 END_VAR
 VAR_OUTPUT
-    bSystemReadyToBond     : BOOL;     (* System initialized, heated, and ready for bond cycle *)
-    rActuatorForceDrive    : REAL;     (* Force command to the Z-axis voice coil actuator *)
-    rPiezoFreqCommand      : REAL;     (* Frequency command to the piezoelectric ultrasonic generator (kHz) *)
-    bBondCycleComplete     : BOOL;     (* Pulses high for one scan when a bond cycle is successfully finished *)
-    bProcessAlarm          : BOOL;     (* General fault flag (temperature, force, or vision tracking error) *)
-    iErrorCode             : INT;      (* 0 = No Error, 1 = Estop, 2 = Temp Fault, 3 = Tracking Fault, 4 = Force Fault *)
+    (* Discrete control outputs *)
+    bHeaterContactor        : BOOL;      (* Enable main heater banks *)
+    bCoolingFan             : BOOL;      (* Enable cooling circulation fans *)
+    bCycleComplete          : BOOL;      (* Indicates successful cure cycle completion *)
+    bCriticalFault          : BOOL;      (* Unrecoverable fault, system safely aborting *)
+    
+    (* Analog control outputs *)
+    rHeaterPowerCmd         : REAL;      (* 0.0 - 100.0% heater SCR power demand *)
+    rPressureValveCmd       : REAL;      (* 0.0 - 100.0% nitrogen pressurization valve command *)
+    rExhaustValveCmd        : REAL;      (* 0.0 - 100.0% exhaust/vent valve command *)
 END_VAR
 VAR
-    iBondState             : INT := 0; (* Internal state machine counter *)
-    tHeatingTimer          : TON;      (* Timer to stabilize heater block temperature *)
-    tWeldTimer             : TON;      (* Timer for the actual ultrasonic weld duration *)
-    rActualForceFiltered   : REAL;     (* Low-pass filtered force measurement *)
-    bTempInBand            : BOOL;     (* True if temperature is within +/- 2.5 deg C of setpoint (150C) *)
-    rBasePiezoFreq         : REAL := 60.0; (* Base frequency for ultrasonic generator in kHz *)
+    (* Internal state variables *)
+    iCycleState             : INT := 0;  (* Main state machine step *)
+    tDwellTimer             : TON;       (* Timer for curing dwell phase *)
+    
+    (* Math/Filtering Variables *)
+    rAvgAirTemp             : REAL;      (* Filtered average air temperature *)
+    
+    (* Cascade PID Variables *)
+    rTempError              : REAL;      (* Proportional temperature error *)
+    rTempIntegral           : REAL;      (* Integral accumulation for temp PID *)
+    rPressError             : REAL;      (* Proportional pressure error *)
+    rPressIntegral          : REAL;      (* Integral accumulation for pressure PID *)
+    
+    (* PID Tuning Parameters (Hardcoded for simulation) *)
+    Kp_Temp                 : REAL := 2.85;
+    Ki_Temp                 : REAL := 0.015;
+    Kp_Press                : REAL := 4.20;
+    Ki_Press                : REAL := 0.025;
 END_VAR
 
-(* === MAIN SAFETY AND INTERLOCK LOGIC === *)
-IF NOT bEmergencyStopOk THEN
-    bSystemReadyToBond := FALSE;
-    bProcessAlarm := TRUE;
-    iErrorCode := 1;
-    rActuatorForceDrive := 0.0;
-    rPiezoFreqCommand := 0.0;
-    iBondState := 0;
+(* === SAFETY & MULTI-LAYERED INTERLOCKS === *)
+(* Ensure all critical safety parameters are met before allowing operation.
+   If any fails during operation, force system to state 99 for safe abort. *)
+IF NOT bEmergencyStopOK OR NOT bDoorLockedAndSealed OR NOT bNitrogenSupplyOK THEN
+    bHeaterContactor := FALSE;
+    rHeaterPowerCmd := 0.0;
+    bCoolingFan := FALSE;
+    rPressureValveCmd := 0.0;
+    rExhaustValveCmd := 100.0; (* Fail-safe depressurization *)
+    iCycleState := 99; (* Fault state *)
+    bCriticalFault := TRUE;
+    bCycleComplete := FALSE;
     RETURN;
 END_IF;
 
-(* === PRE-CONDITION CHECKS === *)
-(* Verify heater temperature is around 150.0 deg C (typical for thermosonic gold ball bonding) *)
-IF (rHeaterBlockTemp > 147.5) AND (rHeaterBlockTemp < 152.5) THEN
-    bTempInBand := TRUE;
+(* === SENSOR NOISE FILTERING & REDUNDANCY === *)
+(* Calculate average between redundant ambient sensors. Trap deviations. *)
+IF ABS(rAirTempSensor1 - rAirTempSensor2) > 15.0 THEN
+    (* Deviation alarm if sensors mismatch by more than 15 degrees *)
+    iCycleState := 99;
 ELSE
-    bTempInBand := FALSE;
+    (* Apply a first-order low pass filter to the average for smooth control *)
+    rAvgAirTemp := rAvgAirTemp + 0.1 * (((rAirTempSensor1 + rAirTempSensor2) / 2.0) - rAvgAirTemp);
 END_IF;
 
-(* Check optics alignment - if off by more than 10 microns, fault out *)
-IF (ABS(rOpticsOffsetX) > 10.0) OR (ABS(rOpticsOffsetY) > 10.0) THEN
-    bProcessAlarm := TRUE;
-    iErrorCode := 3;
-    iBondState := 0;
-    bSystemReadyToBond := FALSE;
-    RETURN;
-END_IF;
+(* === MAIN CURE CYCLE STATE MACHINE === *)
+CASE iCycleState OF
+    0: (* IDLE & READY *)
+        bCriticalFault := FALSE;
+        bCycleComplete := FALSE;
+        bHeaterContactor := FALSE;
+        rHeaterPowerCmd := 0.0;
+        rPressureValveCmd := 0.0;
+        rExhaustValveCmd := 0.0;
+        bCoolingFan := FALSE;
+        
+        IF bEnableSequence THEN
+            iCycleState := 10; (* Start pressurization *)
+        END_IF;
 
-(* === MAIN STATE MACHINE FOR WIRE BONDING CYCLE === *)
-CASE iBondState OF
-    0: (* IDLE AND HEATING *)
-        bBondCycleComplete := FALSE;
-        rActuatorForceDrive := 0.0;
-        rPiezoFreqCommand := 0.0;
+    10: (* PRESSURIZATION PHASE *)
+        (* Apply PI control to internal pressure *)
+        rPressError := rTargetDwellPressure - rVesselPressure;
+        rPressIntegral := rPressIntegral + rPressError;
         
-        IF bEnableSystem AND bTempInBand THEN
-            tHeatingTimer(IN := TRUE, PT := T#2S);
-            IF tHeatingTimer.Q THEN
-                iBondState := 10;
-                tHeatingTimer(IN := FALSE);
-            END_IF;
-        ELSE
-            tHeatingTimer(IN := FALSE);
-            bSystemReadyToBond := FALSE;
+        (* Anti-windup limit for integral term *)
+        IF rPressIntegral > 1000.0 THEN rPressIntegral := 1000.0; END_IF;
+        IF rPressIntegral < 0.0 THEN rPressIntegral := 0.0; END_IF;
+        
+        rPressureValveCmd := (Kp_Press * rPressError) + (Ki_Press * rPressIntegral);
+        
+        (* Saturate outputs to physical valve limits *)
+        IF rPressureValveCmd > 100.0 THEN rPressureValveCmd := 100.0; END_IF;
+        IF rPressureValveCmd < 0.0 THEN rPressureValveCmd := 0.0; END_IF;
+        
+        (* Wait until pressure is within 0.2 Bar of target before heating *)
+        IF rVesselPressure >= (rTargetDwellPressure - 0.2) THEN
+            iCycleState := 20; (* Proceed to heat-up once pressurized *)
+        END_IF;
+
+    20: (* HEAT-UP RAMP PHASE *)
+        (* Cascade control strategy: Air temp drives part temp *)
+        bHeaterContactor := TRUE;
+        
+        rTempError := rTargetDwellTemp - rPartTempSensor;
+        rTempIntegral := rTempIntegral + rTempError;
+        
+        IF rTempIntegral > 5000.0 THEN rTempIntegral := 5000.0; END_IF;
+        IF rTempIntegral < 0.0 THEN rTempIntegral := 0.0; END_IF;
+        
+        rHeaterPowerCmd := (Kp_Temp * rTempError) + (Ki_Temp * rTempIntegral);
+        
+        IF rHeaterPowerCmd > 100.0 THEN rHeaterPowerCmd := 100.0; END_IF;
+        IF rHeaterPowerCmd < 0.0 THEN rHeaterPowerCmd := 0.0; END_IF;
+        
+        (* Maintain pressure continuously during thermal expansion *)
+        rPressError := rTargetDwellPressure - rVesselPressure;
+        rPressureValveCmd := (Kp_Press * rPressError); 
+        IF rPressureValveCmd > 100.0 THEN rPressureValveCmd := 100.0; END_IF;
+        IF rPressureValveCmd < 0.0 THEN rPressureValveCmd := 0.0; END_IF;
+
+        IF rPartTempSensor >= (rTargetDwellTemp - 2.0) THEN
+            iCycleState := 30; (* Proceed to curing dwell phase *)
+        END_IF;
+
+    30: (* DWELL / CURING PHASE *)
+        (* Maintain precision Temperature and Pressure for prepreg cross-linking *)
+        tDwellTimer(IN := TRUE, PT := T#120M); (* 120 minutes standard cure *)
+        
+        (* Heater PID (switched to air temp for fine regulation around target) *)
+        rTempError := rTargetDwellTemp - rAvgAirTemp; 
+        rHeaterPowerCmd := (Kp_Temp * rTempError);
+        IF rHeaterPowerCmd > 100.0 THEN rHeaterPowerCmd := 100.0; END_IF;
+        IF rHeaterPowerCmd < 0.0 THEN rHeaterPowerCmd := 0.0; END_IF;
+        
+        IF tDwellTimer.Q THEN
+            tDwellTimer(IN := FALSE);
+            iCycleState := 40;
+        END_IF;
+
+    40: (* COOL-DOWN PHASE *)
+        (* Turn off heaters, engage circulation fans *)
+        bHeaterContactor := FALSE;
+        rHeaterPowerCmd := 0.0;
+        bCoolingFan := TRUE;
+        
+        (* Wait for part surface temperature to reach safe handling limit *)
+        IF rPartTempSensor < 50.0 THEN
+            iCycleState := 50;
         END_IF;
         
-    10: (* READY TO BOND *)
-        bSystemReadyToBond := TRUE;
-        bProcessAlarm := FALSE;
-        iErrorCode := 0;
+    50: (* DEPRESSURIZATION *)
+        bCoolingFan := FALSE;
+        rPressureValveCmd := 0.0;
+        rExhaustValveCmd := 20.0; (* Controlled, slow venting to prevent shock *)
         
-        IF bBondTrigger THEN
-            bSystemReadyToBond := FALSE;
-            iBondState := 20;
+        IF rVesselPressure < 0.1 THEN
+            rExhaustValveCmd := 0.0;
+            bCycleComplete := TRUE;
+            iCycleState := 0; (* Reset sequence *)
         END_IF;
+
+    99: (* FAULT ABORT STATE *)
+        bCriticalFault := TRUE;
+        bHeaterContactor := FALSE;
+        rHeaterPowerCmd := 0.0;
+        bCoolingFan := TRUE; (* Keep fan on to mitigate localized hot spots *)
+        rPressureValveCmd := 0.0;
+        rExhaustValveCmd := 100.0; (* Rapid depressurization for safety *)
         
-    20: (* DESCENT AND IMPACT DETECTION (SEARCH) *)
-        (* Command Z-axis to apply a small search force, e.g., 5 mN *)
-        rActuatorForceDrive := 5.0;
-        
-        (* Simulate impact detection logic (simplified for FB structure) *)
-        (* In reality, velocity drop or force spike triggers this transition *)
-        IF bBondTrigger THEN (* Placeholder for actual impact condition *)
-            iBondState := 30;
+        (* Require manual toggle of Master Enable to clear fault state *)
+        IF NOT bEnableSequence THEN
+            iCycleState := 0; 
         END_IF;
-        
-    30: (* THERMOCOMPRESSION WELDING WITH ULTRASONICS *)
-        (* Apply target weld force *)
-        rActuatorForceDrive := rTargetWeldForce;
-        
-        (* Calculate Piezo frequency shift based on force to maintain resonance *)
-        (* Simple proportional shift model: freq increases slightly with clamping force *)
-        rPiezoFreqCommand := rBasePiezoFreq + (rTargetWeldForce * 0.005);
-        
-        tWeldTimer(IN := TRUE, PT := T#15MS); (* Typical 15ms weld time *)
-        IF tWeldTimer.Q THEN
-            tWeldTimer(IN := FALSE);
-            iBondState := 40;
-        END_IF;
-        
-    40: (* LOOP RETRACTION AND CYCLE COMPLETE *)
-        rActuatorForceDrive := 0.0;
-        rPiezoFreqCommand := 0.0;
-        bBondCycleComplete := TRUE;
-        
-        (* Wait for trigger to drop before returning to ready state *)
-        IF NOT bBondTrigger THEN
-            iBondState := 10;
-            bBondCycleComplete := FALSE;
-        END_IF;
-        
-    ELSE
-        (* INVALID STATE RECOVERY *)
-        iBondState := 0;
 END_CASE;
 
 END_FUNCTION_BLOCK
@@ -175,7 +240,6 @@ record = {
     ]
 }
 
-os.makedirs("data/swarm_raw", exist_ok=True)
 filename = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
 with open(filename, "w", encoding="utf-8") as f:
     json.dump(record, f, ensure_ascii=False)

@@ -1,10 +1,9 @@
 import json, uuid, os
 
-prompt = """<USER_REQUEST>
-You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
+prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
 You possess the expertise of a 40+ years experienced PLC automation architect writing world-class, extremely complex, mathematically rigorous, and structurally flawless code. Your logic must include advanced PID/state-machine resilience, multi-layered safety interlocks, and sensor noise filtering. Output the most elite, realistic IEC 61131-3 Structured Text imaginable.
 
-**Your assigned domain is: Cryogenic LNG Ship-to-Shore Loading Arm Kinematic Compensation**
+**Your assigned domain is: Automated Commercial Textile Weaving Loom Warp Tension and Weft Insertion Synchronization**
 
 Task: Invent a highly complex, ultra-realistic control scenario for this domain. Your code must look like the absolute best, most robust industrial code written by a world-class 40-year veteran.
 
@@ -24,7 +23,7 @@ CRITICAL RULES - READ EVERY LINE:
 4. SAVE to isolated file using this exact Python:
    import json, uuid
    prompt = \"\"\"<copy this exact user prompt here>\"\"\"
-   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_LNG_LoadingArm\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
+   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_TextileLoom_Sync\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
    record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
    with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
        json.dump(record, f, ensure_ascii=False)
@@ -37,131 +36,172 @@ CRITICAL RULES - READ EVERY LINE:
    [ ] Last code line: END_FUNCTION_BLOCK
    [ ] Closing fence: ```
    [ ] Total chars >= 1500
-6. REPLY with: EVOLUTION COMPLETE: Cryogenic LNG Ship-to-Shore Loading Arm Kinematic Compensation
+6. REPLY with: EVOLUTION COMPLETE: Automated Commercial Textile Weaving Loom Warp Tension and Weft Insertion Synchronization
 
-DO NOT APOLOGIZE. DO NOT EXPLAIN. GENERATE CODE AND SAVE IT.
-</USER_REQUEST>"""
+DO NOT APOLOGIZE. DO NOT EXPLAIN. GENERATE CODE AND SAVE IT."""
 
 code = """```iec-st
-FUNCTION_BLOCK FB_LNG_KinematicCompensation
+FUNCTION_BLOCK FB_LoomTensionWeftSync
 VAR_INPUT
-    bEnable                 : BOOL;     (* System master enable signal *)
-    bEmergencyStop          : BOOL;     (* ESD (Emergency Shutdown) hardwired safety relay OK signal *)
-    rShipHeave              : REAL;     (* Ship vertical displacement (Heave) in meters, via laser reference *)
-    rShipSway               : REAL;     (* Ship lateral displacement (Sway) in meters *)
-    rShipSurge              : REAL;     (* Ship longitudinal displacement (Surge) in meters *)
-    rArmAngleAlpha          : REAL;     (* Inboard arm angle sensor feedback (degrees) *)
-    rArmAngleBeta           : REAL;     (* Outboard arm angle sensor feedback (degrees) *)
-    rCryoTempCelsius        : REAL;     (* Cryogenic product temperature at swivel joints (-162C typical) *)
+    (* Required: at least 4-8 physical inputs with types and comments *)
+    bEnable                 : BOOL;     (* System enable signal *)
+    bEmergencyStop          : BOOL;     (* Safety relay OK signal (TRUE = safe) *)
+    rWarpTensionRaw         : REAL;     (* Raw warp tension sensor input (N) *)
+    rWeftInsertionSpeed     : REAL;     (* Weft insertion target speed (m/s) *)
+    rMachineAngle           : REAL;     (* Main drive shaft angle (degrees 0-360) *)
+    bWeftBreakDetector      : BOOL;     (* TRUE if weft yarn is broken *)
 END_VAR
 VAR_OUTPUT
-    bSystemReady            : BOOL;     (* System fully initialized and ready for auto compensation *)
-    rCompensatedTargetAlpha : REAL;     (* Kinematically compensated target angle for Alpha joint *)
-    rCompensatedTargetBeta  : REAL;     (* Kinematically compensated target angle for Beta joint *)
-    bEnvelopeWarning        : BOOL;     (* Warning: Ship drifting near maximum safe loading envelope *)
-    bAlarm                  : BOOL;     (* Critical fault or envelope breach alarm - triggers ESD *)
+    (* Required: at least 3-6 outputs with types and comments *)
+    bSystemReady            : BOOL;     (* System ready status for main control *)
+    rTensionMotorTorque     : REAL;     (* Control signal to warp let-off motor (Nm) *)
+    bWeftFireSignal         : BOOL;     (* Command to fire weft insertion nozzle/rapier *)
+    bAlarm                  : BOOL;     (* Fault alarm output *)
+    iFaultCode              : INT;      (* Detailed fault code *)
 END_VAR
 VAR
-    iState                  : INT := 0; (* Internal state machine state *)
-    tESDTimer               : TON;      (* Delay timer for debounce of emergency signals *)
-    tKinematicCycle         : TON;      (* Cycle timer for kinematic loop computation *)
-    rAlphaCurrentFilter     : REAL;     (* Low-pass filtered Alpha angle *)
-    rBetaCurrentFilter      : REAL;     (* Low-pass filtered Beta angle *)
-    rMaxEnvelopeRadius      : REAL := 15.0; (* Maximum safe tracking envelope in meters *)
-    rWarningRadius          : REAL := 12.5; (* Pre-alarm warning envelope in meters *)
-    rCurrentRadius          : REAL;     (* Calculated Pythagorean radius of ship drift *)
-    rThermalShrinkFactor    : REAL;     (* Compensation factor for arm length change due to cryogenic temps *)
-    rAlphaD                 : REAL;     (* Derivative term for Alpha *)
-    rAlphaPrev              : REAL;     (* Previous Alpha for derivative *)
+    (* Internal State *)
+    iState                  : INT := 0;
+    
+    (* Filtering and PID variables *)
+    rTensionFiltered        : REAL := 0.0;
+    rTensionSetpoint        : REAL := 250.0; (* N *)
+    rTensionError           : REAL := 0.0;
+    rIntegral               : REAL := 0.0;
+    rDerivative             : REAL := 0.0;
+    rPrevError              : REAL := 0.0;
+    
+    (* Tuning params *)
+    Kp                      : REAL := 1.25;
+    Ki                      : REAL := 0.05;
+    Kd                      : REAL := 0.10;
+    
+    (* Timers and tracking *)
+    tStartupDelay           : TON;
+    tCycleTimer             : TON;
+    bWeftFired              : BOOL := FALSE;
+    rInsertionAngleWindow   : REAL := 85.0; (* Degrees *)
 END_VAR
 
 (* === MAIN LOGIC === *)
-
-(* Low Pass Filtering on Sensor Inputs for Noise Reduction *)
-rAlphaCurrentFilter := rAlphaCurrentFilter + 0.1 * (rArmAngleAlpha - rAlphaCurrentFilter);
-rBetaCurrentFilter := rBetaCurrentFilter + 0.1 * (rArmAngleBeta - rBetaCurrentFilter);
-
-(* Emergency Stop Interlock Check *)
+(* 1. Safety and Interlocks *)
 IF NOT bEmergencyStop THEN
     bSystemReady := FALSE;
     bAlarm := TRUE;
-    rCompensatedTargetAlpha := rAlphaCurrentFilter; (* Freeze in place *)
-    rCompensatedTargetBeta := rBetaCurrentFilter;   (* Freeze in place *)
-    iState := 99; (* Fault state *)
+    iFaultCode := 99; (* E-Stop active *)
+    rTensionMotorTorque := 0.0;
+    bWeftFireSignal := FALSE;
+    iState := 0;
     RETURN;
 END_IF;
 
-(* Compute the 3D drift radius of the ship manifold relative to shore base *)
-rCurrentRadius := SQRT(rShipHeave * rShipHeave + rShipSway * rShipSway + rShipSurge * rShipSurge);
+IF bWeftBreakDetector THEN
+    bSystemReady := FALSE;
+    bAlarm := TRUE;
+    iFaultCode := 42; (* Weft Break *)
+    rTensionMotorTorque := 0.0;
+    bWeftFireSignal := FALSE;
+    iState := 0;
+    RETURN;
+END_IF;
 
-(* Thermal Contraction Compensation: Arms shrink at -162 Celsius, shifting kinematics *)
-rThermalShrinkFactor := 1.0 - ((20.0 - rCryoTempCelsius) * 0.000015); (* Approx coeff for stainless *)
+(* 2. Input Filtering (Exponential Moving Average for sensor noise) *)
+rTensionFiltered := (0.1 * rWarpTensionRaw) + (0.9 * rTensionFiltered);
 
+(* 3. State Machine *)
 CASE iState OF
-    0: (* IDLE & INITIALIZATION *)
+    0: (* IDLE - Await Enable *)
         bSystemReady := FALSE;
+        rTensionMotorTorque := 0.0;
+        bWeftFireSignal := FALSE;
         bAlarm := FALSE;
-        bEnvelopeWarning := FALSE;
-        rCompensatedTargetAlpha := rAlphaCurrentFilter;
-        rCompensatedTargetBeta := rBetaCurrentFilter;
+        iFaultCode := 0;
         
         IF bEnable THEN
-            tKinematicCycle(IN := FALSE);
+            tStartupDelay(IN := FALSE);
             iState := 10;
         END_IF;
 
-    10: (* RUNNING KINEMATIC SOLVER *)
-        (* Determine Envelope Boundaries *)
-        IF rCurrentRadius >= rMaxEnvelopeRadius THEN
-            bAlarm := TRUE; 
-            iState := 99; (* Breach triggers fault *)
-        ELSIF rCurrentRadius >= rWarningRadius THEN
-            bEnvelopeWarning := TRUE;
-        ELSE
-            bEnvelopeWarning := FALSE;
+    10: (* STARTUP - Establish Base Tension *)
+        tStartupDelay(IN := TRUE, PT := T#3S);
+        
+        (* Apply open-loop soft start torque to establish tension *)
+        rTensionMotorTorque := 50.0; 
+        
+        IF tStartupDelay.Q THEN
+            IF rTensionFiltered > 150.0 THEN
+                tStartupDelay(IN := FALSE);
+                iState := 20;
+            ELSE
+                bAlarm := TRUE;
+                iFaultCode := 10; (* Failed to establish tension *)
+                iState := 0;
+            END_IF;
         END_IF;
-
-        (* Compute Inverse Kinematics for Targets (Simplified Mockup of 3D Jacobian) *)
-        rCompensatedTargetAlpha := rAlphaCurrentFilter + (rShipHeave * 0.5 + rShipSurge * 0.2) / rThermalShrinkFactor;
-        rCompensatedTargetBeta  := rBetaCurrentFilter - (rShipSway * 0.3) / rThermalShrinkFactor;
-
-        (* Limit Rate of Change / Derivative checking *)
-        rAlphaD := (rCompensatedTargetAlpha - rAlphaPrev);
-        IF rAlphaD > 2.0 THEN
-            rCompensatedTargetAlpha := rAlphaPrev + 2.0; (* Rate limit *)
-        ELSIF rAlphaD < -2.0 THEN
-            rCompensatedTargetAlpha := rAlphaPrev - 2.0; (* Rate limit *)
-        END_IF;
-        rAlphaPrev := rCompensatedTargetAlpha;
-
-        tKinematicCycle(IN := TRUE, PT := T#50MS);
-        IF tKinematicCycle.Q THEN
-            tKinematicCycle(IN := FALSE);
-            iState := 20;
-        END_IF;
-
-    20: (* CYCLE COMPLETE, AWAITING NEXT TICK *)
-        bSystemReady := TRUE;
+        
         IF NOT bEnable THEN
             iState := 0;
+        END_IF;
+
+    20: (* RUNNING - Synchronized PID Control and Insertion *)
+        bSystemReady := TRUE;
+        
+        (* Active Tension PID Control *)
+        rTensionError := rTensionSetpoint - rTensionFiltered;
+        rIntegral := rIntegral + rTensionError;
+        
+        (* Anti-windup *)
+        IF rIntegral > 1000.0 THEN rIntegral := 1000.0; END_IF;
+        IF rIntegral < -1000.0 THEN rIntegral := -1000.0; END_IF;
+        
+        rDerivative := rTensionError - rPrevError;
+        rPrevError := rTensionError;
+        
+        rTensionMotorTorque := (Kp * rTensionError) + (Ki * rIntegral) + (Kd * rDerivative) + 100.0; (* Feed-forward base *)
+        
+        (* Clamp Output Torque *)
+        IF rTensionMotorTorque > 400.0 THEN rTensionMotorTorque := 400.0; END_IF;
+        IF rTensionMotorTorque < 0.0 THEN rTensionMotorTorque := 0.0; END_IF;
+        
+        (* Weft Insertion Synchronization based on Main Drive Angle *)
+        (* Fire insertion nozzle/rapier only in the specific angle window *)
+        IF (rMachineAngle >= rInsertionAngleWindow) AND (rMachineAngle <= (rInsertionAngleWindow + 20.0)) THEN
+            IF NOT bWeftFired THEN
+                bWeftFireSignal := TRUE;
+                bWeftFired := TRUE;
+            ELSE
+                bWeftFireSignal := FALSE;
+            END_IF;
         ELSE
-            iState := 10;
+            bWeftFireSignal := FALSE;
+        END_IF;
+        
+        (* Reset weft fired flag for next cycle *)
+        IF rMachineAngle > 350.0 THEN
+            bWeftFired := FALSE;
         END_IF;
 
-    99: (* FAULT HANDLING *)
-        bSystemReady := FALSE;
-        bEnvelopeWarning := FALSE;
-        IF bEnable = FALSE AND bEmergencyStop = TRUE AND rCurrentRadius < rMaxEnvelopeRadius THEN
-            bAlarm := FALSE;
-            iState := 0; (* Reset sequence *)
+        IF NOT bEnable THEN
+            iState := 0;
         END_IF;
-
+        
+    ELSE
+        iState := 0;
 END_CASE;
 
 END_FUNCTION_BLOCK
 ```"""
 
-os.makedirs("data/swarm_raw", exist_ok=True)
-record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
-with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
+record = {
+    "messages": [
+        {"role": "user", "content": prompt},
+        {"role": "assistant", "content": code}
+    ]
+}
+
+os.makedirs(r"C:\Users\majip\Downloads\LLM REASEARCH\data\swarm_raw", exist_ok=True)
+filename = f"C:\\Users\\majip\\Downloads\\LLM REASEARCH\\data\\swarm_raw\\agent_{uuid.uuid4().hex[:8]}.json"
+with open(filename, "w", encoding="utf-8") as f:
     json.dump(record, f, ensure_ascii=False)
+
+print(f"Saved to {filename}")

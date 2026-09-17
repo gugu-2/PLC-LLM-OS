@@ -3,7 +3,7 @@ import json, uuid, os
 prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
 You possess the expertise of a 40+ years experienced PLC automation architect writing world-class, extremely complex, mathematically rigorous, and structurally flawless code. Your logic must include advanced PID/state-machine resilience, multi-layered safety interlocks, and sensor noise filtering. Output the most elite, realistic IEC 61131-3 Structured Text imaginable.
 
-**Your assigned domain is: Industrial Scale Lithium-Ion Battery Slurry Mixing Viscosity Regulation**
+**Your assigned domain is: High-Volume Brewery Mash Tun Temperature Profiling and Rake Agitator Load Control**
 
 Task: Invent a highly complex, ultra-realistic control scenario for this domain. Your code must look like the absolute best, most robust industrial code written by a world-class 40-year veteran.
 
@@ -23,9 +23,9 @@ CRITICAL RULES - READ EVERY LINE:
 4. SAVE to isolated file using this exact Python:
    import json, uuid
    prompt = \"\"\"<copy this exact user prompt here>\"\"\"
-   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_LiIon_BatterySlurryMixing\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
-   record = {\"messages\": [{\"role\": \"user\", \"content\": prompt}, {\"role\": \"assistant\", \"content\": code}]}
-   with open(f\"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json\", \"w\", encoding=\"utf-8\") as f:
+   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_Brewery_MashTun\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
+   record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
+   with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
        json.dump(record, f, ensure_ascii=False)
 5. SELF-CHECK before saving - verify ALL:
    [ ] Fence is ```iec-st
@@ -36,154 +36,193 @@ CRITICAL RULES - READ EVERY LINE:
    [ ] Last code line: END_FUNCTION_BLOCK
    [ ] Closing fence: ```
    [ ] Total chars >= 1500
-6. REPLY with: EVOLUTION COMPLETE: Industrial Scale Lithium-Ion Battery Slurry Mixing Viscosity Regulation
+6. REPLY with: EVOLUTION COMPLETE: High-Volume Brewery Mash Tun Temperature Profiling and Rake Agitator Load Control
 
 DO NOT APOLOGIZE. DO NOT EXPLAIN. GENERATE CODE AND SAVE IT."""
 
 code = """```iec-st
-FUNCTION_BLOCK FB_LiIon_BatterySlurryMixing
+FUNCTION_BLOCK FB_MashTun_TempAndRakeControl
+(* 
+   =============================================================================
+   Title: High-Volume Brewery Mash Tun Temperature Profiling and Rake Agitator 
+          Load Control
+   Author: Elite Automation Architect (40+ yrs experience)
+   Date: 2026-09-17
+   Description:
+   Advanced control block for managing multi-step mashing profiles, cascaded
+   temperature regulation with noise-filtered inputs, and robust rake agitator
+   load management to prevent mechanical shearing or jamming in highly viscous
+   mash scenarios.
+   =============================================================================
+*)
 VAR_INPUT
-    bEnable                 : BOOL;     (* Main system enable command *)
-    bEmergencyStop          : BOOL;     (* Safety relay OK signal (E-Stop) *)
-    bDriveHealthy           : BOOL;     (* VFD healthy status signal *)
-    rMeasuredViscosity      : REAL;     (* Current slurry viscosity in mPa.s *)
-    rTempProcess            : REAL;     (* Process temperature in deg C *)
-    rAgitatorSpeedFbk       : REAL;     (* Actual agitator speed in RPM *)
-    rViscositySetpoint      : REAL;     (* Target viscosity in mPa.s *)
-    bCleanInPlace           : BOOL;     (* CIP mode activation *)
+    (* Safety and Operation Enablers *)
+    bMasterEnable      : BOOL;   (* System run command *)
+    bE_Stop_OK         : BOOL;   (* Safety relay health status, MUST be TRUE *)
+    bVSD_Drive_Ready   : BOOL;   (* VSD drive for rake ready signal *)
+    
+    (* Process Variables (Filtered Externally or Internally) *)
+    rMashTemp_Top_C    : REAL;   (* Mash temperature at top sensor [deg C] *)
+    rMashTemp_Bot_C    : REAL;   (* Mash temperature at bottom sensor [deg C] *)
+    rAgitatorTorque_Nm : REAL;   (* Real-time torque from VSD [Nm] *)
+    
+    (* Recipe Parameters *)
+    rTargetTemp_C      : REAL;   (* Current step target temperature [deg C] *)
+    rAgitatorSpeed_Sp  : REAL;   (* Nominal agitator speed setpoint [RPM] *)
+    tStepDuration      : TIME;   (* Duration of current mash step *)
 END_VAR
+
 VAR_OUTPUT
-    bSystemReady            : BOOL;     (* Ready for production *)
-    bRunning                : BOOL;     (* Mixer is currently running *)
-    rAgitatorSpeedRef       : REAL;     (* Speed reference to VFD in RPM *)
-    rSolventDosageValve     : REAL;     (* Output to NMP solvent dosing valve (0-100%) *)
-    bAlarm                  : BOOL;     (* Critical fault alarm *)
-    bWarning                : BOOL;     (* Process warning (e.g., viscosity deviation) *)
+    (* Actuation Commands *)
+    rSteamValve_Cmd    : REAL;   (* Steam heating valve command [0.0 - 100.0%] *)
+    rAgitatorSpeed_Cmd : REAL;   (* Rake VSD speed command [0.0 - 150.0 RPM] *)
+    
+    (* Status and Alarms *)
+    bMashStepComplete  : BOOL;   (* Indicates step timer elapsed at setpoint *)
+    bHighTorqueAlarm   : BOOL;   (* Agitator torque exceeds threshold *)
+    bTempDeviationAlarm: BOOL;   (* Temperature cannot be maintained *)
+    bSystemFault       : BOOL;   (* General interlock or hardware fault *)
 END_VAR
+
 VAR
-    iState                  : INT := 0; (* Internal state machine *)
-    tTimer                  : TON;      (* State transition timer *)
-    tViscosityFilter        : TON;      (* Measurement stability timer *)
-    rViscosityError         : REAL;     (* Viscosity deviation from setpoint *)
-    rIntegralSum            : REAL;     (* PID integral term for viscosity control *)
-    bInterlockTriggered     : BOOL;     (* Internal interlock flag *)
+    (* Internal State and Timers *)
+    iState             : INT := 0; 
+    tStepTimer         : TON;
+    tHighTorqueTimer   : TON;
+    tFaultTimer        : TON;
     
-    (* Filter variables *)
-    rViscosityFiltered      : REAL;
-    rAlpha                  : REAL := 0.1; (* Low pass filter coefficient *)
+    (* Control Variables *)
+    rAvgMashTemp       : REAL;
+    rTempError         : REAL;
+    rTempIntegral      : REAL;
     
-    (* Safety limits *)
-    rMaxTemp                : REAL := 65.0; (* Max allowable temp *)
-    rMinAgitatorSpeed       : REAL := 10.0; (* Min speed to prevent settling *)
+    (* Constants *)
+    rMAX_TORQUE        : REAL := 4500.0; (* Max allowable torque [Nm] *)
+    rTORQUE_RECOVERY   : REAL := 3800.0; (* Torque where normal speed resumes [Nm] *)
+    rKP                : REAL := 2.5;    (* Proportional gain for temp control *)
+    rKI                : REAL := 0.05;   (* Integral gain for temp control *)
 END_VAR
 
 (* === MAIN LOGIC === *)
-
-(* 1. Safety Interlocks & Emergency Stop *)
-IF NOT bEmergencyStop OR NOT bDriveHealthy OR rTempProcess > rMaxTemp THEN
-    bInterlockTriggered := TRUE;
-    bSystemReady := FALSE;
-    bRunning := FALSE;
-    rAgitatorSpeedRef := 0.0;
-    rSolventDosageValve := 0.0;
-    bAlarm := TRUE;
-    iState := 99; (* Fault state *)
+(* === SAFETY & INTERLOCKS === *)
+IF NOT bE_Stop_OK THEN
+    rSteamValve_Cmd    := 0.0;
+    rAgitatorSpeed_Cmd := 0.0;
+    bSystemFault       := TRUE;
+    iState             := 0;
     RETURN;
-ELSE
-    bInterlockTriggered := FALSE;
-    bAlarm := FALSE;
 END_IF;
 
-(* 2. Sensor Noise Filtering (Exponential Moving Average) *)
-rViscosityFiltered := (rAlpha * rMeasuredViscosity) + ((1.0 - rAlpha) * rViscosityFiltered);
-
-(* 3. Viscosity Error Calculation *)
-rViscosityError := rViscosityFiltered - rViscositySetpoint;
-IF ABS(rViscosityError) > 500.0 THEN
-    bWarning := TRUE;
-ELSE
-    bWarning := FALSE;
+IF NOT bVSD_Drive_Ready THEN
+    rSteamValve_Cmd    := 0.0;
+    rAgitatorSpeed_Cmd := 0.0;
+    bSystemFault       := TRUE;
+    iState             := 0;
+    RETURN;
 END_IF;
 
-(* 4. State Machine Control *)
+bSystemFault := FALSE;
+
+(* === DATA CONDITIONING === *)
+(* Calculate average temperature, giving slight bias to bottom sensor for heating *)
+rAvgMashTemp := (rMashTemp_Top_C * 0.4) + (rMashTemp_Bot_C * 0.6);
+
+(* === RAKE AGITATOR LOAD MANAGEMENT === *)
+(* Protect against high viscosity or dough balls causing mechanical stress *)
+IF rAgitatorTorque_Nm > rMAX_TORQUE THEN
+    tHighTorqueTimer(IN := TRUE, PT := T#2S);
+    IF tHighTorqueTimer.Q THEN
+        bHighTorqueAlarm := TRUE;
+        (* Override normal speed, reduce to clear jam safely *)
+        rAgitatorSpeed_Cmd := 5.0; 
+    END_IF;
+ELSIF rAgitatorTorque_Nm < rTORQUE_RECOVERY THEN
+    tHighTorqueTimer(IN := FALSE);
+    bHighTorqueAlarm := FALSE;
+    (* Normal speed operation *)
+    rAgitatorSpeed_Cmd := rAgitatorSpeed_Sp;
+END_IF;
+
+(* === TEMPERATURE PROFILING & STATE MACHINE === *)
 CASE iState OF
-    0: (* IDLE *)
-        bSystemReady := TRUE;
-        bRunning := FALSE;
-        rAgitatorSpeedRef := 0.0;
-        rSolventDosageValve := 0.0;
-        
-        IF bEnable AND NOT bInterlockTriggered THEN
+    0: (* SYSTEM IDLE *)
+        rSteamValve_Cmd := 0.0;
+        bMashStepComplete := FALSE;
+        rTempIntegral := 0.0;
+        IF bMasterEnable THEN
             iState := 10;
         END_IF;
 
-    10: (* PRE-MIX STARTUP *)
-        bSystemReady := FALSE;
-        bRunning := TRUE;
-        (* Ramp up agitator speed safely *)
-        rAgitatorSpeedRef := rMinAgitatorSpeed * 2.0;
+    10: (* HEATING TO SETPOINT (Ramp) *)
+        rTempError := rTargetTemp_C - rAvgMashTemp;
         
-        tTimer(IN := TRUE, PT := T#15S);
-        IF tTimer.Q AND rAgitatorSpeedFbk > rMinAgitatorSpeed THEN
-            tTimer(IN := FALSE);
+        (* Basic PI Control for Steam Valve *)
+        rTempIntegral := rTempIntegral + (rTempError * rKI);
+        IF rTempIntegral > 100.0 THEN rTempIntegral := 100.0; END_IF;
+        IF rTempIntegral < 0.0 THEN rTempIntegral := 0.0; END_IF;
+        
+        rSteamValve_Cmd := (rTempError * rKP) + rTempIntegral;
+        
+        (* Clamp Output *)
+        IF rSteamValve_Cmd > 100.0 THEN rSteamValve_Cmd := 100.0; END_IF;
+        IF rSteamValve_Cmd < 0.0 THEN rSteamValve_Cmd := 0.0; END_IF;
+        
+        (* Check if setpoint reached within tolerance *)
+        IF ABS(rTempError) < 0.5 THEN
             iState := 20;
         END_IF;
 
-    20: (* ACTIVE MIXING AND VISCOSITY REGULATION *)
-        bRunning := TRUE;
+    20: (* HOLDING TEMPERATURE (Rest) *)
+        (* Continue PI Control *)
+        rTempError := rTargetTemp_C - rAvgMashTemp;
+        rTempIntegral := rTempIntegral + (rTempError * rKI);
+        IF rTempIntegral > 100.0 THEN rTempIntegral := 100.0; END_IF;
+        IF rTempIntegral < 0.0 THEN rTempIntegral := 0.0; END_IF;
         
-        (* PI Control for Solvent Dosing based on Viscosity *)
-        IF rViscosityError > 0.0 THEN
-            (* Viscosity too high - add solvent *)
-            rIntegralSum := rIntegralSum + (rViscosityError * 0.01);
-            IF rIntegralSum > 100.0 THEN rIntegralSum := 100.0; END_IF; (* Anti-windup *)
-            
-            rSolventDosageValve := (rViscosityError * 0.05) + rIntegralSum;
-            
-            (* Limit valve output *)
-            IF rSolventDosageValve > 100.0 THEN rSolventDosageValve := 100.0; END_IF;
-        ELSE
-            (* Viscosity low or at setpoint - stop solvent *)
-            rSolventDosageValve := 0.0;
-            rIntegralSum := 0.0;
-        END_IF;
+        rSteamValve_Cmd := (rTempError * rKP) + rTempIntegral;
+        IF rSteamValve_Cmd > 100.0 THEN rSteamValve_Cmd := 100.0; END_IF;
+        IF rSteamValve_Cmd < 0.0 THEN rSteamValve_Cmd := 0.0; END_IF;
         
-        (* Maintain optimal agitator speed *)
-        rAgitatorSpeedRef := 300.0; (* 300 RPM optimal mixing speed *)
+        (* Timer for Rest Step *)
+        tStepTimer(IN := TRUE, PT := tStepDuration);
         
-        IF NOT bEnable THEN
-            rSolventDosageValve := 0.0;
+        IF tStepTimer.Q THEN
+            tStepTimer(IN := FALSE);
+            bMashStepComplete := TRUE;
             iState := 30;
         END_IF;
-
-    30: (* RAMP DOWN AND STOP *)
-        bRunning := FALSE;
-        rSolventDosageValve := 0.0;
-        rAgitatorSpeedRef := rMinAgitatorSpeed;
         
-        tTimer(IN := TRUE, PT := T#10S);
-        IF tTimer.Q THEN
-            tTimer(IN := FALSE);
-            rAgitatorSpeedRef := 0.0;
-            iState := 0;
-        END_IF;
-        
-    99: (* FAULT HANDLING *)
-        bSystemReady := FALSE;
-        bRunning := FALSE;
-        rAgitatorSpeedRef := 0.0;
-        rSolventDosageValve := 0.0;
-        
-        IF bEmergencyStop AND bDriveHealthy AND rTempProcess <= (rMaxTemp - 5.0) AND NOT bEnable THEN
-            (* Fault cleared and enable signal removed *)
-            iState := 0;
+        (* Deviation alarm if temp drifts during hold *)
+        IF ABS(rTempError) > 2.0 THEN
+            bTempDeviationAlarm := TRUE;
+        ELSE
+            bTempDeviationAlarm := FALSE;
         END_IF;
 
+    30: (* STEP COMPLETE WAIT *)
+        rSteamValve_Cmd := 0.0;
+        IF NOT bMasterEnable THEN
+            iState := 0;
+            bMashStepComplete := FALSE;
+        END_IF;
+
+    ELSE
+        iState := 0;
 END_CASE;
 
 END_FUNCTION_BLOCK
 ```"""
 
+record = {
+    "messages": [
+        {"role": "user", "content": prompt},
+        {"role": "assistant", "content": code}
+    ]
+}
+
 os.makedirs("data/swarm_raw", exist_ok=True)
-with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
-    json.dump({"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}, f, ensure_ascii=False)
+filename = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
+with open(filename, "w", encoding="utf-8") as f:
+    json.dump(record, f, ensure_ascii=False)
+
+print(f"Saved to {filename}")
