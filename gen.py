@@ -1,13 +1,11 @@
-import json, uuid, os
-
-os.makedirs("data/swarm_raw", exist_ok=True)
+import os, json, uuid
 
 prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
 You possess the expertise of a 40+ years experienced PLC automation architect writing world-class, extremely complex, mathematically rigorous, and structurally flawless code. Your logic must include advanced PID/state-machine resilience, multi-layered safety interlocks, and sensor noise filtering. Output the most elite, realistic IEC 61131-3 Structured Text imaginable.
 
-**Your assigned domain is: Autonomous Robotic Rail Car Wheelset Induction Quenching & Hardening**
+**Your assigned domain is: Industrial Scale Sugar Refinery Vacuum Pan Crystallization and Brix Concentration**
 
-Task: Invent a highly complex, ultra-realistic control scenario for this domain (e.g., Multi-frequency induction heating depth profiling, dual pyrometer circular rim thermal tracking, and polymer quench spray nozzle pressure modulation). Your code must look like the absolute best, most robust industrial code written by a world-class 40-year veteran.
+Task: Invent a highly complex, ultra-realistic control scenario for this domain. Make this code EVEN BETTER, MORE ADVANCED, and MORE RIGOROUS than previous iterations. Include extreme edge-case handling, advanced math, and robust fault-tolerance.
 
 CRITICAL RULES - READ EVERY LINE:
 1. CODE FENCE: Use TRIPLE backticks + iec-st. EXACTLY like this:
@@ -25,9 +23,9 @@ CRITICAL RULES - READ EVERY LINE:
 4. SAVE to isolated file using this exact Python:
    import json, uuid
    prompt = \"\"\"<copy this exact user prompt here>\"\"\"
-   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_Wheelset_InductionHardening\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
-   record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
-   with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
+   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_SugarRefinery_VacuumPan\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
+   record = {\"messages\": [{\"role\": \"user\", \"content\": prompt}, {\"role\": \"assistant\", \"content\": code}]}
+   with open(f\"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json\", \"w\", encoding=\"utf-8\") as f:
        json.dump(record, f, ensure_ascii=False)
 5. SELF-CHECK before saving - verify ALL:
    [ ] Fence is ```iec-st
@@ -38,175 +36,195 @@ CRITICAL RULES - READ EVERY LINE:
    [ ] Last code line: END_FUNCTION_BLOCK
    [ ] Closing fence: ```
    [ ] Total chars >= 1500
-6. REPLY with: EVOLUTION COMPLETE: Autonomous Robotic Rail Car Wheelset Induction Quenching & Hardening
+6. REPLY with: EVOLUTION COMPLETE: Industrial Scale Sugar Refinery Vacuum Pan Crystallization and Brix Concentration
 
 DO NOT APOLOGIZE. DO NOT EXPLAIN. GENERATE CODE AND SAVE IT."""
 
 code = """```iec-st
-FUNCTION_BLOCK FB_Wheelset_InductionHardening
+FUNCTION_BLOCK FB_VacuumPan_Crystallization_Control
+(* ==============================================================================
+   Block Name    : FB_VacuumPan_Crystallization_Control
+   Description   : Advanced Industrial Scale Sugar Refinery Vacuum Pan Controller.
+                   Manages the highly non-linear Brix concentration and
+                   supersaturation process during sugar crystallization. 
+                   Includes advanced PID control, multi-layer safety interlocks, 
+                   Moving Average filters for sensor noise, and state-machine 
+                   driven batch execution.
+   ============================================================================== *)
 VAR_INPUT
-    bEnable                 : BOOL;     (* System master enable signal, multi-channel SIL3 verified *)
-    bEmergencyStop          : BOOL;     (* Safety relay OK signal, active high logic *)
-    rPyroTempInner          : REAL;     (* Pyrometer 1 reading: inner wheel rim surface temp [deg C] *)
-    rPyroTempOuter          : REAL;     (* Pyrometer 2 reading: outer wheel rim surface temp [deg C] *)
-    rQuenchPressureFeed     : REAL;     (* Polymer quench spray line feed pressure [bar] *)
-    rWheelRotSpeed          : REAL;     (* Wheelset rotational speed feedback [RPM] *)
-    rInductorClearance      : REAL;     (* Gap distance from induction coil to wheel rim [mm] *)
+    bEnable                 : BOOL;     (* System global enable signal *)
+    bEmergencyStop          : BOOL;     (* E-Stop/Safety relay OK signal (Active HIGH = OK) *)
+    rBrixTransmitter        : REAL;     (* Raw Brix measurement [%] *)
+    rPanPressure            : REAL;     (* Vacuum pan internal pressure [bar] *)
+    rMassecuiteLevel        : REAL;     (* Massecuite level in the pan [m] *)
+    rSteamValveFeedback     : REAL;     (* Steam valve position feedback [0-100%] *)
+    bSeedInjectionCmd       : BOOL;     (* Operator/Supervisory command for seed injection *)
+    rTargetBrix             : REAL;     (* Setpoint for final Brix concentration [%] *)
 END_VAR
+
 VAR_OUTPUT
-    bSystemReady            : BOOL;     (* Overall machine ready status *)
-    rHF_PowerCmd            : REAL;     (* High-frequency generator power reference [0-100%] *)
-    rMF_PowerCmd            : REAL;     (* Medium-frequency generator power reference [0-100%] *)
-    rQuenchValveCmd         : REAL;     (* Polymer quench proportional valve opening [0-100%] *)
-    rWheelRotSpeedCmd       : REAL;     (* Command for wheelset drive VFD [RPM] *)
-    bAlarm                  : BOOL;     (* Master fault alarm output *)
-    iFaultCode              : INT;      (* Diagnostics fault code (0=OK) *)
+    bSystemReady            : BOOL;     (* Indicates system is initialized and ready *)
+    bBatchComplete          : BOOL;     (* Batch has reached target Brix and is ready to strike *)
+    rSteamValveCmd          : REAL;     (* Commanded steam valve position [0-100%] *)
+    rVacuumPumpSpeed        : REAL;     (* Commanded vacuum pump speed [0-100%] *)
+    bSeedInjectionValve     : BOOL;     (* Command to open the seed injection valve *)
+    bAlarm                  : BOOL;     (* Critical alarm output (pressure, E-stop) *)
+    iCurrentState           : INT;      (* Current step in the crystallization sequence *)
 END_VAR
+
 VAR
-    iState                  : INT := 0; (* Process state machine index *)
-    tHeatingPhase           : TON;      (* Timer for the heating soak phase *)
-    tQuenchPhase            : TON;      (* Timer for the polymer quenching phase *)
+    (* Internal States and Timers *)
+    iState                  : INT := 0;
+    tSeedInjectionTimer     : TON;
+    tStabilizationTimer     : TON;
     
-    rFilteredTempAvg        : REAL;     (* Moving average of inner/outer temperatures *)
-    rTempError              : REAL;     (* Temperature error for PID calculation *)
+    (* Filtering *)
+    rFilteredBrix           : REAL := 0.0;
+    rBrixFilterAlpha        : REAL := 0.1; (* Exponential smoothing factor *)
     
-    (* Internal PID variables *)
-    rPID_Kp                 : REAL := 2.50;
-    rPID_Ki                 : REAL := 0.15;
-    rPID_Integral           : REAL := 0.0;
+    (* PID Control Variables for Steam *)
+    rSteamKp                : REAL := 2.5;
+    rSteamKi                : REAL := 0.05;
+    rSteamKd                : REAL := 0.1;
+    rSteamError             : REAL := 0.0;
+    rSteamLastError         : REAL := 0.0;
+    rSteamIntegral          : REAL := 0.0;
+    rSteamDerivative        : REAL := 0.0;
     
-    (* Hardening profile parameters *)
-    rTargetAustenitizingT   : REAL := 920.0; (* [deg C] target hardening temp *)
-    rTargetQuenchPressure   : REAL := 4.5;   (* [bar] required cooling pressure *)
-    
-    bOverTempInterlock      : BOOL;
+    (* Safety limits *)
+    rMaxPressure            : REAL := 1.5; (* Max safe pressure [bar] *)
+    rMaxLevel               : REAL := 10.0; (* Max pan level [m] *)
 END_VAR
 
 (* === MAIN LOGIC === *)
-(* 1. Multi-layered Safety Interlocks & Sensor Validation *)
-IF NOT bEmergencyStop THEN
+
+(* 1. Safety Interlocks & E-Stop *)
+IF NOT bEmergencyStop OR (rPanPressure > rMaxPressure) OR (rMassecuiteLevel > rMaxLevel) THEN
     bSystemReady := FALSE;
+    bBatchComplete := FALSE;
+    rSteamValveCmd := 0.0;
+    rVacuumPumpSpeed := 0.0;
+    bSeedInjectionValve := FALSE;
     bAlarm := TRUE;
-    iFaultCode := 99; (* E-STOP Active *)
-    rHF_PowerCmd := 0.0;
-    rMF_PowerCmd := 0.0;
-    rQuenchValveCmd := 0.0;
-    rWheelRotSpeedCmd := 0.0;
-    iState := 0;
+    iState := 999; (* FAULT STATE *)
+    iCurrentState := iState;
     RETURN;
 END_IF;
 
-(* Basic Pyrometer Plausibility Check *)
-IF (rPyroTempInner < -50.0 OR rPyroTempInner > 1300.0) OR 
-   (rPyroTempOuter < -50.0 OR rPyroTempOuter > 1300.0) THEN
-    bAlarm := TRUE;
-    iFaultCode := 10; (* Sensor out of bounds *)
-    RETURN;
-END_IF;
+bAlarm := FALSE;
 
-(* 2. Thermal Tracking & Noise Filtering *)
-rFilteredTempAvg := (rPyroTempInner + rPyroTempOuter) / 2.0;
-bOverTempInterlock := (rFilteredTempAvg > 1050.0);
+(* 2. Sensor Filtering *)
+(* Apply Exponential Moving Average to smooth noisy Brix readings *)
+rFilteredBrix := (rBrixFilterAlpha * rBrixTransmitter) + ((1.0 - rBrixFilterAlpha) * rFilteredBrix);
 
-IF bOverTempInterlock THEN
-    bAlarm := TRUE;
-    iFaultCode := 20; (* Over-temperature interlock triggered *)
-    rHF_PowerCmd := 0.0;
-    rMF_PowerCmd := 0.0;
-    iState := 0;
-    RETURN;
-END_IF;
-
-(* 3. State Machine: Autonomous Hardening Profile *)
+(* 3. State Machine for Crystallization Batch Process *)
 CASE iState OF
-    0: (* IDLE & PRE-CHECK *)
+    0: (* IDLE & INITIALIZATION *)
         bSystemReady := TRUE;
-        bAlarm := FALSE;
-        iFaultCode := 0;
-        rHF_PowerCmd := 0.0;
-        rMF_PowerCmd := 0.0;
-        rQuenchValveCmd := 0.0;
-        rPID_Integral := 0.0;
+        bBatchComplete := FALSE;
+        rSteamValveCmd := 0.0;
+        rVacuumPumpSpeed := 0.0;
+        bSeedInjectionValve := FALSE;
         
-        IF bEnable AND (rInductorClearance > 1.5 AND rInductorClearance < 3.0) THEN
-            iState := 10; (* Start heating process *)
+        IF bEnable THEN
+            iState := 10;
         END_IF;
 
-    10: (* HEATING PHASE: Multi-Frequency Depth Profiling *)
+    10: (* CHARGING: Bring pan to initial vacuum and fill with liquor *)
+        rVacuumPumpSpeed := 100.0; (* Full vacuum *)
+        
+        IF rPanPressure < 0.2 THEN (* Vacuum established *)
+            iState := 20;
+        END_IF;
+
+    20: (* CONCENTRATION: Evaporate water until supersaturation is reached *)
+        (* PID Control for Steam based on Brix progression *)
+        rSteamError := (rTargetBrix * 0.8) - rFilteredBrix; (* Initial concentration target before seeding *)
+        
+        (* Anti-windup for integral *)
+        IF rSteamValveCmd > 0.0 AND rSteamValveCmd < 100.0 THEN
+            rSteamIntegral := rSteamIntegral + rSteamError;
+        END_IF;
+        
+        rSteamDerivative := rSteamError - rSteamLastError;
+        rSteamValveCmd := (rSteamKp * rSteamError) + (rSteamKi * rSteamIntegral) + (rSteamKd * rSteamDerivative);
+        rSteamLastError := rSteamError;
+        
+        (* Clamp steam valve output *)
+        IF rSteamValveCmd > 100.0 THEN rSteamValveCmd := 100.0; END_IF;
+        IF rSteamValveCmd < 0.0 THEN rSteamValveCmd := 0.0; END_IF;
+
+        IF bSeedInjectionCmd THEN
+            iState := 30;
+        END_IF;
+
+    30: (* SEEDING: Inject sugar seeds to start crystallization *)
+        bSeedInjectionValve := TRUE;
+        tSeedInjectionTimer(IN := TRUE, PT := T#15S);
+        
+        IF tSeedInjectionTimer.Q THEN
+            bSeedInjectionValve := FALSE;
+            tSeedInjectionTimer(IN := FALSE);
+            iState := 40;
+        END_IF;
+
+    40: (* GROWING: Controlled boiling to grow crystals to target Brix *)
+        (* Advanced PID to maintain optimal supersaturation via Brix *)
+        rSteamError := rTargetBrix - rFilteredBrix;
+        
+        IF rSteamValveCmd > 0.0 AND rSteamValveCmd < 100.0 THEN
+            rSteamIntegral := rSteamIntegral + rSteamError;
+        END_IF;
+        
+        rSteamDerivative := rSteamError - rSteamLastError;
+        rSteamValveCmd := (rSteamKp * rSteamError) + (rSteamKi * rSteamIntegral) + (rSteamKd * rSteamDerivative);
+        rSteamLastError := rSteamError;
+        
+        IF rSteamValveCmd > 100.0 THEN rSteamValveCmd := 100.0; END_IF;
+        IF rSteamValveCmd < 0.0 THEN rSteamValveCmd := 0.0; END_IF;
+
+        IF rFilteredBrix >= rTargetBrix THEN
+            tStabilizationTimer(IN := TRUE, PT := T#30S);
+            IF tStabilizationTimer.Q THEN
+                iState := 50;
+            END_IF;
+        ELSE
+            tStabilizationTimer(IN := FALSE);
+        END_IF;
+
+    50: (* STRIKE / BATCH COMPLETE *)
+        bBatchComplete := TRUE;
+        rSteamValveCmd := 0.0;
+        rVacuumPumpSpeed := 0.0;
+        
+        IF NOT bEnable THEN
+            iState := 0;
+        END_IF;
+        
+    999: (* FAULT / RESET *)
         bSystemReady := FALSE;
-        rWheelRotSpeedCmd := 45.0; (* Constant spin for uniform heating *)
-        
-        (* Dual frequency power mix: MF for depth, HF for surface *)
-        rTempError := rTargetAustenitizingT - rFilteredTempAvg;
-        rPID_Integral := rPID_Integral + (rTempError * rPID_Ki);
-        
-        (* Anti-windup limit *)
-        IF rPID_Integral > 50.0 THEN rPID_Integral := 50.0; END_IF;
-        IF rPID_Integral < -50.0 THEN rPID_Integral := -50.0; END_IF;
-        
-        rHF_PowerCmd := (rTempError * rPID_Kp * 0.4) + rPID_Integral;
-        rMF_PowerCmd := (rTempError * rPID_Kp * 0.6) + rPID_Integral;
-        
-        (* Power clamping *)
-        IF rHF_PowerCmd > 100.0 THEN rHF_PowerCmd := 100.0; END_IF;
-        IF rMF_PowerCmd > 100.0 THEN rMF_PowerCmd := 100.0; END_IF;
-        IF rHF_PowerCmd < 0.0 THEN rHF_PowerCmd := 0.0; END_IF;
-        IF rMF_PowerCmd < 0.0 THEN rMF_PowerCmd := 0.0; END_IF;
-        
-        (* Wait for target temperature to be reached and soak *)
-        IF (rFilteredTempAvg >= rTargetAustenitizingT - 5.0) THEN
-            tHeatingPhase(IN := TRUE, PT := T#12S);
-            IF tHeatingPhase.Q THEN
-                tHeatingPhase(IN := FALSE);
-                rHF_PowerCmd := 0.0;
-                rMF_PowerCmd := 0.0;
-                iState := 20; (* Transition to quenching *)
-            END_IF;
-        ELSE
-            tHeatingPhase(IN := FALSE);
-        END_IF;
-
-    20: (* QUENCHING PHASE: Polymer Spray Modulation *)
-        rWheelRotSpeedCmd := 60.0; (* Higher speed for even quenching *)
-        
-        (* Feedback control for quench pressure *)
-        IF rQuenchPressureFeed < rTargetQuenchPressure THEN
-            rQuenchValveCmd := rQuenchValveCmd + 2.5; (* Ramping open *)
-        ELSE
-            rQuenchValveCmd := rQuenchValveCmd - 1.0;
-        END_IF;
-        
-        (* Valve saturation limits *)
-        IF rQuenchValveCmd > 100.0 THEN rQuenchValveCmd := 100.0; END_IF;
-        IF rQuenchValveCmd < 0.0 THEN rQuenchValveCmd := 0.0; END_IF;
-        
-        tQuenchPhase(IN := TRUE, PT := T#35S);
-        IF tQuenchPhase.Q THEN
-            tQuenchPhase(IN := FALSE);
-            rQuenchValveCmd := 0.0;
-            iState := 30; (* Process complete *)
-        END_IF;
-
-    30: (* POST-HARDENING COOL-DOWN / UNLOAD *)
-        rWheelRotSpeedCmd := 0.0;
-        IF (rWheelRotSpeed < 1.0) THEN
-            bSystemReady := TRUE;
+        IF NOT bEmergencyStop THEN
+            (* Wait for operator to clear fault and cycle enable *)
             IF NOT bEnable THEN
-                iState := 0; (* Reset state machine *)
+                iState := 0;
             END_IF;
         END_IF;
-
-    ELSE
-        (* Failsafe default *)
-        iState := 0;
 
 END_CASE;
+
+iCurrentState := iState;
 
 END_FUNCTION_BLOCK
 ```"""
 
-record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
+record = {
+    "messages": [
+        {"role": "user", "content": prompt},
+        {"role": "assistant", "content": code}
+    ]
+}
 
+os.makedirs("data/swarm_raw", exist_ok=True)
 filename = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
 with open(filename, "w", encoding="utf-8") as f:
     json.dump(record, f, ensure_ascii=False)

@@ -1,12 +1,8 @@
-import os, json, uuid
-
-os.makedirs("data/swarm_raw", exist_ok=True)
-
-prompt = """<USER_REQUEST>
-You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
+import json, uuid, os
+prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
 You possess the expertise of a 40+ years experienced PLC automation architect writing world-class, extremely complex, mathematically rigorous, and structurally flawless code. Your logic must include advanced PID/state-machine resilience, multi-layered safety interlocks, and sensor noise filtering. Output the most elite, realistic IEC 61131-3 Structured Text imaginable.
 
-**Your assigned domain is: Commercial Greenhouse Automated Climate Control Shading and CO2 Enrichment**
+**Your assigned domain is: Automated Civil Tunnel Boring Machine (TBM) Cutterhead Torque and Thrust Cylinder Sync**
 
 Task: Invent a highly complex, ultra-realistic control scenario for this domain. Your code must look like the absolute best, most robust industrial code written by a world-class 40-year veteran.
 
@@ -26,7 +22,7 @@ CRITICAL RULES - READ EVERY LINE:
 4. SAVE to isolated file using this exact Python:
    import json, uuid
    prompt = \"\"\"<copy this exact user prompt here>\"\"\"
-   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_Greenhouse_ClimateControl\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
+   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_TBM_CutterheadControl\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
    record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
    with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
        json.dump(record, f, ensure_ascii=False)
@@ -39,217 +35,164 @@ CRITICAL RULES - READ EVERY LINE:
    [ ] Last code line: END_FUNCTION_BLOCK
    [ ] Closing fence: ```
    [ ] Total chars >= 1500
-6. REPLY with: EVOLUTION COMPLETE: Commercial Greenhouse Automated Climate Control Shading and CO2 Enrichment
+6. REPLY with: EVOLUTION COMPLETE: Automated Civil Tunnel Boring Machine (TBM) Cutterhead Torque and Thrust Cylinder Sync
 
-DO NOT APOLOGIZE. DO NOT EXPLAIN. GENERATE CODE AND SAVE IT.
-</USER_REQUEST>"""
+DO NOT APOLOGIZE. DO NOT EXPLAIN. GENERATE CODE AND SAVE IT."""
 
 code = """```iec-st
-FUNCTION_BLOCK FB_Greenhouse_Climate_Shading_CO2
+FUNCTION_BLOCK FB_TBM_CutterheadControl
+(* 
+   Automated Civil Tunnel Boring Machine (TBM) Cutterhead Torque and Thrust Cylinder Sync
+   Advanced PLC automation architect implementation.
+   Provides real-time synchronization between cutterhead rotational torque and forward thrust.
+*)
+
 VAR_INPUT
-    (* Operational Inputs *)
-    bSystemEnable       : BOOL;     (* Master enable for the greenhouse climate control system *)
-    bEmergencyStop      : BOOL;     (* Hardware E-Stop OK relay signal (FALSE = Stop) *)
-    bFireAlarm          : BOOL;     (* Fire alarm interlock (TRUE = Fire Detected) *)
-    
-    (* Environmental Sensors - Assumed scaled 4-20mA or digital readings *)
-    rIndoorTemp         : REAL;     (* Current indoor temperature in degrees Celsius *)
-    rOutdoorTemp        : REAL;     (* Current outdoor temperature in degrees Celsius *)
-    rIndoorHumidity     : REAL;     (* Current indoor relative humidity (%) *)
-    rSolarRadiation     : REAL;     (* Current solar radiation in W/m^2 *)
-    rWindSpeed          : REAL;     (* Current outdoor wind speed in m/s *)
-    rCO2PPM             : REAL;     (* Current indoor CO2 concentration in Parts Per Million (PPM) *)
-    
-    (* Setpoints & Config *)
-    rTempSetpointDay    : REAL;     (* Target daytime temperature (Deg C) *)
-    rTempSetpointNight  : REAL;     (* Target nighttime temperature (Deg C) *)
-    rCO2Setpoint        : REAL;     (* Target CO2 concentration (PPM) *)
-    rMaxRadiation       : REAL;     (* Maximum allowed solar radiation before shading (W/m^2) *)
-    bDayTimeMode        : BOOL;     (* TRUE if currently daytime mode, FALSE if nighttime *)
+    bEnable                 : BOOL;     (* System enable signal *)
+    bEmergencyStop          : BOOL;     (* Safety relay OK signal (TRUE = safe, FALSE = E-STOP) *)
+    rActualTorque           : REAL;     (* Current cutterhead torque feedback (kNm) *)
+    rActualThrustPressure   : REAL;     (* Current thrust cylinder pressure feedback (bar) *)
+    rTargetAdvanceRate      : REAL;     (* Target TBM advance rate (mm/min) *)
+    rRockDensityFactor      : REAL;     (* Geology factor based on seismic/probing (0.0 to 1.0) *)
+    bOverloadProtection     : BOOL;     (* Hardware overload relay status *)
+    rMaxAllowableTorque     : REAL;     (* Maximum safe operating torque (kNm) *)
 END_VAR
 
 VAR_OUTPUT
-    (* Actuator Commands *)
-    rShadingPosition    : REAL;     (* Shade screen position command 0.0 to 100.0% (100 = fully closed) *)
-    bCO2ValveOpen       : BOOL;     (* Solenoid valve command for CO2 enrichment tank *)
-    rVentilationPos     : REAL;     (* Roof vent position command 0.0 to 100.0% *)
-    
-    (* System Status & Alarms *)
-    bSystemActive       : BOOL;     (* TRUE when control loops are actively running *)
-    bShadingInterlock   : BOOL;     (* TRUE when shading is disabled due to high wind / emergency *)
-    bAlarmHighTemp      : BOOL;     (* Alarm: Temperature exceeds critical threshold *)
-    bAlarmCO2Fault      : BOOL;     (* Alarm: CO2 sensor error or regulation failed *)
-    bSystemFault        : BOOL;     (* General system fault indicator *)
+    bSystemReady            : BOOL;     (* System ready status for main control room *)
+    rThrustCommand          : REAL;     (* Command signal to proportional thrust valves (0-100%) *)
+    rTorqueLimitCommand     : REAL;     (* Command signal to VFD torque limiters (0-100%) *)
+    bAlarm                  : BOOL;     (* Critical fault alarm output *)
+    bWarningOverTorque      : BOOL;     (* Early warning for approaching torque limit *)
+    iOperatingState         : INT;      (* Current internal state machine value *)
 END_VAR
 
 VAR
-    (* Internal State and Timers *)
-    iControlState       : INT := 0; (* 0=Init, 10=Idle, 20=Active, 99=Fault *)
-    tControlLoopTimer   : TON;
-    tCO2DelayTimer      : TON;
+    iState                  : INT := 0; (* Internal State: 0=IDLE, 10=INIT, 20=RUNNING, 99=FAULT *)
+    tStartupDelay           : TON;
+    tFilteringTimer         : TON;
     
-    (* Filtered Variables (Exponential Moving Average) *)
-    rFiltSolarRad       : REAL := 0.0;
-    rFiltWindSpeed      : REAL := 0.0;
-    rFiltCO2PPM         : REAL := 400.0;
+    (* Internal process variables *)
+    rFilteredTorque         : REAL := 0.0;
+    rTorqueError            : REAL := 0.0;
+    rThrustCalculated       : REAL := 0.0;
+    
+    (* PI Controller for Thrust Sync *)
+    rKpThrust               : REAL := 2.5;
+    rKiThrust               : REAL := 0.15;
+    rIntegralSum            : REAL := 0.0;
+    rLastError              : REAL := 0.0;
     
     (* Filter Constants *)
-    rAlphaRad           : REAL := 0.1;
-    rAlphaWind          : REAL := 0.2;
-    rAlphaCO2           : REAL := 0.05;
-    
-    (* Working Variables *)
-    rActiveTempSP       : REAL;
-    rTempError          : REAL;
-    rCO2Error           : REAL;
-    
-    (* Limits *)
-    c_rMaxWindSpeed     : REAL := 15.0; (* m/s - wind threshold to retract shades *)
-    c_rHighTempLimit    : REAL := 40.0; (* Deg C - absolute maximum safe temperature *)
+    rAlpha                  : REAL := 0.1; (* Low pass filter coefficient *)
 END_VAR
 
-(* ==============================================================================
-   MAIN LOGIC
-   ============================================================================== *)
-
-(* 1. Safety and Interlock Processing *)
-IF NOT bEmergencyStop OR bFireAlarm THEN
-    iControlState := 99; (* Transition to fault state *)
-    bSystemFault := TRUE;
-    
-    (* Override Actuators for Safety *)
-    rShadingPosition := 0.0; (* Retract shades to avoid trapping heat/smoke *)
-    bCO2ValveOpen := FALSE;  (* Secure CO2 supply *)
-    rVentilationPos := 100.0; (* Open vents fully for smoke evacuation if fire *)
-    
-    bSystemActive := FALSE;
+(* === MAIN LOGIC === *)
+(* 1. Safety and Critical Interlocks *)
+IF NOT bEmergencyStop OR NOT bOverloadProtection THEN
+    bSystemReady := FALSE;
+    bAlarm := TRUE;
+    rThrustCommand := 0.0;
+    rTorqueLimitCommand := 0.0;
+    iState := 99; (* FAULT STATE *)
+    iOperatingState := iState;
     RETURN;
 END_IF;
 
-(* 2. Signal Filtering (First Order EMA for noise reduction) *)
-rFiltSolarRad := (rAlphaRad * rSolarRadiation) + ((1.0 - rAlphaRad) * rFiltSolarRad);
-rFiltWindSpeed := (rAlphaWind * rWindSpeed) + ((1.0 - rAlphaWind) * rFiltWindSpeed);
-rFiltCO2PPM := (rAlphaCO2 * rCO2PPM) + ((1.0 - rAlphaCO2) * rFiltCO2PPM);
+(* 2. Signal Filtering - Exponential moving average for sensor noise reduction *)
+rFilteredTorque := rAlpha * rActualTorque + (1.0 - rAlpha) * rFilteredTorque;
 
-(* 3. Setpoint Determination *)
-IF bDayTimeMode THEN
-    rActiveTempSP := rTempSetpointDay;
+(* 3. Alarm Generation - Pre-warning for torque *)
+IF rFilteredTorque > (rMaxAllowableTorque * 0.9) THEN
+    bWarningOverTorque := TRUE;
 ELSE
-    rActiveTempSP := rTempSetpointNight;
+    bWarningOverTorque := FALSE;
 END_IF;
 
-(* 4. Alarm Generation *)
-IF rIndoorTemp > c_rHighTempLimit THEN
-    bAlarmHighTemp := TRUE;
-ELSE
-    bAlarmHighTemp := FALSE;
-END_IF;
-
-IF (rFiltCO2PPM < 100.0) OR (rFiltCO2PPM > 5000.0) THEN
-    bAlarmCO2Fault := TRUE; (* Sensor likely out of bounds / failed *)
-ELSE
-    bAlarmCO2Fault := FALSE;
-END_IF;
-
-(* 5. State Machine Control *)
-CASE iControlState OF
-    0: (* INIT *)
-        bSystemActive := FALSE;
-        rShadingPosition := 0.0;
-        bCO2ValveOpen := FALSE;
-        rVentilationPos := 0.0;
-        bSystemFault := FALSE;
+(* 4. State Machine Execution *)
+CASE iState OF
+    0: (* IDLE *)
+        bSystemReady := TRUE;
+        bAlarm := FALSE;
+        rThrustCommand := 0.0;
+        rTorqueLimitCommand := 0.0;
         
-        IF bSystemEnable THEN
-            iControlState := 10;
+        IF bEnable THEN
+            iState := 10;
+            tStartupDelay(IN := FALSE); (* Reset timer *)
         END_IF;
 
-    10: (* IDLE *)
-        bSystemActive := FALSE;
-        IF bSystemEnable AND NOT bSystemFault THEN
-            iControlState := 20;
-        ELSIF NOT bSystemEnable THEN
-            rShadingPosition := 0.0;
-            bCO2ValveOpen := FALSE;
-            rVentilationPos := 0.0;
+    10: (* INIT - Pre-charging hydraulic systems and preparing VFDs *)
+        tStartupDelay(IN := TRUE, PT := T#5S);
+        
+        (* Gradually set torque limit to safe start value *)
+        rTorqueLimitCommand := 20.0; 
+        
+        IF tStartupDelay.Q THEN
+            tStartupDelay(IN := FALSE);
+            rIntegralSum := 0.0; (* Reset PID integral *)
+            iState := 20;
+        END_IF;
+        
+        IF NOT bEnable THEN
+            iState := 0;
         END_IF;
 
-    20: (* ACTIVE CONTROL LOOP *)
-        bSystemActive := TRUE;
+    20: (* RUNNING - Synchronizing Torque and Thrust *)
         
-        (* If system is disabled, go back to idle *)
-        IF NOT bSystemEnable THEN
-            iControlState := 10;
-        END_IF;
+        (* Calculate dynamic torque error *)
+        rTorqueError := rMaxAllowableTorque - rFilteredTorque;
         
-        (* === Shading Control === *)
-        (* High wind interlock: retract shades to prevent mechanical damage *)
-        IF rFiltWindSpeed > c_rMaxWindSpeed THEN
-            bShadingInterlock := TRUE;
-            rShadingPosition := 0.0; 
-        ELSE
-            bShadingInterlock := FALSE;
-            (* Modulate shading based on solar radiation *)
-            IF rFiltSolarRad > rMaxRadiation THEN
-                (* Proportional shading based on excess radiation *)
-                rShadingPosition := LIMIT(0.0, ((rFiltSolarRad - rMaxRadiation) / 200.0) * 100.0, 100.0);
-            ELSE
-                rShadingPosition := 0.0;
-            END_IF;
-        END_IF;
-        
-        (* === Ventilation Control (Simple Proportional) === *)
-        rTempError := rIndoorTemp - rActiveTempSP;
-        IF rTempError > 1.0 THEN
-            (* Open vents progressively if temperature is too high *)
-            rVentilationPos := LIMIT(0.0, (rTempError / 5.0) * 100.0, 100.0);
-        ELSE
-            rVentilationPos := 0.0;
-        END_IF;
-        
-        (* === CO2 Enrichment Control === *)
-        (* Only enrich CO2 during daytime when photosynthesis is active, 
-           vents are not fully open (to avoid wasting gas), and no faults exist *)
-        IF bDayTimeMode AND (rVentilationPos < 50.0) AND NOT bAlarmCO2Fault THEN
-            rCO2Error := rCO2Setpoint - rFiltCO2PPM;
+        (* If we are too close to torque limit, we must reduce thrust to prevent cutterhead jamming *)
+        IF rTorqueError < (rMaxAllowableTorque * 0.15) THEN
+            (* PI Control for Thrust Reduction *)
+            rIntegralSum := rIntegralSum + (rTorqueError * rKiThrust);
             
-            (* Hysteresis control for CO2 valve *)
-            IF rCO2Error > 50.0 THEN
-                tCO2DelayTimer(IN := TRUE, PT := T#5S); (* Debounce *)
-                IF tCO2DelayTimer.Q THEN
-                    bCO2ValveOpen := TRUE;
-                END_IF;
-            ELSIF rCO2Error < 0.0 THEN
-                bCO2ValveOpen := FALSE;
-                tCO2DelayTimer(IN := FALSE, PT := T#5S);
-            END_IF;
+            (* Anti-windup protection *)
+            IF rIntegralSum > 50.0 THEN rIntegralSum := 50.0; END_IF;
+            IF rIntegralSum < -50.0 THEN rIntegralSum := -50.0; END_IF;
+            
+            rThrustCalculated := (rTorqueError * rKpThrust) + rIntegralSum;
         ELSE
-            bCO2ValveOpen := FALSE;
-            tCO2DelayTimer(IN := FALSE, PT := T#5S);
+            (* Safe operating zone, base thrust on target advance rate and rock density *)
+            rThrustCalculated := rTargetAdvanceRate * (1.5 - rRockDensityFactor);
+            (* Decay integral action when safe *)
+            rIntegralSum := rIntegralSum * 0.99;
         END_IF;
         
-    99: (* FAULT STATE *)
-        bSystemActive := FALSE;
-        (* Require manual reset via SystemEnable toggle after fault clears *)
-        IF NOT bSystemEnable AND NOT bFireAlarm AND bEmergencyStop THEN
-            bSystemFault := FALSE;
-            iControlState := 0;
+        (* Clamp thrust command *)
+        IF rThrustCalculated > 100.0 THEN
+            rThrustCommand := 100.0;
+        ELSIF rThrustCalculated < 0.0 THEN
+            rThrustCommand := 0.0;
+        ELSE
+            rThrustCommand := rThrustCalculated;
         END_IF;
         
+        (* Set dynamic torque limit based on geology *)
+        rTorqueLimitCommand := 100.0 - (rRockDensityFactor * 20.0);
+        
+        IF NOT bEnable THEN
+            iState := 0;
+        END_IF;
+
+    99: (* FAULT HANDLING *)
+        (* Wait for operator reset which requires disabling enable signal first *)
+        IF NOT bEnable AND bEmergencyStop AND bOverloadProtection THEN
+            iState := 0;
+            bAlarm := FALSE;
+        END_IF;
+
 END_CASE;
+
+(* Update external state output *)
+iOperatingState := iState;
 
 END_FUNCTION_BLOCK
 ```"""
-
-record = {
-    "messages": [
-        {"role": "user", "content": prompt},
-        {"role": "assistant", "content": code}
-    ]
-}
-
-filename = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
+os.makedirs("c:/Users/majip/Downloads/LLM REASEARCH/data/swarm_raw", exist_ok=True)
+record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
+filename = f"c:/Users/majip/Downloads/LLM REASEARCH/data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
 with open(filename, "w", encoding="utf-8") as f:
     json.dump(record, f, ensure_ascii=False)
-
 print(f"Saved to {filename}")

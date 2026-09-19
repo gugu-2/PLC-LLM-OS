@@ -3,9 +3,9 @@ import json, uuid, os
 prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
 You possess the expertise of a 40+ years experienced PLC automation architect writing world-class, extremely complex, mathematically rigorous, and structurally flawless code. Your logic must include advanced PID/state-machine resilience, multi-layered safety interlocks, and sensor noise filtering. Output the most elite, realistic IEC 61131-3 Structured Text imaginable.
 
-**Your assigned domain is: Commercial High-Rise Elevator Group Dispatching and Regenerative Braking**
+**Your assigned domain is: Industrial Non-Woven Fabric Meltblown Extrusion Spinneret Hot Air Velocity and Web Tension**
 
-Task: Invent a highly complex, ultra-realistic control scenario for this domain. Your code must look like the absolute best, most robust industrial code written by a world-class 40-year veteran.
+Task: Invent a highly complex, ultra-realistic control scenario for this domain. Make this code EVEN BETTER, MORE ADVANCED, and MORE RIGOROUS than previous iterations. Include extreme edge-case handling, advanced math, and robust fault-tolerance.
 
 CRITICAL RULES - READ EVERY LINE:
 1. CODE FENCE: Use TRIPLE backticks + iec-st. EXACTLY like this:
@@ -23,9 +23,9 @@ CRITICAL RULES - READ EVERY LINE:
 4. SAVE to isolated file using this exact Python:
    import json, uuid
    prompt = \"\"\"<copy this exact user prompt here>\"\"\"
-   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_Elevator_GroupControl\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
-   record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
-   with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
+   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_Meltblown_Extrusion\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
+   record = {\"messages\": [{\"role\": \"user\", \"content\": prompt}, {\"role\": \"assistant\", \"content\": code}]}
+   with open(f\"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json\", \"w\", encoding=\"utf-8\") as f:
        json.dump(record, f, ensure_ascii=False)
 5. SELF-CHECK before saving - verify ALL:
    [ ] Fence is ```iec-st
@@ -36,191 +36,162 @@ CRITICAL RULES - READ EVERY LINE:
    [ ] Last code line: END_FUNCTION_BLOCK
    [ ] Closing fence: ```
    [ ] Total chars >= 1500
-6. REPLY with: EVOLUTION COMPLETE: Commercial High-Rise Elevator Group Dispatching and Regenerative Braking
+6. REPLY with: EVOLUTION COMPLETE: Industrial Non-Woven Fabric Meltblown Extrusion Spinneret Hot Air Velocity and Web Tension
 
 DO NOT APOLOGIZE. DO NOT EXPLAIN. GENERATE CODE AND SAVE IT."""
 
 code = """```iec-st
-FUNCTION_BLOCK FB_ElevatorDispatchAndRegen
+FUNCTION_BLOCK FB_Meltblown_Extrusion_Control
 VAR_INPUT
-    (* System Inputs *)
-    bSystemEnable         : BOOL;      (* Main system enable signal *)
-    bEmergencyStop        : BOOL;      (* Safety relay OK signal, normally closed (TRUE=OK) *)
-    rCarSpeed_m_s         : REAL;      (* Current physical speed of the elevator car in m/s *)
-    rCarLoad_kg           : REAL;      (* Current load in the elevator car in kg *)
-    rDCBusVoltage_V       : REAL;      (* DC Bus voltage for regenerative braking system in Volts *)
-    iCurrentFloor         : INT;       (* Current physical floor location *)
-    iTargetFloor          : INT;       (* Desired floor from the dispatching algorithm *)
-    bHoistwayClear        : BOOL;      (* Safety interlock from hoistway sensors *)
+    bSystemEnable       : BOOL;     (* Main system enable signal *)
+    bEmergencyStop      : BOOL;     (* Safety relay OK signal, normally closed (TRUE=OK) *)
+    rSpinneretTemp      : REAL;     (* Measured spinneret temperature [deg C] *)
+    rAirVelocityAct     : REAL;     (* Measured hot air velocity [m/s] *)
+    rWebTensionAct      : REAL;     (* Measured web tension [N] *)
+    rTargetVelocity     : REAL;     (* Setpoint for hot air velocity [m/s] *)
+    rTargetTension      : REAL;     (* Setpoint for web tension [N] *)
+    rExtruderPressure   : REAL;     (* Melt pressure at die [bar] *)
 END_VAR
 VAR_OUTPUT
-    (* System Outputs *)
-    bDriveEnable          : BOOL;      (* Enable signal to the main traction drive *)
-    rMotorTorqueCmd       : REAL;      (* Torque command to the traction motor in Nm *)
-    bRegenActive          : BOOL;      (* Regenerative braking contactor enable *)
-    bSafetyBrakeDeploy    : BOOL;      (* Mechanical safety brake deployment (TRUE = Drop brakes) *)
-    bDoorOpenEnable       : BOOL;      (* Enable door operator to open doors *)
-    iDispatchState        : INT;       (* Current operating state for SCADA monitoring *)
+    bSystemReady        : BOOL;     (* System ready status flag *)
+    rAirBlowerSpeedRef  : REAL;     (* Reference signal for hot air blower speed [%] *)
+    rWinderTorqueRef    : REAL;     (* Reference signal for winder torque/speed [%] *)
+    bWarningAlarm       : BOOL;     (* Process warning - limits exceeded slightly *)
+    bCriticalAlarm      : BOOL;     (* Process fault - critical limits exceeded, stopping *)
+    iCurrentState       : INT;      (* Current state machine state *)
 END_VAR
 VAR
-    (* Internal State and Timers *)
-    iState                : INT := 0;  (* 0=IDLE, 10=ACCEL, 20=CRUISE, 30=DECEL, 40=LEVELING, 50=REGEN, 99=FAULT *)
-    tRegenDelay           : TON;       (* Timer for engaging regen contactor safely *)
-    tLevelingTimer        : TON;       (* Timer to ensure accurate floor leveling *)
-    rSpeedError           : REAL;      (* Error between target speed and current speed *)
-    rTargetSpeed          : REAL;      (* Calculated motion profile target speed *)
-    rIntegralAccum        : REAL := 0.0;
+    iState              : INT := 0; (* Internal state tracking *)
+    tStartupDelay       : TON;      (* Timer for pre-heating and stabilization *)
+    tStabilizationTimer : TON;      (* Timer for process stabilization *)
+    rAirVelocityError   : REAL;
+    rAirVelocityInt     : REAL := 0.0;
+    rTensionError       : REAL;
+    rTensionInt         : REAL := 0.0;
+    
+    (* Filter variables *)
+    rFilteredVelocity   : REAL := 0.0;
+    rFilteredTension    : REAL := 0.0;
     
     (* Constants *)
-    MAX_SPEED             : REAL := 8.0;   (* 8 m/s for high-rise commercial *)
-    MAX_DC_VOLTAGE        : REAL := 750.0; (* 750V DC Bus Limit *)
-    OVERSPEED_LIMIT       : REAL := 8.5;
-    NOMINAL_LOAD          : REAL := 1500.0;(* 1500 kg max capacity *)
+    rAlpha              : REAL := 0.1; (* Low pass filter coefficient *)
+    rKp_Air             : REAL := 2.5;
+    rKi_Air             : REAL := 0.05;
+    rKp_Ten             : REAL := 1.8;
+    rKi_Ten             : REAL := 0.02;
     
-    (* Noise Filtering *)
-    rSpeedFiltered        : REAL := 0.0;
-    ALPHA_FILTER          : REAL := 0.2;   (* Low-pass filter coefficient *)
+    rMaxSpeed           : REAL := 100.0;
+    rMinSpeed           : REAL := 0.0;
 END_VAR
 
-(* === SAFETY INTERLOCKS AND FAULT HANDLING === *)
-IF NOT bEmergencyStop OR NOT bHoistwayClear THEN
-    bDriveEnable := FALSE;
-    rMotorTorqueCmd := 0.0;
-    bRegenActive := FALSE;
-    bSafetyBrakeDeploy := TRUE; (* Deploy mechanical brakes instantly *)
-    bDoorOpenEnable := FALSE;
-    iState := 99; (* FAULT STATE *)
-    iDispatchState := iState;
+(* === MAIN LOGIC === *)
+
+(* Safety and Interlocks *)
+IF NOT bEmergencyStop THEN
+    bSystemReady := FALSE;
+    bCriticalAlarm := TRUE;
+    rAirBlowerSpeedRef := 0.0;
+    rWinderTorqueRef := 0.0;
+    iState := 99; (* Fault state *)
     RETURN;
 END_IF;
 
-(* Speed Sensor Noise Filtering (Low-Pass Filter) *)
-rSpeedFiltered := (ALPHA_FILTER * rCarSpeed_m_s) + ((1.0 - ALPHA_FILTER) * rSpeedFiltered);
+(* Input Filtering - EWMA (Exponentially Weighted Moving Average) *)
+rFilteredVelocity := rAlpha * rAirVelocityAct + (1.0 - rAlpha) * rFilteredVelocity;
+rFilteredTension := rAlpha * rWebTensionAct + (1.0 - rAlpha) * rFilteredTension;
 
-(* Overspeed Protection - Redundant Logic *)
-IF rSpeedFiltered > OVERSPEED_LIMIT THEN
-    bDriveEnable := FALSE;
-    bSafetyBrakeDeploy := TRUE;
-    bRegenActive := FALSE;
+(* Alarms *)
+bWarningAlarm := (ABS(rFilteredVelocity - rTargetVelocity) > 5.0) OR (ABS(rFilteredTension - rTargetTension) > 10.0);
+bCriticalAlarm := (rExtruderPressure > 250.0) OR (rSpinneretTemp > 350.0);
+
+IF bCriticalAlarm THEN
     iState := 99;
-    iDispatchState := iState;
-    RETURN;
-ELSE
-    bSafetyBrakeDeploy := FALSE;
 END_IF;
 
-(* === STATE MACHINE FOR ELEVATOR DISPATCHING & MOTION === *)
+iCurrentState := iState;
+
+(* State Machine *)
 CASE iState OF
-    0: (* IDLE - Wait at floor *)
-        bDriveEnable := FALSE;
-        rMotorTorqueCmd := 0.0;
-        bRegenActive := FALSE;
-        bDoorOpenEnable := TRUE;
-        
-        IF bSystemEnable AND (iCurrentFloor <> iTargetFloor) THEN
-            bDoorOpenEnable := FALSE;
+    0: (* IDLE *)
+        bSystemReady := FALSE;
+        rAirBlowerSpeedRef := 0.0;
+        rWinderTorqueRef := 0.0;
+        IF bSystemEnable AND NOT bCriticalAlarm THEN
             iState := 10;
         END_IF;
 
-    10: (* ACCEL - Accelerate towards target *)
-        bDriveEnable := TRUE;
-        rTargetSpeed := MAX_SPEED * 0.5; (* Simplified ramp up *)
-        
-        (* PID Logic for Torque Command *)
-        rSpeedError := rTargetSpeed - rSpeedFiltered;
-        rIntegralAccum := rIntegralAccum + (rSpeedError * 0.01);
-        rMotorTorqueCmd := (rSpeedError * 50.0) + (rIntegralAccum * 5.0);
-        
-        IF rSpeedFiltered >= (MAX_SPEED * 0.45) THEN
-            iState := 20;
-        END_IF;
-
-    20: (* CRUISE - Constant speed *)
-        bDriveEnable := TRUE;
-        rTargetSpeed := MAX_SPEED;
-        
-        rSpeedError := rTargetSpeed - rSpeedFiltered;
-        rMotorTorqueCmd := (rSpeedError * 40.0) + (rIntegralAccum * 5.0);
-        
-        (* Evaluate distance to target for deceleration *)
-        IF ABS(iTargetFloor - iCurrentFloor) <= 2 THEN
-            iState := 30;
-        END_IF;
-
-    30: (* DECEL & REGENERATIVE BRAKING DECISION *)
-        bDriveEnable := TRUE;
-        rTargetSpeed := 1.0; (* Decelerate to leveling speed *)
-        
-        (* Regenerative Braking Logic: 
-           If decel is required AND we have heavy load going down OR light load going up,
-           the motor acts as a generator. Engage REGEN if DC Bus is healthy. *)
-        IF rDCBusVoltage_V < MAX_DC_VOLTAGE THEN
-            tRegenDelay(IN := TRUE, PT := T#100MS);
-            IF tRegenDelay.Q THEN
-                bRegenActive := TRUE;
-                iState := 50; (* Transition to Regen-Assist Decel *)
+    10: (* PRE-HEATING & CHECK *)
+        tStartupDelay(IN := TRUE, PT := T#10S);
+        IF tStartupDelay.Q THEN
+            tStartupDelay(IN := FALSE);
+            IF rSpinneretTemp > 200.0 THEN (* Minimum operational temp *)
+                iState := 20;
+            ELSE
+                bWarningAlarm := TRUE;
             END_IF;
-        ELSE
-            bRegenActive := FALSE;
-            (* Dissipate via dynamic braking resistors instead (not mapped to IO here) *)
+        END_IF;
+
+    20: (* RUNNING & PID CONTROL *)
+        bSystemReady := TRUE;
+        
+        (* Air Velocity PI Controller *)
+        rAirVelocityError := rTargetVelocity - rFilteredVelocity;
+        rAirVelocityInt := rAirVelocityInt + (rAirVelocityError * rKi_Air);
+        
+        (* Anti-windup for Air Velocity *)
+        IF rAirVelocityInt > rMaxSpeed THEN rAirVelocityInt := rMaxSpeed; END_IF;
+        IF rAirVelocityInt < rMinSpeed THEN rAirVelocityInt := rMinSpeed; END_IF;
+        
+        rAirBlowerSpeedRef := (rAirVelocityError * rKp_Air) + rAirVelocityInt;
+        
+        (* Saturation for Output *)
+        IF rAirBlowerSpeedRef > rMaxSpeed THEN rAirBlowerSpeedRef := rMaxSpeed; END_IF;
+        IF rAirBlowerSpeedRef < rMinSpeed THEN rAirBlowerSpeedRef := rMinSpeed; END_IF;
+        
+        (* Web Tension PI Controller *)
+        rTensionError := rTargetTension - rFilteredTension;
+        rTensionInt := rTensionInt + (rTensionError * rKi_Ten);
+        
+        (* Anti-windup for Web Tension *)
+        IF rTensionInt > rMaxSpeed THEN rTensionInt := rMaxSpeed; END_IF;
+        IF rTensionInt < rMinSpeed THEN rTensionInt := rMinSpeed; END_IF;
+        
+        rWinderTorqueRef := (rTensionError * rKp_Ten) + rTensionInt;
+        
+        (* Saturation for Output *)
+        IF rWinderTorqueRef > rMaxSpeed THEN rWinderTorqueRef := rMaxSpeed; END_IF;
+        IF rWinderTorqueRef < rMinSpeed THEN rWinderTorqueRef := rMinSpeed; END_IF;
+        
+        IF NOT bSystemEnable THEN
+            iState := 30; (* Ramp down *)
         END_IF;
         
-        rSpeedError := rTargetSpeed - rSpeedFiltered;
-        rMotorTorqueCmd := (rSpeedError * 60.0);
-        
-        IF rSpeedFiltered <= 1.2 THEN
-            tRegenDelay(IN := FALSE);
-            bRegenActive := FALSE;
-            iState := 40;
-        END_IF;
-        
-    40: (* LEVELING - Final approach to floor *)
-        bDriveEnable := TRUE;
-        rTargetSpeed := 0.1;
-        rMotorTorqueCmd := (rTargetSpeed - rSpeedFiltered) * 80.0;
-        
-        tLevelingTimer(IN := TRUE, PT := T#2S);
-        IF iCurrentFloor = iTargetFloor AND tLevelingTimer.Q THEN
-            tLevelingTimer(IN := FALSE);
+    30: (* RAMP DOWN *)
+        rAirBlowerSpeedRef := rAirBlowerSpeedRef * 0.9;
+        rWinderTorqueRef := rWinderTorqueRef * 0.9;
+        IF rAirBlowerSpeedRef < 1.0 AND rWinderTorqueRef < 1.0 THEN
+            rAirBlowerSpeedRef := 0.0;
+            rWinderTorqueRef := 0.0;
             iState := 0;
         END_IF;
 
-    50: (* REGEN - Regenerative braking state *)
-        bDriveEnable := TRUE;
-        bRegenActive := TRUE;
-        rTargetSpeed := 1.0;
-        
-        (* Negative torque command to extract energy *)
-        rMotorTorqueCmd := -150.0; 
-        
-        (* Monitor DC Bus - trip out if overvoltage *)
-        IF rDCBusVoltage_V >= MAX_DC_VOLTAGE THEN
-            bRegenActive := FALSE;
-            iState := 30; (* Revert to standard decel *)
-        END_IF;
-        
-        IF rSpeedFiltered <= 1.2 THEN
-            bRegenActive := FALSE;
-            iState := 40; (* Go to leveling *)
+    99: (* FAULT HANDLING *)
+        bSystemReady := FALSE;
+        rAirBlowerSpeedRef := 0.0;
+        rWinderTorqueRef := 0.0;
+        tStartupDelay(IN := FALSE);
+        IF bSystemEnable = FALSE AND bCriticalAlarm = FALSE THEN
+            iState := 0;
         END_IF;
 
-    99: (* FAULT RECOVERY WAIT *)
-        bDriveEnable := FALSE;
-        rMotorTorqueCmd := 0.0;
-        bRegenActive := FALSE;
-        IF bSystemEnable AND bEmergencyStop AND bHoistwayClear AND (rSpeedFiltered = 0.0) THEN
-            iState := 0; (* Reset to IDLE if safe *)
-        END_IF;
-        
 END_CASE;
-
-iDispatchState := iState;
 
 END_FUNCTION_BLOCK
 ```"""
 
-os.makedirs('data/swarm_raw', exist_ok=True)
 record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
+
+os.makedirs("data/swarm_raw", exist_ok=True)
 filename = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
 with open(filename, "w", encoding="utf-8") as f:
     json.dump(record, f, ensure_ascii=False)

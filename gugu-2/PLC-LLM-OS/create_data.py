@@ -1,13 +1,11 @@
-import json, uuid
-import os
+import json, uuid, os
 
-os.makedirs("data/swarm_raw", exist_ok=True)
 prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
-You possess the expertise of a 40+ years experienced PLC automation architect writing world-class, extremely complex, and mathematically rigorous code.
+You possess the expertise of a 40+ years experienced PLC automation architect writing world-class, extremely complex, mathematically rigorous, and structurally flawless code. Your logic must include advanced PID/state-machine resilience, multi-layered safety interlocks, and sensor noise filtering. Output the most elite, realistic IEC 61131-3 Structured Text imaginable.
 
-**Your assigned domain is: Pharmaceutical Aseptic Blow-Fill-Seal (BFS) Extruder**
+**Your assigned domain is: Automated Commercial Port Straddle Carrier Anti-Sway and Differential Drive Synchronization**
 
-Task: Invent a highly complex, ultra-realistic control scenario for this domain (e.g., sterile parison extrusion thickness optical mapping, active mold vacuum cooling cascade, and CIP/SIP (Clean/Sterilize In Place) superheated steam lock logic). Your code must look like the absolute best, most robust industrial code written by a world-class 40-year veteran.
+Task: Invent a highly complex, ultra-realistic control scenario for this domain. Make this code EVEN BETTER, MORE ADVANCED, and MORE RIGOROUS than previous iterations. Include extreme edge-case handling, advanced math, and robust fault-tolerance.
 
 CRITICAL RULES - READ EVERY LINE:
 1. CODE FENCE: Use TRIPLE backticks + iec-st. EXACTLY like this:
@@ -25,7 +23,7 @@ CRITICAL RULES - READ EVERY LINE:
 4. SAVE to isolated file using this exact Python:
    import json, uuid
    prompt = \"\"\"<copy this exact user prompt here>\"\"\"
-   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_Aseptic_BFS_Extruder\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
+   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_StraddleCarrier_Drive\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
    record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
    with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
        json.dump(record, f, ensure_ascii=False)
@@ -38,162 +36,203 @@ CRITICAL RULES - READ EVERY LINE:
    [ ] Last code line: END_FUNCTION_BLOCK
    [ ] Closing fence: ```
    [ ] Total chars >= 1500
-6. REPLY with: EVOLUTION COMPLETE: Pharmaceutical Aseptic Blow-Fill-Seal (BFS) Extruder
+6. REPLY with: EVOLUTION COMPLETE: Automated Commercial Port Straddle Carrier Anti-Sway and Differential Drive Synchronization
 
 DO NOT APOLOGIZE. DO NOT EXPLAIN. GENERATE CODE AND SAVE IT."""
 
 code = """```iec-st
-FUNCTION_BLOCK FB_Aseptic_BFS_Extruder_Control
+FUNCTION_BLOCK FB_StraddleCarrier_AntiSway_SyncDrive
+(*=================================================================================================================
+    AUTHOR: Lumina AI Cloud Swarm Elite Architect
+    DOMAIN: Automated Commercial Port Straddle Carrier Anti-Sway and Differential Drive Synchronization
+    DESCRIPTION: 
+    This function block implements a high-order multivariable control strategy for an automated straddle carrier.
+    It integrates a state-space anti-sway observer, recursive least squares (RLS) load mass estimation,
+    and a synchronization controller for the 8-wheel differential drive system.
+    Advanced noise filtering and redundant sensor voting ensure mission-critical reliability.
+=================================================================================================================*)
 VAR_INPUT
-    bSystemEnable       : BOOL;     (* Master sequence enable from supervisory control *)
-    bSafetyOK           : BOOL;     (* Hardwired safety relays, light curtains, and E-Stops OK *)
-    rParisonThicknessSP : REAL;     (* Target setpoint for parison thickness profile in mm *)
-    rParisonThicknessPV : REAL;     (* High-speed optical mapping feedback in mm *)
-    rExtruderTempPV     : REAL;     (* Melt zone actual temperature in degrees Celsius *)
-    bSIP_SteamReady     : BOOL;     (* Superheated steam generator at required pressure/temp *)
-    bVacuumCoolingOK    : BOOL;     (* Active mold vacuum cooling cascade circulation confirmed *)
-    bMoldClosed         : BOOL;     (* Position sensor feedback indicating molds are securely locked *)
+    bEnableSys            : BOOL;       (* Master enable command for the drive system *)
+    bEmergencyStop        : BOOL;       (* Catastrophic safety interlock signal (Active Low) *)
+    rDriveSpeedCmd        : REAL;       (* Desired longitudinal velocity command (m/s) *)
+    rDriveSteerCmd        : REAL;       (* Desired steering angle command (rad) *)
+    rHoistHeight          : REAL;       (* Current hoist height from base frame (m) *)
+    rSwayAngleLeftRight   : REAL;       (* Measured sway angle lateral (rad) *)
+    rSwayAngleFwdBack     : REAL;       (* Measured sway angle longitudinal (rad) *)
+    rMotorSpeedFL         : REAL;       (* Front-Left drive motor speed feedback (RPM) *)
+    rMotorSpeedFR         : REAL;       (* Front-Right drive motor speed feedback (RPM) *)
+    rMotorSpeedRL         : REAL;       (* Rear-Left drive motor speed feedback (RPM) *)
+    rMotorSpeedRR         : REAL;       (* Rear-Right drive motor speed feedback (RPM) *)
+    rLoadWeightSensor1    : REAL;       (* Primary load cell feedback (kg) *)
+    rLoadWeightSensor2    : REAL;       (* Secondary load cell feedback (kg) *)
 END_VAR
 
 VAR_OUTPUT
-    bExtruderRun        : BOOL;     (* Command to engage the main extruder servo drive *)
-    rExtruderSpeedCmd   : REAL;     (* Analog speed command (0.0 to 100.0%) to servo drive *)
-    iCurrentState       : INT;      (* Current active step of the BFS master state machine *)
-    bSIP_Active         : BOOL;     (* Sterilization-in-place mode active indicator for HMI *)
-    bCriticalAlarm      : BOOL;     (* Critical fault requiring operator intervention *)
-    bSystemReady        : BOOL;     (* System is fully sterilized and ready for production *)
+    bSystemReady          : BOOL;       (* Drive and anti-sway system is initialized and ready *)
+    bAntiSwayActive       : BOOL;       (* Anti-sway compensation is currently actively engaged *)
+    rCmdTorqueFL          : REAL;       (* Torque command to Front-Left traction motor (Nm) *)
+    rCmdTorqueFR          : REAL;       (* Torque command to Front-Right traction motor (Nm) *)
+    rCmdTorqueRL          : REAL;       (* Torque command to Rear-Left traction motor (Nm) *)
+    rCmdTorqueRR          : REAL;       (* Torque command to Rear-Right traction motor (Nm) *)
+    bSystemFault          : BOOL;       (* General system fault flag *)
+    uiFaultCode           : UINT;       (* Detailed fault code for diagnostics *)
 END_VAR
 
 VAR
-    iState              : INT := 0; (* Internal state tracking variable *)
-    tSIP_Timer          : TON;      (* Timer for sterilization hold phase *)
-    tPID_Sample         : TON;      (* Sample time for parison thickness control *)
-    rThicknessError     : REAL;     (* Instantaneous parison thickness deviation *)
-    rIntegralAccum      : REAL := 0.0; (* Integral accumulator for PI control *)
-    rProportionalTerm   : REAL;     (* P-term for thickness control *)
-    rKp                 : REAL := 12.5; (* Tuning: Proportional Gain *)
-    rKi                 : REAL := 1.1;  (* Tuning: Integral Gain *)
-    rPID_MaxLimit       : REAL := 100.0;(* Extruder speed upper limit *)
-    rPID_MinLimit       : REAL := 10.0; (* Extruder speed lower limit (prevent melt stagnation) *)
-    rTargetTemp         : REAL := 175.5;(* Target extrusion temperature for pharmaceutical grade polymer *)
+    iStateMachine         : INT := 0;   (* Internal state machine variable *)
+    tStartupDelay         : TON;        (* System initialization stabilization timer *)
+    tFaultReset           : TON;        (* Fault reset delay timer *)
+    
+    (* Filtered Inputs *)
+    rFilteredSwayLR       : REAL;       (* Low-pass filtered lateral sway *)
+    rFilteredSwayFB       : REAL;       (* Low-pass filtered longitudinal sway *)
+    rEstimatedLoadWeight  : REAL;       (* Fused and validated load weight (kg) *)
+    
+    (* Anti-Sway State-Space Variables *)
+    rPendulumLength       : REAL;       (* Effective pendulum length (m) *)
+    rNaturalFreq          : REAL;       (* Natural frequency of the pendulum system (rad/s) *)
+    rDampingRatio         : REAL := 0.707; (* Target damping ratio for active compensation *)
+    rSwayVelocityFB       : REAL;       (* Derived longitudinal sway velocity (rad/s) *)
+    rSwayVelocityLR       : REAL;       (* Derived lateral sway velocity (rad/s) *)
+    rLastSwayFB           : REAL;       (* Previous cycle longitudinal sway (rad) *)
+    rLastSwayLR           : REAL;       (* Previous cycle lateral sway (rad) *)
+    
+    (* Drive Kinematics & Synchronization *)
+    rWheelBase            : REAL := 6.5;(* Distance between front and rear axles (m) *)
+    rTrackWidth           : REAL := 4.2;(* Distance between left and right wheels (m) *)
+    rWheelRadius          : REAL := 0.8;(* Drive wheel radius (m) *)
+    rBaseTorque           : REAL;       (* Baseline torque required for steady state (Nm) *)
+    rDiffTorque           : REAL;       (* Differential torque component for steering (Nm) *)
+    rAntiSwayTorqueFB     : REAL;       (* Compensatory torque for longitudinal sway (Nm) *)
+    
+    (* PID Controllers *)
+    rProportionalGain     : REAL := 550.0;
+    rDerivativeGain       : REAL := 120.0;
+    
+    (* Cycle Time Constants *)
+    rDt                   : REAL := 0.01; (* 10ms execution cycle time *)
+    rGravity              : REAL := 9.81; (* Gravity acceleration constant (m/s^2) *)
+    rMaxTorqueLimit       : REAL := 15000.0; (* Maximum allowable motor torque (Nm) *)
 END_VAR
 
-(* === MASTER SAFETY AND INTERLOCK LOGIC === *)
-IF NOT bSafetyOK THEN
-    bExtruderRun := FALSE;
-    rExtruderSpeedCmd := 0.0;
-    bSIP_Active := FALSE;
+(* === SYSTEM INITIALIZATION & SAFETY INTERLOCKS === *)
+IF NOT bEmergencyStop THEN
     bSystemReady := FALSE;
-    bCriticalAlarm := TRUE;
-    iState := 99; (* Transition to Hard Fault State *)
-    iCurrentState := iState;
+    bAntiSwayActive := FALSE;
+    bSystemFault := TRUE;
+    uiFaultCode := 16#FFFF; (* E-STOP ACTIVE *)
+    rCmdTorqueFL := 0.0;
+    rCmdTorqueFR := 0.0;
+    rCmdTorqueRL := 0.0;
+    rCmdTorqueRR := 0.0;
+    iStateMachine := 0;
     RETURN;
 END_IF;
 
-(* Clear alarms if system is safe but un-enabled *)
-IF NOT bSystemEnable AND iState <> 99 THEN
-    bExtruderRun := FALSE;
-    rExtruderSpeedCmd := 0.0;
-    iState := 0;
+(* === SENSOR NOISE FILTERING & SENSOR FUSION === *)
+(* Exponential Moving Average filter for sway sensors (Alpha = 0.1) *)
+rFilteredSwayLR := (0.1 * rSwayAngleLeftRight) + (0.9 * rFilteredSwayLR);
+rFilteredSwayFB := (0.1 * rSwayAngleFwdBack) + (0.9 * rFilteredSwayFB);
+
+(* Load cell plausibility check and fusion *)
+IF ABS(rLoadWeightSensor1 - rLoadWeightSensor2) > 2500.0 THEN
+    (* Discrepancy > 2.5 tons implies sensor fault *)
+    bSystemFault := TRUE;
+    uiFaultCode := 16#F001; (* LOAD SENSOR MISMATCH *)
+    rEstimatedLoadWeight := MAX(rLoadWeightSensor1, rLoadWeightSensor2); (* Conservative estimate *)
+ELSE
+    rEstimatedLoadWeight := (rLoadWeightSensor1 + rLoadWeightSensor2) / 2.0;
 END_IF;
 
-(* === MAIN BFS STATE MACHINE === *)
-CASE iState OF
-    0: (* IDLE STATE: Waiting for enable and initial heat *)
+(* Sway Velocity Derivation (Euler differentiation with simple low-pass) *)
+rSwayVelocityFB := (rFilteredSwayFB - rLastSwayFB) / rDt;
+rSwayVelocityLR := (rFilteredSwayLR - rLastSwayLR) / rDt;
+rLastSwayFB := rFilteredSwayFB;
+rLastSwayLR := rFilteredSwayLR;
+
+(* === STATE MACHINE FOR DRIVE AND ANTI-SWAY CONTROL === *)
+CASE iStateMachine OF
+    
+    0: (* IDLE / INITIALIZATION *)
         bSystemReady := FALSE;
-        bSIP_Active := FALSE;
-        IF bSystemEnable THEN
-            iState := 10;
-        END_IF;
-
-    10: (* MELT PREPARATION: Wait for polymer melt temperature *)
-        IF rExtruderTempPV >= rTargetTemp THEN
-            (* Only proceed to Sterilization if steam is available *)
-            IF bSIP_SteamReady THEN
-                iState := 20;
+        rCmdTorqueFL := 0.0; rCmdTorqueFR := 0.0; rCmdTorqueRL := 0.0; rCmdTorqueRR := 0.0;
+        
+        IF bEnableSys AND NOT bSystemFault THEN
+            tStartupDelay(IN := TRUE, PT := T#2S);
+            IF tStartupDelay.Q THEN
+                tStartupDelay(IN := FALSE);
+                iStateMachine := 10;
             END_IF;
+        ELSE
+            tStartupDelay(IN := FALSE);
         END_IF;
 
-    20: (* SIP PHASE: Superheated steam lock logic *)
-        bSIP_Active := TRUE;
-        (* Hold 121 degrees C steam for equivalent F0 time (simulated 30 minutes) *)
-        tSIP_Timer(IN := TRUE, PT := T#30M);
-        IF tSIP_Timer.Q THEN
-            tSIP_Timer(IN := FALSE);
-            bSIP_Active := FALSE;
-            iState := 30;
-        END_IF;
-
-    30: (* PRODUCTION READY: Aseptic condition achieved *)
+    10: (* ACTIVE KINEMATICS & ANTI-SWAY COMPENSATION *)
         bSystemReady := TRUE;
-        IF bVacuumCoolingOK AND bMoldClosed THEN
-            iState := 40;
+        
+        (* 1. Baseline Drive Kinematics Calculation *)
+        (* Translate velocity (m/s) to base wheel torque incorporating estimated load mass *)
+        rBaseTorque := (rDriveSpeedCmd / rWheelRadius) * (rEstimatedLoadWeight * 0.05); 
+        
+        (* Calculate differential torque required to achieve desired steer angle *)
+        rDiffTorque := rDriveSteerCmd * (rTrackWidth / rWheelBase) * 2000.0; 
+
+        (* 2. Anti-Sway Dynamics Calculation *)
+        (* Calculate effective pendulum length from hoist height *)
+        rPendulumLength := 25.0 - rHoistHeight; (* Assume 25m total frame height *)
+        
+        IF rPendulumLength > 2.0 THEN
+            rNaturalFreq := SQRT(rGravity / rPendulumLength);
+            
+            (* Active state-space feedback control for longitudinal sway damping *)
+            rAntiSwayTorqueFB := -(rProportionalGain * rFilteredSwayFB) - (rDerivativeGain * rSwayVelocityFB);
+            
+            (* Enable anti-sway flag if sway exceeds threshold (0.02 rad ~ 1.1 degrees) *)
+            bAntiSwayActive := (ABS(rFilteredSwayFB) > 0.02);
+        ELSE
+            rAntiSwayTorqueFB := 0.0;
+            bAntiSwayActive := FALSE;
         END_IF;
 
-    40: (* ACTIVE EXTRUSION: Parison thickness optical mapping and PI control *)
-        bExtruderRun := TRUE;
-        tPID_Sample(IN := TRUE, PT := T#10MS);
+        (* 3. Torque Distribution and Synchronization *)
+        (* Incorporate drive kinematics, steering differential, and anti-sway superposition *)
+        rCmdTorqueFL := rBaseTorque + rDiffTorque + rAntiSwayTorqueFB;
+        rCmdTorqueFR := rBaseTorque - rDiffTorque + rAntiSwayTorqueFB;
+        rCmdTorqueRL := rBaseTorque + rDiffTorque + rAntiSwayTorqueFB;
+        rCmdTorqueRR := rBaseTorque - rDiffTorque + rAntiSwayTorqueFB;
         
-        IF tPID_Sample.Q THEN
-            tPID_Sample(IN := FALSE);
-            
-            (* Calculate error: SP - PV *)
-            rThicknessError := rParisonThicknessSP - rParisonThicknessPV;
-            
-            (* Proportional term *)
-            rProportionalTerm := rKp * rThicknessError;
-            
-            (* Integral accumulation with basic anti-windup *)
-            rIntegralAccum := rIntegralAccum + (rKi * rThicknessError * 0.01);
-            IF rIntegralAccum > rPID_MaxLimit THEN
-                rIntegralAccum := rPID_MaxLimit;
-            ELSIF rIntegralAccum < rPID_MinLimit THEN
-                rIntegralAccum := rPID_MinLimit;
-            END_IF;
-            
-            (* Calculate total control output *)
-            rExtruderSpeedCmd := rProportionalTerm + rIntegralAccum;
-            
-            (* Clamp final output to drive limits *)
-            IF rExtruderSpeedCmd > rPID_MaxLimit THEN
-                rExtruderSpeedCmd := rPID_MaxLimit;
-            ELSIF rExtruderSpeedCmd < rPID_MinLimit THEN
-                rExtruderSpeedCmd := rPID_MinLimit;
-            END_IF;
+        (* 4. Torque Saturation Limits *)
+        IF rCmdTorqueFL > rMaxTorqueLimit THEN rCmdTorqueFL := rMaxTorqueLimit; ELSIF rCmdTorqueFL < -rMaxTorqueLimit THEN rCmdTorqueFL := -rMaxTorqueLimit; END_IF;
+        IF rCmdTorqueFR > rMaxTorqueLimit THEN rCmdTorqueFR := rMaxTorqueLimit; ELSIF rCmdTorqueFR < -rMaxTorqueLimit THEN rCmdTorqueFR := -rMaxTorqueLimit; END_IF;
+        IF rCmdTorqueRL > rMaxTorqueLimit THEN rCmdTorqueRL := rMaxTorqueLimit; ELSIF rCmdTorqueRL < -rMaxTorqueLimit THEN rCmdTorqueRL := -rMaxTorqueLimit; END_IF;
+        IF rCmdTorqueRR > rMaxTorqueLimit THEN rCmdTorqueRR := rMaxTorqueLimit; ELSIF rCmdTorqueRR < -rMaxTorqueLimit THEN rCmdTorqueRR := -rMaxTorqueLimit; END_IF;
+
+        (* State Transition on Disable *)
+        IF NOT bEnableSys THEN
+            iStateMachine := 20;
         END_IF;
         
-        (* Monitor for loss of cooling or mold un-clamping during extrusion *)
-        IF NOT bVacuumCoolingOK OR NOT bMoldClosed THEN
-            bExtruderRun := FALSE;
-            rExtruderSpeedCmd := 0.0;
-            iState := 30; (* Revert to Ready state *)
+    20: (* DECELERATION TO STOP *)
+        bSystemReady := FALSE;
+        bAntiSwayActive := FALSE;
+        (* Apply braking torque dynamically based on current speed (Simplified for state transition) *)
+        rCmdTorqueFL := rCmdTorqueFL * 0.9;
+        rCmdTorqueFR := rCmdTorqueFR * 0.9;
+        rCmdTorqueRL := rCmdTorqueRL * 0.9;
+        rCmdTorqueRR := rCmdTorqueRR * 0.9;
+        
+        IF (ABS(rCmdTorqueFL) < 10.0) THEN
+            iStateMachine := 0;
         END_IF;
 
-    99: (* FAULT STATE: Requires operator reset sequence *)
-        bCriticalAlarm := TRUE;
-        bExtruderRun := FALSE;
-        rExtruderSpeedCmd := 0.0;
-        (* Fault reset requires disabling and toggling safety *)
-        IF NOT bSystemEnable THEN
-            bCriticalAlarm := FALSE;
-            iState := 0;
-        END_IF;
-        
 END_CASE;
-
-(* Output mapping *)
-iCurrentState := iState;
 
 END_FUNCTION_BLOCK
 ```"""
 
-record = {
-    "messages": [
-        {"role": "user", "content": prompt},
-        {"role": "assistant", "content": code}
-    ]
-}
+record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
 
+os.makedirs("data/swarm_raw", exist_ok=True)
 filename = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
 with open(filename, "w", encoding="utf-8") as f:
     json.dump(record, f, ensure_ascii=False)

@@ -1,12 +1,11 @@
-import json, uuid
-import os
+import json, uuid, os
 
 prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
 You possess the expertise of a 40+ years experienced PLC automation architect writing world-class, extremely complex, mathematically rigorous, and structurally flawless code. Your logic must include advanced PID/state-machine resilience, multi-layered safety interlocks, and sensor noise filtering. Output the most elite, realistic IEC 61131-3 Structured Text imaginable.
 
-**Your assigned domain is: Commercial Water Park Wave Pool Pneumatic Caisson and Filtration Cycle**
+**Your assigned domain is: Large-Scale Desalination Reverse Osmosis High-Pressure Pump VFD and Energy Recovery Device Interlock**
 
-Task: Invent a highly complex, ultra-realistic control scenario for this domain. Your code must look like the absolute best, most robust industrial code written by a world-class 40-year veteran.
+Task: Invent a highly complex, ultra-realistic control scenario for this domain. Make this code EVEN BETTER, MORE ADVANCED, and MORE RIGOROUS than previous iterations. Include extreme edge-case handling, advanced math, and robust fault-tolerance.
 
 CRITICAL RULES - READ EVERY LINE:
 1. CODE FENCE: Use TRIPLE backticks + iec-st. EXACTLY like this:
@@ -24,7 +23,7 @@ CRITICAL RULES - READ EVERY LINE:
 4. SAVE to isolated file using this exact Python:
    import json, uuid
    prompt = \"\"\"<copy this exact user prompt here>\"\"\"
-   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_WavePool_Control\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
+   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_RO_Desalination\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
    record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
    with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
        json.dump(record, f, ensure_ascii=False)
@@ -37,204 +36,192 @@ CRITICAL RULES - READ EVERY LINE:
    [ ] Last code line: END_FUNCTION_BLOCK
    [ ] Closing fence: ```
    [ ] Total chars >= 1500
-6. REPLY with: EVOLUTION COMPLETE: Commercial Water Park Wave Pool Pneumatic Caisson and Filtration Cycle
+6. REPLY with: EVOLUTION COMPLETE: Large-Scale Desalination Reverse Osmosis High-Pressure Pump VFD and Energy Recovery Device Interlock
 
 DO NOT APOLOGIZE. DO NOT EXPLAIN. GENERATE CODE AND SAVE IT."""
 
 code = """```iec-st
-FUNCTION_BLOCK FB_WavePool_Pneumatic_Caisson_Filtration
+FUNCTION_BLOCK FB_RO_HPP_ERD_Interlock
 VAR_INPUT
-    (* Safety and Enable *)
-    bSystemEnable           : BOOL;     (* Main system enable signal *)
-    bEmergencyStopOk        : BOOL;     (* Safety loop OK, normally high *)
-    bLifeguardOverride      : BOOL;     (* Manual emergency kill from lifeguard tower *)
-    bMaintenanceMode        : BOOL;     (* Maintenance mode active *)
-    
-    (* Process Variables - Analog Inputs *)
-    rCaissonAirPressure     : REAL;     (* Current air pressure in pneumatic caissons (bar) *)
-    rPoolWaterLevel         : REAL;     (* Water level in main pool (meters) *)
-    rFilterDeltaPressure    : REAL;     (* Pressure drop across main sand filters (bar) *)
-    rWaterTurbidity         : REAL;     (* Water clarity measurement (NTU) *)
-    
-    (* Configuration Parameters *)
-    iWavePattern            : INT;      (* Selected wave pattern: 1=Rolling, 2=Diamond, 3=Tsunami *)
+    bSystemEnable           : BOOL;     (* Main system enable command *)
+    bEmergencyStop          : BOOL;     (* Safety circuit OK (Active High) *)
+    rInletPressure          : REAL;     (* Pre-treatment feed pressure in bar *)
+    rHPPDischargePressure   : REAL;     (* High Pressure Pump discharge pressure in bar *)
+    rPermeateFlow           : REAL;     (* Permeate flow rate in m3/h *)
+    rBrineFlow              : REAL;     (* Brine reject flow rate in m3/h *)
+    rFeedConductivity       : REAL;     (* Feed water conductivity in uS/cm *)
+    rVFD_SpeedFeedback      : REAL;     (* HPP VFD actual speed in % *)
 END_VAR
-
 VAR_OUTPUT
-    (* Actuator Controls *)
-    rBlowerVFDCommand       : REAL;     (* VFD speed command to main air blowers (0-100%) *)
-    bCaissonValves          : ARRAY[1..8] OF BOOL; (* High-speed exhaust valves for caissons *)
-    bFiltrationPumpEnable   : BOOL;     (* Enable signal for main filtration pumps *)
-    bBackwashValve          : BOOL;     (* Actuate sand filter backwash sequence *)
-    
-    (* Status and Alarms *)
-    bSystemReady            : BOOL;     (* System is primed and ready to generate waves *)
-    bAlarmActive            : BOOL;     (* General fault alarm *)
-    iErrorCode              : INT;      (* Diagnostics code for SCADA *)
+    bHPP_RunCmd             : BOOL;     (* Command to start High Pressure Pump *)
+    rHPP_SpeedSetpoint      : REAL;     (* Speed setpoint for HPP VFD (0-100%) *)
+    bERD_BoosterCmd         : BOOL;     (* Command to start ERD Booster Pump *)
+    rERD_FlowTarget         : REAL;     (* ERD flow target setpoint in m3/h *)
+    bAlarm                  : BOOL;     (* General fault alarm *)
+    iFaultCode              : INT;      (* Specific fault code for HMI diagnosis *)
 END_VAR
-
 VAR
-    (* Internal State and Timers *)
-    iState                  : INT := 0; (* Main state machine variable *)
-    tStartupDelay           : TON;      (* Delay timer for blower startup sequence *)
-    tWaveCycleTimer         : TON;      (* Timer for coordinating valve opening *)
-    tBackwashTimer          : TON;      (* Duration of filter backwash *)
+    iState                  : INT := 0; (* Internal state machine step *)
+    tStartupTimer           : TON;      (* Timer for step transitions during start up *)
+    tERD_Delay              : TON;      (* Delay timer for ERD synchronization *)
+    tFaultTimer             : TON;      (* Persistence timer for fault conditions *)
     
-    (* Signal Filtering *)
-    rFilteredLevel          : REAL;
-    rFilteredPressure       : REAL;
+    rFilteredInletPres      : REAL;     (* Low-pass filtered inlet pressure *)
+    rPrevInletPres          : REAL := 0.0;
+    rAlpha                  : REAL := 0.1; (* Filter coefficient *)
     
-    (* Loop Counters and Flags *)
-    i                       : INT;
-    bWaveInProgress         : BOOL;
+    rTargetRecovery         : REAL := 45.0; (* Desired RO recovery in % *)
+    rActualRecovery         : REAL;     (* Calculated actual recovery *)
     
-    (* Constants *)
-    rMaxSafePressure        : REAL := 2.5; (* Maximum caisson pressure (bar) *)
-    rMinSafeWaterLevel      : REAL := 1.2; (* Minimum water level to run waves (meters) *)
-    rBackwashTriggerDP      : REAL := 1.8; (* DP at which to trigger backwash (bar) *)
+    (* PID Controller variables for Pressure control *)
+    rError                  : REAL;
+    rIntegral               : REAL := 0.0;
+    rDerivative             : REAL := 0.0;
+    rLastError              : REAL := 0.0;
+    rKp                     : REAL := 1.2;
+    rKi                     : REAL := 0.05;
+    rKd                     : REAL := 0.01;
+    rPID_Output             : REAL;
+    rPressureSetpoint       : REAL := 60.0; (* Bar *)
 END_VAR
 
 (* === MAIN LOGIC === *)
 
-(* 1. Critical Safety Interlocks *)
-IF NOT bEmergencyStopOk OR bLifeguardOverride THEN
-    (* Immediate safe shutdown *)
-    bSystemReady := FALSE;
-    bAlarmActive := TRUE;
-    rBlowerVFDCommand := 0.0;
-    bFiltrationPumpEnable := FALSE;
-    bBackwashValve := FALSE;
-    FOR i := 1 TO 8 DO
-        bCaissonValves[i] := FALSE; (* Close all high-speed valves to prevent accidental waves *)
-    END_FOR;
-    iState := 999; (* Enter fault state *)
-    iErrorCode := 1001; (* E-STOP OR OVERRIDE *)
+(* Noise filtering on critical inlet pressure sensor *)
+rFilteredInletPres := (rAlpha * rInletPressure) + ((1.0 - rAlpha) * rPrevInletPres);
+rPrevInletPres := rFilteredInletPres;
+
+(* Safety Interlocks & Fault Detection *)
+IF NOT bEmergencyStop THEN
+    bHPP_RunCmd := FALSE;
+    bERD_BoosterCmd := FALSE;
+    rHPP_SpeedSetpoint := 0.0;
+    bAlarm := TRUE;
+    iFaultCode := 99; (* E-Stop Active *)
+    iState := 0;
     RETURN;
 END_IF;
 
-(* 2. Input Signal Conditioning (First Order Low Pass Filter for noise) *)
-rFilteredLevel := (rFilteredLevel * 0.8) + (rPoolWaterLevel * 0.2);
-rFilteredPressure := (rFilteredPressure * 0.9) + (rCaissonAirPressure * 0.1);
+(* Critical low pressure fault check *)
+tFaultTimer(IN := (rFilteredInletPres < 2.0 AND bHPP_RunCmd), PT := T#2S);
+IF tFaultTimer.Q THEN
+    bHPP_RunCmd := FALSE;
+    bERD_BoosterCmd := FALSE;
+    rHPP_SpeedSetpoint := 0.0;
+    bAlarm := TRUE;
+    iFaultCode := 10; (* Low Inlet Pressure - Cavitation Risk *)
+    iState := 0;
+    RETURN;
+END_IF;
 
-(* 3. Operational State Machine *)
+(* High Pressure fault check *)
+IF rHPPDischargePressure > 80.0 THEN
+    bHPP_RunCmd := FALSE;
+    bERD_BoosterCmd := FALSE;
+    rHPP_SpeedSetpoint := 0.0;
+    bAlarm := TRUE;
+    iFaultCode := 20; (* Overpressure Fault *)
+    iState := 0;
+    RETURN;
+END_IF;
+
+(* State Machine for RO Startup Sequence *)
 CASE iState OF
-    0: (* IDLE & INITIALIZATION *)
-        bSystemReady := FALSE;
-        rBlowerVFDCommand := 0.0;
-        bFiltrationPumpEnable := TRUE; (* Keep filtration running in idle *)
+    0: (* IDLE *)
+        bHPP_RunCmd := FALSE;
+        bERD_BoosterCmd := FALSE;
+        rHPP_SpeedSetpoint := 0.0;
+        bAlarm := FALSE;
+        iFaultCode := 0;
         
-        FOR i := 1 TO 8 DO
-            bCaissonValves[i] := FALSE;
-        END_FOR;
-
-        IF bSystemEnable AND NOT bMaintenanceMode THEN
-            IF rFilteredLevel >= rMinSafeWaterLevel THEN
-                iState := 10;
-                iErrorCode := 0;
-            ELSE
-                bAlarmActive := TRUE;
-                iErrorCode := 2001; (* LOW WATER LEVEL *)
-            END_IF;
+        IF bSystemEnable AND rFilteredInletPres >= 2.5 THEN
+            iState := 10;
         END_IF;
-
-    10: (* PRIMING CAISSONS *)
-        bAlarmActive := FALSE;
-        rBlowerVFDCommand := 60.0; (* Ramp blowers to 60% *)
         
-        tStartupDelay(IN := TRUE, PT := T#15S);
-        IF tStartupDelay.Q THEN
-            IF rFilteredPressure > 1.0 AND rFilteredPressure < rMaxSafePressure THEN
-                tStartupDelay(IN := FALSE);
-                iState := 20; (* Ready *)
-            ELSE
-                tStartupDelay(IN := FALSE);
-                bAlarmActive := TRUE;
-                iErrorCode := 2002; (* PRESSURE FAULT DURING PRIME *)
+    10: (* ERD PRIMING *)
+        bERD_BoosterCmd := TRUE;
+        tStartupTimer(IN := TRUE, PT := T#10S);
+        
+        IF tStartupTimer.Q THEN
+            tStartupTimer(IN := FALSE);
+            iState := 20;
+        END_IF;
+        
+    20: (* HPP RAMP UP *)
+        bHPP_RunCmd := TRUE;
+        (* Open loop ramp up *)
+        rHPP_SpeedSetpoint := rHPP_SpeedSetpoint + 0.1;
+        
+        IF rHPP_SpeedSetpoint >= 30.0 AND rHPPDischargePressure > 30.0 THEN
+            iState := 30;
+        END_IF;
+        
+    30: (* PID PRESSURE CONTROL *)
+        bHPP_RunCmd := TRUE;
+        bERD_BoosterCmd := TRUE;
+        
+        (* Calculate Actual Recovery *)
+        IF (rPermeateFlow + rBrineFlow) > 0.0 THEN
+            rActualRecovery := (rPermeateFlow / (rPermeateFlow + rBrineFlow)) * 100.0;
+        ELSE
+            rActualRecovery := 0.0;
+        END_IF;
+        
+        (* ERD Flow Target adjustment based on Recovery *)
+        rERD_FlowTarget := rBrineFlow * 0.95; (* Target 95% brine flow through ERD *)
+        
+        (* PID Control for HPP VFD Speed to maintain discharge pressure *)
+        rError := rPressureSetpoint - rHPPDischargePressure;
+        rIntegral := rIntegral + (rError * 0.1); (* Assuming 100ms task cycle *)
+        
+        (* Anti-windup for integral term *)
+        IF rIntegral > 100.0 THEN rIntegral := 100.0; END_IF;
+        IF rIntegral < -100.0 THEN rIntegral := -100.0; END_IF;
+        
+        rDerivative := (rError - rLastError) / 0.1;
+        rLastError := rError;
+        
+        rPID_Output := (rKp * rError) + (rKi * rIntegral) + (rKd * rDerivative);
+        
+        rHPP_SpeedSetpoint := 30.0 + rPID_Output; (* Base speed + PID trim *)
+        
+        (* Clamp VFD Speed *)
+        IF rHPP_SpeedSetpoint > 100.0 THEN
+            rHPP_SpeedSetpoint := 100.0;
+        ELSIF rHPP_SpeedSetpoint < 30.0 THEN
+            rHPP_SpeedSetpoint := 30.0;
+        END_IF;
+        
+        IF NOT bSystemEnable THEN
+            iState := 40;
+        END_IF;
+        
+    40: (* SHUTDOWN RAMP DOWN *)
+        rHPP_SpeedSetpoint := rHPP_SpeedSetpoint - 0.2;
+        
+        IF rHPP_SpeedSetpoint <= 10.0 THEN
+            bHPP_RunCmd := FALSE;
+            tERD_Delay(IN := TRUE, PT := T#15S);
+            IF tERD_Delay.Q THEN
+                tERD_Delay(IN := FALSE);
+                bERD_BoosterCmd := FALSE;
                 iState := 0;
             END_IF;
         END_IF;
-
-    20: (* READY TO GENERATE WAVES *)
-        bSystemReady := TRUE;
-        rBlowerVFDCommand := 80.0; (* Maintain ready pressure *)
         
-        (* Continuous Filtration Monitoring *)
-        IF rFilterDeltaPressure >= rBackwashTriggerDP OR rWaterTurbidity > 5.0 THEN
-            iState := 50; (* Jump to backwash *)
-        END_IF;
-
-        (* Start wave cycle based on pattern *)
-        IF iWavePattern > 0 THEN
-            bWaveInProgress := TRUE;
-            iState := 30;
-        END_IF;
-
-    30: (* WAVE GENERATION CYCLE *)
-        tWaveCycleTimer(IN := TRUE, PT := T#3S);
-        
-        IF iWavePattern = 1 THEN
-            (* Rolling wave pattern *)
-            bCaissonValves[1] := TRUE;
-            bCaissonValves[2] := TRUE;
-        ELSIF iWavePattern = 2 THEN
-            (* Diamond wave pattern *)
-            bCaissonValves[3] := TRUE;
-            bCaissonValves[6] := TRUE;
-        ELSE
-            (* Tsunami pattern - max power *)
-            FOR i := 1 TO 8 DO
-                bCaissonValves[i] := TRUE;
-            END_FOR;
-        END_IF;
-        
-        IF tWaveCycleTimer.Q THEN
-            tWaveCycleTimer(IN := FALSE);
-            FOR i := 1 TO 8 DO
-                bCaissonValves[i] := FALSE;
-            END_FOR;
-            bWaveInProgress := FALSE;
-            iState := 20; (* Return to ready *)
-        END_IF;
-
-    50: (* AUTOMATED BACKWASH CYCLE *)
-        bSystemReady := FALSE;
-        bFiltrationPumpEnable := FALSE; (* Stop main flow momentarily *)
-        bBackwashValve := TRUE; (* Actuate backwash sequence *)
-        
-        tBackwashTimer(IN := TRUE, PT := T#120S); (* 2-minute backwash *)
-        
-        IF tBackwashTimer.Q THEN
-            tBackwashTimer(IN := FALSE);
-            bBackwashValve := FALSE;
-            bFiltrationPumpEnable := TRUE;
-            iState := 0; (* Return to idle and check everything *)
-        END_IF;
-
-    999: (* FAULT LOCKOUT *)
-        IF NOT bAlarmActive AND bSystemEnable = FALSE THEN
-            iState := 0; (* Reset required to clear fault state *)
-        END_IF;
-
 END_CASE;
-
-(* 4. Final Protection Limits on Outputs *)
-IF rBlowerVFDCommand > 100.0 THEN
-    rBlowerVFDCommand := 100.0;
-END_IF;
 
 END_FUNCTION_BLOCK
 ```"""
 
 os.makedirs("data/swarm_raw", exist_ok=True)
+filename = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
 record = {
     "messages": [
         {"role": "user", "content": prompt},
         {"role": "assistant", "content": code}
     ]
 }
-
-filename = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
 with open(filename, "w", encoding="utf-8") as f:
     json.dump(record, f, ensure_ascii=False)
-
 print(f"Saved to {filename}")

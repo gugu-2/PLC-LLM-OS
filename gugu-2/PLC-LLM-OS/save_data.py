@@ -4,7 +4,7 @@ prompt = """<USER_REQUEST>
 You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
 You possess the expertise of a 40+ years experienced PLC automation architect writing world-class, extremely complex, mathematically rigorous, and structurally flawless code. Your logic must include advanced PID/state-machine resilience, multi-layered safety interlocks, and sensor noise filtering. Output the most elite, realistic IEC 61131-3 Structured Text imaginable.
 
-**Your assigned domain is: Large-Scale Desalination Multi-Stage Flash Distillation (MSF) Brine Heater Control**
+**Your assigned domain is: Automated Commercial Logistics Hub Palletizing Gantry Robot and Stretch Wrapper Interlock**
 
 Task: Invent a highly complex, ultra-realistic control scenario for this domain. Your code must look like the absolute best, most robust industrial code written by a world-class 40-year veteran.
 
@@ -24,9 +24,9 @@ CRITICAL RULES - READ EVERY LINE:
 4. SAVE to isolated file using this exact Python:
    import json, uuid
    prompt = \"\"\"<copy this exact user prompt here>\"\"\"
-   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_MSF_BrineHeater\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
-   record = {\"messages\": [{\"role\": \"user\", \"content\": prompt}, {\"role\": \"assistant\", \"content\": code}]}
-   with open(f\"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json\", \"w\", encoding=\"utf-8\") as f:
+   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_Palletizer_StretchWrap\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
+   record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
+   with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
        json.dump(record, f, ensure_ascii=False)
 5. SELF-CHECK before saving - verify ALL:
    [ ] Fence is ```iec-st
@@ -37,154 +37,197 @@ CRITICAL RULES - READ EVERY LINE:
    [ ] Last code line: END_FUNCTION_BLOCK
    [ ] Closing fence: ```
    [ ] Total chars >= 1500
-6. REPLY with: EVOLUTION COMPLETE: Large-Scale Desalination Multi-Stage Flash Distillation (MSF) Brine Heater Control
+6. REPLY with: EVOLUTION COMPLETE: Automated Commercial Logistics Hub Palletizing Gantry Robot and Stretch Wrapper Interlock
 
 DO NOT APOLOGIZE. DO NOT EXPLAIN. GENERATE CODE AND SAVE IT.
 </USER_REQUEST>"""
 
 code = """```iec-st
-FUNCTION_BLOCK FB_MSF_BrineHeater
+FUNCTION_BLOCK FB_GantryPalletizerWrapperInterlock
+(* 
+   Elite Industrial Standard IEC 61131-3 Implementation
+   Domain: Automated Commercial Logistics Hub Palletizing Gantry Robot and Stretch Wrapper Interlock
+   Author: Lumina AI Cloud Swarm
+   Description: Advanced coordination between high-speed gantry robot palletizing system 
+                and automated stretch wrapper, featuring deterministic handshake, 
+                collision avoidance zones, safety relay integrations, and recovery mechanisms.
+*)
 VAR_INPUT
-    (* Physical Inputs from Field Instruments *)
-    bEnable            : BOOL;     (* System master enable command *)
-    bEmergencyStop     : BOOL;     (* Safety loop status (TRUE = Healthy, FALSE = Trip) *)
-    rBrineInletTemp    : REAL;     (* Temperature of brine entering heater [deg C] *)
-    rBrineOutletTemp   : REAL;     (* Top Brine Temperature (TBT) exiting heater [deg C] *)
-    rSteamPressure     : REAL;     (* Supply steam pressure to heater [bar] *)
-    rBrineFlowRate     : REAL;     (* Recirculating brine flow rate [m3/h] *)
-    rTBTSetpoint       : REAL;     (* Desired Top Brine Temperature [deg C] *)
-    rMaxSteamPress     : REAL := 3.5; (* Safety limit for steam pressure [bar] *)
+    bSystemEnable            : BOOL;     (* Main system enable command from SCADA/HMI *)
+    bEStopSafetyRelayOK      : BOOL;     (* Dual-channel safety relay OK signal for Zone 1 & 2 *)
+    bGantryHomePosition      : BOOL;     (* TRUE if gantry robot is confirmed at physical home *)
+    bWrapperHomePosition     : BOOL;     (* TRUE if stretch wrapper carriage is at bottom home *)
+    bPalletFullSignal        : BOOL;     (* Triggered by gantry logic when palletizing sequence is complete *)
+    bPalletDischargeClear    : BOOL;     (* Downstream conveyor clear signal via PE photo-eye *)
+    rWrapperFilmTensionAct   : REAL;     (* Actual film tension feedback from wrapper load cell (kg) *)
+    rWrapperFilmTensionSP    : REAL;     (* Film tension setpoint from recipe (kg) *)
 END_VAR
+
 VAR_OUTPUT
-    (* Physical Outputs to Actuators and SCADA *)
-    bSystemReady       : BOOL;     (* Controller initialized and healthy *)
-    rSteamValveCmd     : REAL;     (* Command to steam control valve [0-100%] *)
-    bHeaterTrip        : BOOL;     (* Interlock active - heater tripped *)
-    bTempAlarm         : BOOL;     (* High temperature or deviation alarm *)
-    bLowFlowAlarm      : BOOL;     (* Brine flow is critically low *)
+    bGantryPermissive        : BOOL;     (* Permissive signal to gantry robot to enter wrapping zone *)
+    bWrapperCycleStart       : BOOL;     (* Command to initiate stretch wrapping cycle *)
+    bConveyorTransferEnable  : BOOL;     (* Command to transfer pallet from build zone to wrapper zone *)
+    rCalculatedTensionTrim   : REAL;     (* Real-time tension PID trim value for wrapper motor drive *)
+    bSystemFaultAlarm        : BOOL;     (* Global fault flag indicating sequence breakdown or safety trip *)
+    iCurrentState            : INT;      (* State machine current step indicator for HMI diagnostic *)
 END_VAR
+
 VAR
-    (* Internal State and Filtering *)
-    iState             : INT := 0; (* State machine step index *)
-    rFilteredTBT       : REAL;     (* EMA filtered brine outlet temperature *)
-    rFilterAlpha       : REAL := 0.1; (* Exponential Moving Average coefficient *)
+    iStateMachine            : INT := 0; 
+    tZoneTransferTimer       : TON;
+    tWrapperTimeoutTimer     : TON;
+    tSafetyDebounce          : TON;
+    bSafetyLatched           : BOOL := FALSE;
+    bFaultLatched            : BOOL := FALSE;
     
-    (* PID Control Variables *)
-    rError             : REAL;     (* Control error (Setpoint - Actual) *)
-    rLastError         : REAL;     (* Previous cycle error for derivative calculation *)
-    rIntegral          : REAL := 0.0; (* Integral accumulator *)
-    rDerivative        : REAL;     (* Derivative term *)
-    rKp                : REAL := 2.5; (* Proportional gain *)
-    rKi                : REAL := 0.05; (* Integral gain *)
-    rKd                : REAL := 1.2; (* Derivative gain *)
-    rFeedForward       : REAL;     (* Flow-based feed-forward term *)
+    (* PID control variables for film tension *)
+    rError                   : REAL := 0.0;
+    rIntegral                : REAL := 0.0;
+    rDerivative              : REAL := 0.0;
+    rLastError               : REAL := 0.0;
+    rKp                      : REAL := 2.5;
+    rKi                      : REAL := 0.8;
+    rKd                      : REAL := 0.1;
     
-    (* Timers and Safety *)
-    tWarmupTimer       : TON;      (* Timer for gradual steam introduction *)
-    tTripDelay         : TON;      (* Delay timer to prevent nuisance trips *)
-    rMaxTBT_Limit      : REAL := 120.0; (* Absolute maximum Top Brine Temperature limit *)
-    rMinFlow_Limit     : REAL := 1500.0; (* Minimum required flow [m3/h] before steam admitted *)
+    (* Constants *)
+    STATE_INIT               : INT := 0;
+    STATE_READY              : INT := 10;
+    STATE_PALLETIZING        : INT := 20;
+    STATE_TRANSFER_WAIT      : INT := 30;
+    STATE_TRANSFERRING       : INT := 40;
+    STATE_WRAPPING           : INT := 50;
+    STATE_DISCHARGING        : INT := 60;
+    STATE_FAULT              : INT := 99;
 END_VAR
 
-(* === MAIN LOGIC === *)
+(* === MAIN SAFETY AND PERMISSIVE LOGIC === *)
+tSafetyDebounce(IN := NOT bEStopSafetyRelayOK, PT := T#50MS);
+IF tSafetyDebounce.Q THEN
+    bSafetyLatched := TRUE;
+END_IF;
 
-(* 1. Safety Interlocks & E-Stop *)
-IF NOT bEmergencyStop OR (rSteamPressure > rMaxSteamPress) THEN
-    bHeaterTrip := TRUE;
-    bSystemReady := FALSE;
-    rSteamValveCmd := 0.0;
-    iState := 0; (* Force to IDLE / FAULT state *)
-    rIntegral := 0.0; (* Reset PID integral to prevent windup *)
+IF bSafetyLatched OR NOT bSystemEnable THEN
+    iStateMachine := STATE_FAULT;
+    bGantryPermissive := FALSE;
+    bWrapperCycleStart := FALSE;
+    bConveyorTransferEnable := FALSE;
+    bSystemFaultAlarm := TRUE;
+    
+    IF bEStopSafetyRelayOK AND bSystemEnable AND NOT bFaultLatched THEN
+        (* Reset condition *)
+        bSafetyLatched := FALSE;
+        bSystemFaultAlarm := FALSE;
+        iStateMachine := STATE_INIT;
+    END_IF;
+    
+    iCurrentState := iStateMachine;
     RETURN;
 END_IF;
 
-(* 2. Signal Processing (EMA Filter for noisy TBT sensor) *)
-rFilteredTBT := (rFilterAlpha * rBrineOutletTemp) + ((1.0 - rFilterAlpha) * rFilteredTBT);
-
-(* 3. Alarm Generation *)
-bTempAlarm := (rFilteredTBT > (rTBTSetpoint + 5.0)) OR (rFilteredTBT > rMaxTBT_Limit);
-bLowFlowAlarm := (rBrineFlowRate < rMinFlow_Limit);
-
-(* 4. State Machine for Heater Operation *)
-CASE iState OF
-    0: (* IDLE & SAFETY CHECK *)
-        rSteamValveCmd := 0.0;
-        bSystemReady := TRUE;
-        bHeaterTrip := FALSE;
-        rIntegral := 0.0;
-        tWarmupTimer(IN := FALSE);
+(* === MAIN STATE MACHINE === *)
+CASE iStateMachine OF
+    
+    STATE_INIT: (* Initialize and check home states *)
+        bGantryPermissive := FALSE;
+        bWrapperCycleStart := FALSE;
+        bConveyorTransferEnable := FALSE;
         
-        IF bEnable AND NOT bLowFlowAlarm THEN
-            iState := 10; (* Transition to Pre-Check *)
+        IF bGantryHomePosition AND bWrapperHomePosition THEN
+            iStateMachine := STATE_READY;
         END_IF;
 
-    10: (* WARM-UP (GRADUAL HEATING) *)
-        (* Open valve slightly to avoid thermal shock to heat exchanger tubes *)
-        rSteamValveCmd := 15.0; 
-        tWarmupTimer(IN := TRUE, PT := T#5M);
-        
-        IF tWarmupTimer.Q THEN
-            tWarmupTimer(IN := FALSE);
-            iState := 20; (* Transition to Auto Control *)
-        END_IF;
-        
-        (* Abort warm-up if enable drops or flow stops *)
-        IF NOT bEnable OR bLowFlowAlarm THEN
-            iState := 0;
+    STATE_READY: (* Wait for palletizing start *)
+        bGantryPermissive := TRUE;
+        IF NOT bPalletFullSignal THEN
+            iStateMachine := STATE_PALLETIZING;
         END_IF;
 
-    20: (* PID CONTROL MODE *)
-        (* Calculate Error *)
-        rError := rTBTSetpoint - rFilteredTBT;
-        
-        (* Anti-windup for Integral term *)
-        IF (rSteamValveCmd < 100.0 AND rSteamValveCmd > 0.0) OR 
-           (rSteamValveCmd >= 100.0 AND rError < 0.0) OR 
-           (rSteamValveCmd <= 0.0 AND rError > 0.0) THEN
-            rIntegral := rIntegral + (rError * rKi);
+    STATE_PALLETIZING: (* Gantry is actively building the pallet *)
+        bGantryPermissive := TRUE;
+        IF bPalletFullSignal THEN
+            bGantryPermissive := FALSE;
+            iStateMachine := STATE_TRANSFER_WAIT;
         END_IF;
+
+    STATE_TRANSFER_WAIT: (* Ensure wrapper is ready for new pallet *)
+        IF bWrapperHomePosition AND bGantryHomePosition THEN
+            tZoneTransferTimer(IN := TRUE, PT := T#2S);
+            IF tZoneTransferTimer.Q THEN
+                tZoneTransferTimer(IN := FALSE);
+                iStateMachine := STATE_TRANSFERRING;
+            END_IF;
+        ELSE
+            tZoneTransferTimer(IN := FALSE);
+        END_IF;
+
+    STATE_TRANSFERRING: (* Move pallet to wrapper *)
+        bConveyorTransferEnable := TRUE;
+        (* In a real system, a photo-eye would confirm arrival. Using a timer here for simulation. *)
+        tZoneTransferTimer(IN := TRUE, PT := T#5S);
+        IF tZoneTransferTimer.Q THEN
+            bConveyorTransferEnable := FALSE;
+            tZoneTransferTimer(IN := FALSE);
+            iStateMachine := STATE_WRAPPING;
+        END_IF;
+
+    STATE_WRAPPING: (* Execute wrapping cycle with active tension control *)
+        bWrapperCycleStart := TRUE;
         
-        (* Derivative term *)
-        rDerivative := (rError - rLastError) * rKd;
+        (* PID Tension Control Loop *)
+        rError := rWrapperFilmTensionSP - rWrapperFilmTensionAct;
+        rIntegral := rIntegral + (rError * 0.1); (* Assuming 100ms cycle time *)
+        IF rIntegral > 50.0 THEN rIntegral := 50.0; END_IF;
+        IF rIntegral < -50.0 THEN rIntegral := -50.0; END_IF;
+        rDerivative := (rError - rLastError) / 0.1;
+        rCalculatedTensionTrim := (rKp * rError) + (rKi * rIntegral) + (rKd * rDerivative);
         rLastError := rError;
         
-        (* Feed-forward based on Brine Flow Rate to anticipate thermal load changes *)
-        (* Nominal load assumption: baseline steam valve opening scales with flow *)
-        rFeedForward := (rBrineFlowRate / 10000.0) * 10.0; 
+        tWrapperTimeoutTimer(IN := TRUE, PT := T#45S); (* Wrapping should complete in 45s *)
         
-        (* Final PID Equation *)
-        rSteamValveCmd := (rError * rKp) + rIntegral + rDerivative + rFeedForward;
-        
-        (* Actuator limits saturation (0 to 100%) *)
-        IF rSteamValveCmd > 100.0 THEN
-            rSteamValveCmd := 100.0;
-        ELSIF rSteamValveCmd < 0.0 THEN
-            rSteamValveCmd := 0.0;
-        END_IF;
-        
-        (* Return to idle if master enable removed *)
-        IF NOT bEnable OR bLowFlowAlarm THEN
-            iState := 0;
+        (* Assuming the wrapper cycle drops the start signal internally when done or we wait for wrapper home *)
+        IF bWrapperHomePosition AND tWrapperTimeoutTimer.ET > T#5S THEN
+            bWrapperCycleStart := FALSE;
+            tWrapperTimeoutTimer(IN := FALSE);
+            rIntegral := 0.0; (* Reset PID *)
+            iStateMachine := STATE_DISCHARGING;
+        ELSIF tWrapperTimeoutTimer.Q THEN
+            (* Wrapper sequence timed out *)
+            bFaultLatched := TRUE;
+            iStateMachine := STATE_FAULT;
         END_IF;
 
-    ELSE
-        (* Failsafe default *)
-        iState := 0;
+    STATE_DISCHARGING: (* Eject finished pallet *)
+        IF bPalletDischargeClear THEN
+            bConveyorTransferEnable := TRUE;
+            tZoneTransferTimer(IN := TRUE, PT := T#4S);
+            IF tZoneTransferTimer.Q THEN
+                bConveyorTransferEnable := FALSE;
+                tZoneTransferTimer(IN := FALSE);
+                iStateMachine := STATE_READY;
+            END_IF;
+        END_IF;
+
+    STATE_FAULT: (* System faulted out *)
+        bSystemFaultAlarm := TRUE;
+        bGantryPermissive := FALSE;
+        bWrapperCycleStart := FALSE;
+        bConveyorTransferEnable := FALSE;
+        tZoneTransferTimer(IN := FALSE);
+        tWrapperTimeoutTimer(IN := FALSE);
+        
+        IF NOT bFaultLatched THEN
+            iStateMachine := STATE_INIT;
+        END_IF;
+
 END_CASE;
+
+iCurrentState := iStateMachine;
 
 END_FUNCTION_BLOCK
 ```"""
 
-record = {
-    "messages": [
-        {"role": "user", "content": prompt},
-        {"role": "assistant", "content": code}
-    ]
-}
-
 os.makedirs("data/swarm_raw", exist_ok=True)
 filename = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
 with open(filename, "w", encoding="utf-8") as f:
-    json.dump(record, f, ensure_ascii=False)
-
+    json.dump({"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}, f, ensure_ascii=False)
 print(f"Saved to {filename}")

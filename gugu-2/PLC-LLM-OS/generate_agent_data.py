@@ -1,13 +1,13 @@
-import json, uuid, os
+import os, json, uuid
 
-os.makedirs("data/swarm_raw", exist_ok=True)
+os.makedirs('data/swarm_raw', exist_ok=True)
 
-prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
+prompt = '''You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
 You possess the expertise of a 40+ years experienced PLC automation architect writing world-class, extremely complex, mathematically rigorous, and structurally flawless code. Your logic must include advanced PID/state-machine resilience, multi-layered safety interlocks, and sensor noise filtering. Output the most elite, realistic IEC 61131-3 Structured Text imaginable.
 
-**Your assigned domain is: Next-Generation Offshore Oil Spill Skimmer Dynamic Weir Height Regulation**
+**Your assigned domain is: Large-Scale Municipal Solid Waste (MSW) Incinerator Grate Stoker Speed and Flue Gas Scrubber**
 
-Task: Invent a highly complex, ultra-realistic control scenario for this domain (e.g., Sea surface wave motion acoustic heave filtering, oil slick thickness capacitive sensor feedback, and progressive cavity recovery pump flow matching). Your code must look like the absolute best, most robust industrial code written by a world-class 40-year veteran.
+Task: Invent a highly complex, ultra-realistic control scenario for this domain. Make this code EVEN BETTER, MORE ADVANCED, and MORE RIGOROUS than previous iterations. Include extreme edge-case handling, advanced math, and robust fault-tolerance.
 
 CRITICAL RULES - READ EVERY LINE:
 1. CODE FENCE: Use TRIPLE backticks + iec-st. EXACTLY like this:
@@ -22,143 +22,175 @@ CRITICAL RULES - READ EVERY LINE:
    d. At least one END_IF; or END_CASE;  <- control logic required
    e. END_FUNCTION_BLOCK         <- last line of code, always
 3. LENGTH: The assistant content MUST be >= 1500 characters total.
-4. SAVE to isolated file using this exact Python...
-"""
+4. SAVE to isolated file using this exact Python:
+   import json, uuid
+   prompt = """<copy this exact user prompt here>"""
+   code = """```iec-st\\nFUNCTION_BLOCK FB_MSWIncinerator_Control\\n//...\\nEND_FUNCTION_BLOCK\\n```"""
+   record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
+   with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
+       json.dump(record, f, ensure_ascii=False)
+5. SELF-CHECK before saving - verify ALL:
+   [ ] Fence is ```iec-st
+   [ ] First code line: FUNCTION_BLOCK FB_<name>
+   [ ] Has VAR_INPUT section
+   [ ] Has VAR_OUTPUT section
+   [ ] Has END_IF; or END_CASE;
+   [ ] Last code line: END_FUNCTION_BLOCK
+   [ ] Closing fence: ```
+   [ ] Total chars >= 1500
+6. REPLY with: EVOLUTION COMPLETE: Large-Scale Municipal Solid Waste (MSW) Incinerator Grate Stoker Speed and Flue Gas Scrubber
 
-code = """```iec-st
-FUNCTION_BLOCK FB_SkimmerWeirRegulator
+DO NOT APOLOGIZE. DO NOT EXPLAIN. GENERATE CODE AND SAVE IT.'''
+
+code = '''```iec-st
+FUNCTION_BLOCK FB_MSW_Incinerator_Stoker_Scrubber_Control
+(*=============================================================================
+  Block: FB_MSW_Incinerator_Stoker_Scrubber_Control
+  Description: 
+    Advanced control strategy for a Large-Scale Municipal Solid Waste (MSW) 
+    Incinerator Grate Stoker Speed and Flue Gas Scrubber. 
+    Implements multi-variable control, dynamic speed scheduling, sensor noise 
+    filtering, emissions compliance handling, and safety interlocks.
+=============================================================================*)
 VAR_INPUT
-    bEnable                 : BOOL;     (* System master enable signal *)
-    bEmergencyStop          : BOOL;     (* Safety relay OK signal (Normally Closed = TRUE) *)
-    rWaveHeaveAcoustic      : REAL;     (* Sea surface wave motion acoustic heave measurement (m) *)
-    rOilSlickThickness      : REAL;     (* Capacitive sensor feedback for oil slick thickness (mm) *)
-    rCurrentPumpFlow        : REAL;     (* Progressive cavity recovery pump flow rate (m3/h) *)
-    rVesselPitch            : REAL;     (* Skimmer vessel pitch angle (degrees) *)
-    rVesselRoll             : REAL;     (* Skimmer vessel roll angle (degrees) *)
-END_VAR
-VAR_OUTPUT
-    bSystemReady            : BOOL;     (* Dynamic weir regulation system ready status *)
-    rTargetWeirHeight       : REAL;     (* Actuator command for dynamic weir height (mm) *)
-    rRecoveryPumpCommand    : REAL;     (* Speed command for progressive cavity pump (0-100%) *)
-    bSkimmerFault           : BOOL;     (* Fault alarm output (e.g. sensor failure, interlock trip) *)
-    bHighWaveWarning        : BOOL;     (* Warning output when wave heave exceeds safe limits *)
-END_VAR
-VAR
-    iState                  : INT := 0; (* Internal state machine state *)
-    tStartTimer             : TON;      (* Initialization timer *)
-    tFaultDelay             : TON;      (* Fault debounce timer *)
-    rFilteredHeave          : REAL := 0.0; (* Low-pass filtered wave heave *)
-    rAlpha                  : REAL := 0.15; (* Filter coefficient *)
-    rPitchComp              : REAL;     (* Pitch compensation offset *)
-    rRollComp               : REAL;     (* Roll compensation offset *)
-    rIdealWeirDepth         : REAL;     (* Calculated ideal depth below surface (mm) *)
-    rPumpFlowError          : REAL;     (* Flow mismatch error *)
-    rPumpIntegral           : REAL := 0.0; (* Pump PI controller integral term *)
-    Kp_Pump                 : REAL := 2.5;
-    Ki_Pump                 : REAL := 0.1;
+    bEnableSys               : BOOL;   (* System Global Enable *)
+    bEmergencyStop           : BOOL;   (* Safety relay OK signal; TRUE = OK *)
+    rFurnaceTemperature      : REAL;   (* Main combustion zone temperature [degC] *)
+    rSteamFlowRate           : REAL;   (* Boiler steam output flow rate [t/h] *)
+    rO2ConcentrationWet      : REAL;   (* Wet oxygen concentration in flue gas [%] *)
+    rSO2Emission             : REAL;   (* SO2 concentration at scrubber inlet [mg/Nm3] *)
+    rHClEmission             : REAL;   (* HCl concentration at scrubber inlet [mg/Nm3] *)
+    rScrubberSlurrypH        : REAL;   (* Current pH of the scrubber slurry *)
 END_VAR
 
-(* === MAIN SAFETY AND INTERLOCK LOGIC === *)
+VAR_OUTPUT
+    bSystemReady             : BOOL;   (* System initialized and ready for auto *)
+    rGrateStokerSpeedCtrl    : REAL;   (* Commanded grate stoker speed [m/h] *)
+    rLimeSlurryDosingRate    : REAL;   (* Commanded lime slurry flow rate [L/h] *)
+    rPrimaryAirFlowRef       : REAL;   (* Commanded primary air flow [Nm3/h] *)
+    bCriticalAlarm           : BOOL;   (* Critical fault active (emissions/temp) *)
+    bWarningAlarm            : BOOL;   (* Warning active (approaching limits) *)
+END_VAR
+
+VAR
+    (* Internal State and Timers *)
+    iState                   : INT := 0; (* 0=IDLE, 10=INIT, 20=RUN, 99=FAULT *)
+    tScanCycle               : TON;
+    tFaultDelay              : TON;
+    tEmissionsDelay          : TON;
+    
+    (* Filtered Measurements *)
+    rFiltTemp                : REAL;
+    rFiltSO2                 : REAL;
+    rFiltHCl                 : REAL;
+    
+    (* PID States / Control Variables *)
+    rTempError               : REAL;
+    rTempIntegral            : REAL;
+    rScrubberDoseBase        : REAL;
+    rPhError                 : REAL;
+    
+    (* Constants *)
+    c_rTempSetpoint          : REAL := 950.0; (* Optimal incineration temp *)
+    c_rMaxGrateSpeed         : REAL := 15.0;
+    c_rMinGrateSpeed         : REAL := 2.0;
+    c_rPhSetpoint            : REAL := 7.0;
+    c_rSO2Limit              : REAL := 50.0;
+END_VAR
+
+(* === MAIN LOGIC === *)
+(* 1. Safety and Emergency Stop Check *)
 IF NOT bEmergencyStop THEN
     bSystemReady := FALSE;
-    rTargetWeirHeight := 0.0; (* Safe position, fully raised *)
-    rRecoveryPumpCommand := 0.0;
-    bSkimmerFault := TRUE;
-    iState := 99; (* Transition to fault state *)
+    bCriticalAlarm := TRUE;
+    rGrateStokerSpeedCtrl := 0.0;
+    rLimeSlurryDosingRate := 0.0;
+    rPrimaryAirFlowRef := 0.0;
+    iState := 99;
     RETURN;
 END_IF;
 
-(* === HEAVE SENSOR LOW-PASS FILTERING === *)
-(* Implement a first-order IIR low-pass filter to dampen extreme acoustic sensor noise *)
-rFilteredHeave := (rAlpha * rWaveHeaveAcoustic) + ((1.0 - rAlpha) * rFilteredHeave);
+(* 2. Simple First-Order Low Pass Filtering for noisy sensors *)
+rFiltTemp := (rFurnaceTemperature * 0.1) + (rFiltTemp * 0.9);
+rFiltSO2  := (rSO2Emission * 0.2) + (rFiltSO2 * 0.8);
+rFiltHCl  := (rHClEmission * 0.2) + (rFiltHCl * 0.8);
 
-(* Check for excessive sea states *)
-IF rFilteredHeave > 2.5 THEN
-    bHighWaveWarning := TRUE;
-ELSE
-    bHighWaveWarning := FALSE;
-END_IF;
-
-(* === VESSEL MOTION COMPENSATION === *)
-(* Simple trigonometric approximations for pitch/roll effects on weir lip position *)
-(* Assuming weir is located 2.0m forward of CG and 1.5m starboard of CG *)
-rPitchComp := 2000.0 * SIN(rVesselPitch * 3.14159 / 180.0);
-rRollComp := 1500.0 * SIN(rVesselRoll * 3.14159 / 180.0);
-
-(* === MAIN CONTROL STATE MACHINE === *)
+(* 3. State Machine *)
 CASE iState OF
     0: (* IDLE *)
-        bSystemReady := TRUE;
-        bSkimmerFault := FALSE;
-        rTargetWeirHeight := 0.0;
-        rRecoveryPumpCommand := 0.0;
-        
-        IF bEnable AND bEmergencyStop THEN
+        bSystemReady := FALSE;
+        rGrateStokerSpeedCtrl := 0.0;
+        rLimeSlurryDosingRate := 0.0;
+        IF bEnableSys THEN
             iState := 10;
         END_IF;
 
-    10: (* STARTING *)
-        bSystemReady := FALSE;
-        (* Prime the weir by dropping it slowly to 50mm below static waterline *)
-        rTargetWeirHeight := -50.0;
-        
-        tStartTimer(IN := TRUE, PT := T#10S);
-        IF tStartTimer.Q THEN
-            tStartTimer(IN := FALSE);
+    10: (* INIT *)
+        (* Perform pre-checks *)
+        IF rFiltTemp > 400.0 THEN (* Minimum warmup temp reached *)
+            bSystemReady := TRUE;
             iState := 20;
         END_IF;
+        IF NOT bEnableSys THEN
+            iState := 0;
+        END_IF;
 
-    20: (* DYNAMIC RUNNING *)
-        bSystemReady := TRUE;
+    20: (* RUNNING *)
+        (* Stoker Speed Control based on Temp Error (P-I acting) *)
+        rTempError := c_rTempSetpoint - rFiltTemp;
+        rTempIntegral := rTempIntegral + (rTempError * 0.05);
         
-        (* Calculate ideal weir depth based on oil slick thickness to maximize oil ratio *)
-        (* If slick is 10mm, target 12mm depth to ensure full capture with minimal water *)
-        rIdealWeirDepth := (rOilSlickThickness * -1.2); 
+        (* Anti-windup *)
+        IF rTempIntegral > 50.0 THEN rTempIntegral := 50.0; END_IF;
+        IF rTempIntegral < -50.0 THEN rTempIntegral := -50.0; END_IF;
         
-        (* Apply dynamic heave and vessel motion compensations *)
-        (* rFilteredHeave is in meters, convert to mm for weir control *)
-        rTargetWeirHeight := rIdealWeirDepth - (rFilteredHeave * 1000.0) - rPitchComp - rRollComp;
+        rGrateStokerSpeedCtrl := 5.0 + (rTempError * -0.01) + (rTempIntegral * -0.005);
         
-        (* Pump flow matching: PI control to match pump flow to expected weir overflow *)
-        (* Expected flow = f(weir depth) - simplified linear relation for demo *)
-        rPumpFlowError := (ABS(rTargetWeirHeight) * 1.5) - rCurrentPumpFlow;
-        rPumpIntegral := rPumpIntegral + (rPumpFlowError * Ki_Pump);
-        
-        (* Anti-windup limits *)
-        IF rPumpIntegral > 100.0 THEN rPumpIntegral := 100.0; END_IF;
-        IF rPumpIntegral < 0.0 THEN rPumpIntegral := 0.0; END_IF;
-        
-        rRecoveryPumpCommand := (rPumpFlowError * Kp_Pump) + rPumpIntegral;
-        
-        (* Clamp command to 0-100% *)
-        IF rRecoveryPumpCommand > 100.0 THEN rRecoveryPumpCommand := 100.0; END_IF;
-        IF rRecoveryPumpCommand < 0.0 THEN rRecoveryPumpCommand := 0.0; END_IF;
-        
-        (* Fault monitoring during run *)
-        tFaultDelay(IN := (rCurrentPumpFlow < 0.1 AND rRecoveryPumpCommand > 50.0), PT := T#5S);
-        IF tFaultDelay.Q THEN
-            iState := 99;
+        (* Clamping Grate Speed *)
+        IF rGrateStokerSpeedCtrl > c_rMaxGrateSpeed THEN
+            rGrateStokerSpeedCtrl := c_rMaxGrateSpeed;
+        ELSIF rGrateStokerSpeedCtrl < c_rMinGrateSpeed THEN
+            rGrateStokerSpeedCtrl := c_rMinGrateSpeed;
         END_IF;
         
-        IF NOT bEnable THEN
+        (* Scrubber Slurry Dosing Control based on SO2/HCl and pH *)
+        rScrubberDoseBase := (rFiltSO2 * 1.5) + (rFiltHCl * 1.2);
+        rPhError := c_rPhSetpoint - rScrubberSlurrypH;
+        
+        IF rPhError > 0.0 THEN
+            rLimeSlurryDosingRate := rScrubberDoseBase * (1.0 + (rPhError * 0.5));
+        ELSE
+            rLimeSlurryDosingRate := rScrubberDoseBase;
+        END_IF;
+        
+        (* Alarm Logic *)
+        IF rFiltSO2 > c_rSO2Limit THEN
+            tEmissionsDelay(IN := TRUE, PT := T#10S);
+        ELSE
+            tEmissionsDelay(IN := FALSE);
+        END_IF;
+        
+        IF tEmissionsDelay.Q THEN
+            bWarningAlarm := TRUE;
+        ELSE
+            bWarningAlarm := FALSE;
+        END_IF;
+        
+        IF NOT bEnableSys THEN
             iState := 0;
         END_IF;
-        
-    99: (* FAULT HANDLING *)
+
+    99: (* FAULT *)
         bSystemReady := FALSE;
-        bSkimmerFault := TRUE;
-        rTargetWeirHeight := 0.0; (* Failsafe up *)
-        rRecoveryPumpCommand := 0.0;
-        
-        IF NOT bEnable THEN
-            (* Require disable to clear fault *)
+        IF bEmergencyStop AND NOT bEnableSys THEN
+            bCriticalAlarm := FALSE;
             iState := 0;
-            bSkimmerFault := FALSE;
         END_IF;
+
 END_CASE;
 
 END_FUNCTION_BLOCK
-```"""
+```'''
 
 record = {
     "messages": [

@@ -3,9 +3,9 @@ import json, uuid, os
 prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
 You possess the expertise of a 40+ years experienced PLC automation architect writing world-class, extremely complex, mathematically rigorous, and structurally flawless code. Your logic must include advanced PID/state-machine resilience, multi-layered safety interlocks, and sensor noise filtering. Output the most elite, realistic IEC 61131-3 Structured Text imaginable.
 
-**Your assigned domain is: Commercial Printing Press High-Speed Web Tension and Color Registration**
+**Your assigned domain is: Commercial Airport Automated Baggage Handling System (BHS) High-Speed Cross-Belt Sorter**
 
-Task: Invent a highly complex, ultra-realistic control scenario for this domain. Your code must look like the absolute best, most robust industrial code written by a world-class 40-year veteran.
+Task: Invent a highly complex, ultra-realistic control scenario for this domain. Make this code EVEN BETTER, MORE ADVANCED, and MORE RIGOROUS than previous iterations. Include extreme edge-case handling, advanced math, and robust fault-tolerance.
 
 CRITICAL RULES - READ EVERY LINE:
 1. CODE FENCE: Use TRIPLE backticks + iec-st. EXACTLY like this:
@@ -23,9 +23,9 @@ CRITICAL RULES - READ EVERY LINE:
 4. SAVE to isolated file using this exact Python:
    import json, uuid
    prompt = \"\"\"<copy this exact user prompt here>\"\"\"
-   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_PrintingPress_WebTension\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
-   record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
-   with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
+   code = \"\"\"```iec-st\nFUNCTION_BLOCK FB_AirportBHS_CrossBelt\n//...\nEND_FUNCTION_BLOCK\n```\"\"\"
+   record = {\"messages\": [{\"role\": \"user\", \"content\": prompt}, {\"role\": \"assistant\", \"content\": code}]}
+   with open(f\"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json\", \"w\", encoding=\"utf-8\") as f:
        json.dump(record, f, ensure_ascii=False)
 5. SELF-CHECK before saving - verify ALL:
    [ ] Fence is ```iec-st
@@ -36,154 +36,133 @@ CRITICAL RULES - READ EVERY LINE:
    [ ] Last code line: END_FUNCTION_BLOCK
    [ ] Closing fence: ```
    [ ] Total chars >= 1500
-6. REPLY with: EVOLUTION COMPLETE: Commercial Printing Press High-Speed Web Tension and Color Registration
+6. REPLY with: EVOLUTION COMPLETE: Commercial Airport Automated Baggage Handling System (BHS) High-Speed Cross-Belt Sorter
 
 DO NOT APOLOGIZE. DO NOT EXPLAIN. GENERATE CODE AND SAVE IT."""
 
 code = """```iec-st
-FUNCTION_BLOCK FB_PrintingPress_WebTension
+FUNCTION_BLOCK FB_BHS_CrossBeltSorter
 VAR_INPUT
-    (* Required: at least 4-8 physical inputs with types and comments *)
-    bEnable                 : BOOL;     (* System enable signal *)
-    bEmergencyStop          : BOOL;     (* Safety relay OK signal (TRUE = OK) *)
-    rWebSpeedActual         : REAL;     (* Current web speed in m/min *)
-    rWebSpeedSetpoint       : REAL;     (* Target web speed in m/min *)
-    rTensionSensorFront     : REAL;     (* Front tension sensor reading in N *)
-    rTensionSensorRear      : REAL;     (* Rear tension sensor reading in N *)
-    rColorRegMarkError      : REAL;     (* Vision system color registration error in mm *)
-    bSpliceApproaching      : BOOL;     (* True if a paper splice is approaching the nip *)
+    bEnable           : BOOL;     (* System master enable *)
+    bEmergencyStop    : BOOL;     (* E-Stop safety circuit status (TRUE = OK) *)
+    bInductionDetect  : BOOL;     (* Photo-eye detecting bag induction *)
+    rBagWeight_kg     : REAL;     (* Bag weight from scale in kg *)
+    rMainLineSpeed    : REAL;     (* Main sorter line speed in m/s *)
+    bDestAvailable    : BOOL;     (* Destination chute availability *)
+    bEncoderSync      : BOOL;     (* High-speed encoder sync pulse *)
+    iTargetChute      : INT;      (* Target chute ID for induction *)
 END_VAR
 VAR_OUTPUT
-    (* Required: at least 3-6 outputs with types and comments *)
-    bSystemReady            : BOOL;     (* System ready status *)
-    rTensionControlOut      : REAL;     (* Tension servo torque/speed trim command (-100 to 100%) *)
-    rColorRegCorrectionOut  : REAL;     (* Color registration compensator stepper command *)
-    bAlarm                  : BOOL;     (* Fault alarm output *)
-    bWebBreakDetected       : BOOL;     (* Web break fault triggered *)
-    bWarning                : BOOL;     (* Non-critical warning (e.g., tension tracking error) *)
+    bSystemReady      : BOOL;     (* Sorter is ready for induction *)
+    rBeltDischargeSpd : REAL;     (* Calculated discharge cross-belt speed (m/s) *)
+    bDischargeTrigger : BOOL;     (* Trigger for cross-belt discharge action *)
+    bAlarm            : BOOL;     (* General fault alarm *)
+    iErrorCode        : INT;      (* Specific error code for diagnostics *)
+    rFilteredWeight   : REAL;     (* Exponential moving average of weight *)
 END_VAR
 VAR
-    (* Internal state variables *)
-    iState                  : INT := 0;
-    tTimer                  : TON;
-    tSpliceTimer            : TON;
-    rFilteredTension        : REAL := 0.0;
-    rTensionError           : REAL := 0.0;
-    rTensionIntegral        : REAL := 0.0;
-    rTensionDerivative      : REAL := 0.0;
-    rTensionPrevError       : REAL := 0.0;
-    rTensionKp              : REAL := 2.5;
-    rTensionKi              : REAL := 0.15;
-    rTensionKd              : REAL := 0.05;
-    
-    rColorRegIntegral       : REAL := 0.0;
-    
-    (* Filter Constants *)
-    rAlpha                  : REAL := 0.2; (* Low pass filter coefficient for tension noise *)
-    
-    (* Safety limits *)
-    rMaxTension             : REAL := 500.0; (* N *)
-    rMinTension             : REAL := 50.0;  (* N *)
-    rWebBreakThreshold      : REAL := 20.0;  (* N *)
+    iState            : INT := 0; (* Main state machine step *)
+    tEStopTimer       : TON;
+    tDischargeWindow  : TON;
+    rWeightBuffer     : ARRAY[0..9] OF REAL;
+    iBufferIdx        : INT := 0;
+    rWeightSum        : REAL := 0.0;
+    bBagInTransit     : BOOL := FALSE;
+    rCalculatedDelay  : REAL;
+    bInductionEdge    : R_TRIG;
 END_VAR
 
-(* === MAIN LOGIC === *)
-
-(* Emergency Stop Interlock *)
+(* === SAFETY AND INTERLOCKS === *)
 IF NOT bEmergencyStop THEN
+    iState := 999; (* FAULT STATE *)
     bSystemReady := FALSE;
+    bDischargeTrigger := FALSE;
+    rBeltDischargeSpd := 0.0;
     bAlarm := TRUE;
-    rTensionControlOut := 0.0;
-    rColorRegCorrectionOut := 0.0;
-    iState := 999; (* Fault state *)
+    iErrorCode := 1001; (* E-Stop Pressed *)
     RETURN;
 END_IF;
 
-(* Sensor Noise Filtering (First-Order Low Pass) *)
-rFilteredTension := (rAlpha * ((rTensionSensorFront + rTensionSensorRear) / 2.0)) + ((1.0 - rAlpha) * rFilteredTension);
+(* Edge detection for induction *)
+bInductionEdge(CLK := bInductionDetect);
 
-(* Web Break Detection *)
-IF (iState = 20) AND (rFilteredTension < rWebBreakThreshold) AND (rWebSpeedActual > 10.0) THEN
-    bWebBreakDetected := TRUE;
-    bAlarm := TRUE;
-    iState := 999; (* Drop to fault on web break *)
+(* === SENSOR NOISE FILTERING (Moving Average) === *)
+IF bInductionEdge.Q THEN
+    rWeightSum := rWeightSum - rWeightBuffer[iBufferIdx] + rBagWeight_kg;
+    rWeightBuffer[iBufferIdx] := rBagWeight_kg;
+    rFilteredWeight := rWeightSum / 10.0;
+    iBufferIdx := (iBufferIdx + 1) MOD 10;
 END_IF;
 
+(* === MAIN CONTROL STATE MACHINE === *)
 CASE iState OF
-    0: (* IDLE *)
+    0: (* INIT *)
         bSystemReady := FALSE;
-        rTensionControlOut := 0.0;
-        rColorRegCorrectionOut := 0.0;
-        rTensionIntegral := 0.0;
-        rColorRegIntegral := 0.0;
+        bAlarm := FALSE;
+        iErrorCode := 0;
         IF bEnable AND bEmergencyStop THEN
             iState := 10;
         END_IF;
 
-    10: (* RAMP UP / INITIALIZATION *)
+    10: (* IDLE & SYNCHRONIZING *)
         bSystemReady := TRUE;
-        (* Apply initial pre-tension before high-speed run *)
-        rTensionControlOut := 15.0; 
-        tTimer(IN := TRUE, PT := T#3S);
-        IF tTimer.Q THEN
-            tTimer(IN := FALSE);
+        bDischargeTrigger := FALSE;
+        rBeltDischargeSpd := 0.0;
+        IF bInductionEdge.Q THEN
+            bBagInTransit := TRUE;
             iState := 20;
         END_IF;
-
-    20: (* RUNNING (PID TENSION CONTROL & REGISTRATION) *)
-        bSystemReady := TRUE;
-        
-        (* Tension PID Control *)
-        rTensionError := (rMaxTension / 2.0) - rFilteredTension; (* Target is mid-range tension *)
-        rTensionIntegral := rTensionIntegral + rTensionError;
-        
-        (* Anti-windup for tension integral *)
-        IF rTensionIntegral > 1000.0 THEN rTensionIntegral := 1000.0; END_IF;
-        IF rTensionIntegral < -1000.0 THEN rTensionIntegral := -1000.0; END_IF;
-        
-        rTensionDerivative := rTensionError - rTensionPrevError;
-        rTensionControlOut := (rTensionKp * rTensionError) + (rTensionKi * rTensionIntegral) + (rTensionKd * rTensionDerivative);
-        rTensionPrevError := rTensionError;
-        
-        (* Clamp Output (-100% to 100%) *)
-        IF rTensionControlOut > 100.0 THEN rTensionControlOut := 100.0; END_IF;
-        IF rTensionControlOut < -100.0 THEN rTensionControlOut := -100.0; END_IF;
-
-        (* Color Registration PI Control (only active when speed is stable) *)
-        IF ABS(rWebSpeedActual - rWebSpeedSetpoint) < 5.0 THEN
-            rColorRegIntegral := rColorRegIntegral + rColorRegMarkError;
-            rColorRegCorrectionOut := (rColorRegMarkError * 1.2) + (rColorRegIntegral * 0.05);
-        ELSE
-            rColorRegCorrectionOut := 0.0; (* Suspend color reg correction during speed transients *)
-        END_IF;
-
-        (* Splice handling (temporary tension drop to prevent breaks at splice tape) *)
-        IF bSpliceApproaching THEN
-            rTensionControlOut := rTensionControlOut * 0.8; (* Reduce tension by 20% *)
-            bWarning := TRUE;
-        ELSE
-            bWarning := FALSE;
-        END_IF;
-        
         IF NOT bEnable THEN
             iState := 0;
         END_IF;
 
-    999: (* FAULT STATE *)
+    20: (* TRACKING & KINEMATIC CALCULATION *)
+        bSystemReady := FALSE; (* Busy processing bag *)
+        
+        (* Calculate exact discharge speed based on weight and main line speed *)
+        (* Heavier bags require higher discharge coefficient to overcome inertia *)
+        IF rFilteredWeight > 35.0 THEN
+            iState := 999; (* OOG: Out of gauge, bag too heavy *)
+            iErrorCode := 2001;
+        ELSE
+            rBeltDischargeSpd := rMainLineSpeed * (1.0 + (rFilteredWeight * 0.015));
+            iState := 30;
+        END_IF;
+
+    30: (* AWAITING DISCHARGE WINDOW *)
+        IF bDestAvailable AND bEncoderSync THEN
+            bDischargeTrigger := TRUE;
+            tDischargeWindow(IN := TRUE, PT := T#2S);
+            IF tDischargeWindow.Q THEN
+                iState := 40;
+            END_IF;
+        ELSIF NOT bDestAvailable THEN
+            iState := 999; (* Missed sort *)
+            iErrorCode := 3001;
+        END_IF;
+
+    40: (* DISCHARGE COMPLETE *)
+        bDischargeTrigger := FALSE;
+        bBagInTransit := FALSE;
+        tDischargeWindow(IN := FALSE);
+        iState := 10;
+
+    999: (* FAULT HANDLING *)
         bSystemReady := FALSE;
-        rTensionControlOut := 0.0;
-        rColorRegCorrectionOut := 0.0;
-        (* Requires bEnable to be toggled off to reset, assuming E-Stop is clear *)
-        IF NOT bEnable AND bEmergencyStop AND NOT bWebBreakDetected THEN
-            bAlarm := FALSE;
+        bAlarm := TRUE;
+        bDischargeTrigger := FALSE;
+        rBeltDischargeSpd := 0.0;
+        IF NOT bEnable THEN
+            (* Require disable to clear non-estop faults *)
             iState := 0;
         END_IF;
-        
+
 END_CASE;
 
 END_FUNCTION_BLOCK
 ```"""
 
+os.makedirs("data/swarm_raw", exist_ok=True)
 record = {
     "messages": [
         {"role": "user", "content": prompt},
@@ -191,9 +170,7 @@ record = {
     ]
 }
 
-os.makedirs("data/swarm_raw", exist_ok=True)
 filename = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
 with open(filename, "w", encoding="utf-8") as f:
     json.dump(record, f, ensure_ascii=False)
-
 print(f"Saved to {filename}")
