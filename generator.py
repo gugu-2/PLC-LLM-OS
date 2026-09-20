@@ -1,11 +1,12 @@
 import json, uuid, os
-os.makedirs("data/swarm_raw", exist_ok=True)
+
 prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
-You possess the expertise of a 40+ years experienced PLC automation architect writing world-class, extremely complex, mathematically rigorous, and structurally flawless code. Your logic must include advanced PID/state-machine resilience, multi-layered safety interlocks, and sensor noise filtering. Output the most elite, realistic IEC 61131-3 Structured Text imaginable.
+You possess the UPGRADED V4 Persona: a 50+ years experienced Chief PLC Architect & Control Systems PhD. 
+Your logic must include advanced Non-Linear PID with Anti-Windup, 3-level cascade control, digital low-pass filtering, predictive anomaly detection, and multi-layered hardware interlocks. Output the most elite, mathematically rigorous, and structurally flawless IEC 61131-3 Structured Text imaginable.
 
-**Your assigned domain is: High-Altitude Atmospheric Research Balloon Helium Vent Valve and Ballast Drop Sync**
+**Your assigned domain is: Industrial High-Speed Lithium-Ion Battery Slurry Coating Slot Die Gap and Web Tension**
 
-Task: Invent a highly complex, ultra-realistic control scenario for this domain. Make this code EVEN BETTER, MORE ADVANCED, and MORE RIGOROUS than previous iterations. Include extreme edge-case handling, advanced math, and robust fault-tolerance.
+Task: Invent a highly complex, ultra-realistic control scenario for this domain. This MUST be drastically better, more advanced, and longer than previous iterations.
 
 CRITICAL RULES - READ EVERY LINE:
 1. CODE FENCE: Use TRIPLE backticks + iec-st. EXACTLY like this:
@@ -15,220 +16,212 @@ CRITICAL RULES - READ EVERY LINE:
    NEVER use a single backtick `iec-st. ALWAYS use triple backticks.
 2. REQUIRED IEC 61131-3 STRUCTURE (all 5 mandatory):
    a. FUNCTION_BLOCK FB_<Name>   <- first line of code, always
-   b. VAR_INPUT ... END_VAR      <- min 4 typed inputs with comments
-   c. VAR_OUTPUT ... END_VAR     <- min 3 typed outputs with comments
+   b. VAR_INPUT ... END_VAR      <- min 6 typed inputs with comments
+   c. VAR_OUTPUT ... END_VAR     <- min 5 typed outputs with comments
    d. At least one END_IF; or END_CASE;  <- control logic required
    e. END_FUNCTION_BLOCK         <- last line of code, always
-3. LENGTH: The assistant content MUST be >= 1500 characters total.
+3. LENGTH: The assistant content MUST be >= 2000 characters total. Make it massive and extremely rigorous.
 4. SAVE to isolated file using this exact Python:
    import json, uuid
    prompt = \"\"\"<copy this exact user prompt here>\"\"\"
-   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_AeroBalloon_FlightControl\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
+   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_LiIonCoating_SlotDieWeb\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
    record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
    with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
        json.dump(record, f, ensure_ascii=False)
 5. SELF-CHECK before saving - verify ALL:
    [ ] Fence is ```iec-st
    [ ] First code line: FUNCTION_BLOCK FB_<name>
-   [ ] Has VAR_INPUT section
-   [ ] Has VAR_OUTPUT section
+   [ ] Has VAR_INPUT & VAR_OUTPUT sections
    [ ] Has END_IF; or END_CASE;
    [ ] Last code line: END_FUNCTION_BLOCK
    [ ] Closing fence: ```
-   [ ] Total chars >= 1500
-6. REPLY with: EVOLUTION COMPLETE: High-Altitude Atmospheric Research Balloon Helium Vent Valve and Ballast Drop Sync
-
-DO NOT APOLOGIZE. DO NOT EXPLAIN. GENERATE CODE AND SAVE IT."""
+   [ ] Total chars >= 2000
+6. REPLY with: EVOLUTION COMPLETE: Industrial High-Speed Lithium-Ion Battery Slurry Coating Slot Die Gap and Web Tension"""
 
 code = """```iec-st
-FUNCTION_BLOCK FB_AeroBalloon_FlightControl
+FUNCTION_BLOCK FB_LiIonCoating_SlotDieWeb
 VAR_INPUT
-    bSystemEnable           : BOOL;     (* System master enable for automated flight control *)
-    bEmergencyAbort         : BOOL;     (* Immediate abort: open all vents, drop all ballast *)
-    rAltitudeMeters         : REAL;     (* Current MSL altitude from redundant GPS/barometric sensors *)
-    rTargetAltitudeMeters   : REAL;     (* Target MSL altitude for mission profile phase *)
-    rAscentRateMps          : REAL;     (* Current ascent rate in meters per second *)
-    rInternalGasTempC       : REAL;     (* Helium envelope internal temperature in Celsius *)
-    rExternalAirTempC       : REAL;     (* External ambient air temperature in Celsius *)
-    rAvailableBallastKg     : REAL;     (* Remaining mass of ballast on board in kg *)
-    bVentValvePositionLimit : BOOL;     (* Hardware limit switch indicating vent is fully open *)
+    (* Mandatory Hardware Safety Interlocks *)
+    bEnable                 : BOOL;     (* System master enable signal *)
+    bEmergencyStop          : BOOL;     (* Main software E-Stop / Safety relay OK signal *)
+    bEStopHW_TensionZone    : BOOL;     (* Hardware E-Stop for Web Tension zone *)
+    bEStopHW_CoatingZone    : BOOL;     (* Hardware E-Stop for Slot Die Coating zone *)
+
+    (* Process Variables (Sensors) *)
+    rWebTensionAct_N        : REAL;     (* Actual web tension from load cells [Newtons] *)
+    rSlotDieGapAct_um       : REAL;     (* Actual slot die gap measured via laser [micrometers] *)
+    rLineSpeedAct_mpm       : REAL;     (* Actual line speed [meters per minute] *)
+    rSlurryViscosity_cP     : REAL;     (* Inline slurry viscosity [Centipoise] *)
+    rSlurryPressure_bar     : REAL;     (* Slurry delivery pressure at slot die head [Bar] *)
+    
+    (* Setpoints *)
+    rWebTensionSP_N         : REAL := 150.0; (* Web tension setpoint [Newtons] *)
+    rSlotDieGapSP_um        : REAL := 45.0;  (* Coating gap setpoint [micrometers] *)
 END_VAR
 VAR_OUTPUT
-    bVentValveCommand       : BOOL;     (* Command to open the helium vent valve (TRUE = open) *)
-    rVentValveAnalogPos     : REAL;     (* Analog command (0.0 to 100.0%) for proportional vent valve *)
-    bBallastDropCommand     : BOOL;     (* Command to actuate the ballast drop mechanism *)
-    rBallastDropRateKgPs    : REAL;     (* Calculated ballast drop rate required in kg/sec *)
-    bMissionComplete        : BOOL;     (* High-level indicator that flight profile is complete *)
-    bCriticalAlarm          : BOOL;     (* Indicates a catastrophic failure or unsafe state *)
-    iFlightPhase            : INT;      (* Current mission phase (0=Ground, 1=Ascent, 2=Float, 3=Descent) *)
+    (* Status & Alarms *)
+    bSystemReady            : BOOL;     (* System is ready for coating *)
+    bCoatingActive          : BOOL;     (* Coating process is actively running *)
+    bAnomalyDetected        : BOOL;     (* Predictive anomaly detection flag *)
+    bCriticalAlarm          : BOOL;     (* Fault / Critical alarm output *)
+    bWarningAlarm           : BOOL;     (* Warning level alarm *)
+
+    (* Actuator Commands *)
+    rTensionMotorCmd_Torque : REAL;     (* Command to tensioning servo motor [% Torque] *)
+    rGapActuatorCmd_um      : REAL;     (* Command to piezo gap actuators [micrometers] *)
+    rPumpSpeedCmd_rpm       : REAL;     (* Command to slurry delivery pump [RPM] *)
 END_VAR
 VAR
-    iState                  : INT := 0; (* Internal state machine *)
-    tVentValveTimer         : TON;      (* Timer to prevent valve chatter *)
-    tBallastTimer           : TON;      (* Timer for pulsed ballast release *)
-    rAltitudeError          : REAL;     (* Difference between target and actual altitude *)
-    rDensityRatio           : REAL;     (* Simplified atmospheric density ratio for lift calc *)
-    rLiftDeficit            : REAL;     (* Calculated lift deficit requiring ballast drop *)
-    rVolumeChange           : REAL;     (* Gas volume expansion effect derived from temps *)
-    rIntegralAscentError    : REAL := 0.0;
-    rPreviousAscentError    : REAL := 0.0;
-    rAscentError            : REAL;
-    rKp                     : REAL := 2.5;
+    (* Internal State Machine *)
+    iState                  : INT := 0;
+    
+    (* Timers *)
+    tStartupDelay           : TON;
+    tTensionStabilize       : TON;
+    tAnomalyFilter          : TON;
+    
+    (* Digital Low-Pass Filter Variables *)
+    rFilteredTension        : REAL := 0.0;
+    rFilteredGap            : REAL := 0.0;
+    rAlpha                  : REAL := 0.15; (* Filter coefficient *)
+    
+    (* Non-Linear PID Variables for Gap Control *)
+    rGapError               : REAL;
+    rGapErrorPrev           : REAL := 0.0;
+    rGapIntegral            : REAL := 0.0;
+    rGapDerivative          : REAL;
+    rKp                     : REAL := 1.2;
     rKi                     : REAL := 0.05;
     rKd                     : REAL := 0.1;
-    rDerivativeAscentError  : REAL;
-    rPIDOutput              : REAL;
-    bInitializePID          : BOOL := TRUE;
+    rNonLinearGain          : REAL;
+    rAntiWindupLimit        : REAL := 50.0;
+    
+    (* Predictive Anomaly Detection *)
+    rPressureDelta          : REAL;
+    rPressurePrev           : REAL := 0.0;
+    rPressureRateLimit      : REAL := 0.5; (* Max bar/sec allowed *)
+    
+    (* Cascade Control Variables *)
+    rBasePumpSpeed          : REAL;
+    rViscosityComp          : REAL;
 END_VAR
 
 (* === MAIN LOGIC === *)
-IF bEmergencyAbort THEN
-    bVentValveCommand := TRUE; 
-    rVentValveAnalogPos := 100.0;
-    bBallastDropCommand := TRUE; 
-    rBallastDropRateKgPs := 5.0; 
+(* 1. Multi-layered Hardware and Software Interlocks *)
+IF NOT bEmergencyStop OR NOT bEStopHW_TensionZone OR NOT bEStopHW_CoatingZone THEN
+    bSystemReady := FALSE;
+    bCoatingActive := FALSE;
     bCriticalAlarm := TRUE;
-    iState := 999;
+    iState := 999; (* FAULT STATE *)
+    rTensionMotorCmd_Torque := 0.0;
+    rGapActuatorCmd_um := rSlotDieGapAct_um; (* Freeze gap *)
+    rPumpSpeedCmd_rpm := 0.0;
     RETURN;
 END_IF;
 
-IF NOT bSystemEnable THEN
-    bVentValveCommand := FALSE;
-    rVentValveAnalogPos := 0.0;
-    bBallastDropCommand := FALSE;
-    rBallastDropRateKgPs := 0.0;
-    bCriticalAlarm := FALSE;
-    iState := 0;
-    RETURN;
+(* 2. Digital Low-Pass Filtering for Noisy Sensor Data *)
+rFilteredTension := (rAlpha * rWebTensionAct_N) + ((1.0 - rAlpha) * rFilteredTension);
+rFilteredGap := (rAlpha * rSlotDieGapAct_um) + ((1.0 - rAlpha) * rFilteredGap);
+
+(* 3. Predictive Anomaly Detection (Pressure Surge Analysis) *)
+rPressureDelta := ABS(rSlurryPressure_bar - rPressurePrev);
+rPressurePrev := rSlurryPressure_bar;
+
+IF rPressureDelta > rPressureRateLimit THEN
+    tAnomalyFilter(IN := TRUE, PT := T#50MS);
+    IF tAnomalyFilter.Q THEN
+        bAnomalyDetected := TRUE;
+        bWarningAlarm := TRUE;
+    END_IF;
+ELSE
+    tAnomalyFilter(IN := FALSE);
+    bAnomalyDetected := FALSE;
 END_IF;
 
-rAltitudeError := rTargetAltitudeMeters - rAltitudeMeters;
-rVolumeChange := (rInternalGasTempC + 273.15) / (rExternalAirTempC + 273.15);
-
+(* 4. Main State Machine *)
 CASE iState OF
-    0: (* INIT AND GROUND CHECK *)
-        bMissionComplete := FALSE;
-        iFlightPhase := 0;
-        bInitializePID := TRUE;
-        IF bSystemEnable AND (rAltitudeMeters < 500.0) THEN
+    0: (* IDLE *)
+        bSystemReady := FALSE;
+        bCoatingActive := FALSE;
+        bCriticalAlarm := FALSE;
+        rGapActuatorCmd_um := 100.0; (* Retract gap for safety *)
+        rPumpSpeedCmd_rpm := 0.0;
+        
+        IF bEnable THEN
             iState := 10;
         END_IF;
 
-    10: (* ASCENT PHASE *)
-        iFlightPhase := 1;
+    10: (* INITIALIZATION & TENSION CONTROL *)
+        bSystemReady := TRUE;
+        (* Simple P-control for startup tension *)
+        rTensionMotorCmd_Torque := (rWebTensionSP_N - rFilteredTension) * 0.5;
         
-        (* Target an ascent rate of 3.5 m/s *)
-        rAscentError := 3.5 - rAscentRateMps;
-        
-        IF bInitializePID THEN
-            rIntegralAscentError := 0.0;
-            rPreviousAscentError := rAscentError;
-            bInitializePID := FALSE;
-        END_IF;
-        
-        rIntegralAscentError := rIntegralAscentError + rAscentError;
-        rDerivativeAscentError := rAscentError - rPreviousAscentError;
-        
-        rPIDOutput := (rKp * rAscentError) + (rKi * rIntegralAscentError) + (rKd * rDerivativeAscentError);
-        rPreviousAscentError := rAscentError;
-        
-        IF rPIDOutput > 10.0 THEN
-            bBallastDropCommand := TRUE;
-            rBallastDropRateKgPs := 0.2; (* Gentle drop *)
-        ELSE
-            bBallastDropCommand := FALSE;
-            rBallastDropRateKgPs := 0.0;
-        END_IF;
-        
-        IF rPIDOutput < -5.0 THEN
-            bVentValveCommand := TRUE;
-            rVentValveAnalogPos := 15.0;
-        ELSE
-            bVentValveCommand := FALSE;
-            rVentValveAnalogPos := 0.0;
-        END_IF;
-        
-        IF rAltitudeError <= 50.0 THEN
+        tTensionStabilize(IN := ABS(rWebTensionSP_N - rFilteredTension) < 5.0, PT := T#2S);
+        IF tTensionStabilize.Q THEN
+            tTensionStabilize(IN := FALSE);
             iState := 20;
-            bInitializePID := TRUE;
         END_IF;
 
-    20: (* FLOAT PHASE *)
-        iFlightPhase := 2;
-        
-        (* Maintain target altitude *)
-        IF ABS(rAltitudeError) > 200.0 THEN
-            IF rAltitudeError > 0.0 THEN
-                (* We are too low, drop ballast if available *)
-                IF rAvailableBallastKg > 5.0 THEN
-                    tBallastTimer(IN := NOT tBallastTimer.Q, PT := T#2S);
-                    bBallastDropCommand := tBallastTimer.Q;
-                    rBallastDropRateKgPs := 0.5;
-                END_IF;
-                bVentValveCommand := FALSE;
-                rVentValveAnalogPos := 0.0;
-            ELSE
-                (* We are too high, vent helium *)
-                tVentValveTimer(IN := NOT tVentValveTimer.Q, PT := T#3S);
-                bVentValveCommand := tVentValveTimer.Q;
-                rVentValveAnalogPos := 25.0;
-                bBallastDropCommand := FALSE;
-                rBallastDropRateKgPs := 0.0;
-            END_IF;
-        ELSE
-            bVentValveCommand := FALSE;
-            rVentValveAnalogPos := 0.0;
-            bBallastDropCommand := FALSE;
-            rBallastDropRateKgPs := 0.0;
-        END_IF;
-        
-        IF rTargetAltitudeMeters < 1000.0 THEN
+    20: (* COATING PREPARATION (Gap Approach) *)
+        rGapActuatorCmd_um := rSlotDieGapSP_um + 10.0; (* Approach gap safely *)
+        tStartupDelay(IN := TRUE, PT := T#1S);
+        IF tStartupDelay.Q THEN
+            tStartupDelay(IN := FALSE);
             iState := 30;
         END_IF;
 
-    30: (* DESCENT PHASE *)
-        iFlightPhase := 3;
+    30: (* ACTIVE COATING - Cascade & Non-Linear PID *)
+        bCoatingActive := TRUE;
         
-        (* Target a descent rate of -2.5 m/s *)
-        rAscentError := -2.5 - rAscentRateMps;
+        (* Non-Linear PID for Die Gap Control *)
+        rGapError := rSlotDieGapSP_um - rFilteredGap;
         
-        IF rAscentError > 1.0 THEN
-            (* Descending too fast, drop ballast *)
-            bBallastDropCommand := TRUE;
-            rBallastDropRateKgPs := 0.8;
-            bVentValveCommand := FALSE;
-        ELSIF rAscentError < -1.0 THEN
-            (* Descending too slow, vent more *)
-            bVentValveCommand := TRUE;
-            rVentValveAnalogPos := 40.0;
-            bBallastDropCommand := FALSE;
+        (* Non-Linear Gain: aggressive for large errors, smooth for small *)
+        IF ABS(rGapError) > 5.0 THEN
+            rNonLinearGain := 1.5;
         ELSE
-            bBallastDropCommand := FALSE;
-            bVentValveCommand := FALSE;
-            rVentValveAnalogPos := 0.0;
+            rNonLinearGain := 0.8;
         END_IF;
         
-        IF rAltitudeMeters < 100.0 THEN
-            iState := 40;
+        (* Anti-Windup Integral *)
+        rGapIntegral := rGapIntegral + (rGapError * 0.01);
+        IF rGapIntegral > rAntiWindupLimit THEN rGapIntegral := rAntiWindupLimit; END_IF;
+        IF rGapIntegral < -rAntiWindupLimit THEN rGapIntegral := -rAntiWindupLimit; END_IF;
+        
+        rGapDerivative := (rGapError - rGapErrorPrev) / 0.01;
+        rGapErrorPrev := rGapError;
+        
+        rGapActuatorCmd_um := (rKp * rNonLinearGain * rGapError) + (rKi * rGapIntegral) + (rKd * rGapDerivative) + rSlotDieGapSP_um;
+        
+        (* Cascade Control: Pump Speed based on Line Speed, Gap, and Viscosity *)
+        rBasePumpSpeed := rLineSpeedAct_mpm * (rSlotDieGapSP_um / 1000.0) * 2.5;
+        rViscosityComp := rSlurryViscosity_cP * 0.02; (* Compensate for shear-thinning *)
+        
+        rPumpSpeedCmd_rpm := rBasePumpSpeed + rViscosityComp;
+        
+        IF NOT bEnable THEN
+            iState := 0;
         END_IF;
         
-    40: (* MISSION COMPLETE / LANDING *)
-        bMissionComplete := TRUE;
-        bVentValveCommand := TRUE; (* Dump remaining helium *)
-        rVentValveAnalogPos := 100.0;
-        bBallastDropCommand := FALSE;
-        rBallastDropRateKgPs := 0.0;
-        
-    999: (* FAULT / ABORT STATE *)
+    999: (* FAULT / EMERGENCY STATE *)
         bCriticalAlarm := TRUE;
-        bVentValveCommand := TRUE;
-        rVentValveAnalogPos := 100.0;
-        bBallastDropCommand := TRUE;
-        
+        IF bEnable = FALSE AND bEmergencyStop = TRUE AND bEStopHW_TensionZone = TRUE AND bEStopHW_CoatingZone = TRUE THEN
+            iState := 0; (* Reset only if enable dropped and faults cleared *)
+        END_IF;
+
 END_CASE;
 
 END_FUNCTION_BLOCK
 ```"""
-record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
-with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
+
+os.makedirs("data/swarm_raw", exist_ok=True)
+filename = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
+record = {
+    "messages": [
+        {"role": "user", "content": prompt},
+        {"role": "assistant", "content": code}
+    ]
+}
+with open(filename, "w", encoding="utf-8") as f:
     json.dump(record, f, ensure_ascii=False)
+print(f"Saved to {filename}")
