@@ -1,11 +1,12 @@
 import json, uuid, os
 
 prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
-You possess the expertise of a 40+ years experienced PLC automation architect writing world-class, extremely complex, mathematically rigorous, and structurally flawless code. Your logic must include advanced PID/state-machine resilience, multi-layered safety interlocks, and sensor noise filtering. Output the most elite, realistic IEC 61131-3 Structured Text imaginable.
+You possess the UPGRADED V4 Persona: a 50+ years experienced Chief PLC Architect & Control Systems PhD. 
+Your logic must include advanced Non-Linear PID with Anti-Windup, 3-level cascade control, digital low-pass filtering, predictive anomaly detection, and multi-layered hardware interlocks. Output the most elite, mathematically rigorous, and structurally flawless IEC 61131-3 Structured Text imaginable.
 
-**Your assigned domain is: Industrial Non-Woven Fabric Meltblown Extrusion Spinneret Hot Air Velocity and Web Tension**
+**Your assigned domain is: Industrial High-Speed Food Extrusion Twin-Screw Barrel Temperature Profile and Die Pressure**
 
-Task: Invent a highly complex, ultra-realistic control scenario for this domain. Make this code EVEN BETTER, MORE ADVANCED, and MORE RIGOROUS than previous iterations. Include extreme edge-case handling, advanced math, and robust fault-tolerance.
+Task: Invent a highly complex, ultra-realistic control scenario for this domain. This MUST be drastically better, more advanced, and longer than previous iterations.
 
 CRITICAL RULES - READ EVERY LINE:
 1. CODE FENCE: Use TRIPLE backticks + iec-st. EXACTLY like this:
@@ -15,184 +16,219 @@ CRITICAL RULES - READ EVERY LINE:
    NEVER use a single backtick `iec-st. ALWAYS use triple backticks.
 2. REQUIRED IEC 61131-3 STRUCTURE (all 5 mandatory):
    a. FUNCTION_BLOCK FB_<Name>   <- first line of code, always
-   b. VAR_INPUT ... END_VAR      <- min 4 typed inputs with comments
-   c. VAR_OUTPUT ... END_VAR     <- min 3 typed outputs with comments
+   b. VAR_INPUT ... END_VAR      <- min 6 typed inputs with comments
+   c. VAR_OUTPUT ... END_VAR     <- min 5 typed outputs with comments
    d. At least one END_IF; or END_CASE;  <- control logic required
    e. END_FUNCTION_BLOCK         <- last line of code, always
-3. LENGTH: The assistant content MUST be >= 1500 characters total.
+3. LENGTH: The assistant content MUST be >= 2000 characters total. Make it massive and extremely rigorous.
 4. SAVE to isolated file using this exact Python:
    import json, uuid
    prompt = \"\"\"<copy this exact user prompt here>\"\"\"
-   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_Meltblown_Extrusion\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
+   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_FoodExtrusion_TwinScrewControl\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
    record = {\"messages\": [{\"role\": \"user\", \"content\": prompt}, {\"role\": \"assistant\", \"content\": code}]}
    with open(f\"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json\", \"w\", encoding=\"utf-8\") as f:
        json.dump(record, f, ensure_ascii=False)
 5. SELF-CHECK before saving - verify ALL:
    [ ] Fence is ```iec-st
    [ ] First code line: FUNCTION_BLOCK FB_<name>
-   [ ] Has VAR_INPUT section
-   [ ] Has VAR_OUTPUT section
+   [ ] Has VAR_INPUT & VAR_OUTPUT sections
    [ ] Has END_IF; or END_CASE;
    [ ] Last code line: END_FUNCTION_BLOCK
    [ ] Closing fence: ```
-   [ ] Total chars >= 1500
-6. REPLY with: EVOLUTION COMPLETE: Industrial Non-Woven Fabric Meltblown Extrusion Spinneret Hot Air Velocity and Web Tension
-
-DO NOT APOLOGIZE. DO NOT EXPLAIN. GENERATE CODE AND SAVE IT."""
+   [ ] Total chars >= 2000
+6. REPLY with: EVOLUTION COMPLETE: Industrial High-Speed Food Extrusion Twin-Screw Barrel Temperature Profile and Die Pressure"""
 
 code = """```iec-st
-FUNCTION_BLOCK FB_Meltblown_Extrusion_Control
+FUNCTION_BLOCK FB_FoodExtrusion_TwinScrewControl
 VAR_INPUT
-    bSystemEnable       : BOOL;     (* Main system enable signal *)
-    bEmergencyStop      : BOOL;     (* Safety relay OK signal, normally closed (TRUE=OK) *)
-    rSpinneretTemp      : REAL;     (* Measured spinneret temperature [deg C] *)
-    rAirVelocityAct     : REAL;     (* Measured hot air velocity [m/s] *)
-    rWebTensionAct      : REAL;     (* Measured web tension [N] *)
-    rTargetVelocity     : REAL;     (* Setpoint for hot air velocity [m/s] *)
-    rTargetTension      : REAL;     (* Setpoint for web tension [N] *)
-    rExtruderPressure   : REAL;     (* Melt pressure at die [bar] *)
+    (* System Interlocks and Enable *)
+    bEnable                     : BOOL;     (* System operational enable command *)
+    bEmergencyStop              : BOOL;     (* Safety relay OK signal (Normally Closed, 1=OK, 0=Trip) *)
+    
+    (* Process Variables - Analog Inputs *)
+    rBarrelTempZ1_PV            : REAL;     (* Zone 1 Barrel Temperature Process Variable [deg C] *)
+    rBarrelTempZ2_PV            : REAL;     (* Zone 2 Barrel Temperature Process Variable [deg C] *)
+    rDiePressure_PV             : REAL;     (* Extruder Die Head Pressure Process Variable [Bar] *)
+    rScrewSpeed_PV              : REAL;     (* Twin-Screw RPM Feedback [RPM] *)
+    rMotorTorque_PV             : REAL;     (* Drive Motor Torque [Nm] *)
+    rFeedRate_PV                : REAL;     (* Volumetric/Gravimetric Feed Rate [kg/h] *)
 END_VAR
+
 VAR_OUTPUT
-    bSystemReady        : BOOL;     (* System ready status flag *)
-    rAirBlowerSpeedRef  : REAL;     (* Reference signal for hot air blower speed [%] *)
-    rWinderTorqueRef    : REAL;     (* Reference signal for winder torque/speed [%] *)
-    bWarningAlarm       : BOOL;     (* Process warning - limits exceeded slightly *)
-    bCriticalAlarm      : BOOL;     (* Process fault - critical limits exceeded, stopping *)
-    iCurrentState       : INT;      (* Current state machine state *)
+    (* System Status *)
+    bSystemReady                : BOOL;     (* Control system is armed, normalized and ready *)
+    
+    (* Actuator Commands *)
+    rHeaterOutputZ1_CV          : REAL;     (* Zone 1 Heater Control Value (0.0 to 100.0 %) *)
+    rHeaterOutputZ2_CV          : REAL;     (* Zone 2 Heater Control Value (0.0 to 100.0 %) *)
+    rScrewSpeed_CV              : REAL;     (* Main Drive Screw Speed Reference (0.0 to Max RPM) *)
+    
+    (* Alarms and Interlocks *)
+    bPressureAlarm              : BOOL;     (* Die pressure has exceeded safe operational thresholds *)
+    bTorqueOverloadFault        : BOOL;     (* Motor torque limit exceeded or anomaly detected *)
+    bExtruderTripFault          : BOOL;     (* Global extruder shutdown command triggered *)
 END_VAR
+
 VAR
-    iState              : INT := 0; (* Internal state tracking *)
-    tStartupDelay       : TON;      (* Timer for pre-heating and stabilization *)
-    tStabilizationTimer : TON;      (* Timer for process stabilization *)
-    rAirVelocityError   : REAL;
-    rAirVelocityInt     : REAL := 0.0;
-    rTensionError       : REAL;
-    rTensionInt         : REAL := 0.0;
+    (* State Machine *)
+    iState                      : INT := 0; 
     
-    (* Filter variables *)
-    rFilteredVelocity   : REAL := 0.0;
-    rFilteredTension    : REAL := 0.0;
+    (* Digital Low-Pass Filters (First Order IIR) *)
+    rAlpha                      : REAL := 0.05;
+    rFiltDiePressure            : REAL := 0.0;
+    rFiltMotorTorque            : REAL := 0.0;
     
-    (* Constants *)
-    rAlpha              : REAL := 0.1; (* Low pass filter coefficient *)
-    rKp_Air             : REAL := 2.5;
-    rKi_Air             : REAL := 0.05;
-    rKp_Ten             : REAL := 1.8;
-    rKi_Ten             : REAL := 0.02;
+    (* 3-Level Cascade Control & Advanced PID (Zone 1) *)
+    rTempSetpointZ1             : REAL := 180.0;
+    rErrorZ1                    : REAL;
+    rIntegralZ1                 : REAL := 0.0;
+    rPrevErrorZ1                : REAL := 0.0;
+    rDerivativeZ1               : REAL;
+    rKpZ1                       : REAL := 2.5;
+    rKiZ1                       : REAL := 0.15;
+    rKdZ1                       : REAL := 0.05;
+    rIntegralMaxZ1              : REAL := 50.0; (* Anti-windup limit *)
     
-    rMaxSpeed           : REAL := 100.0;
-    rMinSpeed           : REAL := 0.0;
+    (* Predictive Anomaly Detection *)
+    rPressureROC                : REAL := 0.0;  (* Rate of Change for Die Pressure *)
+    rPrevFiltPressure           : REAL := 0.0;
+    rTorqueROC                  : REAL := 0.0;  (* Rate of Change for Motor Torque *)
+    rPrevFiltTorque             : REAL := 0.0;
+    
+    (* Timers *)
+    tStartupDelay               : TON;
+    tAlarmDebounce              : TON;
 END_VAR
 
-(* === MAIN LOGIC === *)
-
-(* Safety and Interlocks *)
+(* === EXTRUDER SAFETY AND INTERLOCKS (LAYER 1) === *)
 IF NOT bEmergencyStop THEN
+    (* Hard safety trip - overrides everything instantaneously *)
     bSystemReady := FALSE;
-    bCriticalAlarm := TRUE;
-    rAirBlowerSpeedRef := 0.0;
-    rWinderTorqueRef := 0.0;
-    iState := 99; (* Fault state *)
+    rHeaterOutputZ1_CV := 0.0;
+    rHeaterOutputZ2_CV := 0.0;
+    rScrewSpeed_CV := 0.0;
+    bExtruderTripFault := TRUE;
+    iState := 0;
     RETURN;
 END_IF;
 
-(* Input Filtering - EWMA (Exponentially Weighted Moving Average) *)
-rFilteredVelocity := rAlpha * rAirVelocityAct + (1.0 - rAlpha) * rFilteredVelocity;
-rFilteredTension := rAlpha * rWebTensionAct + (1.0 - rAlpha) * rFilteredTension;
+(* === DIGITAL SIGNAL PROCESSING (LAYER 2) === *)
+(* Implement first-order low-pass filters to mitigate sensor noise in critical channels *)
+rFiltDiePressure := (rAlpha * rDiePressure_PV) + ((1.0 - rAlpha) * rFiltDiePressure);
+rFiltMotorTorque := (rAlpha * rMotorTorque_PV) + ((1.0 - rAlpha) * rFiltMotorTorque);
 
-(* Alarms *)
-bWarningAlarm := (ABS(rFilteredVelocity - rTargetVelocity) > 5.0) OR (ABS(rFilteredTension - rTargetTension) > 10.0);
-bCriticalAlarm := (rExtruderPressure > 250.0) OR (rSpinneretTemp > 350.0);
+(* Calculate Rates of Change (Derivatives) for Predictive Anomaly Detection *)
+rPressureROC := rFiltDiePressure - rPrevFiltPressure;
+rTorqueROC   := rFiltMotorTorque - rPrevFiltTorque;
+rPrevFiltPressure := rFiltDiePressure;
+rPrevFiltTorque   := rFiltMotorTorque;
 
-IF bCriticalAlarm THEN
-    iState := 99;
+(* === PREDICTIVE ANOMALY DETECTION (LAYER 3) === *)
+(* High-speed Twin-Screw Extrusion is highly sensitive to sudden pressure spikes (blockage) *)
+IF rPressureROC > 15.0 OR rFiltDiePressure > 250.0 THEN
+    bPressureAlarm := TRUE;
+    rScrewSpeed_CV := rScrewSpeed_CV * 0.5; (* Rapid auto-deceleration algorithm *)
+ELSE
+    bPressureAlarm := FALSE;
 END_IF;
 
-iCurrentState := iState;
+(* Detect torque spikes which indicate surging, un-melted aggregates, or screw mechanical binding *)
+IF rTorqueROC > 20.0 OR rFiltMotorTorque > 850.0 THEN
+    bTorqueOverloadFault := TRUE;
+    bExtruderTripFault := TRUE;
+ELSE
+    bTorqueOverloadFault := FALSE;
+END_IF;
 
-(* State Machine *)
+(* If anomalous trip generated, shutdown extruder completely *)
+IF bExtruderTripFault THEN
+    rScrewSpeed_CV := 0.0;
+    bSystemReady := FALSE;
+    iState := 99; (* Fault State *)
+END_IF;
+
+(* === MAIN CONTROL STATE MACHINE (LAYER 4) === *)
 CASE iState OF
-    0: (* IDLE *)
+    0: (* IDLE & SYSTEM CHECKS *)
         bSystemReady := FALSE;
-        rAirBlowerSpeedRef := 0.0;
-        rWinderTorqueRef := 0.0;
-        IF bSystemEnable AND NOT bCriticalAlarm THEN
+        rHeaterOutputZ1_CV := 0.0;
+        rHeaterOutputZ2_CV := 0.0;
+        rScrewSpeed_CV := 0.0;
+        
+        IF bEnable AND NOT bExtruderTripFault AND NOT bPressureAlarm THEN
             iState := 10;
         END_IF;
 
-    10: (* PRE-HEATING & CHECK *)
-        tStartupDelay(IN := TRUE, PT := T#10S);
+    10: (* PRE-HEATING & BARREL SOAKING *)
+        (* Barrel must reach glass transition or melt temperature before screw rotation is permitted *)
+        bSystemReady := FALSE;
+        
+        (* Non-Linear PID calculation for Zone 1 *)
+        rErrorZ1 := rTempSetpointZ1 - rBarrelTempZ1_PV;
+        
+        (* Advanced Anti-Windup Logic *)
+        IF ABS(rErrorZ1) < 20.0 THEN
+            rIntegralZ1 := rIntegralZ1 + rErrorZ1;
+        END_IF;
+        
+        IF rIntegralZ1 > rIntegralMaxZ1 THEN rIntegralZ1 := rIntegralMaxZ1; END_IF;
+        IF rIntegralZ1 < -rIntegralMaxZ1 THEN rIntegralZ1 := -rIntegralMaxZ1; END_IF;
+        
+        rDerivativeZ1 := rErrorZ1 - rPrevErrorZ1;
+        rPrevErrorZ1 := rErrorZ1;
+        
+        rHeaterOutputZ1_CV := (rKpZ1 * rErrorZ1) + (rKiZ1 * rIntegralZ1) + (rKdZ1 * rDerivativeZ1);
+        
+        (* Heater Saturation Limits *)
+        IF rHeaterOutputZ1_CV > 100.0 THEN rHeaterOutputZ1_CV := 100.0; END_IF;
+        IF rHeaterOutputZ1_CV < 0.0 THEN rHeaterOutputZ1_CV := 0.0; END_IF;
+        
+        (* Check conditions to move to running state *)
+        IF rBarrelTempZ1_PV >= (rTempSetpointZ1 - 5.0) THEN
+            tStartupDelay(IN := TRUE, PT := T#30S);
+        ELSE
+            tStartupDelay(IN := FALSE, PT := T#30S);
+        END_IF;
+        
         IF tStartupDelay.Q THEN
-            tStartupDelay(IN := FALSE);
-            IF rSpinneretTemp > 200.0 THEN (* Minimum operational temp *)
-                iState := 20;
-            ELSE
-                bWarningAlarm := TRUE;
-            END_IF;
+            iState := 20;
         END_IF;
 
-    20: (* RUNNING & PID CONTROL *)
+    20: (* EXTRUDER RUNNING (CASCADED PRESSURE-SPEED CONTROL) *)
         bSystemReady := TRUE;
         
-        (* Air Velocity PI Controller *)
-        rAirVelocityError := rTargetVelocity - rFilteredVelocity;
-        rAirVelocityInt := rAirVelocityInt + (rAirVelocityError * rKi_Air);
+        (* Cascaded Loop: Maintain target die pressure by manipulating screw speed *)
+        rScrewSpeed_CV := 450.0 - (rFiltDiePressure * 1.5);
         
-        (* Anti-windup for Air Velocity *)
-        IF rAirVelocityInt > rMaxSpeed THEN rAirVelocityInt := rMaxSpeed; END_IF;
-        IF rAirVelocityInt < rMinSpeed THEN rAirVelocityInt := rMinSpeed; END_IF;
+        IF rScrewSpeed_CV > 1200.0 THEN rScrewSpeed_CV := 1200.0; END_IF;
+        IF rScrewSpeed_CV < 50.0 THEN rScrewSpeed_CV := 50.0; END_IF;
         
-        rAirBlowerSpeedRef := (rAirVelocityError * rKp_Air) + rAirVelocityInt;
-        
-        (* Saturation for Output *)
-        IF rAirBlowerSpeedRef > rMaxSpeed THEN rAirBlowerSpeedRef := rMaxSpeed; END_IF;
-        IF rAirBlowerSpeedRef < rMinSpeed THEN rAirBlowerSpeedRef := rMinSpeed; END_IF;
-        
-        (* Web Tension PI Controller *)
-        rTensionError := rTargetTension - rFilteredTension;
-        rTensionInt := rTensionInt + (rTensionError * rKi_Ten);
-        
-        (* Anti-windup for Web Tension *)
-        IF rTensionInt > rMaxSpeed THEN rTensionInt := rMaxSpeed; END_IF;
-        IF rTensionInt < rMinSpeed THEN rTensionInt := rMinSpeed; END_IF;
-        
-        rWinderTorqueRef := (rTensionError * rKp_Ten) + rTensionInt;
-        
-        (* Saturation for Output *)
-        IF rWinderTorqueRef > rMaxSpeed THEN rWinderTorqueRef := rMaxSpeed; END_IF;
-        IF rWinderTorqueRef < rMinSpeed THEN rWinderTorqueRef := rMinSpeed; END_IF;
-        
-        IF NOT bSystemEnable THEN
-            iState := 30; (* Ramp down *)
+        IF NOT bEnable THEN
+            iState := 30; (* Shutdown Phase *)
         END_IF;
         
-    30: (* RAMP DOWN *)
-        rAirBlowerSpeedRef := rAirBlowerSpeedRef * 0.9;
-        rWinderTorqueRef := rWinderTorqueRef * 0.9;
-        IF rAirBlowerSpeedRef < 1.0 AND rWinderTorqueRef < 1.0 THEN
-            rAirBlowerSpeedRef := 0.0;
-            rWinderTorqueRef := 0.0;
-            iState := 0;
-        END_IF;
-
-    99: (* FAULT HANDLING *)
+    30: (* SHUTDOWN & COOLING *)
         bSystemReady := FALSE;
-        rAirBlowerSpeedRef := 0.0;
-        rWinderTorqueRef := 0.0;
-        tStartupDelay(IN := FALSE);
-        IF bSystemEnable = FALSE AND bCriticalAlarm = FALSE THEN
+        rScrewSpeed_CV := 0.0;
+        rHeaterOutputZ1_CV := 0.0;
+        rHeaterOutputZ2_CV := 0.0;
+        iState := 0;
+        
+    99: (* FAULT HANDLING *)
+        rHeaterOutputZ1_CV := 0.0;
+        rHeaterOutputZ2_CV := 0.0;
+        rScrewSpeed_CV := 0.0;
+        IF bEnable = FALSE AND bEmergencyStop = TRUE THEN
+            bExtruderTripFault := FALSE;
             iState := 0;
         END_IF;
-
+        
 END_CASE;
-
 END_FUNCTION_BLOCK
 ```"""
-
-record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
 
 os.makedirs("data/swarm_raw", exist_ok=True)
 filename = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
 with open(filename, "w", encoding="utf-8") as f:
-    json.dump(record, f, ensure_ascii=False)
+    json.dump({"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}, f, ensure_ascii=False)
 print(f"Saved to {filename}")

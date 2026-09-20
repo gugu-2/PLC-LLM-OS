@@ -1,11 +1,12 @@
 import json, uuid, os
+prompt = """<USER_REQUEST>
+You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
+You possess the UPGRADED V4 Persona: a 50+ years experienced Chief PLC Architect & Control Systems PhD. 
+Your logic must include advanced Non-Linear PID with Anti-Windup, 3-level cascade control, digital low-pass filtering, predictive anomaly detection, and multi-layered hardware interlocks. Output the most elite, mathematically rigorous, and structurally flawless IEC 61131-3 Structured Text imaginable.
 
-prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
-You possess the expertise of a 40+ years experienced PLC automation architect writing world-class, extremely complex, mathematically rigorous, and structurally flawless code. Your logic must include advanced PID/state-machine resilience, multi-layered safety interlocks, and sensor noise filtering. Output the most elite, realistic IEC 61131-3 Structured Text imaginable.
+**Your assigned domain is: Automated Mega-Scale Vertical Lift Module (VLM) Warehouse Robotics Laser Positioning and Payload Balancing**
 
-**Your assigned domain is: Commercial Airport Automated Baggage Handling System (BHS) High-Speed Cross-Belt Sorter**
-
-Task: Invent a highly complex, ultra-realistic control scenario for this domain. Make this code EVEN BETTER, MORE ADVANCED, and MORE RIGOROUS than previous iterations. Include extreme edge-case handling, advanced math, and robust fault-tolerance.
+Task: Invent a highly complex, ultra-realistic control scenario for this domain. This MUST be drastically better, more advanced, and longer than previous iterations.
 
 CRITICAL RULES - READ EVERY LINE:
 1. CODE FENCE: Use TRIPLE backticks + iec-st. EXACTLY like this:
@@ -15,145 +16,215 @@ CRITICAL RULES - READ EVERY LINE:
    NEVER use a single backtick `iec-st. ALWAYS use triple backticks.
 2. REQUIRED IEC 61131-3 STRUCTURE (all 5 mandatory):
    a. FUNCTION_BLOCK FB_<Name>   <- first line of code, always
-   b. VAR_INPUT ... END_VAR      <- min 4 typed inputs with comments
-   c. VAR_OUTPUT ... END_VAR     <- min 3 typed outputs with comments
+   b. VAR_INPUT ... END_VAR      <- min 6 typed inputs with comments
+   c. VAR_OUTPUT ... END_VAR     <- min 5 typed outputs with comments
    d. At least one END_IF; or END_CASE;  <- control logic required
    e. END_FUNCTION_BLOCK         <- last line of code, always
-3. LENGTH: The assistant content MUST be >= 1500 characters total.
+3. LENGTH: The assistant content MUST be >= 2000 characters total. Make it massive and extremely rigorous.
 4. SAVE to isolated file using this exact Python:
    import json, uuid
    prompt = \"\"\"<copy this exact user prompt here>\"\"\"
-   code = \"\"\"```iec-st\nFUNCTION_BLOCK FB_AirportBHS_CrossBelt\n//...\nEND_FUNCTION_BLOCK\n```\"\"\"
-   record = {\"messages\": [{\"role\": \"user\", \"content\": prompt}, {\"role\": \"assistant\", \"content\": code}]}
-   with open(f\"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json\", \"w\", encoding=\"utf-8\") as f:
+   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_VLM_WarehouseRobotics\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
+   record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
+   with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
        json.dump(record, f, ensure_ascii=False)
 5. SELF-CHECK before saving - verify ALL:
    [ ] Fence is ```iec-st
    [ ] First code line: FUNCTION_BLOCK FB_<name>
-   [ ] Has VAR_INPUT section
-   [ ] Has VAR_OUTPUT section
+   [ ] Has VAR_INPUT & VAR_OUTPUT sections
    [ ] Has END_IF; or END_CASE;
    [ ] Last code line: END_FUNCTION_BLOCK
    [ ] Closing fence: ```
-   [ ] Total chars >= 1500
-6. REPLY with: EVOLUTION COMPLETE: Commercial Airport Automated Baggage Handling System (BHS) High-Speed Cross-Belt Sorter
-
-DO NOT APOLOGIZE. DO NOT EXPLAIN. GENERATE CODE AND SAVE IT."""
+   [ ] Total chars >= 2000
+6. REPLY with: EVOLUTION COMPLETE: Automated Mega-Scale Vertical Lift Module (VLM) Warehouse Robotics Laser Positioning and Payload Balancing
+</USER_REQUEST>"""
 
 code = """```iec-st
-FUNCTION_BLOCK FB_BHS_CrossBeltSorter
+FUNCTION_BLOCK FB_VLM_WarehouseRobotics_LaserPos_PayloadBalancing
+
 VAR_INPUT
-    bEnable           : BOOL;     (* System master enable *)
-    bEmergencyStop    : BOOL;     (* E-Stop safety circuit status (TRUE = OK) *)
-    bInductionDetect  : BOOL;     (* Photo-eye detecting bag induction *)
-    rBagWeight_kg     : REAL;     (* Bag weight from scale in kg *)
-    rMainLineSpeed    : REAL;     (* Main sorter line speed in m/s *)
-    bDestAvailable    : BOOL;     (* Destination chute availability *)
-    bEncoderSync      : BOOL;     (* High-speed encoder sync pulse *)
-    iTargetChute      : INT;      (* Target chute ID for induction *)
-END_VAR
-VAR_OUTPUT
-    bSystemReady      : BOOL;     (* Sorter is ready for induction *)
-    rBeltDischargeSpd : REAL;     (* Calculated discharge cross-belt speed (m/s) *)
-    bDischargeTrigger : BOOL;     (* Trigger for cross-belt discharge action *)
-    bAlarm            : BOOL;     (* General fault alarm *)
-    iErrorCode        : INT;      (* Specific error code for diagnostics *)
-    rFilteredWeight   : REAL;     (* Exponential moving average of weight *)
-END_VAR
-VAR
-    iState            : INT := 0; (* Main state machine step *)
-    tEStopTimer       : TON;
-    tDischargeWindow  : TON;
-    rWeightBuffer     : ARRAY[0..9] OF REAL;
-    iBufferIdx        : INT := 0;
-    rWeightSum        : REAL := 0.0;
-    bBagInTransit     : BOOL := FALSE;
-    rCalculatedDelay  : REAL;
-    bInductionEdge    : R_TRIG;
+    bEnableMaster            : BOOL;     (* System master enable interlock *)
+    bEmergencyStop           : BOOL;     (* Safety relay OK signal (Dual Channel) *)
+    bMaintenanceMode         : BOOL;     (* Maintenance override active *)
+    rLaserPositionZ_mm       : REAL;     (* High-res laser positioning Z-axis feedback [mm] *)
+    rLaserPositionX_mm       : REAL;     (* High-res laser positioning X-axis feedback [mm] *)
+    rPayloadMass_kg          : REAL;     (* Detected tray payload mass via load cells [kg] *)
+    rTrayCenterOfGravityX_mm : REAL;     (* Calculated CoG on X-axis [mm] *)
+    rTrayCenterOfGravityY_mm : REAL;     (* Calculated CoG on Y-axis [mm] *)
+    rVelocityZ_mm_s          : REAL;     (* Actual velocity Z-axis [mm/s] *)
+    rTargetPositionZ_mm      : REAL;     (* Target destination height [mm] *)
 END_VAR
 
-(* === SAFETY AND INTERLOCKS === *)
+VAR_OUTPUT
+    bSystemReady             : BOOL;     (* VLM robotics ready for motion *)
+    rControlOutputZ_V        : REAL;     (* Servo velocity command Z-axis [-10..+10V] *)
+    rControlOutputX_V        : REAL;     (* Servo velocity command X-axis [-10..+10V] *)
+    bLoadUnbalancedAlarm     : BOOL;     (* Tray CoG out of bounds or mass limit exceeded *)
+    bPositionalDeviationAlarm: BOOL;     (* Laser tracking error anomaly detected *)
+    bDriveFaultInterlock     : BOOL;     (* Hardware interlock trip output *)
+END_VAR
+
+VAR
+    (* Internal State Machine *)
+    iState                   : INT := 0; 
+    
+    (* Anti-Windup Non-Linear PID Z-axis *)
+    rErrorZ                  : REAL;
+    rIntegralZ               : REAL;
+    rDerivativeZ             : REAL;
+    rLastErrorZ              : REAL;
+    rKp_Z                    : REAL := 2.5;
+    rKi_Z                    : REAL := 0.05;
+    rKd_Z                    : REAL := 0.12;
+    rIntegralLimit           : REAL := 5.0;
+    
+    (* Cascade Control Variables *)
+    rTargetVelocityZ         : REAL;
+    rVelocityErrorZ          : REAL;
+    rVelIntegralZ            : REAL;
+    
+    (* Digital Low-Pass Filters *)
+    rFilteredMass            : REAL;
+    rAlphaMass               : REAL := 0.1; (* 10Hz sampling assumed *)
+    rFilteredVelocityZ       : REAL;
+    rAlphaVel                : REAL := 0.15;
+
+    (* Payload Balance Envelope *)
+    rMaxMassLimit            : REAL := 1500.0; (* 1.5 tons max per tray *)
+    rMaxCoGDeviation         : REAL := 250.0;  (* Max allowable CoG shift from center [mm] *)
+    
+    (* Predictive Anomaly Variables *)
+    rPredictedPosZ           : REAL;
+    rAnomalyThreshold        : REAL := 15.0; (* mm deviation to trigger trip *)
+    
+    (* Timers *)
+    tStartupDelay            : TON;
+    tSafetyWatchdog          : TON;
+END_VAR
+
+(* === SYSTEM SAFETY INTERLOCKS AND PRE-CHECKS === *)
 IF NOT bEmergencyStop THEN
-    iState := 999; (* FAULT STATE *)
     bSystemReady := FALSE;
-    bDischargeTrigger := FALSE;
-    rBeltDischargeSpd := 0.0;
-    bAlarm := TRUE;
-    iErrorCode := 1001; (* E-Stop Pressed *)
+    rControlOutputZ_V := 0.0;
+    rControlOutputX_V := 0.0;
+    bDriveFaultInterlock := TRUE;
+    iState := 0;
     RETURN;
 END_IF;
 
-(* Edge detection for induction *)
-bInductionEdge(CLK := bInductionDetect);
-
-(* === SENSOR NOISE FILTERING (Moving Average) === *)
-IF bInductionEdge.Q THEN
-    rWeightSum := rWeightSum - rWeightBuffer[iBufferIdx] + rBagWeight_kg;
-    rWeightBuffer[iBufferIdx] := rBagWeight_kg;
-    rFilteredWeight := rWeightSum / 10.0;
-    iBufferIdx := (iBufferIdx + 1) MOD 10;
+IF bMaintenanceMode THEN
+    (* Slow manual jog handled externally, hold position safely *)
+    bSystemReady := FALSE;
+    bDriveFaultInterlock := FALSE;
+    iState := 0;
+    RETURN;
 END_IF;
 
-(* === MAIN CONTROL STATE MACHINE === *)
+(* Digital Low-Pass Filtering for noisy analog sensors *)
+rFilteredMass := (rAlphaMass * rPayloadMass_kg) + ((1.0 - rAlphaMass) * rFilteredMass);
+rFilteredVelocityZ := (rAlphaVel * rVelocityZ_mm_s) + ((1.0 - rAlphaVel) * rFilteredVelocityZ);
+
+(* Predictive Anomaly Detection: Z-axis Laser Tracking Error *)
+rPredictedPosZ := rLaserPositionZ_mm + (rFilteredVelocityZ * 0.1); (* 100ms lookahead *)
+IF ABS(rTargetPositionZ_mm - rPredictedPosZ) > rAnomalyThreshold AND iState = 30 THEN
+    (* Position deviation growing beyond expected dynamic envelope *)
+    bPositionalDeviationAlarm := TRUE;
+END_IF;
+
+(* Payload Balancing and Limit Checking *)
+IF rFilteredMass > rMaxMassLimit OR 
+   ABS(rTrayCenterOfGravityX_mm) > rMaxCoGDeviation OR 
+   ABS(rTrayCenterOfGravityY_mm) > rMaxCoGDeviation THEN
+    bLoadUnbalancedAlarm := TRUE;
+    bDriveFaultInterlock := TRUE;
+    iState := 999; (* FAULT STATE *)
+ELSE
+    bLoadUnbalancedAlarm := FALSE;
+END_IF;
+
+
+(* === MAIN LOGIC STATE MACHINE === *)
 CASE iState OF
-    0: (* INIT *)
+    0: (* IDLE & SAFETY CHECK *)
         bSystemReady := FALSE;
-        bAlarm := FALSE;
-        iErrorCode := 0;
-        IF bEnable AND bEmergencyStop THEN
-            iState := 10;
+        rControlOutputZ_V := 0.0;
+        rControlOutputX_V := 0.0;
+        IF bEnableMaster AND NOT bDriveFaultInterlock AND bEmergencyStop THEN
+            tStartupDelay(IN := TRUE, PT := T#2S);
+            IF tStartupDelay.Q THEN
+                tStartupDelay(IN := FALSE);
+                bSystemReady := TRUE;
+                iState := 10;
+            END_IF;
+        ELSE
+            tStartupDelay(IN := FALSE);
         END_IF;
 
-    10: (* IDLE & SYNCHRONIZING *)
+    10: (* READY TO MOVE *)
         bSystemReady := TRUE;
-        bDischargeTrigger := FALSE;
-        rBeltDischargeSpd := 0.0;
-        IF bInductionEdge.Q THEN
-            bBagInTransit := TRUE;
-            iState := 20;
+        (* Check if movement required *)
+        IF ABS(rTargetPositionZ_mm - rLaserPositionZ_mm) > 1.0 THEN
+            (* Initialize Cascade PID variables *)
+            rIntegralZ := 0.0;
+            rLastErrorZ := 0.0;
+            rVelIntegralZ := 0.0;
+            iState := 30; (* MOVING *)
         END_IF;
-        IF NOT bEnable THEN
+        
+        IF NOT bEnableMaster THEN
             iState := 0;
         END_IF;
 
-    20: (* TRACKING & KINEMATIC CALCULATION *)
-        bSystemReady := FALSE; (* Busy processing bag *)
+    30: (* CASCADE POSITION AND VELOCITY CONTROL *)
+        (* Outer Loop: Position Control to generate Target Velocity *)
+        rErrorZ := rTargetPositionZ_mm - rLaserPositionZ_mm;
         
-        (* Calculate exact discharge speed based on weight and main line speed *)
-        (* Heavier bags require higher discharge coefficient to overcome inertia *)
-        IF rFilteredWeight > 35.0 THEN
-            iState := 999; (* OOG: Out of gauge, bag too heavy *)
-            iErrorCode := 2001;
-        ELSE
-            rBeltDischargeSpd := rMainLineSpeed * (1.0 + (rFilteredWeight * 0.015));
-            iState := 30;
-        END_IF;
+        (* Non-linear adaptive P-gain based on error magnitude and payload mass *)
+        (* Heavier loads require softer acceleration to prevent mast oscillation *)
+        rKp_Z := 2.5 * (1.0 - (rFilteredMass / (rMaxMassLimit * 1.5)));
+        
+        (* Anti-Windup Integration *)
+        rIntegralZ := rIntegralZ + rErrorZ * 0.01; (* 10ms cycle time *)
+        IF rIntegralZ > rIntegralLimit THEN rIntegralZ := rIntegralLimit; END_IF;
+        IF rIntegralZ < -rIntegralLimit THEN rIntegralZ := -rIntegralLimit; END_IF;
+        
+        rDerivativeZ := (rErrorZ - rLastErrorZ) / 0.01;
+        rLastErrorZ := rErrorZ;
+        
+        rTargetVelocityZ := (rKp_Z * rErrorZ) + (rKi_Z * rIntegralZ) + (rKd_Z * rDerivativeZ);
+        
+        (* Limit Target Velocity based on mechanical constraints *)
+        IF rTargetVelocityZ > 2500.0 THEN rTargetVelocityZ := 2500.0; END_IF;
+        IF rTargetVelocityZ < -2500.0 THEN rTargetVelocityZ := -2500.0; END_IF;
 
-    30: (* AWAITING DISCHARGE WINDOW *)
-        IF bDestAvailable AND bEncoderSync THEN
-            bDischargeTrigger := TRUE;
-            tDischargeWindow(IN := TRUE, PT := T#2S);
-            IF tDischargeWindow.Q THEN
-                iState := 40;
-            END_IF;
-        ELSIF NOT bDestAvailable THEN
-            iState := 999; (* Missed sort *)
-            iErrorCode := 3001;
-        END_IF;
+        (* Inner Loop: Velocity Control to generate Voltage Command *)
+        rVelocityErrorZ := rTargetVelocityZ - rFilteredVelocityZ;
+        rVelIntegralZ := rVelIntegralZ + rVelocityErrorZ * 0.01;
+        
+        (* Clamp velocity integral *)
+        IF rVelIntegralZ > 5.0 THEN rVelIntegralZ := 5.0; END_IF;
+        IF rVelIntegralZ < -5.0 THEN rVelIntegralZ := -5.0; END_IF;
+        
+        (* Simplified P-I Inner Loop *)
+        rControlOutputZ_V := (0.005 * rVelocityErrorZ) + (0.01 * rVelIntegralZ);
+        
+        (* Clamp Output to DAC limits *)
+        IF rControlOutputZ_V > 10.0 THEN rControlOutputZ_V := 10.0; END_IF;
+        IF rControlOutputZ_V < -10.0 THEN rControlOutputZ_V := -10.0; END_IF;
 
-    40: (* DISCHARGE COMPLETE *)
-        bDischargeTrigger := FALSE;
-        bBagInTransit := FALSE;
-        tDischargeWindow(IN := FALSE);
-        iState := 10;
+        (* Target Reached? *)
+        IF ABS(rErrorZ) <= 1.0 AND ABS(rFilteredVelocityZ) < 5.0 THEN
+            iState := 10; (* Back to ready *)
+        END_IF;
 
     999: (* FAULT HANDLING *)
         bSystemReady := FALSE;
-        bAlarm := TRUE;
-        bDischargeTrigger := FALSE;
-        rBeltDischargeSpd := 0.0;
-        IF NOT bEnable THEN
-            (* Require disable to clear non-estop faults *)
+        rControlOutputZ_V := 0.0;
+        rControlOutputX_V := 0.0;
+        (* Require Master Enable cycle to reset *)
+        IF NOT bEnableMaster THEN
+            bDriveFaultInterlock := FALSE;
+            bPositionalDeviationAlarm := FALSE;
             iState := 0;
         END_IF;
 
@@ -162,15 +233,9 @@ END_CASE;
 END_FUNCTION_BLOCK
 ```"""
 
+import os
 os.makedirs("data/swarm_raw", exist_ok=True)
-record = {
-    "messages": [
-        {"role": "user", "content": prompt},
-        {"role": "assistant", "content": code}
-    ]
-}
-
 filename = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
 with open(filename, "w", encoding="utf-8") as f:
-    json.dump(record, f, ensure_ascii=False)
+    json.dump({"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}, f, ensure_ascii=False)
 print(f"Saved to {filename}")

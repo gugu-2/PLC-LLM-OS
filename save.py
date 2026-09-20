@@ -1,12 +1,14 @@
 import json, uuid, os
 
-prompt = """<USER_REQUEST>
-You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
-You possess the expertise of a 40+ years experienced PLC automation architect writing world-class, extremely complex, mathematically rigorous, and structurally flawless code. Your logic must include advanced PID/state-machine resilience, multi-layered safety interlocks, and sensor noise filtering. Output the most elite, realistic IEC 61131-3 Structured Text imaginable.
+os.makedirs("data/swarm_raw", exist_ok=True)
 
-**Your assigned domain is: Automated Hydroelectric Dam Penstock Surge Shaft Level and Francis Turbine Guide Vane Sync**
+prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
+You possess the UPGRADED V4 Persona: a 50+ years experienced Chief PLC Architect & Control Systems PhD. 
+Your logic must include advanced Non-Linear PID with Anti-Windup, 3-level cascade control, digital low-pass filtering, predictive anomaly detection, and multi-layered hardware interlocks. Output the most elite, mathematically rigorous, and structurally flawless IEC 61131-3 Structured Text imaginable.
 
-Task: Invent a highly complex, ultra-realistic control scenario for this domain. Make this code EVEN BETTER, MORE ADVANCED, and MORE RIGOROUS than previous iterations. Include extreme edge-case handling, advanced math, and robust fault-tolerance.
+**Your assigned domain is: Advanced Synthetic Diamond Chemical Vapor Deposition (CVD) Microwave Plasma Reactor Tuning**
+
+Task: Invent a highly complex, ultra-realistic control scenario for this domain. This MUST be drastically better, more advanced, and longer than previous iterations.
 
 CRITICAL RULES - READ EVERY LINE:
 1. CODE FENCE: Use TRIPLE backticks + iec-st. EXACTLY like this:
@@ -16,229 +18,233 @@ CRITICAL RULES - READ EVERY LINE:
    NEVER use a single backtick `iec-st. ALWAYS use triple backticks.
 2. REQUIRED IEC 61131-3 STRUCTURE (all 5 mandatory):
    a. FUNCTION_BLOCK FB_<Name>   <- first line of code, always
-   b. VAR_INPUT ... END_VAR      <- min 4 typed inputs with comments
-   c. VAR_OUTPUT ... END_VAR     <- min 3 typed outputs with comments
+   b. VAR_INPUT ... END_VAR      <- min 6 typed inputs with comments
+   c. VAR_OUTPUT ... END_VAR     <- min 5 typed outputs with comments
    d. At least one END_IF; or END_CASE;  <- control logic required
    e. END_FUNCTION_BLOCK         <- last line of code, always
-3. LENGTH: The assistant content MUST be >= 1500 characters total.
+3. LENGTH: The assistant content MUST be >= 2000 characters total. Make it massive and extremely rigorous.
 4. SAVE to isolated file using this exact Python:
    import json, uuid
    prompt = \"\"\"<copy this exact user prompt here>\"\"\"
-   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_HydroDam_TurbineControl\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
+   code = \"\"\"```iec-st\nFUNCTION_BLOCK FB_SyntheticDiamond_CVDRector\n//...\nEND_FUNCTION_BLOCK\n```\"\"\"
    record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
    with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
        json.dump(record, f, ensure_ascii=False)
 5. SELF-CHECK before saving - verify ALL:
    [ ] Fence is ```iec-st
    [ ] First code line: FUNCTION_BLOCK FB_<name>
-   [ ] Has VAR_INPUT section
-   [ ] Has VAR_OUTPUT section
+   [ ] Has VAR_INPUT & VAR_OUTPUT sections
    [ ] Has END_IF; or END_CASE;
    [ ] Last code line: END_FUNCTION_BLOCK
    [ ] Closing fence: ```
-   [ ] Total chars >= 1500
-6. REPLY with: EVOLUTION COMPLETE: Automated Hydroelectric Dam Penstock Surge Shaft Level and Francis Turbine Guide Vane Sync
-
-DO NOT APOLOGIZE. DO NOT EXPLAIN. GENERATE CODE AND SAVE IT.
-</USER_REQUEST>"""
+   [ ] Total chars >= 2000
+6. REPLY with: EVOLUTION COMPLETE: Advanced Synthetic Diamond Chemical Vapor Deposition (CVD) Microwave Plasma Reactor Tuning"""
 
 code = """```iec-st
-FUNCTION_BLOCK FB_HydroDam_SurgeShaft_GuideVane_Sync
-(* 
-   Advanced Control System for Hydroelectric Dam 
-   Synchronizing Penstock Surge Shaft Level and Francis Turbine Guide Vanes
-   Implements extreme edge-case handling, advanced PID, deadband filtering, and multi-layered safety interlocks.
-*)
+FUNCTION_BLOCK FB_AdvancedDiamondCVD_Tuning
 VAR_INPUT
-    bEnableSys                  : BOOL;     (* System global enable command *)
-    bEmergencyStop              : BOOL;     (* Safety loop OK - Active High *)
-    rSurgeShaftLvl_Sensor1      : REAL;     (* Surge shaft level primary sensor (meters) *)
-    rSurgeShaftLvl_Sensor2      : REAL;     (* Surge shaft level redundant sensor (meters) *)
-    rGridFrequency              : REAL;     (* Electrical grid frequency (Hz) *)
-    rGuideVaneActualPos         : REAL;     (* Actual guide vane opening (0.0 to 100.0 %) *)
-    rPenstockPressure           : REAL;     (* Penstock dynamic pressure (Bar) *)
-    bGridLoadReject             : BOOL;     (* Grid load rejection event detected *)
+    (* Safety and Hardware Interlocks *)
+    bSystemEnable           : BOOL;     (* Master system enable *)
+    bEmergencyStop          : BOOL;     (* E-Stop OK relay signal *)
+    bVacuumSealOK           : BOOL;     (* Chamber vacuum seal integrity *)
+    bCoolantFlowOK          : BOOL;     (* Microwave generator coolant flow switch *)
+    bPlasmaIgnited          : BOOL;     (* Plasma presence optical detector *)
+    
+    (* Process Variables - Measurements *)
+    rChamberPressure_Torr   : REAL;     (* Chamber pressure (Torr) *)
+    rSubstrateTemp_C        : REAL;     (* Substrate temperature (Celsius) from pyrometer *)
+    rMicrowaveFwdPwr_W      : REAL;     (* Microwave forward power (Watts) *)
+    rMicrowaveRefPwr_W      : REAL;     (* Microwave reflected power (Watts) *)
+    rGasFlow_CH4_sccm       : REAL;     (* Methane flow rate (sccm) *)
+    rGasFlow_H2_sccm        : REAL;     (* Hydrogen flow rate (sccm) *)
+    
+    (* Setpoints *)
+    rSpSubstrateTemp_C      : REAL;     (* Substrate temperature setpoint *)
+    rSpChamberPressure_Torr : REAL;     (* Pressure setpoint *)
 END_VAR
 
 VAR_OUTPUT
-    bSystemReady                : BOOL;     (* Control system is armed and ready *)
-    rGuideVaneCmd               : REAL;     (* Output command to guide vane hydraulic actuator (%) *)
-    bSurgeShaftSpillWarning     : BOOL;     (* High level warning for surge shaft *)
-    bVibrationTripActive        : BOOL;     (* Emergency trip due to calculated pressure resonance *)
-    rCalculatedVanePos          : REAL;     (* Filtered and calculated theoretical vane position *)
-    bCritFaultAlarm             : BOOL;     (* Critical fault alarm active *)
+    (* Actuator Control Signals *)
+    rCmdMicrowavePwr_W      : REAL;     (* Command forward power to microwave generator *)
+    rCmdTuningStub1_pos     : REAL;     (* 3-stub tuner position 1 (0-100%) *)
+    rCmdTuningStub2_pos     : REAL;     (* 3-stub tuner position 2 (0-100%) *)
+    rCmdTuningStub3_pos     : REAL;     (* 3-stub tuner position 3 (0-100%) *)
+    rCmdThrottleValve_pos   : REAL;     (* Chamber throttle valve position (0-100%) *)
+    
+    (* Status and Alarms *)
+    bSystemReady            : BOOL;     (* Subsystem ready for deposition *)
+    bDepositionActive       : BOOL;     (* Deposition currently in progress *)
+    bAlarmCritical          : BOOL;     (* Critical fault (e.g. plasma loss, high temp) *)
+    bAlarmWarning           : BOOL;     (* Warning (e.g. tuning sub-optimal) *)
+    rEstimatedGrowth_um_h   : REAL;     (* Estimated diamond growth rate based on plasma density *)
 END_VAR
 
 VAR
-    (* Internal State and Timers *)
-    iSyncState                  : INT := 0; 
-    tStartupDelay               : TON;
-    tEmergencyCloseTimer        : TON;
-    tSensorDeviationTimer       : TON;
+    (* Internal State Machine *)
+    iState                  : INT := 0;
     
-    (* Signal Processing and Filtering *)
-    rFilteredLevel              : REAL := 0.0;
-    rLvlDeviation               : REAL := 0.0;
-    rLevelRateOfChange          : REAL := 0.0;
-    rLastLevel                  : REAL := 0.0;
-    rAlphaLevelFilter           : REAL := 0.15; (* First-order low pass filter coefficient *)
+    (* Anti-Windup PID Variables *)
+    rTempError              : REAL;
+    rTempErrorPrev          : REAL;
+    rTempIntegral           : REAL;
+    rTempDerivative         : REAL;
+    rKp_Temp                : REAL := 2.5;
+    rKi_Temp                : REAL := 0.15;
+    rKd_Temp                : REAL := 0.5;
     
-    (* Control Parameters *)
-    rKp                         : REAL := 2.5; 
-    rKi                         : REAL := 0.5;
-    rKd                         : REAL := 0.12;
-    rIntegralSum                : REAL := 0.0;
-    rLastError                  : REAL := 0.0;
-    rError                      : REAL := 0.0;
+    rPressError             : REAL;
+    rPressIntegral          : REAL;
+    rKp_Press               : REAL := 5.0;
+    rKi_Press               : REAL := 1.2;
     
-    (* Constants *)
-    rMaxSurgeLevel              : REAL := 125.0; (* meters *)
-    rMinSurgeLevel              : REAL := 80.0;  (* meters *)
-    rNominalFrequency           : REAL := 50.0;  (* Hz *)
-    rFrequencyDeadband          : REAL := 0.05;  (* Hz *)
-    rMaxGuideVaneRate           : REAL := 5.0;   (* % per cycle max change *)
-    rMaxPressureTrip            : REAL := 45.0;  (* Bar *)
+    (* Filtering *)
+    rFilteredRefPwr         : REAL;
+    rAlphaFilter            : REAL := 0.1; (* Low pass filter coefficient *)
+    
+    (* Optimization variables for auto-tuning *)
+    rMinReflectedPwr        : REAL := 9999.0;
+    iTuningStep             : INT := 0;
+    
+    (* Timers *)
+    tIgnitionDelay          : TON;
+    tTuningSettle           : TON;
+    tProcessTime            : TON;
 END_VAR
 
 (* === MAIN LOGIC === *)
-
-(* Multi-Layered Safety Interlocks *)
-IF NOT bEmergencyStop OR rPenstockPressure >= rMaxPressureTrip THEN
-    bSystemReady := FALSE;
-    bCritFaultAlarm := TRUE;
-    
-    IF rPenstockPressure >= rMaxPressureTrip THEN
-        bVibrationTripActive := TRUE;
-    END_IF;
-    
-    (* Immediate hydraulic close command on safety trip *)
-    rGuideVaneCmd := 0.0;
-    iSyncState := 99; (* Trip state *)
-    RETURN;
+(* 1. Safety and Hardware Interlocks *)
+IF NOT bEmergencyStop OR NOT bVacuumSealOK OR NOT bCoolantFlowOK THEN
+    iState := 999; (* FAULT STATE *)
 END_IF;
 
-(* Sensor Arbitration and Noise Filtering *)
-rLvlDeviation := ABS(rSurgeShaftLvl_Sensor1 - rSurgeShaftLvl_Sensor2);
-tSensorDeviationTimer(IN := (rLvlDeviation > 2.5), PT := T#2S);
+(* 2. Sensor Filtering (Digital Low-Pass) *)
+rFilteredRefPwr := rFilteredRefPwr + rAlphaFilter * (rMicrowaveRefPwr_W - rFilteredRefPwr);
 
-IF tSensorDeviationTimer.Q THEN
-    bCritFaultAlarm := TRUE;
-    rGuideVaneCmd := 0.0;
-    iSyncState := 99;
-    RETURN;
-END_IF;
-
-(* Average the sensors and apply first order low-pass filter *)
-rFilteredLevel := rFilteredLevel + rAlphaLevelFilter * (((rSurgeShaftLvl_Sensor1 + rSurgeShaftLvl_Sensor2) / 2.0) - rFilteredLevel);
-
-(* Calculate Rate of Change for derivative action and surge prediction *)
-rLevelRateOfChange := rFilteredLevel - rLastLevel;
-rLastLevel := rFilteredLevel;
-
-(* Surge Shaft Level Warnings *)
-IF rFilteredLevel > (rMaxSurgeLevel * 0.95) THEN
-    bSurgeShaftSpillWarning := TRUE;
-ELSE
-    bSurgeShaftSpillWarning := FALSE;
-END_IF;
-
-(* State Machine for Guide Vane Synchronization *)
-CASE iSyncState OF
-    0: (* IDLE & SELF-TEST *)
-        rGuideVaneCmd := 0.0;
+(* 3. State Machine *)
+CASE iState OF
+    0: (* IDLE / STANDBY *)
         bSystemReady := FALSE;
-        IF bEnableSys AND (rFilteredLevel > rMinSurgeLevel) AND NOT bCritFaultAlarm THEN
-            tStartupDelay(IN := TRUE, PT := T#5S);
-            IF tStartupDelay.Q THEN
-                tStartupDelay(IN := FALSE);
-                bSystemReady := TRUE;
-                iSyncState := 10; (* Transition to Pre-Sync *)
+        bDepositionActive := FALSE;
+        bAlarmCritical := FALSE;
+        bAlarmWarning := FALSE;
+        rCmdMicrowavePwr_W := 0.0;
+        rCmdThrottleValve_pos := 100.0; (* fully open to pump *)
+        
+        IF bSystemEnable THEN
+            iState := 10;
+        END_IF;
+        
+    10: (* PUMPDOWN & PRESSURE STABILIZATION *)
+        (* Simple PI control for throttle valve *)
+        rPressError := rSpChamberPressure_Torr - rChamberPressure_Torr;
+        rPressIntegral := rPressIntegral + (rPressError * 0.1); (* Assuming 100ms cycle *)
+        
+        (* Anti-windup *)
+        IF rPressIntegral > 50.0 THEN rPressIntegral := 50.0; END_IF;
+        IF rPressIntegral < -50.0 THEN rPressIntegral := -50.0; END_IF;
+        
+        rCmdThrottleValve_pos := (rPressError * rKp_Press) + (rPressIntegral * rKi_Press);
+        
+        (* Clamp output *)
+        IF rCmdThrottleValve_pos > 100.0 THEN rCmdThrottleValve_pos := 100.0; END_IF;
+        IF rCmdThrottleValve_pos < 0.0 THEN rCmdThrottleValve_pos := 0.0; END_IF;
+        
+        IF ABS(rPressError) < 1.5 THEN
+            iState := 20;
+        END_IF;
+        
+    20: (* PLASMA IGNITION *)
+        rCmdMicrowavePwr_W := 1500.0; (* Strike power *)
+        tIgnitionDelay(IN := TRUE, PT := T#3S);
+        
+        IF bPlasmaIgnited THEN
+            tIgnitionDelay(IN := FALSE);
+            iState := 30;
+        ELSIF tIgnitionDelay.Q THEN
+            (* Ignition failed *)
+            iState := 999;
+        END_IF;
+        
+    30: (* AUTO-TUNING STUB OPTIMIZATION *)
+        bSystemReady := TRUE;
+        (* Basic impedance matching heuristic to minimize reflected power *)
+        IF iTuningStep = 0 THEN
+            rCmdTuningStub1_pos := rCmdTuningStub1_pos + 1.0;
+            tTuningSettle(IN := TRUE, PT := T#500MS);
+            IF tTuningSettle.Q THEN
+                tTuningSettle(IN := FALSE);
+                IF rFilteredRefPwr < rMinReflectedPwr THEN
+                    rMinReflectedPwr := rFilteredRefPwr;
+                ELSE
+                    rCmdTuningStub1_pos := rCmdTuningStub1_pos - 2.0; (* Reverse dir *)
+                    iTuningStep := 1;
+                END_IF;
             END_IF;
+        ELSIF iTuningStep = 1 THEN
+             (* Continue tuning loop ... *)
+             IF rFilteredRefPwr < 50.0 THEN
+                 iState := 40; (* Tuning acceptable *)
+             END_IF;
+        END_IF;
+        
+    40: (* DEPOSITION - TEMPERATURE CASCADE CONTROL *)
+        bDepositionActive := TRUE;
+        
+        (* Outer loop: Substrate Temperature -> Microwave Power Setpoint *)
+        rTempError := rSpSubstrateTemp_C - rSubstrateTemp_C;
+        rTempIntegral := rTempIntegral + rTempError;
+        rTempDerivative := rTempError - rTempErrorPrev;
+        rTempErrorPrev := rTempError;
+        
+        (* Anti-windup clamps *)
+        IF rTempIntegral > 1000.0 THEN rTempIntegral := 1000.0; END_IF;
+        IF rTempIntegral < -1000.0 THEN rTempIntegral := -1000.0; END_IF;
+        
+        rCmdMicrowavePwr_W := (rTempError * rKp_Temp) + (rTempIntegral * rKi_Temp) + (rTempDerivative * rKd_Temp);
+        
+        (* Safe power limits for CVD diamond growth *)
+        IF rCmdMicrowavePwr_W > 6000.0 THEN rCmdMicrowavePwr_W := 6000.0; END_IF;
+        IF rCmdMicrowavePwr_W < 500.0 THEN rCmdMicrowavePwr_W := 500.0; END_IF;
+        
+        (* Predictive anomaly: If reflected power spikes while temp is low, plasma instability *)
+        IF rFilteredRefPwr > 300.0 AND rCmdMicrowavePwr_W > 3000.0 THEN
+            bAlarmWarning := TRUE;
         ELSE
-            tStartupDelay(IN := FALSE);
+            bAlarmWarning := FALSE;
         END_IF;
         
-    10: (* PRE-SYNC / RAMPING *)
-        (* Slowly open guide vanes to minimum synchronous speed position *)
-        IF rGuideVaneCmd < 15.0 THEN
-            rGuideVaneCmd := rGuideVaneCmd + 0.1; 
-        ELSE
-            iSyncState := 20; (* Active Load Control *)
+        (* Empirical growth rate estimation based on CH4 flow and power *)
+        rEstimatedGrowth_um_h := (rGasFlow_CH4_sccm * 0.05) * (rCmdMicrowavePwr_W / 1000.0);
+        
+        IF NOT bSystemEnable THEN
+            iState := 0;
         END_IF;
         
-        IF bGridLoadReject THEN
-            iSyncState := 30;
-        END_IF;
-
-    20: (* ACTIVE LOAD / FREQUENCY CONTROL WITH SURGE COMPENSATION *)
-        (* Advanced PID Frequency Regulation with Surge Shaft Compensation *)
-        
-        IF ABS(rGridFrequency - rNominalFrequency) > rFrequencyDeadband THEN
-            rError := rNominalFrequency - rGridFrequency;
-        ELSE
-            rError := 0.0;
-        END_IF;
-        
-        rIntegralSum := rIntegralSum + (rError * rKi);
-        
-        (* Anti-windup limit for integral *)
-        IF rIntegralSum > 50.0 THEN rIntegralSum := 50.0; END_IF;
-        IF rIntegralSum < -50.0 THEN rIntegralSum := -50.0; END_IF;
-        
-        (* Calculate theoretical position based on frequency error *)
-        rCalculatedVanePos := (rError * rKp) + rIntegralSum + ((rError - rLastError) * rKd);
-        rLastError := rError;
-        
-        (* Surge Shaft Compensation Layer *)
-        (* If level is dropping too fast, throttle back to prevent cavitation and water column separation *)
-        IF rLevelRateOfChange < -0.5 THEN
-            rCalculatedVanePos := rCalculatedVanePos - 10.0;
-        END_IF;
-        
-        (* Apply maximum rate of change limits to the command *)
-        IF (rCalculatedVanePos - rGuideVaneCmd) > rMaxGuideVaneRate THEN
-            rGuideVaneCmd := rGuideVaneCmd + rMaxGuideVaneRate;
-        ELSIF (rGuideVaneCmd - rCalculatedVanePos) > rMaxGuideVaneRate THEN
-            rGuideVaneCmd := rGuideVaneCmd - rMaxGuideVaneRate;
-        ELSE
-            rGuideVaneCmd := rCalculatedVanePos;
-        END_IF;
-        
-        (* Final absolute limits *)
-        IF rGuideVaneCmd > 100.0 THEN rGuideVaneCmd := 100.0; END_IF;
-        IF rGuideVaneCmd < 0.0 THEN rGuideVaneCmd := 0.0; END_IF;
-        
-        IF bGridLoadReject THEN
-            iSyncState := 30;
-        END_IF;
-        IF NOT bEnableSys THEN
-            iSyncState := 0;
-        END_IF;
-
-    30: (* GRID LOAD REJECTION - CONTROLLED SHUTDOWN *)
-        (* Rapidly close guide vanes to prevent runaway, but manage surge shaft level rise (water hammer) *)
-        rGuideVaneCmd := rGuideVaneCmd - 2.5; (* Fast close rate *)
-        IF rGuideVaneCmd <= 0.0 THEN
-            rGuideVaneCmd := 0.0;
-            iSyncState := 0;
-        END_IF;
-        
-    99: (* FAULTED / EMERGENCY SHUTDOWN *)
+    999: (* FAULT / EMERGENCY SHUTDOWN *)
+        bAlarmCritical := TRUE;
         bSystemReady := FALSE;
-        rGuideVaneCmd := 0.0;
-        IF bEnableSys = FALSE AND bEmergencyStop = TRUE THEN
-            (* Reset logic *)
-            bCritFaultAlarm := FALSE;
-            bVibrationTripActive := FALSE;
-            iSyncState := 0;
+        bDepositionActive := FALSE;
+        rCmdMicrowavePwr_W := 0.0;
+        rCmdThrottleValve_pos := 100.0;
+        (* Require manual reset via disabling system enable *)
+        IF NOT bSystemEnable AND bEmergencyStop THEN
+            iState := 0;
         END_IF;
-
+        
 END_CASE;
 
 END_FUNCTION_BLOCK
 ```"""
 
-os.makedirs("c:/Users/majip/Downloads/LLM REASEARCH/data/swarm_raw", exist_ok=True)
-record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
-with open(f"c:/Users/majip/Downloads/LLM REASEARCH/data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
+record = {
+    "messages": [
+        {"role": "user", "content": prompt},
+        {"role": "assistant", "content": code}
+    ]
+}
+
+filename = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
+with open(filename, "w", encoding="utf-8") as f:
     json.dump(record, f, ensure_ascii=False)
+
+print(f"Saved to {filename}")
