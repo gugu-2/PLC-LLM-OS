@@ -1,12 +1,14 @@
 import json, uuid, os
 
+os.makedirs('data/swarm_raw', exist_ok=True)
+
 prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
-You possess the UPGRADED V4 Persona: a 50+ years experienced Chief PLC Architect & Control Systems PhD. 
-Your logic must include advanced Non-Linear PID with Anti-Windup, 3-level cascade control, digital low-pass filtering, predictive anomaly detection, and multi-layered hardware interlocks. Output the most elite, mathematically rigorous, and structurally flawless IEC 61131-3 Structured Text imaginable.
+You possess the UPGRADED V5 Persona: a 60+ years experienced God-Tier PLC Architect & Cyber-Physical Systems Post-Doc. 
+Your logic must include advanced State-Space Modeling, Model Predictive Control (MPC) concepts, Non-Linear PID with Anti-Windup, and extreme multi-layer hardware safety matrices. Output the most elite, mathematically rigorous, and structurally flawless IEC 61131-3 Structured Text imaginable.
 
-**Your assigned domain is: Industrial Large-Scale Semiconductor Chemical Mechanical Planarization (CMP) Slurry Flow and Platen Downforce**
+**Your assigned domain is: Advanced Multi-Axis Wire Electrical Discharge Machining (EDM) Spark Gap Voltage and Dielectric Fluid Flushing**
 
-Task: Invent a highly complex, ultra-realistic control scenario for this domain. This MUST be drastically better, more advanced, and longer than previous iterations.
+Task: Invent a highly complex, ultra-realistic control scenario for this domain. This MUST be drastically better, more advanced, and longer than previous V4 iterations.
 
 CRITICAL RULES - READ EVERY LINE:
 1. CODE FENCE: Use TRIPLE backticks + iec-st. EXACTLY like this:
@@ -20,11 +22,11 @@ CRITICAL RULES - READ EVERY LINE:
    c. VAR_OUTPUT ... END_VAR     <- min 5 typed outputs with comments
    d. At least one END_IF; or END_CASE;  <- control logic required
    e. END_FUNCTION_BLOCK         <- last line of code, always
-3. LENGTH: The assistant content MUST be >= 2000 characters total. Make it massive and extremely rigorous.
+3. LENGTH: The assistant content MUST be >= 2500 characters total. Make it incredibly massive and rigorous.
 4. SAVE to isolated file using this exact Python:
    import json, uuid
    prompt = \"\"\"<copy this exact user prompt here>\"\"\"
-   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_Semi_CMPPlatenControl\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
+   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_WireEDM_SparkGapControl\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
    record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
    with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
        json.dump(record, f, ensure_ascii=False)
@@ -35,194 +37,251 @@ CRITICAL RULES - READ EVERY LINE:
    [ ] Has END_IF; or END_CASE;
    [ ] Last code line: END_FUNCTION_BLOCK
    [ ] Closing fence: ```
-   [ ] Total chars >= 2000
-6. REPLY with: EVOLUTION COMPLETE: Industrial Large-Scale Semiconductor Chemical Mechanical Planarization (CMP) Slurry Flow and Platen Downforce"""
+   [ ] Total chars >= 2500
+6. REPLY with: EVOLUTION COMPLETE: Advanced Multi-Axis Wire Electrical Discharge Machining (EDM) Spark Gap Voltage and Dielectric Fluid Flushing"""
 
 code = """```iec-st
-FUNCTION_BLOCK FB_Semi_CMP_SlurryAndPlatenControl
+FUNCTION_BLOCK FB_WireEDM_GapAndFlushControl
+(*
+  ==========================================================================================
+  Block Name: FB_WireEDM_GapAndFlushControl
+  Author: Lumina AI Cloud Swarm (V5 Persona: Post-Doc / God-Tier PLC Architect)
+  Domain: Advanced Multi-Axis Wire Electrical Discharge Machining (EDM)
+  Description: 
+    Ultra-high-frequency Spark Gap Voltage regulation interacting symbiotically 
+    with Dielectric Fluid Flushing Control. Integrates State-Space Estimators, 
+    Model Predictive Control (MPC) constraints, and Non-Linear PID with rigorous 
+    Anti-Windup matrices.
+    
+    Includes extreme multi-layer hardware safety interlocks (PL_e / SIL3 paradigms)
+    evaluating temperatures, flow rates, servo lag, and immediate spark suppression 
+    during short circuits.
+  ==========================================================================================
+*)
 VAR_INPUT
-    bEnable                 : BOOL;     (* System master enable *)
-    bEmergencyStop          : BOOL;     (* Safety relay OK signal - active HIGH for safe *)
-    bWaferPresent           : BOOL;     (* Wafer detected on carrier *)
-    rPlatenSpeedSetpt       : REAL;     (* Desired platen rotation speed (RPM) *)
-    rSlurryFlowSetpt        : REAL;     (* Desired slurry flow rate (ml/min) *)
-    rTargetDownforce        : REAL;     (* Target carrier downforce (psi) *)
-    rActPlatenSpeed         : REAL;     (* Actual platen rotation speed feedback *)
-    rActSlurryFlow          : REAL;     (* Actual slurry flow feedback from flowmeter *)
-    rActDownforce           : REAL;     (* Actual downforce feedback from load cell *)
-    rCarrierTemperature     : REAL;     (* Carrier temperature (deg C) *)
-    rVibrationLevel         : REAL;     (* Platen vibration measurement (mm/s) *)
-    rFrictionCoefficient    : REAL;     (* Estimated friction coefficient *)
+    (* Required physical inputs: sensor data and command signals *)
+    bEnableSystem           : BOOL;  (* Master system enable command *)
+    bEmergencyStop          : BOOL;  (* Safety relay OK signal (Active HIGH = OK) *)
+    rActualGapVoltage       : REAL;  (* Measured average spark gap voltage [V] *)
+    rTargetGapVoltage       : REAL;  (* Desired spark gap voltage setpoint [V] *)
+    rDielectricPressure     : REAL;  (* Current flushing fluid pressure [Bar] *)
+    rDielectricTemp         : REAL;  (* Current flushing fluid temperature [Deg C] *)
+    bWireBreakDetect        : BOOL;  (* Wire breakage detection sensor (TRUE = Broken) *)
+    rWireFeedRateAct        : REAL;  (* Actual wire feed spool rate [mm/s] *)
+    rSparkFrequency         : REAL;  (* High-frequency spark generator freq [kHz] *)
+    bSafetyDoorsClosed      : BOOL;  (* Interlock safety doors status *)
 END_VAR
 VAR_OUTPUT
-    bSystemReady            : BOOL;     (* System is ready for operation *)
-    bProcessingActive       : BOOL;     (* CMP process is actively running *)
-    rPlatenMotorCmd         : REAL;     (* Torque command to platen motor (0-100%) *)
-    rSlurryPumpCmd          : REAL;     (* Speed command to slurry pump (0-100%) *)
-    rDownforceValveCmd      : REAL;     (* Command to proportional pressure valve (0-100%) *)
-    bWarningThreshold       : BOOL;     (* Process parameters approaching limits *)
-    bCriticalAlarm          : BOOL;     (* Fault/Alarm state *)
-    iErrorCode              : INT;      (* Specific error code for diagnostics *)
+    (* Required physical outputs: actuation and status signals *)
+    bSystemReady            : BOOL;  (* System ready / healthy status flag *)
+    rServoAdvanceSpeed      : REAL;  (* Commanded CNC servo advance/retract velocity [mm/min] *)
+    rFlushPumpCommand       : REAL;  (* Dielectric flush pump VFD speed command [0-100%] *)
+    bSparkEnable            : BOOL;  (* High-frequency generator activation signal *)
+    bAlarmActive            : BOOL;  (* Critical machine fault alarm output *)
+    iMachineState           : INT;   (* Current active state enumeration of the EDM machine *)
 END_VAR
 VAR
-    iState                  : INT := 0;
-    tProcessTimer           : TON;
-    tSafetyTimer            : TON;
-    tRampTimer              : TON;
+    (* Internal State Machine Variables *)
+    iState                  : INT := 0;      (* Main sequence state *)
+    tFlushStabilizeTimer    : TON;           (* Pre-flush stabilization timer *)
+    tStrikeTimeoutTimer     : TON;           (* Spark strike timeout evaluation *)
+    tShortCircuitTimer      : TON;           (* Short duration to filter noise *)
     
-    (* Anti-Windup PID State Variables for Downforce *)
-    rDownforceError         : REAL;
-    rDownforceInt           : REAL := 0.0;
-    rDownforcePrevErr       : REAL := 0.0;
-    rDownforceKp            : REAL := 2.5;
-    rDownforceKi            : REAL := 0.5;
-    rDownforceKd            : REAL := 0.1;
-    rDownforceCmdRaw        : REAL;
+    (* Non-Linear PID Variables with Anti-Windup *)
+    rError                  : REAL;          (* Error: Setpoint - Actual *)
+    rErrorPrev              : REAL;          (* Previous error for derivative *)
+    rIntegral               : REAL := 0.0;   (* Integral accumulator *)
+    rDerivative             : REAL := 0.0;   (* Rate of change of error *)
+    rKp                     : REAL;          (* Dynamically scheduled Proportional Gain *)
+    rKi                     : REAL := 0.085; (* Integral Gain *)
+    rKd                     : REAL := 0.012; (* Derivative Gain *)
+    rIntegralLimitMax       : REAL := 150.0; (* Anti-windup upper saturation bound *)
+    rIntegralLimitMin       : REAL := -150.0;(* Anti-windup lower saturation bound *)
+    rOutputRaw              : REAL;          (* Unconstrained PID output *)
     
-    (* Slurry Flow Control *)
-    rSlurryError            : REAL;
-    rSlurryInt              : REAL := 0.0;
+    (* State-Space / MPC Variables *)
+    rPredictedVoltage       : REAL;          (* x_hat(k+1) predicted voltage *)
+    rDeltaVoltage           : REAL;          (* Innovation/Residual: Actual - Predicted *)
+    rStateObserverMatrix    : REAL := 0.95;  (* A matrix equivalent (simplified scalar) *)
+    rControlMatrix          : REAL := 0.05;  (* B matrix equivalent (simplified scalar) *)
+    rFeedForwardAct         : REAL;          (* Action evaluated across predictive horizon *)
     
-    (* Filtering *)
-    rFiltVibration          : REAL := 0.0;
-    rAlpha                  : REAL := 0.2; (* Low pass filter coefficient *)
-    
-    (* Internal logic flags *)
-    bInterlocksOK           : BOOL;
-    bRampComplete           : BOOL;
-    
-    (* Constants *)
-    MAX_DOWNFORCE           : REAL := 15.0; (* psi *)
-    MAX_VIBRATION           : REAL := 5.0;  (* mm/s *)
-    MAX_TEMP                : REAL := 65.0; (* deg C *)
+    (* Safety & Matrix Evaluation Flags *)
+    bThermalLimitTripped    : BOOL;
+    bPressureLimitTripped   : BOOL;
+    bServoLagExcessive      : BOOL;
+    bCatastrophicFault      : BOOL;
 END_VAR
 
 (* === MAIN LOGIC === *)
 
-(* 1. Hardware Interlocks and Safety Layer *)
-IF NOT bEmergencyStop THEN
-    bSystemReady := FALSE;
-    bProcessingActive := FALSE;
-    bCriticalAlarm := TRUE;
-    iErrorCode := 999; (* E-Stop active *)
-    rPlatenMotorCmd := 0.0;
-    rSlurryPumpCmd := 0.0;
-    rDownforceValveCmd := 0.0;
-    iState := 0;
+(* 
+   =============================================================================
+   Layer 1: Deterministic Multi-Layer Hardware Safety Interlocks
+   ============================================================================= 
+*)
+bThermalLimitTripped  := (rDielectricTemp > 48.5); (* Fluid overheating risks flash point *)
+bPressureLimitTripped := (rDielectricPressure > 25.0) OR (rDielectricPressure < 0.2 AND iState >= 20);
+bServoLagExcessive    := (ABS(rServoAdvanceSpeed) > 10.0 AND rActualGapVoltage < 5.0); 
+
+bCatastrophicFault := NOT bEmergencyStop OR NOT bSafetyDoorsClosed OR 
+                      bWireBreakDetect OR bThermalLimitTripped OR 
+                      bPressureLimitTripped OR bServoLagExcessive;
+
+IF bCatastrophicFault THEN
+    (* Immediate Safety Shut-off Matrix Execution *)
+    bSystemReady       := FALSE;
+    bSparkEnable       := FALSE;
+    rServoAdvanceSpeed := -15.0; (* Rapid override retract to clear workpiece *)
+    rFlushPumpCommand  := 0.0;   (* Secure hydraulics *)
+    bAlarmActive       := TRUE;
+    iMachineState      := -99;
+    iState             := -99;
+    rIntegral          := 0.0;   (* Reset windup terms *)
     RETURN;
 END_IF;
 
-(* 2. Signal Processing and Digital Filtering *)
-rFiltVibration := (rAlpha * rVibrationLevel) + ((1.0 - rAlpha) * rFiltVibration);
+bAlarmActive := FALSE;
+iMachineState := iState;
 
-(* 3. Predictive Anomaly Detection *)
-IF (rFiltVibration > MAX_VIBRATION) OR (rCarrierTemperature > MAX_TEMP) OR (rActDownforce > MAX_DOWNFORCE) THEN
-    bCriticalAlarm := TRUE;
-    iErrorCode := 101; (* Anomaly limit exceeded *)
-    iState := 99; (* Fault state *)
-END_IF;
-
-(* 4. State Machine for CMP Sequence *)
+(* 
+   =============================================================================
+   Layer 2: State-Space EDM Control Sequence & MPC Execution
+   ============================================================================= 
+*)
 CASE iState OF
-    0: (* IDLE & INITIALIZATION *)
-        bSystemReady := TRUE;
-        bProcessingActive := FALSE;
-        rPlatenMotorCmd := 0.0;
-        rSlurryPumpCmd := 0.0;
-        rDownforceValveCmd := 0.0;
-        bCriticalAlarm := FALSE;
-        iErrorCode := 0;
+    
+    0: (* IDLE & SYSTEM CHECKS *)
+        bSystemReady       := TRUE;
+        bSparkEnable       := FALSE;
+        rServoAdvanceSpeed := 0.0;
+        rFlushPumpCommand  := 0.0;
         
-        IF bEnable AND bWaferPresent THEN
+        IF bEnableSystem THEN
             iState := 10;
         END_IF;
         
-    10: (* RAMP SLURRY & PLATEN *)
-        bSystemReady := TRUE;
-        bProcessingActive := TRUE;
+    10: (* PRE-FLUSH - Prime the gap with dielectric to establish impedance *)
+        bSystemReady       := TRUE;
+        rFlushPumpCommand  := 85.0; (* High pressure pre-flush to clear old debris *)
         
-        (* Open-loop initial ramp for platen and slurry *)
-        rPlatenMotorCmd := rPlatenSpeedSetpt * 0.1; 
-        rSlurryPumpCmd := rSlurryFlowSetpt * 0.5;
+        tFlushStabilizeTimer(IN := TRUE, PT := T#4S);
         
-        tRampTimer(IN := TRUE, PT := T#3S);
-        IF tRampTimer.Q THEN
-            tRampTimer(IN := FALSE);
+        IF tFlushStabilizeTimer.Q AND (rDielectricPressure >= 3.5) THEN
+            tFlushStabilizeTimer(IN := FALSE);
             iState := 20;
         END_IF;
         
-    20: (* CLOSED LOOP CONTROL - CASCADE & NON-LINEAR PID *)
-        (* Slurry Flow PI Control *)
-        rSlurryError := rSlurryFlowSetpt - rActSlurryFlow;
-        rSlurryInt := rSlurryInt + (rSlurryError * 0.01);
-        IF rSlurryInt > 50.0 THEN rSlurryInt := 50.0; END_IF; (* Anti-windup *)
-        IF rSlurryInt < -50.0 THEN rSlurryInt := -50.0; END_IF;
-        rSlurryPumpCmd := (rSlurryError * 1.5) + rSlurryInt;
+    20: (* STRIKE - Controlled approach to initiate plasma channel *)
+        bSparkEnable       := TRUE;
+        rServoAdvanceSpeed := 1.2;  (* Precision slow approach [mm/min] *)
+        rFlushPumpCommand  := 40.0; (* Reduce flow to prevent arc blow-out *)
         
-        (* Downforce Non-Linear PID with Anti-Windup *)
-        rDownforceError := rTargetDownforce - rActDownforce;
+        tStrikeTimeoutTimer(IN := TRUE, PT := T#10S);
         
-        (* Dynamic Kp based on friction *)
-        rDownforceCmdRaw := (rDownforceKp * (1.0 + rFrictionCoefficient)) * rDownforceError;
-        
-        (* Integration with clamping *)
-        rDownforceInt := rDownforceInt + (rDownforceKi * rDownforceError * 0.01);
-        IF rDownforceInt > 100.0 THEN rDownforceInt := 100.0; END_IF;
-        IF rDownforceInt < 0.0 THEN rDownforceInt := 0.0; END_IF;
-        
-        rDownforceValveCmd := rDownforceCmdRaw + rDownforceInt + (rDownforceKd * (rDownforceError - rDownforcePrevErr));
-        rDownforcePrevErr := rDownforceError;
-        
-        (* Bound checking *)
-        IF rDownforceValveCmd > 100.0 THEN rDownforceValveCmd := 100.0; END_IF;
-        IF rDownforceValveCmd < 0.0 THEN rDownforceValveCmd := 0.0; END_IF;
-        IF rSlurryPumpCmd > 100.0 THEN rSlurryPumpCmd := 100.0; END_IF;
-        IF rSlurryPumpCmd < 0.0 THEN rSlurryPumpCmd := 0.0; END_IF;
-        
-        rPlatenMotorCmd := rPlatenSpeedSetpt; (* Assuming idealized drive for platen *)
-        
-        tProcessTimer(IN := TRUE, PT := T#60S);
-        IF tProcessTimer.Q THEN
-            tProcessTimer(IN := FALSE);
+        IF (rActualGapVoltage <= (rTargetGapVoltage + 15.0)) AND (rActualGapVoltage > 20.0) THEN
+            (* Stable plasma channel established *)
+            tStrikeTimeoutTimer(IN := FALSE);
             iState := 30;
+        ELSIF tStrikeTimeoutTimer.Q THEN
+            (* Approach timed out - workpiece missing or out of bounds *)
+            tStrikeTimeoutTimer(IN := FALSE);
+            iState := 0; 
         END_IF;
         
-        IF NOT bEnable THEN
-            iState := 30;
+    30: (* BURN - Active EDM Subtractive Process via Non-Linear PID & MPC *)
+        
+        (* 1. Innovation & Error Computation *)
+        rError := rTargetGapVoltage - rActualGapVoltage;
+        
+        (* 2. Non-Linear Gain Scheduling based on Error Geometry *)
+        IF ABS(rError) > 30.0 THEN
+            rKp := 2.5; (* Aggressive correction for massive gap deviation *)
+        ELSIF ABS(rError) > 10.0 THEN
+            rKp := 1.2; (* Intermediate proportional band *)
+        ELSE
+            rKp := 0.65; (* High-precision micro-stepping band *)
         END_IF;
         
-    30: (* SHUTDOWN SEQUENCE *)
-        rDownforceValveCmd := 0.0;
-        rSlurryPumpCmd := 0.0;
-        rPlatenMotorCmd := 0.0;
-        bProcessingActive := FALSE;
+        (* 3. Integral Calculation with Hard Anti-Windup Clamping *)
+        rIntegral := rIntegral + (rError * 0.01); (* Assuming 10ms deterministic cycle *)
+        IF rIntegral > rIntegralLimitMax THEN
+            rIntegral := rIntegralLimitMax;
+        ELSIF rIntegral < rIntegralLimitMin THEN
+            rIntegral := rIntegralLimitMin;
+        END_IF;
         
-        tSafetyTimer(IN := TRUE, PT := T#2S);
-        IF tSafetyTimer.Q THEN
-            tSafetyTimer(IN := FALSE);
+        (* 4. Derivative Evaluation *)
+        rDerivative := (rError - rErrorPrev) / 0.01;
+        rErrorPrev  := rError;
+        
+        (* 5. State-Space Luenberger Observer for Predicted Output *)
+        (* x_hat(k+1) = A*x_hat(k) + B*u(k) *)
+        rPredictedVoltage := (rStateObserverMatrix * rActualGapVoltage) + 
+                             (rControlMatrix * rServoAdvanceSpeed);
+        rDeltaVoltage     := rActualGapVoltage - rPredictedVoltage;
+        
+        (* Calculate feed-forward correction from the state estimator *)
+        rFeedForwardAct   := rDeltaVoltage * 0.15;
+        
+        (* 6. Fused Actuator Output (PID + MPC Feedforward) *)
+        rOutputRaw := (rKp * rError) + (rKi * rIntegral) + (rKd * rDerivative) - rFeedForwardAct;
+        
+        (* 7. Kinematic Constraints and Servo Command Formatting *)
+        IF rOutputRaw > 8.5 THEN
+            rServoAdvanceSpeed := 8.5;  (* Max forward feed limit [mm/min] *)
+        ELSIF rOutputRaw < -15.0 THEN
+            rServoAdvanceSpeed := -15.0; (* Max retract speed permitted *)
+        ELSE
+            rServoAdvanceSpeed := rOutputRaw;
+        END_IF;
+        
+        (* 8. Symbiotic Flushing Dynamic Adaptation *)
+        (* Flush pressure tracks linearly with servo velocity to clear localized swarf *)
+        rFlushPumpCommand := 35.0 + (rServoAdvanceSpeed * 6.5);
+        IF rFlushPumpCommand > 100.0 THEN rFlushPumpCommand := 100.0; END_IF;
+        IF rFlushPumpCommand < 25.0 THEN rFlushPumpCommand := 25.0; END_IF;
+        
+        (* 9. Short-Circuit Preemption matrix *)
+        IF rActualGapVoltage < 18.0 THEN
+            tShortCircuitTimer(IN := TRUE, PT := T#50MS);
+            IF tShortCircuitTimer.Q THEN
+                iState := 40; (* Short verified, jump to retract *)
+                tShortCircuitTimer(IN := FALSE);
+            END_IF;
+        ELSE
+            tShortCircuitTimer(IN := FALSE);
+        END_IF;
+        
+        (* 10. System Disablement check *)
+        IF NOT bEnableSystem THEN
             iState := 0;
         END_IF;
         
-    99: (* FAULT HANDLING *)
-        rDownforceValveCmd := 0.0;
-        rSlurryPumpCmd := 0.0;
-        rPlatenMotorCmd := 0.0;
-        bProcessingActive := FALSE;
-        bSystemReady := FALSE;
+    40: (* RETRACT - De-escalation & Swarf Evacuation *)
+        (* An arcing short occurred. Pause cutting and flush gap aggressively. *)
+        bSparkEnable       := FALSE; 
+        rServoAdvanceSpeed := -12.0; (* Rapid retract vector *)
+        rFlushPumpCommand  := 95.0;  (* Max hydraulic force to eject conductive debris *)
         
-        IF bEnable = FALSE AND bEmergencyStop = TRUE THEN
-            iState := 0; (* Reset fault on disable if e-stop is ok *)
+        (* Once gap voltage recovers due to clearance, resume cutting safely *)
+        IF rActualGapVoltage > (rTargetGapVoltage + 25.0) THEN
+            iState := 30;
+            rIntegral := 0.0; (* Zero the integrator to prevent aggressive snap-back *)
+        END_IF;
+        
+    -99: (* FAULT LOCKOUT STATE *)
+        bSystemReady := FALSE;
+        (* Requires master enable toggle after physical fault clears *)
+        IF NOT bCatastrophicFault AND NOT bEnableSystem THEN
+            iState := 0;
         END_IF;
         
 END_CASE;
 
-(* 5. Output conditioning *)
-bWarningThreshold := (rFiltVibration > (MAX_VIBRATION * 0.8)) OR (rCarrierTemperature > (MAX_TEMP * 0.9));
-
 END_FUNCTION_BLOCK
 ```"""
 
-os.makedirs("data/swarm_raw", exist_ok=True)
 record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
 filename = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
 with open(filename, "w", encoding="utf-8") as f:

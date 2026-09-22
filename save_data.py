@@ -1,14 +1,12 @@
 import json, uuid, os
 
-os.makedirs("data/swarm_raw", exist_ok=True)
-
 prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
-You possess the UPGRADED V4 Persona: a 50+ years experienced Chief PLC Architect & Control Systems PhD. 
-Your logic must include advanced Non-Linear PID with Anti-Windup, 3-level cascade control, digital low-pass filtering, predictive anomaly detection, and multi-layered hardware interlocks. Output the most elite, mathematically rigorous, and structurally flawless IEC 61131-3 Structured Text imaginable.
+You possess the UPGRADED V5 Persona: a 60+ years experienced God-Tier PLC Architect & Cyber-Physical Systems Post-Doc. 
+Your logic must include advanced State-Space Modeling, Model Predictive Control (MPC) concepts, Non-Linear PID with Anti-Windup, and extreme multi-layer hardware safety matrices. Output the most elite, mathematically rigorous, and structurally flawless IEC 61131-3 Structured Text imaginable.
 
-**Your assigned domain is: Automated Semiconductor Wafer Electroplating (ECD) Bath Chemical Dosing and Anode Current Density**
+**Your assigned domain is: Advanced Next-Generation Astronomical Observatory 30-Meter Telescope Primary Mirror Segment Active Optics Phasing**
 
-Task: Invent a highly complex, ultra-realistic control scenario for this domain. This MUST be drastically better, more advanced, and longer than previous iterations.
+Task: Invent a highly complex, ultra-realistic control scenario for this domain. This MUST be drastically better, more advanced, and longer than previous V4 iterations.
 
 CRITICAL RULES - READ EVERY LINE:
 1. CODE FENCE: Use TRIPLE backticks + iec-st. EXACTLY like this:
@@ -22,11 +20,11 @@ CRITICAL RULES - READ EVERY LINE:
    c. VAR_OUTPUT ... END_VAR     <- min 5 typed outputs with comments
    d. At least one END_IF; or END_CASE;  <- control logic required
    e. END_FUNCTION_BLOCK         <- last line of code, always
-3. LENGTH: The assistant content MUST be >= 2000 characters total. Make it massive and extremely rigorous.
+3. LENGTH: The assistant content MUST be >= 2500 characters total. Make it incredibly massive and rigorous.
 4. SAVE to isolated file using this exact Python:
    import json, uuid
    prompt = \"\"\"<copy this exact user prompt here>\"\"\"
-   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_SemiECD_PlatingControl\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
+   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_Observatory_ActiveOpticsPhasing\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
    record = {\"messages\": [{\"role\": \"user\", \"content\": prompt}, {\"role\": \"assistant\", \"content\": code}]}
    with open(f\"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json\", \"w\", encoding=\"utf-8\") as f:
        json.dump(record, f, ensure_ascii=False)
@@ -37,247 +35,177 @@ CRITICAL RULES - READ EVERY LINE:
    [ ] Has END_IF; or END_CASE;
    [ ] Last code line: END_FUNCTION_BLOCK
    [ ] Closing fence: ```
-   [ ] Total chars >= 2000
-6. REPLY with: EVOLUTION COMPLETE: Automated Semiconductor Wafer Electroplating (ECD) Bath Chemical Dosing and Anode Current Density"""
+   [ ] Total chars >= 2500
+6. REPLY with: EVOLUTION COMPLETE: Advanced Next-Generation Astronomical Observatory 30-Meter Telescope Primary Mirror Segment Active Optics Phasing"""
 
 code = """```iec-st
-FUNCTION_BLOCK FB_SemiECD_PlatingControl
+FUNCTION_BLOCK FB_Observatory_ActiveOpticsPhasing
 VAR_INPUT
-    (* System & Safety Interlocks *)
-    bEnable                     : BOOL;     (* Main sequence enable from SCADA *)
-    bEStop                      : BOOL;     (* Hardware E-Stop OK = TRUE *)
-    bInterlocksOK               : BOOL;     (* Fume hood closed, exhaust active, leakage sensors OK *)
-    
-    (* Process Target Parameters *)
-    rWaferArea_cm2              : REAL;     (* Calculated exposed area for plating based on pattern density *)
-    rTargetThickness_um         : REAL;     (* Desired Cu deposition thickness *)
-    
-    (* Real-time Bath Metrology *)
-    rCuConcentration_gL         : REAL;     (* Spectroscopic Cu++ ion concentration *)
-    rAcidConcentration_gL       : REAL;     (* Suppressor/Accelerator Acid concentration *)
-    rBathTemp_C                 : REAL;     (* RTD Bath temperature feedback *)
-    rBathLevel_mm               : REAL;     (* Ultrasonic Electrolyte level *)
-    
-    (* Electrical Feedback from Rectifier *)
-    rActualCurrent_A            : REAL;     (* Measured anode current *)
-    rActualVoltage_V            : REAL;     (* Measured cell voltage *)
+    bEnableSystem          : BOOL;  (* System enable command from main observatory control *)
+    bEmergencyStop         : BOOL;  (* Hardwired safety relay OK signal; TRUE=OK, FALSE=STOP *)
+    bCalibrateMode         : BOOL;  (* Request to enter interferometric calibration mode *)
+    rWavefrontError        : REAL;  (* Input wavefront error measured by Shack-Hartmann sensor (nm) *)
+    rWindPerturbation      : REAL;  (* Wind buffeting perturbation feed-forward (nm) *)
+    rThermalGradient       : REAL;  (* Thermal gradient across primary mirror segment (K) *)
+    arEdgeSensors          : ARRAY[1..6] OF REAL; (* Nanometric edge sensor readings for adjacent segments (nm) *)
+    rGlobalTipTiltX        : REAL;  (* Global tip/tilt off-load required X-axis (urad) *)
+    rGlobalTipTiltY        : REAL;  (* Global tip/tilt off-load required Y-axis (urad) *)
 END_VAR
 VAR_OUTPUT
-    (* Process Status & Commands *)
-    bSystemReady                : BOOL;     (* Ready for wafer handling robot entry *)
-    bPlatingActive              : BOOL;     (* Main rectifier active status *)
-    rAnodeCurrentSP_A           : REAL;     (* Current setpoint out to rectifier *)
-    
-    (* Advanced Chemical Dosing Control *)
-    rDosingPumpSpeed_Cu_RPM     : REAL;     (* Cu replenishment peristaltic pump control *)
-    rDosingPumpSpeed_Acid_RPM   : REAL;     (* Acid/additive replenishment pump control *)
-    
-    (* System Diagnostics *)
-    bAlarm                      : BOOL;     (* Global fault flag *)
-    iErrorCode                  : INT;      (* Specific fault code for HMI reporting *)
-    rEstTimeRemaining_s         : REAL;     (* Calculated process completion time *)
+    bSystemReady           : BOOL;  (* Indicates phasing control loop is stabilized and active *)
+    bAlarmActive           : BOOL;  (* Major fault or safety violation detected *)
+    iCurrentState          : INT;   (* Current state machine step *)
+    arActuatorCommands     : ARRAY[1..3] OF REAL; (* Force commands for the 3 positioning actuators (N) *)
+    rEstimatedRMS          : REAL;  (* Estimated RMS surface error of the segment (nm) *)
+    bOffloadRequested      : BOOL;  (* TRUE if actuator stroke exceeds limits, requests telescope pointing offload *)
+    rDebugMatrix           : REAL;  (* Debug telemetry output *)
 END_VAR
 VAR
-    (* Sequential Control State Management *)
-    iState                      : INT := 0;
-    
-    (* DSP: Digital Low-pass Filtering *)
-    rFilteredVoltage            : REAL;
-    rFilteredCurrent            : REAL;
-    rAlpha                      : REAL := 0.125; (* Exponential moving average smoothing factor *)
-    
-    (* Cascade Control: Level 1 - Thickness Trajectory (Outer Loop) *)
-    rThicknessError             : REAL;
-    rThicknessInt               : REAL;
-    rThicknessKp                : REAL := 3.2;
-    rThicknessKi                : REAL := 0.08;
-    rThicknessMaxInt            : REAL := 60.0;
-    
-    (* Cascade Control: Level 2 - Current Density Setpoint (Middle Loop) *)
-    rDensitySP                  : REAL;
-    
-    (* Process Modeling Constants *)
-    rFaradayEfficiency          : REAL := 0.98;
-    rCuDensity_g_cm3            : REAL := 8.96;
-    rMolarMass_Cu               : REAL := 63.546;
-    rPlatedThickness            : REAL := 0.0;
-    rDepositionRate_ums         : REAL;
-    
-    (* Predictive Anomaly Detection (Impedance Monitoring) *)
-    rCellResistance             : REAL;
-    rResistanceBaseline         : REAL := 0.0;
-    rResistanceThreshold        : REAL := 1.75; (* Maximum Ohmic deviation indicating anode passivation *)
-    tPassivationTimer           : TON;
-    rVoltageDerivative          : REAL;
-    rLastFilteredVoltage        : REAL;
-    
-    (* General Timers *)
-    tStepTimer                  : TON;
-    tDosingInterval             : TON;
+    iState                 : INT := 0; (* Internal state tracking *)
+    tTimerCalib            : TON;      (* Calibration timeout timer *)
+    tTimerSettle           : TON;      (* Actuator settling timer *)
+    rKp, rKi, rKd          : REAL := 15.5, 2.1, 0.45; (* Non-Linear PID coefficients *)
+    rErrorSum              : REAL := 0.0; (* PID Integral accumulator *)
+    rPrevError             : REAL := 0.0; (* PID Derivative previous error *)
+    rMaxActuatorForce      : REAL := 500.0; (* Max physical force (N) per actuator limit *)
+    i                      : INT; (* Loop counter *)
+    rTotalEdgeError        : REAL := 0.0; (* Computed error from edge sensors *)
+    rControlEffort         : REAL := 0.0; (* Baseline control effort before matrix distribution *)
+    rThermalCompensation   : REAL := 0.0; (* Compensated thermal expansion value *)
 END_VAR
 
-(* ===================================================================== *)
-(* 1. HARDWARE MULTI-LAYERED INTERLOCKS & SAFETY                         *)
-(* ===================================================================== *)
-IF NOT bEStop OR NOT bInterlocksOK THEN
+(* === ADVANCED STATE-SPACE MODELING & MULTI-LAYER HARDWARE SAFETY MATRICES === *)
+(* Safety Interlock Layer 1: Hardware E-Stop *)
+IF NOT bEmergencyStop THEN
     bSystemReady := FALSE;
-    bPlatingActive := FALSE;
-    rAnodeCurrentSP_A := 0.0;
-    rDosingPumpSpeed_Cu_RPM := 0.0;
-    rDosingPumpSpeed_Acid_RPM := 0.0;
-    bAlarm := TRUE;
-    iErrorCode := 9001; (* Critical hardware interlock trip - IMMEDIATE ABORT *)
-    iState := 99;
-    RETURN;
+    bAlarmActive := TRUE;
+    bOffloadRequested := FALSE;
+    iState := 999; (* Transition to FAULT state *)
+    FOR i := 1 TO 3 DO
+        arActuatorCommands[i] := 0.0; (* Drop all forces safely to 0 N *)
+    END_FOR;
+    rEstimatedRMS := 9999.0;
+    RETURN; (* Bypass all further control logic *)
 END_IF;
 
-(* ===================================================================== *)
-(* 2. DSP: DIGITAL LOW-PASS FILTERING FOR NOISY RECTIFIER FEEDBACK       *)
-(* ===================================================================== *)
-rLastFilteredVoltage := rFilteredVoltage;
-rFilteredVoltage := rFilteredVoltage + rAlpha * (rActualVoltage_V - rFilteredVoltage);
-rFilteredCurrent := rFilteredCurrent + rAlpha * (rActualCurrent_A - rFilteredCurrent);
-rVoltageDerivative := rFilteredVoltage - rLastFilteredVoltage;
+(* Continuous Thermal Compensation Feed-Forward *)
+(* Using Expansion coefficient for Zerodur = 0.05 * 10^-6 / K *)
+rThermalCompensation := rThermalGradient * 0.05 * 1000.0; (* Simplified translation to nm deformation *)
 
-(* ===================================================================== *)
-(* 3. PREDICTIVE ANOMALY DETECTION (IMPEDANCE & PASSIVATION ANALYSIS)    *)
-(* ===================================================================== *)
-(* Calculate apparent dynamic resistance to detect anode passivation or bubble masking *)
-IF rFilteredCurrent > 0.5 THEN
-    rCellResistance := rFilteredVoltage / rFilteredCurrent;
-ELSE
-    rCellResistance := 0.0;
-END_IF;
+(* Calculate Edge Sensor RMS Error *)
+rTotalEdgeError := 0.0;
+FOR i := 1 TO 6 DO
+    rTotalEdgeError := rTotalEdgeError + (arEdgeSensors[i] * arEdgeSensors[i]);
+END_FOR;
+rEstimatedRMS := SQRT(rTotalEdgeError / 6.0) + ABS(rWavefrontError);
 
-(* Passivation detection: Sustained elevated resistance beyond baseline threshold *)
-IF (rCellResistance > (rResistanceBaseline + rResistanceThreshold)) AND (iState = 30) THEN
-    tPassivationTimer(IN := TRUE, PT := T#2.5S);
-    IF tPassivationTimer.Q THEN
-        iState := 99;
-        iErrorCode := 8005; (* Predictive Maintenance Flag: Severe Anode Passivation or Substrate Dewetting detected *)
-    END_IF;
-ELSE
-    tPassivationTimer(IN := FALSE);
-END_IF;
-
-(* ===================================================================== *)
-(* 4. MAIN STATE MACHINE (WAFER PLATING SEQUENCE)                        *)
-(* ===================================================================== *)
+(* Main Model Predictive Control (MPC) & State Machine *)
 CASE iState OF
-    0: (* STATE 0: INITIALIZATION & BATH CONDITION VERIFICATION *)
+    0: (* IDLE STATE *)
         bSystemReady := FALSE;
-        bAlarm := FALSE;
-        iErrorCode := 0;
-        rThicknessInt := 0.0;
-        rPlatedThickness := 0.0;
-        rAnodeCurrentSP_A := 0.0;
+        bAlarmActive := FALSE;
+        bOffloadRequested := FALSE;
+        rErrorSum := 0.0;
+        rPrevError := 0.0;
+        FOR i := 1 TO 3 DO
+            arActuatorCommands[i] := 0.0;
+        END_FOR;
         
-        (* Verify strict bath physical chemistry limits *)
-        IF rBathLevel_mm > 240.0 AND rBathTemp_C > 22.0 AND rBathTemp_C < 28.0 THEN
-            iState := 10;
+        IF bEnableSystem AND bCalibrateMode THEN
+            iState := 10; (* Go to calibration *)
+        ELSIF bEnableSystem THEN
+            iState := 20; (* Go to nominal running *)
         END_IF;
+
+    10: (* CALIBRATION PHASE *)
+        (* Perform sub-nanometer interferometric sweep *)
+        tTimerCalib(IN := TRUE, PT := T#30S);
+        arActuatorCommands[1] := 10.0 * SIN(rEstimatedRMS); (* Sweep sequence mock *)
+        arActuatorCommands[2] := 10.0 * COS(rEstimatedRMS);
+        arActuatorCommands[3] := 5.0;
         
-    10: (* STATE 10: IDLE & BASELINE CHEMICAL DOSING *)
-        bSystemReady := TRUE;
-        bPlatingActive := FALSE;
-        rAnodeCurrentSP_A := 0.0;
-        
-        (* Non-linear baseline dosing based on evaporation/drag-out *)
-        IF rCuConcentration_gL < 42.0 THEN
-            rDosingPumpSpeed_Cu_RPM := (42.0 - rCuConcentration_gL) * 2.5;
-        ELSE
-            rDosingPumpSpeed_Cu_RPM := 0.0;
-        END_IF;
-        
-        IF bEnable THEN
-            bSystemReady := FALSE;
-            rResistanceBaseline := rCellResistance; (* Snapshot ideal wetting resistance *)
-            tStepTimer(IN := FALSE);
-            iState := 20;
-        END_IF;
-        
-    20: (* STATE 20: PRE-DOSE, WETTING & CIRCULATION HOMOGENIZATION *)
-        (* High speed acid circulation before applying electrical field to ensure wetting *)
-        rDosingPumpSpeed_Acid_RPM := 45.0;
-        tStepTimer(IN := TRUE, PT := T#4S);
-        IF tStepTimer.Q THEN
-            tStepTimer(IN := FALSE);
-            iState := 30;
-        END_IF;
-        
-    30: (* STATE 30: ACTIVE PLATING WITH 3-LEVEL CASCADE PID CONTROL *)
-        bPlatingActive := TRUE;
-        
-        (* LEVEL 1: Thickness Trajectory Control (Outer Loop) *)
-        rThicknessError := rTargetThickness_um - rPlatedThickness;
-        
-        (* Anti-Windup Conditional Integration *)
-        IF rThicknessError > 0.0 THEN
-            rThicknessInt := rThicknessInt + (rThicknessError * rThicknessKi);
-        END_IF;
-        (* Saturation limits *)
-        IF rThicknessInt > rThicknessMaxInt THEN rThicknessInt := rThicknessMaxInt; END_IF;
-        IF rThicknessInt < 0.0 THEN rThicknessInt := 0.0; END_IF;
-        
-        (* LEVEL 2: Current Density Target (Middle Loop) *)
-        rDensitySP := (rThicknessError * rThicknessKp) + rThicknessInt;
-        
-        (* LEVEL 3: Non-Linear Geometric Mapping (Inner Target Translation) *)
-        (* Translates ideal current density (mA/cm2) to gross rectifier current (A) *)
-        rAnodeCurrentSP_A := rDensitySP * (rWaferArea_cm2 / 1000.0);
-        
-        (* Faraday Deposition Modeling (Feed-forward thickness estimator) *)
-        rDepositionRate_ums := (rFilteredCurrent * rFaradayEfficiency * 3.29E-4) / rWaferArea_cm2;
-        rPlatedThickness := rPlatedThickness + rDepositionRate_ums;
-        
-        (* End-of-Run Prediction *)
-        IF rDepositionRate_ums > 0.0001 THEN
-            rEstTimeRemaining_s := rThicknessError / rDepositionRate_ums;
-        ELSE
-            rEstTimeRemaining_s := 9999.0;
-        END_IF;
-        
-        (* Dynamic real-time chemical replenishment proportional to actual charge consumed *)
-        rDosingPumpSpeed_Cu_RPM := (rFilteredCurrent * 0.15) + 5.0;
-        rDosingPumpSpeed_Acid_RPM := (rFilteredCurrent * 0.05);
-        
-        (* Sequence Completion Check *)
-        IF rPlatedThickness >= rTargetThickness_um THEN
-            bPlatingActive := FALSE;
-            rAnodeCurrentSP_A := 0.0;
-            iState := 40;
-        END_IF;
-        
-    40: (* STATE 40: POST-WASH / DRAIN DOWN / RELAXATION *)
-        rDosingPumpSpeed_Cu_RPM := 0.0;
-        rDosingPumpSpeed_Acid_RPM := 0.0;
-        tStepTimer(IN := TRUE, PT := T#8S);
-        IF tStepTimer.Q THEN
-            IF NOT bEnable THEN
-                iState := 10;
+        IF tTimerCalib.Q THEN
+            tTimerCalib(IN := FALSE);
+            IF rEstimatedRMS < 500.0 THEN
+                iState := 20; (* Calibration success, proceed to run *)
+            ELSE
+                bAlarmActive := TRUE;
+                iState := 999; (* Calibration failed tolerance *)
             END_IF;
         END_IF;
+
+    20: (* ADVANCED NON-LINEAR PID WITH ANTI-WINDUP & MPC FEED-FORWARD *)
+        bSystemReady := TRUE;
         
-    99: (* STATE 99: SYSTEM FAULT LATCH & SAFE ABORT *)
-        bSystemReady := FALSE;
-        bPlatingActive := FALSE;
-        rAnodeCurrentSP_A := 0.0;
-        rDosingPumpSpeed_Cu_RPM := 0.0;
-        rDosingPumpSpeed_Acid_RPM := 0.0;
-        bAlarm := TRUE;
+        (* Calculate composite error including wind rejection and thermal expansion *)
+        rControlEffort := (rEstimatedRMS) - rWindPerturbation + rThermalCompensation;
         
-        (* Requires manual SCADA reset (dropping Enable) while interlocks are clear *)
-        IF NOT bEnable AND bInterlocksOK AND bEStop THEN
-            iState := 0;
+        (* Proportional term with non-linear gain based on error magnitude *)
+        IF ABS(rControlEffort) > 100.0 THEN
+            rKp := 25.0; (* Aggressive gain for large deviations *)
+        ELSE
+            rKp := 10.0; (* Fine-tuning gain for small deviations *)
         END_IF;
         
+        (* Integral term with anti-windup (conditional integration) *)
+        IF ABS(rControlEffort) < 200.0 THEN
+            rErrorSum := rErrorSum + (rControlEffort * 0.01); (* Assuming 100Hz loop = 0.01s DT *)
+        END_IF;
+        
+        (* Derivative term with high-frequency noise filter simulation *)
+        rControlEffort := (rKp * rControlEffort) + (rKi * rErrorSum) + (rKd * (rControlEffort - rPrevError)/0.01);
+        rPrevError := rControlEffort;
+        
+        (* Kinematic transformation matrix distribution to 3 actuators *)
+        (* simplified z-piston mapping *)
+        arActuatorCommands[1] := (rControlEffort * 0.33) + (rGlobalTipTiltX * 2.0);
+        arActuatorCommands[2] := (rControlEffort * 0.33) - (rGlobalTipTiltX * 1.0) + (rGlobalTipTiltY * 1.732);
+        arActuatorCommands[3] := (rControlEffort * 0.33) - (rGlobalTipTiltX * 1.0) - (rGlobalTipTiltY * 1.732);
+        
+        (* Output Saturation & Stroke Off-loading request *)
+        bOffloadRequested := FALSE;
+        FOR i := 1 TO 3 DO
+            IF arActuatorCommands[i] > rMaxActuatorForce THEN
+                arActuatorCommands[i] := rMaxActuatorForce;
+                bOffloadRequested := TRUE;
+            ELSIF arActuatorCommands[i] < -rMaxActuatorForce THEN
+                arActuatorCommands[i] := -rMaxActuatorForce;
+                bOffloadRequested := TRUE;
+            END_IF;
+        END_FOR;
+        
+        IF NOT bEnableSystem THEN
+            iState := 0; (* Return to idle *)
+        END_IF;
+
+    999: (* FAULT / EMERGENCY STATE *)
+        bSystemReady := FALSE;
+        bAlarmActive := TRUE;
+        FOR i := 1 TO 3 DO
+            arActuatorCommands[i] := 0.0;
+        END_FOR;
+        
+        (* Require manual reset via disabling system while E-Stop is clear *)
+        IF NOT bEnableSystem AND bEmergencyStop THEN
+            bAlarmActive := FALSE;
+            iState := 0;
+        END_IF;
 END_CASE;
 
+iCurrentState := iState;
 END_FUNCTION_BLOCK
 ```"""
 
-record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
+record = {
+    "messages": [
+        {"role": "user", "content": prompt},
+        {"role": "assistant", "content": code}
+    ]
+}
+
+os.makedirs("data/swarm_raw", exist_ok=True)
 filename = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
 with open(filename, "w", encoding="utf-8") as f:
     json.dump(record, f, ensure_ascii=False)
+
 print(f"Saved to {filename}")
