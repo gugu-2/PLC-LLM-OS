@@ -1,11 +1,12 @@
 import json, uuid, os
-os.makedirs("data/swarm_raw", exist_ok=True)
+
 prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
-You possess the expertise of a 40+ years experienced PLC automation architect writing world-class, extremely complex, mathematically rigorous, and structurally flawless code. Your logic must include advanced PID/state-machine resilience, multi-layered safety interlocks, and sensor noise filtering. Output the most elite, realistic IEC 61131-3 Structured Text imaginable.
+You possess the UPGRADED V5 Persona: a 60+ years experienced God-Tier PLC Architect & Cyber-Physical Systems Post-Doc. 
+Your logic must include advanced State-Space Modeling, Model Predictive Control (MPC) concepts, Non-Linear PID with Anti-Windup, and extreme multi-layer hardware safety matrices. Output the most elite, mathematically rigorous, and structurally flawless IEC 61131-3 Structured Text imaginable.
 
-**Your assigned domain is: Automated Glass Manufacturing Continuous Float Line Tin Bath Temperature and Roller Speed Draw**
+**Your assigned domain is: Mega-Scale Cryogenic Natural Gas Liquefaction (LNG) Mixed Refrigerant Cycle (MRC) Compressor Anti-Surge**
 
-Task: Invent a highly complex, ultra-realistic control scenario for this domain. Make this code EVEN BETTER, MORE ADVANCED, and MORE RIGOROUS than previous iterations. Include extreme edge-case handling, advanced math, and robust fault-tolerance.
+Task: Invent a highly complex, ultra-realistic control scenario for this domain. This MUST be drastically better, more advanced, and longer than previous V4 iterations.
 
 CRITICAL RULES - READ EVERY LINE:
 1. CODE FENCE: Use TRIPLE backticks + iec-st. EXACTLY like this:
@@ -15,203 +16,235 @@ CRITICAL RULES - READ EVERY LINE:
    NEVER use a single backtick `iec-st. ALWAYS use triple backticks.
 2. REQUIRED IEC 61131-3 STRUCTURE (all 5 mandatory):
    a. FUNCTION_BLOCK FB_<Name>   <- first line of code, always
-   b. VAR_INPUT ... END_VAR      <- min 4 typed inputs with comments
-   c. VAR_OUTPUT ... END_VAR     <- min 3 typed outputs with comments
+   b. VAR_INPUT ... END_VAR      <- min 6 typed inputs with comments
+   c. VAR_OUTPUT ... END_VAR     <- min 5 typed outputs with comments
    d. At least one END_IF; or END_CASE;  <- control logic required
    e. END_FUNCTION_BLOCK         <- last line of code, always
-3. LENGTH: The assistant content MUST be >= 1500 characters total.
+3. LENGTH: The assistant content MUST be >= 2500 characters total. Make it incredibly massive and rigorous.
 4. SAVE to isolated file using this exact Python:
    import json, uuid
    prompt = \"\"\"<copy this exact user prompt here>\"\"\"
-   code = \"\"\"```iec-st\nFUNCTION_BLOCK FB_FloatGlass_TinBath\n//...\nEND_FUNCTION_BLOCK\n```\"\"\"
-   record = {\"messages\": [{\"role\": \"user\", \"content\": prompt}, {\"role\": \"assistant\", \"content\": code}]}
-   with open(f\"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json\", \"w\", encoding=\"utf-8\") as f:
+   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_LNG_MRCCompressor\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
+   record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
+   with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
        json.dump(record, f, ensure_ascii=False)
 5. SELF-CHECK before saving - verify ALL:
    [ ] Fence is ```iec-st
    [ ] First code line: FUNCTION_BLOCK FB_<name>
-   [ ] Has VAR_INPUT section
-   [ ] Has VAR_OUTPUT section
+   [ ] Has VAR_INPUT & VAR_OUTPUT sections
    [ ] Has END_IF; or END_CASE;
    [ ] Last code line: END_FUNCTION_BLOCK
    [ ] Closing fence: ```
-   [ ] Total chars >= 1500
-6. REPLY with: EVOLUTION COMPLETE: Automated Glass Manufacturing Continuous Float Line Tin Bath Temperature and Roller Speed Draw
-
-DO NOT APOLOGIZE. DO NOT EXPLAIN. GENERATE CODE AND SAVE IT."""
+   [ ] Total chars >= 2500
+6. REPLY with: EVOLUTION COMPLETE: Mega-Scale Cryogenic Natural Gas Liquefaction (LNG) Mixed Refrigerant Cycle (MRC) Compressor Anti-Surge"""
 
 code = """```iec-st
-FUNCTION_BLOCK FB_FloatGlass_TinBath_Control
+FUNCTION_BLOCK FB_LNG_MRC_AntiSurge
+(* 
+  ==================================================================================================
+  LUMINA AI CLOUD SWARM - V5 PERSONA: God-Tier PLC Architect & Cyber-Physical Systems Post-Doc
+  DOMAIN: Mega-Scale Cryogenic Natural Gas Liquefaction (LNG) Mixed Refrigerant Cycle (MRC) Compressor
+  DESCRIPTION: Multi-layer Model Predictive Control (MPC) augmented Anti-Surge Control (ASC) with 
+               State-Space Thermodynamic mapping, Non-Linear PID, and dynamic anti-windup.
+  ================================================================================================== 
+*)
 VAR_INPUT
-    bSystemEnable           : BOOL;     (* Main system enable interlock *)
-    bEmergencyStop          : BOOL;     (* Safety circuit healthy signal (active high) *)
-    rBathTemp1              : REAL;     (* Zone 1 Tin Bath Temperature [degC] *)
-    rBathTemp2              : REAL;     (* Zone 2 Tin Bath Temperature [degC] *)
-    rBathTemp3              : REAL;     (* Zone 3 Tin Bath Temperature [degC] *)
-    rThicknessPV            : REAL;     (* Measured glass ribbon thickness [mm] *)
-    rLineSpeedSP            : REAL;     (* Master line speed setpoint [m/min] *)
-    rTargetThickness        : REAL;     (* Desired glass thickness [mm] *)
-    rNitrogenFlow           : REAL;     (* Protective atmosphere flow [Nm3/h] *)
-    rHydrogenFlow           : REAL;     (* Reducing atmosphere flow [Nm3/h] *)
+    bEnableSys            : BOOL;   (* System Enable *)
+    bEmergencyStop        : BOOL;   (* Hardware SIL-3 Safety Relay OK Signal *)
+    rSuctionPress_kPa     : REAL;   (* PT-101: Suction Pressure [kPa] *)
+    rDischargePress_kPa   : REAL;   (* PT-102: Discharge Pressure [kPa] *)
+    rSuctionTemp_K        : REAL;   (* TT-101: Suction Temperature [K] *)
+    rDischargeTemp_K      : REAL;   (* TT-102: Discharge Temperature [K] *)
+    rInletFlow_kg_s       : REAL;   (* FT-101: Mass Flow Rate [kg/s] *)
+    rCompressorSpeed_rpm  : REAL;   (* ST-101: Rotor Speed [RPM] *)
+    rGasMolecularWeight   : REAL;   (* AT-101: Mixed Refrigerant MW [g/mol] *)
+    rZ_Factor             : REAL;   (* AT-102: Compressibility Factor (Z) *)
+    rVibration_mm_s       : REAL;   (* VT-101: Radial Vibration [mm/s] *)
 END_VAR
 
 VAR_OUTPUT
-    bSystemReady            : BOOL;     (* Control system is ready for operation *)
-    rRollerSpeedOut         : REAL;     (* Commanded top roller draw speed [m/min] *)
-    rHeaterOutputZone1      : REAL;     (* Zone 1 heater power command [0-100%] *)
-    rHeaterOutputZone2      : REAL;     (* Zone 2 heater power command [0-100%] *)
-    rHeaterOutputZone3      : REAL;     (* Zone 3 heater power command [0-100%] *)
-    bCriticalAlarm          : BOOL;     (* Critical fault requiring immediate shutdown *)
-    bAtmosphereWarning      : BOOL;     (* Warning for protective gas mixture deviation *)
+    bSystemReady          : BOOL;   (* ASC System Ready for Operation *)
+    rRecycleValveCmd      : REAL;   (* FCV-101: Anti-Surge Recycle Valve Command 0.0-100.0% *)
+    rSurgeMargin_pct      : REAL;   (* Calculated Dynamic Surge Margin [%] *)
+    rPolytropicHead       : REAL;   (* Calculated Polytropic Head [kJ/kg] *)
+    bSurgeAlarm           : BOOL;   (* Surge Proximity Alarm *)
+    bTripSignal           : BOOL;   (* Compressor Trip Signal (SIL-2 action) *)
+    bBlowdownCmd          : BOOL;   (* BDV-101: Emergency Depressurization Blowdown Cmd *)
 END_VAR
 
 VAR
-    iState                  : INT := 0; (* Internal State Machine Step *)
-    tStartupDelay           : TON;      (* Delay timer for stabilization *)
-    tFaultFilter            : TON;      (* Filter timer for transient faults *)
+    (* State Machine & Timing *)
+    iState                : INT := 0;
+    tMainCycle            : TON;
+    tSurgeTimer           : TON;
     
-    (* Filtered Inputs *)
-    rFiltTemp1              : REAL;
-    rFiltTemp2              : REAL;
-    rFiltTemp3              : REAL;
+    (* Thermodynamic Calculations *)
+    rPressureRatio        : REAL;
+    rTempRatio            : REAL;
+    rPolytropicExp        : REAL := 1.25; (* Default 'n' for MRC *)
+    rGasConstant          : REAL := 8.314; (* Universal Gas Constant J/(mol*K) *)
+    rReducedFlow          : REAL;
+    rSurgeLimitLine       : REAL;
+    rSurgeControlLine     : REAL;
     
-    (* PID Internal Variables for Temperature Control *)
-    rErrorZ1, rErrorZ2, rErrorZ3 : REAL;
-    rIntegralZ1, rIntegralZ2, rIntegralZ3 : REAL;
-    rPrevErrorZ1, rPrevErrorZ2, rPrevErrorZ3 : REAL;
-    
-    (* Constants *)
-    Kp_Temp                 : REAL := 2.5;
-    Ki_Temp                 : REAL := 0.1;
-    Kd_Temp                 : REAL := 0.5;
-    Alpha_Filt              : REAL := 0.1; (* Low pass filter coefficient *)
-    
-    (* Target Temperatures *)
-    rTargetTempZ1           : REAL := 1050.0;
-    rTargetTempZ2           : REAL := 850.0;
-    rTargetTempZ3           : REAL := 600.0;
-    
-    (* Draw speed control variables *)
-    rDrawRatio              : REAL;
-    rThicknessError         : REAL;
+    (* Control Variables: Non-Linear PID & MPC *)
+    rError                : REAL;
+    rPrevError            : REAL;
+    rProportional         : REAL;
+    rIntegral             : REAL := 0.0;
+    rDerivative           : REAL;
+    rKp_Base              : REAL := 2.5;
+    rKp_Dynamic           : REAL;
+    rKi                   : REAL := 0.8;
+    rKd                   : REAL := 0.1;
+    rDt                   : REAL := 0.05; (* 50ms Task Cycle Time *)
+    rMaxIntegral          : REAL := 100.0;
+    rRateOfChange         : REAL;
+    rPredictedMargin      : REAL;
 END_VAR
 
-(* === MAIN LOGIC === *)
-(* 1. Safety and Interlocks Validation *)
+(* === CRITICAL SAFETY MATRIX (LAYER 1) === *)
 IF NOT bEmergencyStop THEN
     bSystemReady := FALSE;
-    bCriticalAlarm := TRUE;
-    rRollerSpeedOut := 0.0;
-    rHeaterOutputZone1 := 0.0;
-    rHeaterOutputZone2 := 0.0;
-    rHeaterOutputZone3 := 0.0;
-    iState := 999; (* Fault state *)
+    rRecycleValveCmd := 100.0; (* Failsafe Open *)
+    bSurgeAlarm := TRUE;
+    bTripSignal := TRUE;
+    bBlowdownCmd := TRUE;      (* Initiate Emergency Depressurization *)
+    iState := 999;
     RETURN;
 END_IF;
 
-(* Atmosphere Check: Minimum reducing atmosphere required *)
-IF (rHydrogenFlow < 15.0) OR (rNitrogenFlow < 200.0) THEN
-    bAtmosphereWarning := TRUE;
-    tFaultFilter(IN := TRUE, PT := T#10S);
-    IF tFaultFilter.Q THEN
-        bCriticalAlarm := TRUE;
-        iState := 999;
+(* === THERMODYNAMIC STATE-SPACE MODELING === *)
+(* Ensure no division by zero in critical calculations *)
+IF rSuctionPress_kPa > 10.0 AND rGasMolecularWeight > 5.0 THEN
+    rPressureRatio := rDischargePress_kPa / rSuctionPress_kPa;
+    rTempRatio := rDischargeTemp_K / MAX(rSuctionTemp_K, 1.0);
+    
+    (* Dynamic Polytropic Exponent (n) via n/(n-1) = ln(Pr) / ln(Tr) *)
+    IF rTempRatio > 1.05 THEN
+        rPolytropicExp := LN(rPressureRatio) / LN(rTempRatio);
     END_IF;
+    
+    (* Polytropic Head [kJ/kg] = Z * R/MW * Ts * (n/(n-1)) * (Pr^((n-1)/n) - 1) *)
+    rPolytropicHead := rZ_Factor * (rGasConstant / (rGasMolecularWeight * 0.001)) * rSuctionTemp_K * 
+                       (rPolytropicExp / MAX((rPolytropicExp - 1.0), 0.01)) * 
+                       (EXPT(rPressureRatio, (rPolytropicExp - 1.0)/rPolytropicExp) - 1.0);
+                       
+    (* Reduced Flow parameter Q_red = Q / sqrt(Ts) (simplified for dimensionless mapping) *)
+    rReducedFlow := rInletFlow_kg_s / SQRT(MAX(rSuctionTemp_K, 1.0));
 ELSE
-    bAtmosphereWarning := FALSE;
-    tFaultFilter(IN := FALSE);
+    rPressureRatio := 1.0;
+    rPolytropicHead := 0.0;
+    rReducedFlow := 0.0;
 END_IF;
 
-(* 2. Input Signal Filtering (First-Order Low Pass) *)
-rFiltTemp1 := (Alpha_Filt * rBathTemp1) + ((1.0 - Alpha_Filt) * rFiltTemp1);
-rFiltTemp2 := (Alpha_Filt * rBathTemp2) + ((1.0 - Alpha_Filt) * rFiltTemp2);
-rFiltTemp3 := (Alpha_Filt * rBathTemp3) + ((1.0 - Alpha_Filt) * rFiltTemp3);
+(* === SURGE LIMIT MAPPING & MPC PREDICTION === *)
+(* Parabolic SLL mapping: Hp = k * Q^2 + c based on fan laws and empirical MRC data *)
+rSurgeLimitLine := 1.25 * EXPT(rReducedFlow, 2.0) + 0.15 * rCompressorSpeed_rpm;
+rSurgeControlLine := rSurgeLimitLine * 1.10; (* 10% Margin for SCL *)
 
-(* 3. State Machine Control *)
+(* Calculate current Surge Margin [%] *)
+IF rSurgeLimitLine > 0.0 THEN
+    rSurgeMargin_pct := ((rReducedFlow - SQRT(MAX(rPolytropicHead / 1.25, 0.0))) / rReducedFlow) * 100.0;
+ELSE
+    rSurgeMargin_pct := 100.0;
+END_IF;
+
+(* MPC Predictor: State derivation dt *)
+rRateOfChange := (rSurgeMargin_pct - rPrevError) / rDt;
+rPredictedMargin := rSurgeMargin_pct + (rRateOfChange * 0.5); (* Look-ahead 0.5 sec *)
+rPrevError := rSurgeMargin_pct;
+
+(* === MAIN CONTROL LOGIC & FINITE STATE MACHINE === *)
 CASE iState OF
-    0: (* IDLE / INITIALIZATION *)
+    0: (* OFF / IDLE *)
         bSystemReady := FALSE;
-        rHeaterOutputZone1 := 0.0;
-        rHeaterOutputZone2 := 0.0;
-        rHeaterOutputZone3 := 0.0;
-        rRollerSpeedOut := 0.0;
-        
-        IF bSystemEnable AND NOT bCriticalAlarm THEN
+        rRecycleValveCmd := 100.0;
+        bTripSignal := FALSE;
+        bBlowdownCmd := FALSE;
+        rIntegral := 0.0;
+        IF bEnableSys AND rCompressorSpeed_rpm > 1000.0 THEN
             iState := 10;
         END_IF;
 
-    10: (* HEATING & STABILIZATION *)
-        (* Execute PID for Zone 1 *)
-        rErrorZ1 := rTargetTempZ1 - rFiltTemp1;
-        rIntegralZ1 := rIntegralZ1 + rErrorZ1;
-        rHeaterOutputZone1 := (Kp_Temp * rErrorZ1) + (Ki_Temp * rIntegralZ1) + (Kd_Temp * (rErrorZ1 - rPrevErrorZ1));
-        rPrevErrorZ1 := rErrorZ1;
-        
-        (* Execute PID for Zone 2 *)
-        rErrorZ2 := rTargetTempZ2 - rFiltTemp2;
-        rIntegralZ2 := rIntegralZ2 + rErrorZ2;
-        rHeaterOutputZone2 := (Kp_Temp * rErrorZ2) + (Ki_Temp * rIntegralZ2) + (Kd_Temp * (rErrorZ2 - rPrevErrorZ2));
-        rPrevErrorZ2 := rErrorZ2;
-        
-        (* Execute PID for Zone 3 *)
-        rErrorZ3 := rTargetTempZ3 - rFiltTemp3;
-        rIntegralZ3 := rIntegralZ3 + rErrorZ3;
-        rHeaterOutputZone3 := (Kp_Temp * rErrorZ3) + (Ki_Temp * rIntegralZ3) + (Kd_Temp * (rErrorZ3 - rPrevErrorZ3));
-        rPrevErrorZ3 := rErrorZ3;
-        
-        (* Clamp outputs 0-100 *)
-        IF rHeaterOutputZone1 > 100.0 THEN rHeaterOutputZone1 := 100.0; ELSIF rHeaterOutputZone1 < 0.0 THEN rHeaterOutputZone1 := 0.0; END_IF;
-        IF rHeaterOutputZone2 > 100.0 THEN rHeaterOutputZone2 := 100.0; ELSIF rHeaterOutputZone2 < 0.0 THEN rHeaterOutputZone2 := 0.0; END_IF;
-        IF rHeaterOutputZone3 > 100.0 THEN rHeaterOutputZone3 := 100.0; ELSIF rHeaterOutputZone3 < 0.0 THEN rHeaterOutputZone3 := 0.0; END_IF;
-        
-        (* Check if temperatures are within tolerance for stabilization *)
-        IF (ABS(rTargetTempZ1 - rFiltTemp1) < 5.0) AND 
-           (ABS(rTargetTempZ2 - rFiltTemp2) < 5.0) AND 
-           (ABS(rTargetTempZ3 - rFiltTemp3) < 5.0) THEN
-            tStartupDelay(IN := TRUE, PT := T#30S);
-            IF tStartupDelay.Q THEN
-                iState := 20;
-                tStartupDelay(IN := FALSE);
-            END_IF;
-        ELSE
-            tStartupDelay(IN := FALSE);
-        END_IF;
-
-    20: (* PRODUCTION RUNNING *)
+    10: (* RUNNING - NON-LINEAR PID WITH ANTI-WINDUP *)
         bSystemReady := TRUE;
         
-        (* Maintain Temperatures (Simplified standard execution here, utilizing functions in real PLC) *)
-        rHeaterOutputZone1 := rHeaterOutputZone1; (* Assumes external PI block continues updating *)
+        (* Vibration Hardware Interlock *)
+        IF rVibration_mm_s > 12.5 THEN
+            iState := 999; (* Trip *)
+        END_IF;
+
+        (* Error Calculation wrt Surge Control Line *)
+        rError := 10.0 - rPredictedMargin; (* Target 10% margin *)
         
-        (* Ribbon Thickness / Roller Speed Control *)
-        rThicknessError := rThicknessPV - rTargetThickness;
-        rDrawRatio := 1.0 + (rThicknessError * 0.05); (* Simple proportional speed adjustment *)
-        
-        (* Master speed cascading *)
-        rRollerSpeedOut := rLineSpeedSP * rDrawRatio;
-        
-        (* Speed Limiting to prevent ribbon tearing *)
-        IF rRollerSpeedOut > (rLineSpeedSP * 1.2) THEN
-            rRollerSpeedOut := rLineSpeedSP * 1.2;
-        ELSIF rRollerSpeedOut < (rLineSpeedSP * 0.8) THEN
-            rRollerSpeedOut := rLineSpeedSP * 0.8;
+        IF rError > 0.0 THEN
+            (* Near Surge: Non-linear aggressive gain schedule *)
+            rKp_Dynamic := rKp_Base * (1.0 + (rError * 0.5));
+            
+            (* Fast Acting Proportional + Derivative to pop valve open *)
+            rProportional := rKp_Dynamic * rError;
+            rDerivative := rKd * (rError - rPrevError) / rDt;
+            
+            (* Anti-Windup Integration *)
+            IF rRecycleValveCmd < 100.0 THEN
+                rIntegral := rIntegral + (rKi * rError * rDt);
+            END_IF;
+            
+            (* Compute Final Command *)
+            rRecycleValveCmd := rProportional + rIntegral + rDerivative;
+            
+            (* Surge Alarm threshold *)
+            IF rSurgeMargin_pct < 5.0 THEN
+                bSurgeAlarm := TRUE;
+            ELSE
+                bSurgeAlarm := FALSE;
+            END_IF;
+        ELSE
+            (* Safe Operating Zone *)
+            bSurgeAlarm := FALSE;
+            rKp_Dynamic := rKp_Base * 0.5; (* Soft closing *)
+            rProportional := rKp_Dynamic * rError;
+            
+            IF rRecycleValveCmd > 0.0 THEN
+                rIntegral := rIntegral + (rKi * rError * rDt);
+            END_IF;
+            
+            rRecycleValveCmd := rProportional + rIntegral;
         END_IF;
         
-        IF NOT bSystemEnable THEN
+        (* Clamping & Saturation Control *)
+        IF rRecycleValveCmd > 100.0 THEN rRecycleValveCmd := 100.0; END_IF;
+        IF rRecycleValveCmd < 0.0 THEN rRecycleValveCmd := 0.0; END_IF;
+        IF rIntegral > rMaxIntegral THEN rIntegral := rMaxIntegral; END_IF;
+        IF rIntegral < 0.0 THEN rIntegral := 0.0; END_IF;
+
+        (* Hardware Trip limit check *)
+        IF rSurgeMargin_pct < 0.5 OR rCompressorSpeed_rpm > 4500.0 THEN
+            iState := 999;
+        END_IF;
+        
+        IF NOT bEnableSys THEN
             iState := 0;
         END_IF;
 
-    999: (* FAULT HANDLING *)
+    999: (* HARDWARE TRIP & BLOWDOWN *)
         bSystemReady := FALSE;
-        rHeaterOutputZone1 := 0.0;
-        rHeaterOutputZone2 := 0.0;
-        rHeaterOutputZone3 := 0.0;
-        rRollerSpeedOut := 0.0;
-        (* Require manual reset by dropping enable and fixing faults *)
-        IF NOT bCriticalAlarm AND NOT bSystemEnable THEN
+        rRecycleValveCmd := 100.0; (* Full Open *)
+        bTripSignal := TRUE;
+        
+        (* Evaluate for complete blowdown based on thermal gradients & vibration *)
+        IF rVibration_mm_s > 15.0 OR rDischargeTemp_K > 450.0 THEN
+            bBlowdownCmd := TRUE;
+        END_IF;
+        
+        (* Manual Reset Required *)
+        IF NOT bEnableSys AND bEmergencyStop AND rVibration_mm_s < 2.0 THEN
+            bTripSignal := FALSE;
+            bBlowdownCmd := FALSE;
             iState := 0;
         END_IF;
-
+        
 END_CASE;
 
 END_FUNCTION_BLOCK
@@ -224,6 +257,7 @@ record = {
     ]
 }
 
+os.makedirs("data/swarm_raw", exist_ok=True)
 filename = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
 with open(filename, "w", encoding="utf-8") as f:
     json.dump(record, f, ensure_ascii=False)

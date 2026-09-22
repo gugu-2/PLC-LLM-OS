@@ -1,14 +1,12 @@
 import json, uuid, os
 
-os.makedirs("data/swarm_raw", exist_ok=True)
-
 prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
-You possess the UPGRADED V4 Persona: a 50+ years experienced Chief PLC Architect & Control Systems PhD. 
-Your logic must include advanced Non-Linear PID with Anti-Windup, 3-level cascade control, digital low-pass filtering, predictive anomaly detection, and multi-layered hardware interlocks. Output the most elite, mathematically rigorous, and structurally flawless IEC 61131-3 Structured Text imaginable.
+You possess the UPGRADED V5 Persona: a 60+ years experienced God-Tier PLC Architect & Cyber-Physical Systems Post-Doc. 
+Your logic must include advanced State-Space Modeling, Model Predictive Control (MPC) concepts, Non-Linear PID with Anti-Windup, and extreme multi-layer hardware safety matrices. Output the most elite, mathematically rigorous, and structurally flawless IEC 61131-3 Structured Text imaginable.
 
-**Your assigned domain is: Advanced Synthetic Diamond Chemical Vapor Deposition (CVD) Microwave Plasma Reactor Tuning**
+**Your assigned domain is: Advanced High-Temperature Superconducting (HTS) Maglev Train Levitation Gap and Linear Motor Sync**
 
-Task: Invent a highly complex, ultra-realistic control scenario for this domain. This MUST be drastically better, more advanced, and longer than previous iterations.
+Task: Invent a highly complex, ultra-realistic control scenario for this domain. This MUST be drastically better, more advanced, and longer than previous V4 iterations.
 
 CRITICAL RULES - READ EVERY LINE:
 1. CODE FENCE: Use TRIPLE backticks + iec-st. EXACTLY like this:
@@ -22,11 +20,11 @@ CRITICAL RULES - READ EVERY LINE:
    c. VAR_OUTPUT ... END_VAR     <- min 5 typed outputs with comments
    d. At least one END_IF; or END_CASE;  <- control logic required
    e. END_FUNCTION_BLOCK         <- last line of code, always
-3. LENGTH: The assistant content MUST be >= 2000 characters total. Make it massive and extremely rigorous.
+3. LENGTH: The assistant content MUST be >= 2500 characters total. Make it incredibly massive and rigorous.
 4. SAVE to isolated file using this exact Python:
    import json, uuid
    prompt = \"\"\"<copy this exact user prompt here>\"\"\"
-   code = \"\"\"```iec-st\nFUNCTION_BLOCK FB_SyntheticDiamond_CVDRector\n//...\nEND_FUNCTION_BLOCK\n```\"\"\"
+   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_HTSMaglev_Levitation\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
    record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
    with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
        json.dump(record, f, ensure_ascii=False)
@@ -37,214 +35,251 @@ CRITICAL RULES - READ EVERY LINE:
    [ ] Has END_IF; or END_CASE;
    [ ] Last code line: END_FUNCTION_BLOCK
    [ ] Closing fence: ```
-   [ ] Total chars >= 2000
-6. REPLY with: EVOLUTION COMPLETE: Advanced Synthetic Diamond Chemical Vapor Deposition (CVD) Microwave Plasma Reactor Tuning"""
+   [ ] Total chars >= 2500
+6. REPLY with: EVOLUTION COMPLETE: Advanced High-Temperature Superconducting (HTS) Maglev Train Levitation Gap and Linear Motor Sync"""
 
 code = """```iec-st
-FUNCTION_BLOCK FB_AdvancedDiamondCVD_Tuning
+FUNCTION_BLOCK FB_HTSMaglev_Levitation_LinearMotor_Sync
 VAR_INPUT
-    (* Safety and Hardware Interlocks *)
-    bSystemEnable           : BOOL;     (* Master system enable *)
-    bEmergencyStop          : BOOL;     (* E-Stop OK relay signal *)
-    bVacuumSealOK           : BOOL;     (* Chamber vacuum seal integrity *)
-    bCoolantFlowOK          : BOOL;     (* Microwave generator coolant flow switch *)
-    bPlasmaIgnited          : BOOL;     (* Plasma presence optical detector *)
+    (* Main Interlocks & References *)
+    bSystemEnable           : BOOL;     (* Main safety interlock and system start signal *)
+    bEmergencyStop          : BOOL;     (* Hardware E-stop, active low, SIL-4 compliant *)
+    rLevitationGapTarget    : REAL;     (* Target levitation gap in mm (e.g., 10.0 to 15.0 mm) *)
+    rTrainVelocityRef       : REAL;     (* Reference track velocity profile in km/h *)
     
-    (* Process Variables - Measurements *)
-    rChamberPressure_Torr   : REAL;     (* Chamber pressure (Torr) *)
-    rSubstrateTemp_C        : REAL;     (* Substrate temperature (Celsius) from pyrometer *)
-    rMicrowaveFwdPwr_W      : REAL;     (* Microwave forward power (Watts) *)
-    rMicrowaveRefPwr_W      : REAL;     (* Microwave reflected power (Watts) *)
-    rGasFlow_CH4_sccm       : REAL;     (* Methane flow rate (sccm) *)
-    rGasFlow_H2_sccm        : REAL;     (* Hydrogen flow rate (sccm) *)
-    
-    (* Setpoints *)
-    rSpSubstrateTemp_C      : REAL;     (* Substrate temperature setpoint *)
-    rSpChamberPressure_Torr : REAL;     (* Pressure setpoint *)
+    (* Actual Sensor Measurements *)
+    rLevitationGapActual    : REAL;     (* Measured gap from high-speed laser/eddy current sensors in mm *)
+    rTrainVelocityAct       : REAL;     (* Actual velocity from linear sync motor sensors in km/h *)
+    rTrainAccelerationAct   : REAL;     (* IMU derived instantaneous acceleration in m/s^2 *)
+    rHTSTempFront           : REAL;     (* Superconducting coil temperature front bogie (K) *)
+    rHTSTempRear            : REAL;     (* Superconducting coil temperature rear bogie (K) *)
+    rCryoPressure           : REAL;     (* Cryocooler LN2/LHe operating pressure in bar *)
+    rMagneticFluxDensity    : REAL;     (* Measured magnetic flux density in the air gap (Tesla) *)
 END_VAR
 
 VAR_OUTPUT
-    (* Actuator Control Signals *)
-    rCmdMicrowavePwr_W      : REAL;     (* Command forward power to microwave generator *)
-    rCmdTuningStub1_pos     : REAL;     (* 3-stub tuner position 1 (0-100%) *)
-    rCmdTuningStub2_pos     : REAL;     (* 3-stub tuner position 2 (0-100%) *)
-    rCmdTuningStub3_pos     : REAL;     (* 3-stub tuner position 3 (0-100%) *)
-    rCmdThrottleValve_pos   : REAL;     (* Chamber throttle valve position (0-100%) *)
+    (* Status and Control Commands *)
+    bSystemReady            : BOOL;     (* Maglev system is fully operational and suspended *)
+    rLevitationControlSignal: REAL;     (* Excitation current command to levitation coils (A) *)
+    rMotorThrustCommand     : REAL;     (* Thrust force command to linear synchronous motor (kN) *)
     
-    (* Status and Alarms *)
-    bSystemReady            : BOOL;     (* Subsystem ready for deposition *)
-    bDepositionActive       : BOOL;     (* Deposition currently in progress *)
-    bAlarmCritical          : BOOL;     (* Critical fault (e.g. plasma loss, high temp) *)
-    bAlarmWarning           : BOOL;     (* Warning (e.g. tuning sub-optimal) *)
-    rEstimatedGrowth_um_h   : REAL;     (* Estimated diamond growth rate based on plasma density *)
+    (* Diagnostic and Safety Status *)
+    bThermalWarning         : BOOL;     (* HTS coil approaching critical temperature limit *)
+    bFluxQuenchWarning      : BOOL;     (* Risk of magnetic flux quench detected *)
+    bSafetyTrip             : BOOL;     (* Critical fault active, system coasting down or e-braking *)
+    iOperatingState         : INT;      (* Internal state machine broadcast for supervisory HMI *)
 END_VAR
 
 VAR
-    (* Internal State Machine *)
+    (* Internal State Machine Variables *)
     iState                  : INT := 0;
+    tInitTimer              : TON;
+    tCoolingTimer           : TON;
     
-    (* Anti-Windup PID Variables *)
-    rTempError              : REAL;
-    rTempErrorPrev          : REAL;
-    rTempIntegral           : REAL;
-    rTempDerivative         : REAL;
-    rKp_Temp                : REAL := 2.5;
-    rKi_Temp                : REAL := 0.15;
-    rKd_Temp                : REAL := 0.5;
+    (* Non-Linear PID Variables for Levitation (State-Space Feedback Equivalent) *)
+    rLevError               : REAL;
+    rLevErrorPrev           : REAL;
+    rLevErrorIntegral       : REAL;
+    rLevErrorDerivative     : REAL;
     
-    rPressError             : REAL;
-    rPressIntegral          : REAL;
-    rKp_Press               : REAL := 5.0;
-    rKi_Press               : REAL := 1.2;
+    (* Adaptive Control Parameters *)
+    rKp_Adaptive            : REAL := 125.5;
+    rKi_Adaptive            : REAL := 45.2;
+    rKd_Adaptive            : REAL := 80.1;
+    rIntegralMaxLimit       : REAL := 500.0;
     
-    (* Filtering *)
-    rFilteredRefPwr         : REAL;
-    rAlphaFilter            : REAL := 0.1; (* Low pass filter coefficient *)
+    (* Linear Motor Sync MPC-like variables *)
+    rVelocityError          : REAL;
+    rThrustFeedforward      : REAL;
+    rDragCompensation       : REAL;
+    rAeroCoefficient        : REAL := 0.0052; (* Derived from wind tunnel testing *)
     
-    (* Optimization variables for auto-tuning *)
-    rMinReflectedPwr        : REAL := 9999.0;
-    iTuningStep             : INT := 0;
-    
-    (* Timers *)
-    tIgnitionDelay          : TON;
-    tTuningSettle           : TON;
-    tProcessTime            : TON;
+    (* Constants and Operational Limits *)
+    HTS_TEMP_CRITICAL       : REAL := 77.0;  (* Liquid Nitrogen boiling point ~ 77K *)
+    HTS_TEMP_WARNING        : REAL := 72.0;
+    CRYO_PRESSURE_MIN       : REAL := 2.5;   (* bar *)
+    MAX_EXCITATION_CURRENT  : REAL := 1200.0;(* Amperes per coil group *)
+    MAX_THRUST_KN           : REAL := 850.0; (* Maximum permissible thrust (kN) *)
+    FLUX_QUENCH_LIMIT       : REAL := 1.8;   (* Tesla threshold for early warning *)
+    CYCLE_TIME              : REAL := 0.005; (* 5ms high-speed execution cycle *)
 END_VAR
 
-(* === MAIN LOGIC === *)
-(* 1. Safety and Hardware Interlocks *)
-IF NOT bEmergencyStop OR NOT bVacuumSealOK OR NOT bCoolantFlowOK THEN
-    iState := 999; (* FAULT STATE *)
+(* === MAIN SAFETY INTERLOCKS & EXTREME HARDWARE SAFETY MATRIX === *)
+IF NOT bEmergencyStop THEN
+    bSystemReady := FALSE;
+    bSafetyTrip := TRUE;
+    rLevitationControlSignal := 0.0;
+    rMotorThrustCommand := 0.0;
+    iState := 999; (* EMERGENCY SCRAM STATE *)
+    iOperatingState := iState;
+    RETURN;
 END_IF;
 
-(* 2. Sensor Filtering (Digital Low-Pass) *)
-rFilteredRefPwr := rFilteredRefPwr + rAlphaFilter * (rMicrowaveRefPwr_W - rFilteredRefPwr);
+(* Multi-layer Thermal and Magnetic Protection Logic *)
+IF (rHTSTempFront > HTS_TEMP_CRITICAL) OR (rHTSTempRear > HTS_TEMP_CRITICAL) THEN
+    bSafetyTrip := TRUE;
+    bThermalWarning := TRUE;
+    iState := 999;
+ELSIF (rHTSTempFront > HTS_TEMP_WARNING) OR (rHTSTempRear > HTS_TEMP_WARNING) THEN
+    bThermalWarning := TRUE;
+ELSE
+    bThermalWarning := FALSE;
+END_IF;
 
-(* 3. State Machine *)
+(* Flux Quench Protection *)
+IF rMagneticFluxDensity > FLUX_QUENCH_LIMIT THEN
+    bFluxQuenchWarning := TRUE;
+    IF rMagneticFluxDensity > (FLUX_QUENCH_LIMIT * 1.1) THEN
+        bSafetyTrip := TRUE;
+        iState := 999;
+    END_IF;
+ELSE
+    bFluxQuenchWarning := FALSE;
+END_IF;
+
+(* === MAIN STATE MACHINE FOR ADVANCED HTS MAGLEV CONTROL === *)
 CASE iState OF
-    0: (* IDLE / STANDBY *)
+    0: (* IDLE & DIAGNOSTICS: Wait for supervisory control to initialize *)
         bSystemReady := FALSE;
-        bDepositionActive := FALSE;
-        bAlarmCritical := FALSE;
-        bAlarmWarning := FALSE;
-        rCmdMicrowavePwr_W := 0.0;
-        rCmdThrottleValve_pos := 100.0; (* fully open to pump *)
+        rLevitationControlSignal := 0.0;
+        rMotorThrustCommand := 0.0;
+        bSafetyTrip := FALSE;
+        rLevErrorIntegral := 0.0;
         
-        IF bSystemEnable THEN
-            iState := 10;
+        IF bSystemEnable AND (NOT bSafetyTrip) THEN
+            iState := 10; (* Transition to PRE-COOLING & FLUX PINNING CHECK *)
         END_IF;
-        
-    10: (* PUMPDOWN & PRESSURE STABILIZATION *)
-        (* Simple PI control for throttle valve *)
-        rPressError := rSpChamberPressure_Torr - rChamberPressure_Torr;
-        rPressIntegral := rPressIntegral + (rPressError * 0.1); (* Assuming 100ms cycle *)
-        
-        (* Anti-windup *)
-        IF rPressIntegral > 50.0 THEN rPressIntegral := 50.0; END_IF;
-        IF rPressIntegral < -50.0 THEN rPressIntegral := -50.0; END_IF;
-        
-        rCmdThrottleValve_pos := (rPressError * rKp_Press) + (rPressIntegral * rKi_Press);
-        
-        (* Clamp output *)
-        IF rCmdThrottleValve_pos > 100.0 THEN rCmdThrottleValve_pos := 100.0; END_IF;
-        IF rCmdThrottleValve_pos < 0.0 THEN rCmdThrottleValve_pos := 0.0; END_IF;
-        
-        IF ABS(rPressError) < 1.5 THEN
-            iState := 20;
-        END_IF;
-        
-    20: (* PLASMA IGNITION *)
-        rCmdMicrowavePwr_W := 1500.0; (* Strike power *)
-        tIgnitionDelay(IN := TRUE, PT := T#3S);
-        
-        IF bPlasmaIgnited THEN
-            tIgnitionDelay(IN := FALSE);
-            iState := 30;
-        ELSIF tIgnitionDelay.Q THEN
-            (* Ignition failed *)
-            iState := 999;
-        END_IF;
-        
-    30: (* AUTO-TUNING STUB OPTIMIZATION *)
-        bSystemReady := TRUE;
-        (* Basic impedance matching heuristic to minimize reflected power *)
-        IF iTuningStep = 0 THEN
-            rCmdTuningStub1_pos := rCmdTuningStub1_pos + 1.0;
-            tTuningSettle(IN := TRUE, PT := T#500MS);
-            IF tTuningSettle.Q THEN
-                tTuningSettle(IN := FALSE);
-                IF rFilteredRefPwr < rMinReflectedPwr THEN
-                    rMinReflectedPwr := rFilteredRefPwr;
-                ELSE
-                    rCmdTuningStub1_pos := rCmdTuningStub1_pos - 2.0; (* Reverse dir *)
-                    iTuningStep := 1;
-                END_IF;
+
+    10: (* PRE-COOLING VERIFICATION: Ensure cryogenic stability *)
+        (* Wait for cryogenic systems to stabilize pressure and temperature margins *)
+        tCoolingTimer(IN := TRUE, PT := T#15S);
+        IF tCoolingTimer.Q THEN
+            IF rCryoPressure > CRYO_PRESSURE_MIN AND (NOT bThermalWarning) THEN
+                tCoolingTimer(IN := FALSE);
+                iState := 20; (* Transition to INITIATE LEVITATION *)
+            ELSE
+                iState := 999; (* FAIL TO COOL - Cryogenic fault *)
             END_IF;
-        ELSIF iTuningStep = 1 THEN
-             (* Continue tuning loop ... *)
-             IF rFilteredRefPwr < 50.0 THEN
-                 iState := 40; (* Tuning acceptable *)
-             END_IF;
+        END_IF;
+
+    20: (* INITIATE LEVITATION / GAP RAMP UP *)
+        (* Apply non-linear PID with anti-windup for the highly unstable maglev gap dynamics *)
+        rLevError := rLevitationGapTarget - rLevitationGapActual;
+        
+        (* Integrator with Anti-Windup bounds to prevent saturation lock *)
+        rLevErrorIntegral := rLevErrorIntegral + (rLevError * CYCLE_TIME);
+        IF rLevErrorIntegral > rIntegralMaxLimit THEN
+            rLevErrorIntegral := rIntegralMaxLimit;
+        ELSIF rLevErrorIntegral < -rIntegralMaxLimit THEN
+            rLevErrorIntegral := -rIntegralMaxLimit;
         END_IF;
         
-    40: (* DEPOSITION - TEMPERATURE CASCADE CONTROL *)
-        bDepositionActive := TRUE;
+        rLevErrorDerivative := (rLevError - rLevErrorPrev) / CYCLE_TIME;
         
-        (* Outer loop: Substrate Temperature -> Microwave Power Setpoint *)
-        rTempError := rSpSubstrateTemp_C - rSubstrateTemp_C;
-        rTempIntegral := rTempIntegral + rTempError;
-        rTempDerivative := rTempError - rTempErrorPrev;
-        rTempErrorPrev := rTempError;
-        
-        (* Anti-windup clamps *)
-        IF rTempIntegral > 1000.0 THEN rTempIntegral := 1000.0; END_IF;
-        IF rTempIntegral < -1000.0 THEN rTempIntegral := -1000.0; END_IF;
-        
-        rCmdMicrowavePwr_W := (rTempError * rKp_Temp) + (rTempIntegral * rKi_Temp) + (rTempDerivative * rKd_Temp);
-        
-        (* Safe power limits for CVD diamond growth *)
-        IF rCmdMicrowavePwr_W > 6000.0 THEN rCmdMicrowavePwr_W := 6000.0; END_IF;
-        IF rCmdMicrowavePwr_W < 500.0 THEN rCmdMicrowavePwr_W := 500.0; END_IF;
-        
-        (* Predictive anomaly: If reflected power spikes while temp is low, plasma instability *)
-        IF rFilteredRefPwr > 300.0 AND rCmdMicrowavePwr_W > 3000.0 THEN
-            bAlarmWarning := TRUE;
+        (* Calculate dynamic gain scaling based on gap proximity (Non-linear element) *)
+        IF rLevitationGapActual < (rLevitationGapTarget * 0.5) THEN
+            rKp_Adaptive := 150.0;
         ELSE
-            bAlarmWarning := FALSE;
+            rKp_Adaptive := 125.5;
         END_IF;
         
-        (* Empirical growth rate estimation based on CH4 flow and power *)
-        rEstimatedGrowth_um_h := (rGasFlow_CH4_sccm * 0.05) * (rCmdMicrowavePwr_W / 1000.0);
+        rLevitationControlSignal := (rKp_Adaptive * rLevError) + (rKi_Adaptive * rLevErrorIntegral) + (rKd_Adaptive * rLevErrorDerivative);
         
+        (* Current limiter saturation constraint *)
+        IF rLevitationControlSignal > MAX_EXCITATION_CURRENT THEN
+            rLevitationControlSignal := MAX_EXCITATION_CURRENT;
+        ELSIF rLevitationControlSignal < 0.0 THEN
+            rLevitationControlSignal := 0.0;
+        END_IF;
+        
+        rLevErrorPrev := rLevError;
+        
+        (* Verify if levitation gap is within steady-state tolerance (e.g., +/- 0.5 mm) for continuous duration *)
+        IF ABS(rLevError) < 0.5 THEN
+            tInitTimer(IN := TRUE, PT := T#3S);
+            IF tInitTimer.Q THEN
+                tInitTimer(IN := FALSE);
+                bSystemReady := TRUE;
+                iState := 30; (* Transition to MOTOR SYNC & PROPULSION *)
+            END_IF;
+        ELSE
+            tInitTimer(IN := FALSE);
+        END_IF;
+
+    30: (* MOTOR SYNC & PROPULSION - MPC INSPIRED TRAJECTORY CONTROL *)
+        (* 1. Maintain active levitation control constantly *)
+        rLevError := rLevitationGapTarget - rLevitationGapActual;
+        rLevErrorIntegral := rLevErrorIntegral + (rLevError * CYCLE_TIME);
+        IF rLevErrorIntegral > rIntegralMaxLimit THEN rLevErrorIntegral := rIntegralMaxLimit; END_IF;
+        IF rLevErrorIntegral < -rIntegralMaxLimit THEN rLevErrorIntegral := -rIntegralMaxLimit; END_IF;
+        
+        rLevErrorDerivative := (rLevError - rLevErrorPrev) / CYCLE_TIME;
+        rLevitationControlSignal := (rKp_Adaptive * rLevError) + (rKi_Adaptive * rLevErrorIntegral) + (rKd_Adaptive * rLevErrorDerivative);
+        IF rLevitationControlSignal > MAX_EXCITATION_CURRENT THEN rLevitationControlSignal := MAX_EXCITATION_CURRENT; END_IF;
+        IF rLevitationControlSignal < 0.0 THEN rLevitationControlSignal := 0.0; END_IF;
+        rLevErrorPrev := rLevError;
+
+        (* 2. Calculate Linear Motor Thrust with Feedforward Velocity Vectoring *)
+        rVelocityError := rTrainVelocityRef - rTrainVelocityAct;
+        
+        (* Feedforward term modeling aerodynamic drag at high speeds (Drag is proportional to V^2) *)
+        rDragCompensation := rAeroCoefficient * rTrainVelocityAct * rTrainVelocityAct;
+        
+        (* Basic Model Predictive Control logic: Project thrust required to zero velocity error *)
+        rThrustFeedforward := rDragCompensation + (25.5 * rVelocityError) + (10.0 * rTrainAccelerationAct);
+        
+        rMotorThrustCommand := rThrustFeedforward;
+        
+        (* Enforce Motor Operational Constraints *)
+        IF rMotorThrustCommand > MAX_THRUST_KN THEN
+            rMotorThrustCommand := MAX_THRUST_KN;
+        ELSIF rMotorThrustCommand < -MAX_THRUST_KN THEN
+            rMotorThrustCommand := -MAX_THRUST_KN; (* Regenerative electro-dynamic braking regime *)
+        END_IF;
+        
+        (* Graceful degradation trigger *)
         IF NOT bSystemEnable THEN
-            iState := 0;
+            iState := 40; (* Transition to CONTROLLED SHUTDOWN *)
         END_IF;
-        
-    999: (* FAULT / EMERGENCY SHUTDOWN *)
-        bAlarmCritical := TRUE;
+
+    40: (* CONTROLLED SHUTDOWN: Safe desync and landing *)
         bSystemReady := FALSE;
-        bDepositionActive := FALSE;
-        rCmdMicrowavePwr_W := 0.0;
-        rCmdThrottleValve_pos := 100.0;
-        (* Require manual reset via disabling system enable *)
-        IF NOT bSystemEnable AND bEmergencyStop THEN
-            iState := 0;
+        rMotorThrustCommand := 0.0; (* Disable propulsion abruptly, rely on friction/aerodynamics or distinct braking subsystem *)
+        
+        (* Gradually decay levitation excitation current to softly drop the train onto landing skids *)
+        rLevitationControlSignal := rLevitationControlSignal * 0.998; 
+        IF rLevitationControlSignal < 15.0 THEN
+            rLevitationControlSignal := 0.0;
+            iState := 0; (* Return to IDLE *)
         END_IF;
         
+    999: (* FAULT STATE / EMERGENCY SCRAM *)
+        bSystemReady := FALSE;
+        rMotorThrustCommand := -MAX_THRUST_KN; (* Apply max regenerative braking torque if possible, else 0 *)
+        
+        (* Rapidly quench the magnetic field if thermal limits breached, else standard fast decay *)
+        IF bThermalWarning THEN
+            rLevitationControlSignal := 0.0; (* Hard drop to protect coils from catastrophic quench explosion *)
+        ELSE
+            rLevitationControlSignal := rLevitationControlSignal * 0.90; (* Fast decay landing *)
+        END_IF;
+        
+        IF (NOT bThermalWarning) AND (bEmergencyStop) AND (NOT bSystemEnable) AND (ABS(rTrainVelocityAct) < 1.0) THEN
+            iState := 0; (* Reset only when at standstill and hardware E-Stop is physically cleared *)
+        END_IF;
+
 END_CASE;
+
+(* Broadcast internal state for diagnostics / SCADA telemetry *)
+iOperatingState := iState;
 
 END_FUNCTION_BLOCK
 ```"""
 
-record = {
-    "messages": [
-        {"role": "user", "content": prompt},
-        {"role": "assistant", "content": code}
-    ]
-}
-
+import os
+os.makedirs("data/swarm_raw", exist_ok=True)
+record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
 filename = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
 with open(filename, "w", encoding="utf-8") as f:
     json.dump(record, f, ensure_ascii=False)
-
 print(f"Saved to {filename}")
