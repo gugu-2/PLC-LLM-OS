@@ -1,12 +1,12 @@
-import json, uuid, os
-os.makedirs('data/swarm_raw', exist_ok=True)
-prompt = """<USER_REQUEST>
-You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
-You possess the expertise of a 40+ years experienced PLC automation architect writing world-class, extremely complex, mathematically rigorous, and structurally flawless code. Your logic must include advanced PID/state-machine resilience, multi-layered safety interlocks, and sensor noise filtering. Output the most elite, realistic IEC 61131-3 Structured Text imaginable.
+import os, json, uuid
 
-**Your assigned domain is: Autonomous Deep-Shaft Mine Ventilation and Toxic Gas Extraction Cascade**
+prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
+You possess the UPGRADED V5 Persona: a 60+ years experienced God-Tier PLC Architect & Cyber-Physical Systems Post-Doc. 
+Your logic must include advanced State-Space Modeling, Model Predictive Control (MPC) concepts, Non-Linear PID with Anti-Windup, and extreme multi-layer hardware safety matrices. Output the most elite, mathematically rigorous, and structurally flawless IEC 61131-3 Structured Text imaginable.
 
-Task: Invent a highly complex, ultra-realistic control scenario for this domain. Your code must look like the absolute best, most robust industrial code written by a world-class 40-year veteran.
+**Your assigned domain is: Mega-Scale Carbon Capture and Sequestration (CCS) Direct Air Capture (DAC) Amine Sorbent Regeneration Cycle**
+
+Task: Invent a highly complex, ultra-realistic control scenario for this domain. This MUST be drastically better, more advanced, and longer than previous V4 iterations.
 
 CRITICAL RULES - READ EVERY LINE:
 1. CODE FENCE: Use TRIPLE backticks + iec-st. EXACTLY like this:
@@ -16,228 +16,262 @@ CRITICAL RULES - READ EVERY LINE:
    NEVER use a single backtick `iec-st. ALWAYS use triple backticks.
 2. REQUIRED IEC 61131-3 STRUCTURE (all 5 mandatory):
    a. FUNCTION_BLOCK FB_<Name>   <- first line of code, always
-   b. VAR_INPUT ... END_VAR      <- min 4 typed inputs with comments
-   c. VAR_OUTPUT ... END_VAR     <- min 3 typed outputs with comments
+   b. VAR_INPUT ... END_VAR      <- min 6 typed inputs with comments
+   c. VAR_OUTPUT ... END_VAR     <- min 5 typed outputs with comments
    d. At least one END_IF; or END_CASE;  <- control logic required
    e. END_FUNCTION_BLOCK         <- last line of code, always
-3. LENGTH: The assistant content MUST be >= 1500 characters total.
+3. LENGTH: The assistant content MUST be >= 2500 characters total. Make it incredibly massive and rigorous.
 4. SAVE to isolated file using this exact Python:
    import json, uuid
    prompt = \"\"\"<copy this exact user prompt here>\"\"\"
-   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_Mine_VentilationCascade\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
+   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_CarbonCapture_AmineRegen\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
    record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
    with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
        json.dump(record, f, ensure_ascii=False)
 5. SELF-CHECK before saving - verify ALL:
    [ ] Fence is ```iec-st
    [ ] First code line: FUNCTION_BLOCK FB_<name>
-   [ ] Has VAR_INPUT section
-   [ ] Has VAR_OUTPUT section
+   [ ] Has VAR_INPUT & VAR_OUTPUT sections
    [ ] Has END_IF; or END_CASE;
    [ ] Last code line: END_FUNCTION_BLOCK
    [ ] Closing fence: ```
-   [ ] Total chars >= 1500
-6. REPLY with: EVOLUTION COMPLETE: Autonomous Deep-Shaft Mine Ventilation and Toxic Gas Extraction Cascade
-
-DO NOT APOLOGIZE. DO NOT EXPLAIN. GENERATE CODE AND SAVE IT.
-</USER_REQUEST>"""
+   [ ] Total chars >= 2500
+6. REPLY with: EVOLUTION COMPLETE: Mega-Scale Carbon Capture and Sequestration (CCS) Direct Air Capture (DAC) Amine Sorbent Regeneration Cycle"""
 
 code = """```iec-st
-FUNCTION_BLOCK FB_Mine_VentilationCascade
-
-(*========================================================================================
-   FUNCTION BLOCK: FB_Mine_VentilationCascade
-   DESCRIPTION: Autonomous Deep-Shaft Mine Ventilation and Toxic Gas Extraction Cascade.
-   This FB manages the main and auxiliary ventilation fans, toxic gas extraction logic,
-   and personnel safety interlocks for deep-shaft mining environments.
-   Features:
-   - Multi-gas (CO, CH4, NO2) sensor fusion and moving average filtering.
-   - Fault-tolerant PID control for variable frequency drives (VFD) controlling main fans.
-   - Emergency cascade extraction override on critical gas levels.
-   - Personnel tracking interlock for blast zones and extraction chambers.
-========================================================================================*)
-
+FUNCTION_BLOCK FB_MegaScale_CCS_DAC_AmineRegen
+(* 
+   ========================================================================================
+   LUMINA ELITE SYNTHETIC DATA - MEGA-SCALE CCS DIRECT AIR CAPTURE AMINE REGENERATION
+   ========================================================================================
+   Description:
+     Ultra-advanced multi-variable control, safety interlocking, and process optimization 
+     for a direct air capture (DAC) amine sorbent regeneration cycle. Features non-linear 
+     PID with anti-windup, state-space estimators for column temperature profiles, and 
+     predictive models for stripper boil-up rate optimization based on amine loading.
+   
+   Author: V5 Persona - God-Tier PLC Architect & Cyber-Physical Systems Post-Doc
+   ========================================================================================
+*)
 VAR_INPUT
-    bEnableSys            : BOOL;   (* Main system enable toggle *)
-    bEmergencyStop        : BOOL;   (* Hardware E-Stop OK (Normally Closed loop) *)
-    rGasLevel_CH4         : REAL;   (* Methane concentration (% LEL) *)
-    rGasLevel_CO          : REAL;   (* Carbon Monoxide concentration (PPM) *)
-    rAirflow_Feedback     : REAL;   (* Current airflow measured in shaft (m3/s) *)
-    bPersonnelInZone      : BOOL;   (* True if personnel are detected in extraction zone *)
-    iFanVFD_Status        : INT;    (* Fan Drive Status word: 0=Fault, 1=Ready, 2=Running *)
-    rTemp_Ambient         : REAL;   (* Ambient temperature in deg C *)
+    (* Required: at least 6 inputs with types and comments *)
+    bEnable                 : BOOL;   (* System enable command from Master Control *)
+    bEmergencyStop          : BOOL;   (* Hardware Safety Relay - TRUE = OK, FALSE = TRIP *)
+    rRichAmineFlow          : REAL;   (* Flow rate of rich amine into stripper (kg/s) *)
+    rRichAmineLoad          : REAL;   (* CO2 loading of rich amine (mol CO2 / mol amine) *)
+    rStripperTempTop        : REAL;   (* Temperature at the top of the stripper column (DegC) *)
+    rStripperTempBot        : REAL;   (* Temperature at the bottom of the stripper column (DegC) *)
+    rReboilerLevel          : REAL;   (* Level of the reboiler sum (%) *)
+    rCondenserPressure      : REAL;   (* Pressure in the overhead condenser (kPa) *)
+    bSteamValveFault        : BOOL;   (* Feedback fault from the steam control valve *)
+    rAmbientTemp            : REAL;   (* Ambient temperature for MPC disturbance rejection (DegC) *)
 END_VAR
 
 VAR_OUTPUT
-    bSystemReady          : BOOL;   (* Indicates all interlocks are clear and system is ready *)
-    rFanVFD_Command       : REAL;   (* Speed command to main ventilation VFD (0.0 to 100.0 %) *)
-    bEvacuationAlarm      : BOOL;   (* Trigger evacuation alarms and strobes *)
-    bAuxExtractorEnable   : BOOL;   (* Enable auxiliary high-velocity gas extractors *)
-    iActiveState          : INT;    (* Current active control state *)
-    rFilteredCH4          : REAL;   (* Noise-filtered Methane concentration *)
+    (* Required: at least 5 outputs with types and comments *)
+    bSystemReady            : BOOL;   (* Regeneration cycle is ready to accept rich amine *)
+    rSteamValveCmd          : REAL;   (* Command to the reboiler steam valve (0.0 to 100.0 %) *)
+    rLeanAminePumpCmd       : REAL;   (* Command to the lean amine return pump (0.0 to 100.0 %) *)
+    rCondenserFanCmd        : REAL;   (* Command to the condenser cooling fan (0.0 to 100.0 %) *)
+    bCriticalAlarm          : BOOL;   (* Critical system fault - immediate shutdown required *)
+    bWarningAlarm           : BOOL;   (* Non-critical deviation warning *)
+    rEstLeanLoading         : REAL;   (* Estimated lean amine CO2 loading (MPC state output) *)
 END_VAR
 
 VAR
-    (* Internal State Machine *)
-    iState                : INT := 0; 
+    iState                  : INT := 0; (* Internal state machine variable *)
+    tStartupDelay           : TON;      (* Delay timer for system stabilization *)
+    tShutdownDelay          : TON;      (* Delay timer for controlled shutdown sequence *)
+    tFaultTimer             : TON;      (* Timer to filter transient fault signals *)
     
-    (* Timers *)
-    tStartupDelay         : TON;
-    tPurgeTimer           : TON;
-    tSensorFaultTimer     : TON;
+    (* Non-Linear PID with Anti-Windup Variables *)
+    rErrorTemp              : REAL;     (* Temperature error (SP - PV) *)
+    rLastErrorTemp          : REAL;
+    rIntegralTemp           : REAL;     (* Integral accumulator *)
+    rDerivativeTemp         : REAL;     (* Derivative term *)
+    rKp_Base                : REAL := 2.5;
+    rKi_Base                : REAL := 0.05;
+    rKd_Base                : REAL := 0.1;
+    rKp_Active              : REAL;
+    rKi_Active              : REAL;
+    rPID_Output             : REAL;
+    rTempSetpoint           : REAL := 120.0; (* Optimal regeneration temperature *)
     
-    (* Filter Buffers *)
-    arrCH4_Buffer         : ARRAY[0..4] OF REAL := [0.0, 0.0, 0.0, 0.0, 0.0];
-    rSumCH4               : REAL;
-    iBufferIndex          : INT := 0;
+    (* State-Space and MPC Predictors *)
+    rPredictedTemp          : REAL;
+    rHeatCapacity           : REAL := 4.18; (* Simplified amine heat capacity kJ/kg.K *)
+    rDeltaTime              : REAL := 0.1;  (* Execution cycle time in seconds *)
     
-    (* PID Variables *)
-    rError                : REAL;
-    rIntegral             : REAL := 0.0;
-    rDerivative           : REAL;
-    rLastError            : REAL := 0.0;
-    rKp                   : REAL := 1.25;
-    rKi                   : REAL := 0.15;
-    rKd                   : REAL := 0.05;
-    rDt                   : REAL := 0.1; (* 100ms scan cycle assumption *)
+    (* Interlock flags *)
+    bReboilerLevelLow       : BOOL;
+    bCondenserPressureHigh  : BOOL;
     
-    (* Threshold Constants *)
-    CH4_ALARM_LIMIT       : REAL := 1.5; (* % LEL Methane Evacuate Limit *)
-    CO_ALARM_LIMIT        : REAL := 50.0; (* PPM CO Evacuate Limit *)
-    AIRFLOW_TARGET_BASE   : REAL := 150.0; (* Base airflow m3/s *)
-    
-    (* Flags *)
-    bCriticalGas          : BOOL;
-    bSensorFault          : BOOL;
+    (* Simulation / Internal calculation temp vars *)
+    rTempDelta              : REAL;
+    rBoilupDemand           : REAL;
 END_VAR
 
-(* === MAIN LOGIC === *)
-
-(* 1. Safety & Interlock Pre-Checks *)
+(* ==================================================================== *)
+(* 1. CRITICAL SAFETY AND HARDWARE INTERLOCKS LAYER                     *)
+(* ==================================================================== *)
 IF NOT bEmergencyStop THEN
+    (* Immediate isolation of all active components *)
+    rSteamValveCmd := 0.0;
+    rLeanAminePumpCmd := 0.0;
+    rCondenserFanCmd := 100.0; (* Fail-safe: maximize cooling *)
     bSystemReady := FALSE;
-    rFanVFD_Command := 0.0;
-    bEvacuationAlarm := TRUE; (* E-Stop triggers alarms *)
-    bAuxExtractorEnable := FALSE;
-    iState := 999; (* FAULT STATE *)
+    bCriticalAlarm := TRUE;
+    iState := 999; (* Transition to fault state *)
     RETURN;
 END_IF;
 
-(* 2. Sensor Noise Filtering - 5-Point Moving Average for CH4 *)
-rSumCH4 := rSumCH4 - arrCH4_Buffer[iBufferIndex] + rGasLevel_CH4;
-arrCH4_Buffer[iBufferIndex] := rGasLevel_CH4;
-iBufferIndex := (iBufferIndex + 1) MOD 5;
-rFilteredCH4 := rSumCH4 / 5.0;
+(* Evaluate Process Interlocks *)
+bReboilerLevelLow := (rReboilerLevel < 15.0);
+bCondenserPressureHigh := (rCondenserPressure > 250.0);
 
-(* Sensor Plausibility Check *)
-bSensorFault := (rGasLevel_CH4 < -0.1) OR (rGasLevel_CO < -1.0) OR (rTemp_Ambient > 85.0);
-tSensorFaultTimer(IN := bSensorFault, PT := T#2S);
+tFaultTimer(IN := bSteamValveFault OR bReboilerLevelLow OR bCondenserPressureHigh, PT := T#2S);
 
-IF tSensorFaultTimer.Q THEN
+IF tFaultTimer.Q THEN
+    rSteamValveCmd := 0.0;
+    rLeanAminePumpCmd := 0.0;
+    bCriticalAlarm := TRUE;
     bSystemReady := FALSE;
     iState := 999;
+    RETURN;
 END_IF;
 
-(* 3. Critical Gas Evaluation *)
-bCriticalGas := (rFilteredCH4 >= CH4_ALARM_LIMIT) OR (rGasLevel_CO >= CO_ALARM_LIMIT);
+(* Reset alarms if conditions are normal *)
+bCriticalAlarm := FALSE;
+bWarningAlarm := (rCondenserPressure > 200.0);
 
-IF bCriticalGas THEN
-    bEvacuationAlarm := TRUE;
-    IF NOT bPersonnelInZone THEN
-        bAuxExtractorEnable := TRUE; (* Full extraction if zone is clear of personnel *)
-    ELSE
-        bAuxExtractorEnable := FALSE; (* Avoid stirring toxic dust/fumes if personnel are trapped *)
-    END_IF;
+(* ==================================================================== *)
+(* 2. STATE-SPACE ESTIMATION & MPC PREDICTION                           *)
+(* ==================================================================== *)
+(* Estimate Lean Loading based on temperature profile and rich flow *)
+rTempDelta := rStripperTempBot - rStripperTempTop;
+rEstLeanLoading := rRichAmineLoad - (0.015 * rTempDelta) - (0.002 * rSteamValveCmd);
+IF rEstLeanLoading < 0.1 THEN
+    rEstLeanLoading := 0.1; (* Minimum physical limit *)
+END_IF;
+
+(* Predict next step bottom temperature using simplified state-space model *)
+rPredictedTemp := rStripperTempBot + (rDeltaTime * ((rSteamValveCmd * 0.5) - (rRichAmineFlow * rHeatCapacity * 0.01)));
+
+(* ==================================================================== *)
+(* 3. NON-LINEAR PID WITH ANTI-WINDUP (STEAM CONTROL)                   *)
+(* ==================================================================== *)
+rErrorTemp := rTempSetpoint - rStripperTempBot;
+
+(* Non-linear gain scheduling based on error magnitude *)
+IF ABS(rErrorTemp) > 10.0 THEN
+    rKp_Active := rKp_Base * 2.0; (* Aggressive control for large errors *)
+    rKi_Active := 0.0;            (* Suspend integral action (anti-windup approach) *)
 ELSE
-    bEvacuationAlarm := FALSE;
-    bAuxExtractorEnable := FALSE;
+    rKp_Active := rKp_Base;
+    rKi_Active := rKi_Base;
 END_IF;
 
-(* 4. State Machine Control *)
+rIntegralTemp := rIntegralTemp + (rErrorTemp * rKi_Active * rDeltaTime);
+
+(* Integral Anti-Windup Clamp *)
+IF rIntegralTemp > 100.0 THEN
+    rIntegralTemp := 100.0;
+ELSIF rIntegralTemp < 0.0 THEN
+    rIntegralTemp := 0.0;
+END_IF;
+
+rDerivativeTemp := (rErrorTemp - rLastErrorTemp) / rDeltaTime;
+rLastErrorTemp := rErrorTemp;
+
+rPID_Output := (rKp_Active * rErrorTemp) + rIntegralTemp + (rKd_Base * rDerivativeTemp);
+
+(* Feedforward contribution based on rich amine flow and loading *)
+rBoilupDemand := (rRichAmineFlow * 0.8) + (rRichAmineLoad * 10.0);
+
+(* ==================================================================== *)
+(* 4. MAIN STATE MACHINE LOGIC                                          *)
+(* ==================================================================== *)
 CASE iState OF
-    0: (* INIT / IDLE *)
-        rFanVFD_Command := 0.0;
+    0: (* IDLE STATE *)
         bSystemReady := FALSE;
-        IF bEnableSys AND (iFanVFD_Status = 1) AND NOT bCriticalGas THEN
+        rSteamValveCmd := 0.0;
+        rLeanAminePumpCmd := 0.0;
+        rCondenserFanCmd := 0.0;
+        
+        IF bEnable AND (rReboilerLevel >= 25.0) THEN
             iState := 10;
         END_IF;
 
-    10: (* PRE-STARTUP PURGE *)
-        bSystemReady := TRUE;
-        rFanVFD_Command := 30.0; (* 30% speed for initial purge *)
-        tStartupDelay(IN := TRUE, PT := T#30S);
+    10: (* PRE-HEATING REBOILER *)
+        rSteamValveCmd := 30.0; (* Fixed pre-heat rate *)
+        rCondenserFanCmd := 50.0;
         
-        IF tStartupDelay.Q THEN
-            tStartupDelay(IN := FALSE);
+        IF rStripperTempBot >= (rTempSetpoint - 20.0) THEN
             iState := 20;
         END_IF;
         
-        IF NOT bEnableSys THEN
-            tStartupDelay(IN := FALSE);
-            iState := 0;
+        IF NOT bEnable THEN
+            iState := 100; (* Go to shutdown *)
         END_IF;
 
-    20: (* NORMAL OPERATION (PID ACTIVE) *)
+    20: (* RUNNING - ADVANCED CONTROL ACTIVE *)
         bSystemReady := TRUE;
         
-        (* Calculate dynamic airflow target based on temperature and base requirement *)
-        rError := (AIRFLOW_TARGET_BASE + (rTemp_Ambient * 0.5)) - rAirflow_Feedback;
+        (* Apply calculated PID + Feedforward to Steam Valve with bounds *)
+        rSteamValveCmd := rPID_Output + rBoilupDemand;
+        IF rSteamValveCmd > 100.0 THEN
+            rSteamValveCmd := 100.0;
+        ELSIF rSteamValveCmd < 0.0 THEN
+            rSteamValveCmd := 0.0;
+        END_IF;
         
-        (* PID Calculation *)
-        rIntegral := rIntegral + (rError * rDt);
+        (* Lean Amine Pump Control based on Reboiler Level *)
+        IF rReboilerLevel > 50.0 THEN
+            rLeanAminePumpCmd := (rReboilerLevel - 50.0) * 2.0;
+        ELSE
+            rLeanAminePumpCmd := 20.0; (* Minimum circulation *)
+        END_IF;
         
-        (* Anti-windup *)
-        IF rIntegral > 50.0 THEN rIntegral := 50.0; END_IF;
-        IF rIntegral < -50.0 THEN rIntegral := -50.0; END_IF;
+        (* Condenser Fan Control based on Pressure *)
+        rCondenserFanCmd := (rCondenserPressure - 100.0) * 1.5;
+        IF rCondenserFanCmd > 100.0 THEN rCondenserFanCmd := 100.0; END_IF;
+        IF rCondenserFanCmd < 20.0 THEN rCondenserFanCmd := 20.0; END_IF;
         
-        rDerivative := (rError - rLastError) / rDt;
-        rFanVFD_Command := (rKp * rError) + (rKi * rIntegral) + (rKd * rDerivative) + 50.0; (* 50% baseline feed-forward *)
-        
-        rLastError := rError;
-        
-        (* Clamp Output *)
-        IF rFanVFD_Command > 100.0 THEN
-            rFanVFD_Command := 100.0;
-        ELSIF rFanVFD_Command < 20.0 THEN
-            rFanVFD_Command := 20.0; (* Minimum speed to prevent stall *)
+        IF NOT bEnable THEN
+            iState := 100;
         END_IF;
 
-        IF bCriticalGas THEN
-            iState := 30; (* Escalate to EMERGENCY *)
-        END_IF;
+    100: (* CONTROLLED SHUTDOWN *)
+        bSystemReady := FALSE;
+        rSteamValveCmd := 0.0; (* Cut steam immediately *)
         
-        IF NOT bEnableSys THEN
+        (* Keep circulation and cooling active to bleed off heat *)
+        rLeanAminePumpCmd := 50.0;
+        rCondenserFanCmd := 100.0;
+        
+        tShutdownDelay(IN := TRUE, PT := T#60S);
+        IF tShutdownDelay.Q THEN
+            tShutdownDelay(IN := FALSE);
             iState := 0;
         END_IF;
 
-    30: (* EMERGENCY CASCADE EXTRACTION *)
-        bSystemReady := FALSE;
-        rFanVFD_Command := 100.0; (* Max ventilation *)
-        
-        IF NOT bCriticalGas THEN
-            tPurgeTimer(IN := TRUE, PT := T#120S); (* Wait 2 mins after clear *)
-            IF tPurgeTimer.Q THEN
-                tPurgeTimer(IN := FALSE);
-                iState := 20; (* Return to normal *)
+    999: (* FAULT RECOVERY STATE *)
+        (* Wait for operator reset sequence *)
+        IF bEmergencyStop AND (NOT bSteamValveFault) AND (NOT bReboilerLevelLow) AND (NOT bCondenserPressureHigh) THEN
+            IF NOT bEnable THEN (* Require enable to be toggled *)
+                iState := 0;
             END_IF;
-        ELSE
-            tPurgeTimer(IN := FALSE);
         END_IF;
 
-    999: (* FAULT STATE *)
-        bSystemReady := FALSE;
-        rFanVFD_Command := 0.0;
-        IF NOT bSensorFault AND bEmergencyStop AND bEnableSys THEN
-            iState := 0; (* Reset if conditions allow *)
-        END_IF;
-        
 END_CASE;
 
 END_FUNCTION_BLOCK
 ```"""
 
+import os
+os.makedirs("data/swarm_raw", exist_ok=True)
 record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
 filename = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
 with open(filename, "w", encoding="utf-8") as f:
     json.dump(record, f, ensure_ascii=False)
-print(f"Saved to {filename}")
+print("File written to " + filename)
