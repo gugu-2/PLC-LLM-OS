@@ -1,10 +1,11 @@
 import json, uuid, os
+os.makedirs("data/swarm_raw", exist_ok=True)
 
 prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
 You possess the UPGRADED V5 Persona: a 60+ years experienced God-Tier PLC Architect & Cyber-Physical Systems Post-Doc. 
 Your logic must include advanced State-Space Modeling, Model Predictive Control (MPC) concepts, Non-Linear PID with Anti-Windup, and extreme multi-layer hardware safety matrices. Output the most elite, mathematically rigorous, and structurally flawless IEC 61131-3 Structured Text imaginable.
 
-**Your assigned domain is: Advanced Multi-Megawatt Geothermal Binary Cycle Power Plant Turbine Bypass and Isopentane Vaporization**
+**Your assigned domain is: Industrial Scale Closed-Loop Aquaculture System (RAS) Ozone Disinfection and Biofilter Nitrification Rate**
 
 Task: Invent a highly complex, ultra-realistic control scenario for this domain. This MUST be drastically better, more advanced, and longer than previous V4 iterations.
 
@@ -24,9 +25,9 @@ CRITICAL RULES - READ EVERY LINE:
 4. SAVE to isolated file using this exact Python:
    import json, uuid
    prompt = \"\"\"<copy this exact user prompt here>\"\"\"
-   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_GeothermalBinary_TurbineBypass\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
-   record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
-   with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
+   code = \"\"\"```iec-st\nFUNCTION_BLOCK FB_Aquaculture_OzoneBiofilter\n//...\nEND_FUNCTION_BLOCK\n```\"\"\"
+   record = {\"messages\": [{\"role\": \"user\", \"content\": prompt}, {\"role\": \"assistant\", \"content\": code}]}
+   with open(f\"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json\", \"w\", encoding=\"utf-8\") as f:
        json.dump(record, f, ensure_ascii=False)
 5. SELF-CHECK before saving - verify ALL:
    [ ] Fence is ```iec-st
@@ -36,197 +37,216 @@ CRITICAL RULES - READ EVERY LINE:
    [ ] Last code line: END_FUNCTION_BLOCK
    [ ] Closing fence: ```
    [ ] Total chars >= 2500
-6. REPLY with: EVOLUTION COMPLETE: Advanced Multi-Megawatt Geothermal Binary Cycle Power Plant Turbine Bypass and Isopentane Vaporization"""
+6. REPLY with: EVOLUTION COMPLETE: Industrial Scale Closed-Loop Aquaculture System (RAS) Ozone Disinfection and Biofilter Nitrification Rate"""
 
 code = """```iec-st
-FUNCTION_BLOCK FB_GeothermalBinary_TurbineBypass
-(*=================================================================================================================
-  Function Block: FB_GeothermalBinary_TurbineBypass
-  Description:
-    Advanced Control of Multi-Megawatt Geothermal Binary Cycle Power Plant Turbine Bypass and Isopentane Vaporization.
-    Incorporates Model Predictive Control (MPC) concepts, Non-Linear PID with Anti-Windup,
-    and extreme multi-layer hardware safety matrices.
-  Version: 5.0
-  Author: God-Tier PLC Architect & Cyber-Physical Systems Post-Doc
-=================================================================================================================*)
+FUNCTION_BLOCK FB_Aquaculture_OzoneBiofilter_Advanced_MPC
+
 VAR_INPUT
-    bEnable                 : BOOL;       (* System enable signal from DCS *)
-    bEmergencyStop          : BOOL;       (* Safety relay OK signal (1 = OK, 0 = E-STOP) *)
-    bGridTrip               : BOOL;       (* Grid loss or load rejection trip signal *)
-    rVaporizerPressure      : REAL;       (* Isopentane vapor pressure in vaporizer [bar] *)
-    rVaporizerLevel         : REAL;       (* Isopentane liquid level in vaporizer [%] *)
-    rBrineTemperature       : REAL;       (* Geothermal brine inlet temperature [deg C] *)
-    rTurbineSpeed           : REAL;       (* Turbine rotational speed [RPM] *)
-    rBypassValvePosFbk      : REAL;       (* Bypass valve position feedback [%] *)
+    (* Mandatory Minimum 6 Physical Inputs *)
+    bSystemEnable           : BOOL;     (* System master enable interlock *)
+    bEmergencyStop          : BOOL;     (* Main ESTOP safety circuit (NC) *)
+    rOzoneResidual_mgL      : REAL;     (* Measured O3 residual in contact chamber (mg/L) *)
+    rORP_mV                 : REAL;     (* Oxidation-Reduction Potential (mV) *)
+    rWaterTemp_C            : REAL;     (* Biofilter influent water temperature (deg C) *)
+    rAmmonia_TAN_mgL        : REAL;     (* Total Ammonia Nitrogen (mg/L) entering biofilter *)
+    rNitrite_NO2_mgL        : REAL;     (* Nitrite (mg/L) exiting biofilter *)
+    rDissolvedOxygen_mgL    : REAL;     (* DO levels post-aeration cone (mg/L) *)
+    rFlowRate_Lpm           : REAL;     (* Main loop flow rate (L/min) *)
+    rpH_Value               : REAL;     (* System pH (critical for TAN to NH3 equilibrium) *)
+    bOzoneGenerator_Fault   : BOOL;     (* Hardware fault from O3 generator *)
+    bBiofilter_BypassValve  : BOOL;     (* Physical limit switch for bypass valve *)
 END_VAR
 
 VAR_OUTPUT
-    bSystemReady            : BOOL;       (* System ready to start or is running normally *)
-    rBypassValveCmd         : REAL;       (* Command to main turbine bypass valve [0-100%] *)
-    rBrineFlowValveCmd      : REAL;       (* Command to geothermal brine flow control valve [0-100%] *)
-    bTurbineTripCmd         : BOOL;       (* Command to trip turbine stop valves *)
-    bVaporizerReliefCmd     : BOOL;       (* Command to open vaporizer pressure relief valves *)
-    bAlarmCrit              : BOOL;       (* Critical fault alarm output *)
+    (* Mandatory Minimum 5 Physical Outputs *)
+    bSystemReady            : BOOL;     (* Global RAS readiness indicator *)
+    bAlarmCritical          : BOOL;     (* Critical life-support alarm *)
+    rOzoneDoseRate_gHr      : REAL;     (* Output setpoint to Ozone Generator (g/hr) *)
+    rAlkalinityDose_mLpm    : REAL;     (* Dosing pump setpoint for NaOH/Bicarbonate (mL/min) *)
+    rOxygenInjection_Lpm    : REAL;     (* Setpoint for pure O2 injection (L/min) *)
+    bOzoneDestruct_Enable   : BOOL;     (* Enable signal for UV/Thermal ozone destruct unit *)
+    bBiofilter_BackwashReq  : BOOL;     (* Request automatic backwash sequence *)
 END_VAR
 
 VAR
-    (* Internal State Variables *)
-    iState                  : INT := 0;   (* Main state machine integer *)
-    tStartupTimer           : TON;        (* Timer for sequencing startup *)
-    tTripTimer              : TON;        (* Timer for delay on trip sequence completion *)
+    (* Internal State and Timers *)
+    iControlState           : INT := 0;
+    tInitDelay              : TON;
+    tSafetyMonitor          : TON;
+    tBackwashTimer          : TON;
     
-    (* Control Loop Variables *)
-    rErrorPressure          : REAL;       (* Vaporizer pressure error *)
-    rIntPressure            : REAL;       (* Integral of pressure error *)
-    rDerivPressure          : REAL;       (* Derivative of pressure error *)
-    rPrevErrorPressure      : REAL;       (* Previous pressure error for derivative *)
+    (* Non-Linear PID variables for Ozone Control *)
+    rO3_Error               : REAL;
+    rO3_Error_Prev          : REAL;
+    rO3_Integral            : REAL;
+    rO3_Derivative          : REAL;
+    rO3_Kp                  : REAL := 2.5;
+    rO3_Ki                  : REAL := 0.15;
+    rO3_Kd                  : REAL := 1.2;
+    rO3_Integral_Max        : REAL := 50.0;
+    rO3_Setpoint            : REAL := 0.05; (* mg/L max safe residual *)
     
-    (* Non-Linear PID Parameters *)
-    rKp                     : REAL := 2.5;(* Proportional Gain - adaptive *)
-    rKi                     : REAL := 0.8;(* Integral Gain - adaptive *)
-    rKd                     : REAL := 1.2;(* Derivative Gain *)
+    (* MPC / State-Space variables for Biofilter *)
+    rNitrificationRate      : REAL;
+    rEstimatedAmmonia_Next  : REAL;
+    rOptimalTemp            : REAL := 25.0; (* deg C optimal for Nitrosomonas *)
+    rTempFactor             : REAL;
+    rpHFactor               : REAL;
+    rAlkalinityReq          : REAL;
     
-    (* MPC State-Space Estimation placeholders *)
-    rPredPressureT1         : REAL;       (* Predicted pressure at t+1 *)
-    rPredPressureT2         : REAL;       (* Predicted pressure at t+2 *)
-    
-    (* Setpoints and Limits *)
-    rSP_Pressure            : REAL := 32.5;  (* Target isopentane vapor pressure [bar] *)
-    rLimit_PressureHigh     : REAL := 38.0;  (* High pressure trip limit [bar] *)
-    rLimit_PressureLow      : REAL := 25.0;  (* Low pressure warning limit [bar] *)
-    rLimit_BypassMaxRate    : REAL := 15.0;  (* Maximum bypass valve opening rate [%/sec] *)
+    (* Advanced Diagnostics *)
+    bHardwareFail           : BOOL;
+    bLethalToxicity         : BOOL;
+    iSafetyMatrixCode       : DINT;
 END_VAR
 
-(* === EXTREME MULTI-LAYER HARDWARE SAFETY MATRIX === *)
+(* ==================================================================== *)
+(* === MAIN LOGIC: SAFETY INTERLOCKS AND EMERGENCY SHUTDOWN MATRIX  === *)
+(* ==================================================================== *)
+
 IF NOT bEmergencyStop THEN
-    (* Layer 1: E-Stop Hardwired Interlock Shadow *)
-    bSystemReady        := FALSE;
-    bTurbineTripCmd     := TRUE;
-    rBypassValveCmd     := 100.0; (* Fail open to dump vapor to condenser *)
-    rBrineFlowValveCmd  := 0.0;   (* Fail closed to stop heating *)
-    bVaporizerReliefCmd := TRUE;
-    bAlarmCrit          := TRUE;
-    iState              := 999;   (* Lockout state *)
+    (* Immediate catastrophic halt *)
+    bSystemReady := FALSE;
+    bAlarmCritical := TRUE;
+    rOzoneDoseRate_gHr := 0.0;
+    rAlkalinityDose_mLpm := 0.0;
+    rOxygenInjection_Lpm := 10.0; (* Maintain life support O2 *)
+    bOzoneDestruct_Enable := TRUE; (* Dump any remaining ozone *)
+    iSafetyMatrixCode := 16#FF; (* ESTOP Code *)
+    iControlState := 999; 
     RETURN;
 END_IF;
 
-IF bGridTrip THEN
-    (* Layer 2: Fast Load Rejection / Grid Loss Trip *)
-    bTurbineTripCmd     := TRUE;
-    iState              := 100;   (* Transition to Emergency Bypass Mode *)
+bHardwareFail := bOzoneGenerator_Fault OR bBiofilter_BypassValve;
+
+(* Lethal Toxicity Detection: Ammonia > 5.0 mg/L or Ozone > 0.15 mg/L or Nitrite > 2.0 mg/L *)
+IF (rAmmonia_TAN_mgL > 5.0) OR (rOzoneResidual_mgL > 0.15) OR (rNitrite_NO2_mgL > 2.0) THEN
+    bLethalToxicity := TRUE;
+ELSE
+    bLethalToxicity := FALSE;
 END_IF;
 
-IF rVaporizerPressure > rLimit_PressureHigh THEN
-    (* Layer 3: Physical Overpressure Protection *)
-    bVaporizerReliefCmd := TRUE;
-    bTurbineTripCmd     := TRUE;
-    bAlarmCrit          := TRUE;
-    iState              := 200;   (* Overpressure shutdown state *)
+IF bHardwareFail OR bLethalToxicity THEN
+    bAlarmCritical := TRUE;
+    bSystemReady := FALSE;
+    rOzoneDoseRate_gHr := 0.0; (* Cut ozone immediately to protect biofilter *)
+    iControlState := 900; (* Fault State *)
 END_IF;
 
-(* === MAIN STATE-SPACE CONTROL LOGIC === *)
-CASE iState OF
-    0: (* IDLE & INITIALIZATION *)
-        bSystemReady        := FALSE;
-        rBypassValveCmd     := 100.0; (* Keep bypass fully open while idle *)
-        rBrineFlowValveCmd  := 0.0;
-        bTurbineTripCmd     := TRUE;
-        bVaporizerReliefCmd := FALSE;
-        bAlarmCrit          := FALSE;
+(* ==================================================================== *)
+(* === ADVANCED CONTROL STATE MACHINE (MPC & NON-LINEAR PID)        === *)
+(* ==================================================================== *)
+
+CASE iControlState OF
+    0:  (* IDLE / INITIALIZATION *)
+        bSystemReady := FALSE;
+        bAlarmCritical := FALSE;
+        rOzoneDoseRate_gHr := 0.0;
+        rAlkalinityDose_mLpm := 0.0;
+        bOzoneDestruct_Enable := FALSE;
         
-        IF bEnable AND (rVaporizerPressure < (rLimit_PressureHigh - 5.0)) THEN
-            iState := 10;
+        IF bSystemEnable AND NOT bHardwareFail AND NOT bLethalToxicity THEN
+            tInitDelay(IN := TRUE, PT := T#10S);
+            IF tInitDelay.Q THEN
+                tInitDelay(IN := FALSE);
+                iControlState := 10;
+            END_IF;
         END_IF;
         
-    10: (* WARMUP - BRINE INTRODUCTION *)
-        rBrineFlowValveCmd := 10.0; (* Crack open brine valve *)
-        rBypassValveCmd    := 100.0;(* Bypass still open to build temperature without turbine *)
-        bTurbineTripCmd    := FALSE;(* Reset trip relays *)
-        
-        tStartupTimer(IN := TRUE, PT := T#30S);
-        IF tStartupTimer.Q THEN
-            tStartupTimer(IN := FALSE);
-            iState := 20;
-        END_IF;
-        
-    20: (* PRESSURE BUILDING & VAPORIZATION *)
-        (* Non-linear PID with Anti-Windup for Pressure Control via Brine Valve *)
-        rErrorPressure := rSP_Pressure - rVaporizerPressure;
-        
-        (* Adaptive Gain Scheduling based on error magnitude (Non-linear characteristic) *)
-        IF ABS(rErrorPressure) > 5.0 THEN
-            rKp := 5.0;
-        ELSE
-            rKp := 2.5;
-        END_IF;
-        
-        rIntPressure := rIntPressure + (rErrorPressure * rKi);
-        (* Anti-Windup *)
-        IF rIntPressure > 100.0 THEN rIntPressure := 100.0; END_IF;
-        IF rIntPressure < 0.0 THEN rIntPressure := 0.0; END_IF;
-        
-        rDerivPressure := (rErrorPressure - rPrevErrorPressure) * rKd;
-        rPrevErrorPressure := rErrorPressure;
-        
-        rBrineFlowValveCmd := (rErrorPressure * rKp) + rIntPressure + rDerivPressure;
-        
-        (* Limit Output *)
-        IF rBrineFlowValveCmd > 100.0 THEN rBrineFlowValveCmd := 100.0; END_IF;
-        IF rBrineFlowValveCmd < 10.0 THEN rBrineFlowValveCmd := 10.0; END_IF;
-        
-        IF (rVaporizerPressure > (rSP_Pressure - 2.0)) THEN
-            iState := 30;
-        END_IF;
-        
-    30: (* SYNCHRONIZATION & LOAD RAMP *)
+    10: (* SYSTEM STARTUP & ORP STABILIZATION *)
         bSystemReady := TRUE;
-        (* Slowly close bypass as turbine takes the load *)
-        rBypassValveCmd := rBypassValveCmd - 0.5;
-        IF rBypassValveCmd < 0.0 THEN
-            rBypassValveCmd := 0.0;
+        bOzoneDestruct_Enable := TRUE; (* Ensure destruct is on before generation *)
+        
+        (* Oxygen base level for fish life support *)
+        rOxygenInjection_Lpm := 5.0 + (rFlowRate_Lpm * 0.01);
+        
+        IF rORP_mV > 250.0 THEN
+            iControlState := 20;
         END_IF;
         
-        (* Maintain pressure via MPC placeholder logic *)
-        rPredPressureT1 := rVaporizerPressure + (rBrineTemperature * 0.1) - (rTurbineSpeed * 0.01);
-        IF rPredPressureT1 < rSP_Pressure THEN
-            rBrineFlowValveCmd := rBrineFlowValveCmd + 1.0;
+        IF NOT bSystemEnable THEN
+            iControlState := 0;
+        END_IF;
+
+    20: (* NORMAL OPERATION: OZONE MPC & BIOFILTER NITRIFICATION OPTIMIZATION *)
+        
+        (* 1. Biofilter State-Space Model (Nitrification Kinetics) *)
+        (* Nitrosomonas and Nitrobacter efficiency depends on Temp and pH *)
+        rTempFactor := EXP(-0.5 * EXPT((rWaterTemp_C - rOptimalTemp)/5.0, 2.0));
+        rpHFactor := EXP(-0.5 * EXPT((rpH_Value - 7.5)/0.8, 2.0));
+        
+        (* Calculate predicted nitrification rate (g N / day / m^3 ) *)
+        rNitrificationRate := 0.85 * rAmmonia_TAN_mgL * rTempFactor * rpHFactor;
+        
+        (* Alkalinity consumption: 7.14 mg CaCO3 consumed per mg NH4+ oxidized *)
+        rAlkalinityReq := rAmmonia_TAN_mgL * 7.14 * (rFlowRate_Lpm / 1000.0);
+        rAlkalinityDose_mLpm := rAlkalinityReq * 1.05; (* 5% safety margin *)
+
+        (* 2. Non-Linear PID for Ozone Dosing with Anti-Windup *)
+        (* Target ORP is ~300mV for clear water, but must limit residual O3 *)
+        rO3_Error := rO3_Setpoint - rOzoneResidual_mgL;
+        
+        (* Gain scheduling: Be highly aggressive if O3 exceeds setpoint (prevent biofilter wipeout) *)
+        IF rO3_Error < 0.0 THEN
+            rO3_Kp := 5.0;
+            rO3_Ki := 0.5;
+        ELSE
+            rO3_Kp := 2.5;
+            rO3_Ki := 0.15;
         END_IF;
         
-        IF NOT bEnable THEN
-            iState := 40; (* Normal shutdown *)
+        rO3_Integral := rO3_Integral + (rO3_Error * 0.1); (* 100ms assumed scan rate *)
+        (* Anti-Windup Limit *)
+        IF rO3_Integral > rO3_Integral_Max THEN
+            rO3_Integral := rO3_Integral_Max;
+        ELSIF rO3_Integral < 0.0 THEN
+            rO3_Integral := 0.0;
         END_IF;
         
-    40: (* NORMAL SHUTDOWN *)
-        bSystemReady := FALSE;
-        rBypassValveCmd := 100.0;
-        rBrineFlowValveCmd := rBrineFlowValveCmd - 5.0;
-        IF rBrineFlowValveCmd <= 0.0 THEN
-            rBrineFlowValveCmd := 0.0;
-            iState := 0;
+        rO3_Derivative := (rO3_Error - rO3_Error_Prev) / 0.1;
+        rOzoneDoseRate_gHr := (rO3_Kp * rO3_Error) + (rO3_Ki * rO3_Integral) + (rO3_Kd * rO3_Derivative);
+        
+        IF rOzoneDoseRate_gHr < 0.0 THEN
+            rOzoneDoseRate_gHr := 0.0;
+        ELSIF rOzoneDoseRate_gHr > 100.0 THEN
+            rOzoneDoseRate_gHr := 100.0; (* Max capacity of generator *)
         END_IF;
         
-    100: (* EMERGENCY TURBINE BYPASS MODE *)
-        (* Grid loss -> Turbine rejects load -> Pressure spikes -> Fast bypass *)
-        bSystemReady := FALSE;
-        rBypassValveCmd := 100.0; (* Open bypass instantaneously *)
-        rBrineFlowValveCmd := 0.0;(* Shut off heat source *)
+        rO3_Error_Prev := rO3_Error;
         
-        tTripTimer(IN := TRUE, PT := T#10S);
-        IF tTripTimer.Q THEN
-            tTripTimer(IN := FALSE);
-            iState := 0; (* Reset to idle after stabilization *)
+        (* 3. Biofilter Maintenance Predictor *)
+        IF (rNitrificationRate < 0.2 * rAmmonia_TAN_mgL) AND (rAmmonia_TAN_mgL > 1.0) THEN
+            (* Nitrification stalled, possible channeling or biomass loss *)
+            bBiofilter_BackwashReq := TRUE;
+        ELSE
+            bBiofilter_BackwashReq := FALSE;
         END_IF;
         
-    200: (* OVERPRESSURE SHUTDOWN *)
-        bSystemReady := FALSE;
-        rBypassValveCmd := 100.0;
-        rBrineFlowValveCmd := 0.0;
-        (* Requires manual reset of bEmergencyStop or physical intervention *)
+        (* Oxygen Modulation based on DO deficit and Nitrification demand (4.57mg O2 per mg N) *)
+        rOxygenInjection_Lpm := (10.0 - rDissolvedOxygen_mgL) * 2.0 + (rNitrificationRate * 0.1);
+
+        IF NOT bSystemEnable THEN
+            iControlState := 0;
+        END_IF;
+
+    900: (* FAULT RECOVERY / LOCKOUT *)
+        rOzoneDoseRate_gHr := 0.0;
+        bOzoneDestruct_Enable := TRUE;
+        rOxygenInjection_Lpm := 15.0; (* Max emergency aeration *)
+        rAlkalinityDose_mLpm := 0.0;
         
-    999: (* HARDWARE LOCKOUT *)
-        (* Waiting for E-Stop reset *)
+        IF NOT bLethalToxicity AND NOT bHardwareFail THEN
+            (* Wait for operator manual reset via SystemEnable toggle *)
+            IF NOT bSystemEnable THEN
+                iControlState := 0;
+            END_IF;
+        END_IF;
+
+    999: (* ESTOP / CATASTROPHIC *)
+        (* Must power cycle or clear hardware estop first *)
         IF bEmergencyStop THEN
-            iState := 0;
+            iControlState := 900;
         END_IF;
         
 END_CASE;
@@ -235,9 +255,5 @@ END_FUNCTION_BLOCK
 ```"""
 
 record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
-
-os.makedirs("data/swarm_raw", exist_ok=True)
-filename = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
-with open(filename, "w", encoding="utf-8") as f:
+with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
     json.dump(record, f, ensure_ascii=False)
-print(f"Saved to {filename}")

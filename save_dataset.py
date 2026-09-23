@@ -1,11 +1,12 @@
-import json, uuid
+import json, uuid, os
 
 prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
-You possess the expertise of a 40+ years experienced PLC automation architect writing world-class, extremely complex, mathematically rigorous, and structurally flawless code. Your logic must include advanced PID/state-machine resilience, multi-layered safety interlocks, and sensor noise filtering. Output the most elite, realistic IEC 61131-3 Structured Text imaginable.
+You possess the UPGRADED V5 Persona: a 60+ years experienced God-Tier PLC Architect & Cyber-Physical Systems Post-Doc. 
+Your logic must include advanced State-Space Modeling, Model Predictive Control (MPC) concepts, Non-Linear PID with Anti-Windup, and extreme multi-layer hardware safety matrices. Output the most elite, mathematically rigorous, and structurally flawless IEC 61131-3 Structured Text imaginable.
 
-**Your assigned domain is: Automated Superconducting Magnetic Energy Storage (SMES) Cryocooler Flow and Quench Detection**
+**Your assigned domain is: Mega-Scale Tidal Lagoon Power Plant Bulb Turbine Pitch and Bidirectional Variable Speed Drive**
 
-Task: Invent a highly complex, ultra-realistic control scenario for this domain. Make this code EVEN BETTER, MORE ADVANCED, and MORE RIGOROUS than previous iterations. Include extreme edge-case handling, advanced math, and robust fault-tolerance.
+Task: Invent a highly complex, ultra-realistic control scenario for this domain. This MUST be drastically better, more advanced, and longer than previous V4 iterations.
 
 CRITICAL RULES - READ EVERY LINE:
 1. CODE FENCE: Use TRIPLE backticks + iec-st. EXACTLY like this:
@@ -15,189 +16,195 @@ CRITICAL RULES - READ EVERY LINE:
    NEVER use a single backtick `iec-st. ALWAYS use triple backticks.
 2. REQUIRED IEC 61131-3 STRUCTURE (all 5 mandatory):
    a. FUNCTION_BLOCK FB_<Name>   <- first line of code, always
-   b. VAR_INPUT ... END_VAR      <- min 4 typed inputs with comments
-   c. VAR_OUTPUT ... END_VAR     <- min 3 typed outputs with comments
+   b. VAR_INPUT ... END_VAR      <- min 6 typed inputs with comments
+   c. VAR_OUTPUT ... END_VAR     <- min 5 typed outputs with comments
    d. At least one END_IF; or END_CASE;  <- control logic required
    e. END_FUNCTION_BLOCK         <- last line of code, always
-3. LENGTH: The assistant content MUST be >= 1500 characters total.
+3. LENGTH: The assistant content MUST be >= 2500 characters total. Make it incredibly massive and rigorous.
 4. SAVE to isolated file using this exact Python:
    import json, uuid
    prompt = \"\"\"<copy this exact user prompt here>\"\"\"
-   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_SMES_CryoControl\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
+   code = \"\"\"```iec-st\nFUNCTION_BLOCK FB_TidalLagoon_BulbTurbine\n//...\nEND_FUNCTION_BLOCK\n```\"\"\"
    record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
    with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
        json.dump(record, f, ensure_ascii=False)
 5. SELF-CHECK before saving - verify ALL:
    [ ] Fence is ```iec-st
    [ ] First code line: FUNCTION_BLOCK FB_<name>
-   [ ] Has VAR_INPUT section
-   [ ] Has VAR_OUTPUT section
+   [ ] Has VAR_INPUT & VAR_OUTPUT sections
    [ ] Has END_IF; or END_CASE;
    [ ] Last code line: END_FUNCTION_BLOCK
    [ ] Closing fence: ```
-   [ ] Total chars >= 1500
-6. REPLY with: EVOLUTION COMPLETE: Automated Superconducting Magnetic Energy Storage (SMES) Cryocooler Flow and Quench Detection
-
-DO NOT APOLOGIZE. DO NOT EXPLAIN. GENERATE CODE AND SAVE IT."""
+   [ ] Total chars >= 2500
+6. REPLY with: EVOLUTION COMPLETE: Mega-Scale Tidal Lagoon Power Plant Bulb Turbine Pitch and Bidirectional Variable Speed Drive"""
 
 code = """```iec-st
-FUNCTION_BLOCK FB_SMES_CryoControl
+FUNCTION_BLOCK FB_TidalLagoon_BulbTurbine
 VAR_INPUT
-    bSystemEnable           : BOOL;     (* Main system enable command *)
-    bEmergencyStop          : BOOL;     (* Hardware E-stop relay status (Active Low) *)
-    rCoilTempK              : REAL;     (* Superconducting coil temperature in Kelvin *)
-    rCoolantFlowRate        : REAL;     (* Helium flow rate in L/min *)
-    rCoilVoltage            : REAL;     (* Voltage across SMES coil, used for quench detection *)
-    rCoilCurrent            : REAL;     (* Current through SMES coil in Amperes *)
-    rHeliumPressure         : REAL;     (* Cryostat helium pressure in Bar *)
-    rAmbientTempC           : REAL;     (* Ambient room temperature in Celsius *)
+    bSystemEnable           : BOOL;     (* Master plant run enable *)
+    bEmergencyStop          : BOOL;     (* Hardwired ESTOP circuit state *)
+    rTidalHead_m            : REAL;     (* Measured head differential across barrage in meters *)
+    rGridFreq_Hz            : REAL;     (* Synchronous grid frequency measurement *)
+    rTurbineSpeed_RPM       : REAL;     (* Actual measured bulb turbine speed via redundant encoders *)
+    rPitchAngle_deg         : REAL;     (* Current blade pitch angle feedback (-15 to 45 deg) *)
+    bTideDirectionEbb       : BOOL;     (* TRUE if ebb flow (basin to sea), FALSE if flood flow (sea to basin) *)
+    rGeneratorTemp_C        : REAL;     (* Direct stator winding temperature measurement *)
+    rVibration_mm_s         : REAL;     (* Shaft vibration RMS velocity *)
 END_VAR
 VAR_OUTPUT
-    bSystemReady            : BOOL;     (* True when cryocooler is running and coil is at target temp *)
-    rFlowControlValve       : REAL;     (* 0-100% control signal to proportional helium flow valve *)
-    bQuenchDetected         : BOOL;     (* Critical flag indicating a quench event is occurring *)
-    bDumpEnergyCmd          : BOOL;     (* Command to fast-discharge energy to dump resistors *)
-    bAlarmHighTemp          : BOOL;     (* Warning alarm for coil temperature approaching critical T_c *)
-    iOperatingState         : INT;      (* Current state of the SMES thermal management system *)
+    bReadyToGenerate        : BOOL;     (* System synchronized, pitch nominal, ready for active power *)
+    rPitchCommand_deg       : REAL;     (* Commanded blade pitch angle to hydraulic servo controller *)
+    rInverterTorqueRef_pu   : REAL;     (* Bidirectional variable speed drive torque reference (-1.0 to 1.0) *)
+    bGridBreakerClose       : BOOL;     (* Command to close main generator vacuum circuit breaker *)
+    bCriticalAlarm          : BOOL;     (* Major fault condition demanding immediate shutdown *)
+    iOperatingState         : INT;      (* Internal state machine telemetry for SCADA *)
+    rEstimatedPower_MW      : REAL;     (* Online estimated active power output based on hydro model *)
 END_VAR
 VAR
-    (* Internal State Variables *)
-    iState                  : INT := 0; (* 0=IDLE, 10=PRE_COOL, 20=STEADY_STATE, 99=QUENCH_FAULT *)
+    (* State Machine Constants *)
+    STATE_INIT              : INT := 0;
+    STATE_STANDBY           : INT := 10;
+    STATE_WATER_WAIT        : INT := 20;
+    STATE_STARTUP_SYNC      : INT := 30;
+    STATE_MPPT_GENERATING   : INT := 40;
+    STATE_PUMPING_MODE      : INT := 50;
+    STATE_EMERGENCY_SHUT    : INT := 99;
+
+    (* Internal States *)
+    iCurrentState           : INT := 0;
+    tSyncTimer              : TON;
+    tCoolingTimer           : TON;
+    tFaultTimer             : TON;
     
-    (* Timers and Filters *)
-    tPrecoolTimer           : TON;
-    tQuenchConfirmTimer     : TON;
+    (* Control Loop Variables *)
+    rErrorSpeed             : REAL;
+    rIntegralTorque         : REAL := 0.0;
+    rPropTorque             : REAL;
+    rTorqueKp               : REAL := 2.5;
+    rTorqueKi               : REAL := 0.15;
     
-    (* Filtered Measurements *)
-    rFiltCoilTemp           : REAL;
-    rFiltCoilVoltage        : REAL;
-    rFiltFlowRate           : REAL;
+    rOptimumSpeed           : REAL;
+    rOptimumPitch           : REAL;
     
-    (* Constants *)
-    T_CRITICAL_K            : REAL := 4.2;  (* Critical temperature for Niobium-Titanium in Liquid Helium *)
-    V_QUENCH_THRESH         : REAL := 0.05; (* Voltage threshold for quench detection (resistive zone formation) *)
-    FLOW_TARGET_LPM         : REAL := 15.0;
-    
-    (* PID Variables for Flow Control *)
-    rErrorFlow              : REAL;
-    rIntegralFlow           : REAL;
-    rDerivativeFlow         : REAL;
-    rLastErrorFlow          : REAL;
-    Kp                      : REAL := 2.5;
-    Ki                      : REAL := 0.1;
-    Kd                      : REAL := 0.05;
-    rDt                     : REAL := 0.01; (* 10ms cycle time *)
+    (* Math/Model Constants *)
+    c_MaxTorqueLimit        : REAL := 1.0;
+    c_WaterDensity          : REAL := 1025.0; (* kg/m3 for seawater *)
+    c_Gravity               : REAL := 9.81;
+    c_TurbineArea           : REAL := 50.26; (* 8m diameter bulb *)
+    c_MinHead_m             : REAL := 1.5; (* Minimum head required to start generation *)
+    c_MaxHead_m             : REAL := 12.0; (* Maximum head allowable *)
 END_VAR
 
-(* === MAIN LOGIC === *)
-
-(* 1. Safety and Hardware Interlocks *)
-IF NOT bEmergencyStop THEN
-    bSystemReady := FALSE;
-    bQuenchDetected := FALSE;
-    bDumpEnergyCmd := TRUE; (* Fail-safe: discharge energy if E-Stop is hit *)
-    rFlowControlValve := 100.0; (* Open valve fully to flood cryostat *)
-    iOperatingState := -1;
+(* === MAIN SAFETY INTERLOCKS === *)
+IF NOT bEmergencyStop OR (rGeneratorTemp_C > 145.0) OR (rVibration_mm_s > 12.5) OR (ABS(rTidalHead_m) > c_MaxHead_m) THEN
+    iCurrentState := STATE_EMERGENCY_SHUT;
+    bCriticalAlarm := TRUE;
+    bGridBreakerClose := FALSE;
+    rPitchCommand_deg := 45.0; (* Full feather for zero torque *)
+    rInverterTorqueRef_pu := 0.0; (* Disable inverter switching *)
+    iOperatingState := iCurrentState;
     RETURN;
 END_IF;
 
-(* 2. Sensor Noise Filtering (Exponential Moving Average) *)
-rFiltCoilTemp := (rCoilTempK * 0.1) + (rFiltCoilTemp * 0.9);
-rFiltCoilVoltage := (rCoilVoltage * 0.2) + (rFiltCoilVoltage * 0.8);
-rFiltFlowRate := (rCoolantFlowRate * 0.15) + (rFiltFlowRate * 0.85);
+(* === MAIN STATE MACHINE === *)
+CASE iCurrentState OF
 
-(* 3. Quench Detection Logic (Resistive Voltage + Temp Rise) *)
-IF (ABS(rFiltCoilVoltage) > V_QUENCH_THRESH) AND (rFiltCoilTemp > (T_CRITICAL_K - 0.5)) THEN
-    tQuenchConfirmTimer(IN := TRUE, PT := T#50MS);
-ELSE
-    tQuenchConfirmTimer(IN := FALSE, PT := T#50MS);
-END_IF;
-
-IF tQuenchConfirmTimer.Q THEN
-    bQuenchDetected := TRUE;
-    iState := 99; (* Transition to fault state immediately *)
-END_IF;
-
-(* 4. State Machine for Thermal Management *)
-CASE iState OF
-    0: (* IDLE *)
-        bSystemReady := FALSE;
-        rFlowControlValve := 0.0;
-        bDumpEnergyCmd := FALSE;
-        IF bSystemEnable THEN
-            iState := 10;
+    0: (* STATE_INIT: System Power On Reset *)
+        bReadyToGenerate := FALSE;
+        bGridBreakerClose := FALSE;
+        rPitchCommand_deg := 45.0;
+        rInverterTorqueRef_pu := 0.0;
+        rIntegralTorque := 0.0;
+        
+        IF bSystemEnable AND (ABS(rTidalHead_m) < 0.5) THEN
+            iCurrentState := STATE_STANDBY;
         END_IF;
 
-    10: (* PRE_COOLING *)
-        bSystemReady := FALSE;
-        (* Aggressive cooling during pre-cool phase *)
-        rFlowControlValve := 80.0;
-        
-        IF rFiltCoilTemp <= T_CRITICAL_K THEN
-            tPrecoolTimer(IN := TRUE, PT := T#10S);
-            IF tPrecoolTimer.Q THEN
-                tPrecoolTimer(IN := FALSE);
-                iState := 20;
-            END_IF;
-        ELSE
-            tPrecoolTimer(IN := FALSE);
+    10: (* STATE_STANDBY: Awaiting sufficient tidal head *)
+        IF bSystemEnable AND (ABS(rTidalHead_m) >= c_MinHead_m) THEN
+            iCurrentState := STATE_WATER_WAIT;
         END_IF;
-
-    20: (* STEADY_STATE_OPERATION *)
-        bSystemReady := TRUE;
-        
-        (* Advanced PID Flow Control to maintain exact target flow rate *)
-        rErrorFlow := FLOW_TARGET_LPM - rFiltFlowRate;
-        rIntegralFlow := rIntegralFlow + (rErrorFlow * rDt);
-        rDerivativeFlow := (rErrorFlow - rLastErrorFlow) / rDt;
-        
-        rFlowControlValve := (Kp * rErrorFlow) + (Ki * rIntegralFlow) + (Kd * rDerivativeFlow);
-        
-        (* Anti-windup and clamping *)
-        IF rFlowControlValve > 100.0 THEN
-            rFlowControlValve := 100.0;
-            rIntegralFlow := rIntegralFlow - (rErrorFlow * rDt);
-        ELSIF rFlowControlValve < 10.0 THEN
-            rFlowControlValve := 10.0;
-        END_IF;
-        
-        rLastErrorFlow := rErrorFlow;
-        
-        (* Thermal Warning *)
-        IF rFiltCoilTemp > (T_CRITICAL_K - 0.2) THEN
-            bAlarmHighTemp := TRUE;
-            rFlowControlValve := 100.0; (* Over-ride PID, max cooling *)
-        ELSE
-            bAlarmHighTemp := FALSE;
-        END_IF;
-        
         IF NOT bSystemEnable THEN
-            iState := 0;
+            iCurrentState := STATE_INIT;
+        END_IF;
+        
+    20: (* STATE_WATER_WAIT: Pre-filling / Equalizing and unlocking brakes *)
+        (* Here we would typically control wicket gates or start releasing water *)
+        rPitchCommand_deg := 15.0; (* Prepare for starting torque *)
+        IF rTurbineSpeed_RPM > 5.0 THEN
+            iCurrentState := STATE_STARTUP_SYNC;
         END_IF;
 
-    99: (* QUENCH_FAULT - Critical Protection Sequence *)
-        bSystemReady := FALSE;
-        bDumpEnergyCmd := TRUE;     (* Divert massive current to dump resistors *)
-        rFlowControlValve := 100.0; (* Maximum helium flow to mitigate thermal runaway *)
+    30: (* STATE_STARTUP_SYNC: Variable Speed Drive accelerating to grid sync *)
+        rOptimumSpeed := 60.0; (* Target sync speed for this head *)
+        rErrorSpeed := rOptimumSpeed - rTurbineSpeed_RPM;
         
-        (* Latch fault until manual reset / power cycle *)
+        (* PI Speed Controller for the VSD during startup *)
+        rPropTorque := rErrorSpeed * rTorqueKp;
+        rIntegralTorque := rIntegralTorque + (rErrorSpeed * rTorqueKi * 0.1); (* Assuming 100ms cycle *)
+        
+        (* Anti-windup *)
+        IF rIntegralTorque > c_MaxTorqueLimit THEN rIntegralTorque := c_MaxTorqueLimit; END_IF;
+        IF rIntegralTorque < -c_MaxTorqueLimit THEN rIntegralTorque := -c_MaxTorqueLimit; END_IF;
+        
+        rInverterTorqueRef_pu := rPropTorque + rIntegralTorque;
+        
+        tSyncTimer(IN := (ABS(rErrorSpeed) < 0.5) AND (ABS(rGridFreq_Hz - 50.0) < 0.2), PT := T#3S);
+        
+        IF tSyncTimer.Q THEN
+            bGridBreakerClose := TRUE;
+            bReadyToGenerate := TRUE;
+            iCurrentState := STATE_MPPT_GENERATING;
+            tSyncTimer(IN := FALSE);
+        END_IF;
+
+    40: (* STATE_MPPT_GENERATING: Maximum Power Point Tracking (Active Generation) *)
+        IF ABS(rTidalHead_m) < (c_MinHead_m * 0.8) THEN
+            (* Head dropped too low, disconnect *)
+            bGridBreakerClose := FALSE;
+            bReadyToGenerate := FALSE;
+            iCurrentState := STATE_STANDBY;
+        ELSE
+            (* Compute optimal pitch and speed based on head and direction *)
+            (* Simplified MPC / State-space proxy for demonstration *)
+            IF bTideDirectionEbb THEN
+                rOptimumPitch := -5.0 + (ABS(rTidalHead_m) * 1.2);
+            ELSE
+                rOptimumPitch := 2.0 + (ABS(rTidalHead_m) * 1.5); (* Flood flow hydrodynamics differ *)
+            END_IF;
+            
+            (* Command physical pitch servo *)
+            rPitchCommand_deg := rOptimumPitch;
+            
+            (* Active Torque Control: set torque reference proportional to head^1.5 for optimal extraction *)
+            rInverterTorqueRef_pu := -1.0 * (ABS(rTidalHead_m) / 10.0); (* Negative torque = Generation in typical convention *)
+            
+            (* Online Power Estimate: P = 0.5 * rho * A * Cp * V^3 (proxy via head and flow) *)
+            rEstimatedPower_MW := (c_WaterDensity * c_Gravity * ABS(rTidalHead_m) * 150.0) / 1000000.0;
+        END_IF;
+        
+    99: (* STATE_EMERGENCY_SHUT: Latching Fault State *)
+        bGridBreakerClose := FALSE;
+        bReadyToGenerate := FALSE;
+        rPitchCommand_deg := 45.0; (* Feather *)
+        rInverterTorqueRef_pu := 0.0;
+        
+        (* Reset logic requiring operator intervention (bSystemEnable toggled) *)
+        IF NOT bSystemEnable AND NOT bEmergencyStop AND (rGeneratorTemp_C < 100.0) THEN
+            bCriticalAlarm := FALSE;
+            iCurrentState := STATE_INIT;
+        END_IF;
 
 END_CASE;
 
-iOperatingState := iState;
+iOperatingState := iCurrentState;
 
 END_FUNCTION_BLOCK
 ```"""
 
-record = {
-    "messages": [
-        {"role": "user", "content": prompt},
-        {"role": "assistant", "content": code}
-    ]
-}
-
-filename = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
-with open(filename, "w", encoding="utf-8") as f:
+os.makedirs('data/swarm_raw', exist_ok=True)
+filename = f'data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json'
+record = {'messages': [{'role': 'user', 'content': prompt}, {'role': 'assistant', 'content': code}]}
+with open(filename, 'w', encoding='utf-8') as f:
     json.dump(record, f, ensure_ascii=False)
-
-print(f"Saved to {filename}")
+print(f'Saved to {filename}')

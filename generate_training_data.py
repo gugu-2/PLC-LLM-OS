@@ -1,13 +1,14 @@
-import json, uuid, os
+import json
+import uuid
+import os
 
-prompt = """<USER_REQUEST>
-You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
-You possess the UPGRADED V4 Persona: a 50+ years experienced Chief PLC Architect & Control Systems PhD. 
-Your logic must include advanced Non-Linear PID with Anti-Windup, 3-level cascade control, digital low-pass filtering, predictive anomaly detection, and multi-layered hardware interlocks. Output the most elite, mathematically rigorous, and structurally flawless IEC 61131-3 Structured Text imaginable.
+prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
+You possess the UPGRADED V5 Persona: a 60+ years experienced God-Tier PLC Architect & Cyber-Physical Systems Post-Doc. 
+Your logic must include advanced State-Space Modeling, Model Predictive Control (MPC) concepts, Non-Linear PID with Anti-Windup, and extreme multi-layer hardware safety matrices. Output the most elite, mathematically rigorous, and structurally flawless IEC 61131-3 Structured Text imaginable.
 
-**Your assigned domain is: Large-Scale Steel Mill Continuous Casting Mold Oscillator Frequency and Friction Compensation**
+**Your assigned domain is: Mega-Scale Underground Pumped Hydroelectric Storage (UPHS) Reversible Pump-Turbine Cavitation Margin**
 
-Task: Invent a highly complex, ultra-realistic control scenario for this domain. This MUST be drastically better, more advanced, and longer than previous iterations.
+Task: Invent a highly complex, ultra-realistic control scenario for this domain. This MUST be drastically better, more advanced, and longer than previous V4 iterations.
 
 CRITICAL RULES - READ EVERY LINE:
 1. CODE FENCE: Use TRIPLE backticks + iec-st. EXACTLY like this:
@@ -21,13 +22,13 @@ CRITICAL RULES - READ EVERY LINE:
    c. VAR_OUTPUT ... END_VAR     <- min 5 typed outputs with comments
    d. At least one END_IF; or END_CASE;  <- control logic required
    e. END_FUNCTION_BLOCK         <- last line of code, always
-3. LENGTH: The assistant content MUST be >= 2000 characters total. Make it massive and extremely rigorous.
+3. LENGTH: The assistant content MUST be >= 2500 characters total. Make it incredibly massive and rigorous.
 4. SAVE to isolated file using this exact Python:
    import json, uuid
    prompt = \"\"\"<copy this exact user prompt here>\"\"\"
-   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_SteelMill_MoldOscillator\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
-   record = {\"messages\": [{\"role\": \"user\", \"content\": prompt}, {\"role\": \"assistant\", \"content\": code}]}
-   with open(f\"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json\", \"w\", encoding=\"utf-8\") as f:
+   code = \"\"\"```iec-st\\nFUNCTION_BLOCK FB_UPHS_ReversiblePumpTurbine\\n//...\\nEND_FUNCTION_BLOCK\\n```\"\"\"
+   record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
+   with open(f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
        json.dump(record, f, ensure_ascii=False)
 5. SELF-CHECK before saving - verify ALL:
    [ ] Fence is ```iec-st
@@ -36,175 +37,192 @@ CRITICAL RULES - READ EVERY LINE:
    [ ] Has END_IF; or END_CASE;
    [ ] Last code line: END_FUNCTION_BLOCK
    [ ] Closing fence: ```
-   [ ] Total chars >= 2000
-6. REPLY with: EVOLUTION COMPLETE: Large-Scale Steel Mill Continuous Casting Mold Oscillator Frequency and Friction Compensation
-</USER_REQUEST>"""
+   [ ] Total chars >= 2500
+6. REPLY with: EVOLUTION COMPLETE: Mega-Scale Underground Pumped Hydroelectric Storage (UPHS) Reversible Pump-Turbine Cavitation Margin"""
 
 code = """```iec-st
-FUNCTION_BLOCK FB_SteelMill_MoldOscillator_Control
+FUNCTION_BLOCK FB_UPHS_ReversiblePumpTurbine
 VAR_INPUT
     (* Required: at least 4-8 physical inputs with types and comments *)
-    bSystemEnable           : BOOL;     (* Global Enable Signal for the Casting Line *)
-    bEStopSafetyRelay       : BOOL;     (* Safety Relay Status (TRUE = OK, FALSE = TRIPPED) *)
-    rCastingSpeedActual     : REAL;     (* Actual casting speed of the strand in m/min *)
-    rMoldLevelDeviation     : REAL;     (* Mold level deviation from setpoint in mm *)
-    rOscillatorPosition     : REAL;     (* Feedback from hydraulic servo position sensor in mm *)
-    rFrictionLoadMeasured   : REAL;     (* Measured friction load (pressure diff) in Bar *)
-    rFrictionTemp           : REAL;     (* Friction component temperature in deg C *)
-    rDriveHydraulicPressure : REAL;     (* Hydraulic supply pressure in Bar *)
+    bEnable                 : BOOL;     (* System enable signal for the pump-turbine unit *)
+    bEmergencyStop          : BOOL;     (* Safety relay OK signal; Hardwired emergency stop *)
+    rSuctionPressure        : REAL;     (* Measured pressure at the draft tube or suction side [Pa] *)
+    rVaporPressure          : REAL;     (* Vapor pressure of the working fluid at the current operating temperature [Pa] *)
+    rWaterVelocity          : REAL;     (* Fluid velocity at the runner inlet/outlet depending on mode [m/s] *)
+    rReferenceElevation     : REAL;     (* Reference elevation of the machine relative to tailwater [m] *)
+    rFluidDensity           : REAL;     (* Density of the water, variable with temperature [kg/m^3] *)
+    rGuideVaneOpening       : REAL;     (* Current guide vane opening feedback [0.0 - 1.0] *)
+    rRotorSpeed             : REAL;     (* Mechanical rotational speed of the pump-turbine [RPM] *)
 END_VAR
 VAR_OUTPUT
     (* Required: at least 3-6 outputs with types and comments *)
-    bSystemReady            : BOOL;     (* Oscillator System Ready for operation *)
-    rFrequencyCmdOut        : REAL;     (* Commanded Oscillation Frequency in Hz *)
-    rStrokeLengthCmdOut     : REAL;     (* Commanded Stroke Length in mm *)
-    rServoValveCommand      : REAL;     (* Command to hydraulic servo valve in % (-100 to 100) *)
-    bFrictionAnomalyWarning : BOOL;     (* Warning: Anomalous friction detected *)
-    bEmergencyTripSignal    : BOOL;     (* Trip signal to plant safety system *)
+    bSystemReady            : BOOL;     (* System ready for operation status *)
+    rControlOutput          : REAL;     (* Control signal for guide vane actuator (MPC and Non-Linear PID adjusted) *)
+    bAlarm                  : BOOL;     (* Cavitation fault alarm output - triggers interlock *)
+    rCalculatedNPSH         : REAL;     (* Net Positive Suction Head Available (NPSHa) calculated [m] *)
+    rCavitationMargin       : REAL;     (* Computed safety margin against cavitation inception [m] *)
+    bCavitationWarning      : BOOL;     (* Warning threshold: Margin is approaching critical operational limits *)
 END_VAR
 VAR
-    (* Internal State and Timers *)
-    iControlState           : INT := 0; (* 0: IDLE, 10: INIT, 20: RAMP_UP, 30: ACTIVE_RUN, 99: FAULT *)
-    tStartupDelay           : TON;
-    tSafetyWatchdog         : TON;
+    (* Internal state variables and configuration parameters *)
+    iState                  : INT := 0; (* Internal state machine variable for process tracking *)
+    tTimer                  : TON;      (* Timer for state transitions and filter delays *)
+    tFaultTimer             : TON;      (* Fault persistence timer to avoid spurious trips *)
+    rGravity                : REAL := 9.81; (* Acceleration due to gravity [m/s^2] *)
+    rAtmosphericPressure    : REAL := 101325.0; (* Standard atmospheric pressure at elevation [Pa] *)
+    rCriticalCavitationIdx  : REAL := 0.115; (* Thoma's critical cavitation parameter sigma_c *)
+    rRequiredNPSH           : REAL;     (* Required NPSH based on current operating point (NPSHr) [m] *)
+    rHead                   : REAL;     (* Total dynamic head across the machine [m] *)
+    rIntegralError          : REAL := 0.0; (* Integral component for anti-windup PID controller *)
+    rPreviousError          : REAL := 0.0; (* Previous error for derivative term computation *)
+    rError                  : REAL := 0.0; (* Current tracking error *)
     
-    (* Anti-Windup Non-Linear PID Parameters *)
-    rPropGain               : REAL := 2.5;
-    rIntegGain              : REAL := 1.1;
-    rDerivGain              : REAL := 0.4;
-    rIntegralAccumulator    : REAL := 0.0;
-    rPreviousError          : REAL := 0.0;
-    rErrorMaxThreshold      : REAL := 10.0;
+    (* Advanced State-Space and Model Predictive Control variables *)
+    rModelPredictedMargin   : REAL;     (* Horizon-predicted cavitation margin [m] *)
+    rAdaptiveGain           : REAL;     (* Gain scheduled based on proximity to cavitation threshold *)
+    rStateObserverX1        : REAL := 0.0; (* State observer internal variable 1 (velocity derivative) *)
+    rStateObserverX2        : REAL := 0.0; (* State observer internal variable 2 (pressure derivative) *)
     
-    (* Filter Constants for Digital LPF *)
-    rAlphaFriction          : REAL := 0.15;
-    rFilteredFriction       : REAL := 0.0;
-    rAlphaPos               : REAL := 0.25;
-    rFilteredPosition       : REAL := 0.0;
-    
-    (* Intermediate calculation vars *)
-    rPositionError          : REAL;
-    rDerivative             : REAL;
-    rPIDOutput              : REAL;
-    rBaseFrequency          : REAL;
-    rTargetFrictionComp     : REAL;
+    (* Filter variables *)
+    rFilteredVelocity       : REAL := 0.0; (* Low-pass filtered water velocity *)
+    rFilterAlpha            : REAL := 0.1; (* Smoothing factor for first-order IIR filter *)
 END_VAR
 
 (* === MAIN LOGIC === *)
-(* 1. Multi-Layered Hardware Interlocks and Safety Constraints *)
-IF NOT bEStopSafetyRelay OR (rDriveHydraulicPressure < 120.0) THEN
+(* Multi-layer Hardware Safety Matrix: Level 1 - Hardwired Emergency Stop Evaluation *)
+IF NOT bEmergencyStop THEN
     bSystemReady := FALSE;
-    bEmergencyTripSignal := TRUE;
-    rFrequencyCmdOut := 0.0;
-    rStrokeLengthCmdOut := 0.0;
-    rServoValveCommand := 0.0;
-    iControlState := 99; (* Transition to FAULT state *)
+    bAlarm := TRUE;
+    rControlOutput := 0.0; (* Force actuators to fail-safe closed position *)
+    rIntegralError := 0.0; (* Clear integral windup memory *)
+    iState := 99; (* Enter terminal fault state *)
     RETURN;
 END_IF;
 
-(* Digital Low-Pass Filtering (Exponential Smoothing) for Sensors *)
-rFilteredFriction := rAlphaFriction * rFrictionLoadMeasured + (1.0 - rAlphaFriction) * rFilteredFriction;
-rFilteredPosition := rAlphaPos * rOscillatorPosition + (1.0 - rAlphaPos) * rFilteredPosition;
+(* Continuous Signal Filtering (First Order IIR) to reject sensor noise in high-vibration environment *)
+rFilteredVelocity := rFilteredVelocity + rFilterAlpha * (rWaterVelocity - rFilteredVelocity);
 
-(* Predictive Anomaly Detection for Mold Friction *)
-IF rFilteredFriction > 85.0 OR rFrictionTemp > 180.0 THEN
-    bFrictionAnomalyWarning := TRUE;
-ELSE
-    bFrictionAnomalyWarning := FALSE;
-END_IF;
+(* Calculate NPSHa (Available Net Positive Suction Head) using Bernoulli's principle *)
+(* NPSHa = (P_atm - P_vapor) / (rho * g) + Suction_Head - Friction_Losses_and_Kinetic *)
+rCalculatedNPSH := (rAtmosphericPressure - rVaporPressure) / (rFluidDensity * rGravity) 
+                   + rSuctionPressure / (rFluidDensity * rGravity) 
+                   - rReferenceElevation 
+                   - (0.5 * rFilteredVelocity * rFilteredVelocity) / rGravity;
 
-(* 3-Level Cascade Control and Master State Machine *)
-CASE iControlState OF
-    0: (* IDLE *)
+(* Advanced State-Space estimation of required NPSH (NPSHr) based on Guide Vane Opening and total Dynamic Head *)
+rHead := (rSuctionPressure / (rFluidDensity * rGravity)) + rReferenceElevation; 
+(* NPSHr scales with operating head and non-linearly with guide vane position *)
+rRequiredNPSH := rCriticalCavitationIdx * rHead * (1.0 + 0.35 * (rGuideVaneOpening * rGuideVaneOpening));
+
+(* Compute deterministic Cavitation Margin (Margin = NPSHa - NPSHr) *)
+rCavitationMargin := rCalculatedNPSH - rRequiredNPSH;
+
+(* Model Predictive Control (MPC) Horizon Estimation for Margin Degradation *)
+(* Predict future margin over a T=2s horizon based on state observer dynamics *)
+rStateObserverX1 := rStateObserverX1 + 0.05 * (rFilteredVelocity - rStateObserverX1);
+rModelPredictedMargin := rCavitationMargin - (rStateObserverX1 * 0.15) - (0.01 * rRotorSpeed / 60.0);
+
+(* Core State Machine for Operational Sequence *)
+CASE iState OF
+    0: (* STATE: IDLE / OFF *)
         bSystemReady := FALSE;
-        bEmergencyTripSignal := FALSE;
-        rServoValveCommand := 0.0;
-        IF bSystemEnable THEN
-            iControlState := 10;
+        bAlarm := FALSE;
+        bCavitationWarning := FALSE;
+        rControlOutput := 0.0;
+        tFaultTimer(IN := FALSE);
+        IF bEnable THEN
+            iState := 10;
         END_IF;
 
-    10: (* INIT *)
-        (* Wait for hydraulic pressure to stabilize *)
-        tStartupDelay(IN := TRUE, PT := T#3S);
-        IF tStartupDelay.Q THEN
-            tStartupDelay(IN := FALSE);
-            bSystemReady := TRUE;
-            iControlState := 20;
-        END_IF;
-
-    20: (* RAMP_UP - Soft start logic to avoid sudden jerks *)
-        rFrequencyCmdOut := rFrequencyCmdOut + 0.1;
-        IF rFrequencyCmdOut >= 2.0 THEN
-            iControlState := 30;
-        END_IF;
-
-    30: (* ACTIVE_RUN - Master Loop Active *)
-        (* Cascade Level 1: Base Frequency generated from Casting Speed *)
-        rBaseFrequency := rCastingSpeedActual * 1.25; (* Empirical ratio *)
-        
-        (* Cascade Level 2: Friction Compensation adjusts Stroke/Frequency Target *)
-        IF bFrictionAnomalyWarning THEN
-            rTargetFrictionComp := -0.5; (* Reduce aggression under high friction *)
+    10: (* STATE: INITIALIZATION & STARTUP VALIDATION *)
+        (* Ensure baseline cavitation margin is strictly safe before allowing guide vane opening *)
+        IF rCavitationMargin > 8.0 AND rModelPredictedMargin > 7.5 THEN
+            tTimer(IN := TRUE, PT := T#3S);
+            IF tTimer.Q THEN
+                tTimer(IN := FALSE);
+                iState := 20;
+            END_IF;
         ELSE
-            rTargetFrictionComp := 0.0;
+            (* Safety Matrix Level 2: Interlock pre-start if margin is inadequate *)
+            tFaultTimer(IN := TRUE, PT := T#2S);
+            IF tFaultTimer.Q THEN
+                bAlarm := TRUE;
+                iState := 99;
+            END_IF;
         END_IF;
-        rFrequencyCmdOut := rBaseFrequency + (rMoldLevelDeviation * 0.1) + rTargetFrictionComp;
-        rStrokeLengthCmdOut := 6.0; (* Base stroke of 6mm *)
+
+    20: (* STATE: ACTIVE RUNNING WITH NON-LINEAR PID ANTI-WINDUP CONTROL *)
+        bSystemReady := TRUE;
+        tFaultTimer(IN := FALSE);
         
-        (* Cascade Level 3: Non-Linear PID for Position Servo Tracking *)
-        rPositionError := rStrokeLengthCmdOut - rFilteredPosition;
-        
-        (* Anti-Windup Logic *)
-        IF ABS(rPositionError) < rErrorMaxThreshold THEN
-            rIntegralAccumulator := rIntegralAccumulator + (rPositionError * rIntegGain);
-        END_IF;
-        
-        (* Derivative Calculation *)
-        rDerivative := (rPositionError - rPreviousError) * rDerivGain;
-        rPreviousError := rPositionError;
-        
-        (* Total PID Computation *)
-        rPIDOutput := (rPositionError * rPropGain) + rIntegralAccumulator + rDerivative;
-        
-        (* Output Saturation and Command assignment *)
-        IF rPIDOutput > 100.0 THEN
-            rServoValveCommand := 100.0;
-        ELSIF rPIDOutput < -100.0 THEN
-            rServoValveCommand := -100.0;
+        (* Evaluate Predictive Safety Margins and emit early warnings *)
+        IF rCavitationMargin < 3.0 OR rModelPredictedMargin < 2.5 THEN
+            bCavitationWarning := TRUE;
         ELSE
-            rServoValveCommand := rPIDOutput;
+            bCavitationWarning := FALSE;
         END_IF;
         
-        IF NOT bSystemEnable THEN
-            iControlState := 0;
-            rIntegralAccumulator := 0.0;
-            rFrequencyCmdOut := 0.0;
-            rStrokeLengthCmdOut := 0.0;
+        (* Extreme Multi-layer Hardware Safety Matrix: Level 3 - Dynamic In-Run Trip Evaluation *)
+        IF rCavitationMargin < 0.5 OR rModelPredictedMargin < 0.0 THEN
+            (* Cavitation is imminent or currently occurring! Trip the system immediately. *)
+            bAlarm := TRUE;
+            iState := 99;
+        ELSE
+            (* Advanced Non-Linear Control Law: Increase proportional gain as margin shrinks to act faster *)
+            IF rCavitationMargin < 4.0 THEN
+                rAdaptiveGain := 3.5; (* High gain for aggressive closure near cavitation limit *)
+            ELSE
+                rAdaptiveGain := 1.2; (* Nominal gain during normal safe operation *)
+            END_IF;
+            
+            (* Compute error against a safe target margin of 5.0 meters *)
+            rError := rCavitationMargin - 5.0;
+            
+            (* Anti-Windup Integral computation for flow modulation *)
+            rIntegralError := rIntegralError + (rError * 0.02); (* dt ~ 0.02s assumed *)
+            
+            (* Strict Anti-Windup Clamping based on actuator saturation limits *)
+            IF rIntegralError > 15.0 THEN
+                rIntegralError := 15.0; 
+            ELSIF rIntegralError < -15.0 THEN
+                rIntegralError := -15.0; 
+            END_IF;
+            
+            (* Control Output calculation (simplistic generic form: Base + P + I) *)
+            (* Positive error (excess margin) allows opening, negative requires closing *)
+            rControlOutput := rGuideVaneOpening + (rAdaptiveGain * 0.1 * rError) + (0.05 * rIntegralError);
+            
+            (* Absolute Actuator Limits Clamping *)
+            IF rControlOutput > 1.0 THEN
+                rControlOutput := 1.0;
+            ELSIF rControlOutput < 0.0 THEN
+                rControlOutput := 0.0;
+            END_IF;
         END_IF;
-        
-    99: (* FAULT STATE *)
+
+        IF NOT bEnable THEN
+            iState := 0;
+        END_IF;
+
+    99: (* STATE: FAULT / TRIP LATCH *)
         bSystemReady := FALSE;
-        rServoValveCommand := 0.0;
-        IF bSystemEnable = FALSE AND bEStopSafetyRelay THEN
-            iControlState := 0; (* Reset sequence *)
+        rControlOutput := 0.0; (* Maintain fail-safe state *)
+        bCavitationWarning := FALSE;
+        
+        (* Require positive manual reset sequence: Alarm cleared and Enable toggled *)
+        IF NOT bAlarm AND NOT bEnable THEN
+            iState := 0; 
         END_IF;
-
+        
 END_CASE;
-
-(* General Watchdog Timer for continuous monitoring *)
-tSafetyWatchdog(IN := (iControlState = 30), PT := T#100MS);
-IF tSafetyWatchdog.Q AND rCastingSpeedActual < 0.1 THEN
-    (* Process stalled, alert the line operator *)
-    bFrictionAnomalyWarning := TRUE;
-END_IF;
 
 END_FUNCTION_BLOCK
 ```"""
 
 import os
-os.makedirs("data/swarm_raw", exist_ok=True)
+os.makedirs(r"C:\Users\majip\Downloads\LLM REASEARCH\data\swarm_raw", exist_ok=True)
 record = {"messages": [{"role": "user", "content": prompt}, {"role": "assistant", "content": code}]}
-filename = f"data/swarm_raw/agent_{uuid.uuid4().hex[:8]}.json"
-with open(filename, "w", encoding="utf-8") as f:
+with open(f"C:\\Users\\majip\\Downloads\\LLM REASEARCH\\data\\swarm_raw\\agent_{uuid.uuid4().hex[:8]}.json", "w", encoding="utf-8") as f:
     json.dump(record, f, ensure_ascii=False)
-print(f"Saved to {filename}")
+
+print("Saved to file.")
