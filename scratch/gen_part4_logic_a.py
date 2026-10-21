@@ -1,0 +1,415 @@
+# -*- coding: utf-8 -*-
+"""
+Part 4A: Sections 1-5 of implementation logic for FB_GeothermalKalina_AmmoniaWater_ExpansionTurbine
+"""
+
+part4_logic_a = """(* ========================================================================================= *)
+(*                                    MAIN EXECUTION LOGIC                                   *)
+(* ========================================================================================= *)
+
+(* ----------------------------------------------------------------------------------------- *)
+(* 1.0 EMERGENCY STOP & MASTER SAFETY INTERLOCK EVALUATION                                   *)
+(* Hardwired dual-channel SIL-3 safety circuit check. Active high permissive.               *)
+(* ----------------------------------------------------------------------------------------- *)
+IF NOT bEmergencyStop THEN
+    bSystemTrip := TRUE;
+    bTripLatched := TRUE;
+    dwTripWord := dwTripWord OR 16#0000_0001; (* E-Stop Relay Dropped Out *)
+    iState := 120; (* Force Emergency Trip Shutdown State *)
+END_IF;
+
+IF bAcknowledgeFault AND NOT bEmergencyStop THEN
+    (* Cannot reset while safety string is physically open *)
+    dwAlarmWord1 := dwAlarmWord1 OR 16#0000_0001;
+ELSIF bAcknowledgeFault AND bEmergencyStop THEN
+    bTripLatched := FALSE;
+    bSystemTrip := FALSE;
+    dwTripWord := 16#0000_0000;
+    dwAlarmWord1 := dwAlarmWord1 AND NOT 16#0000_0001;
+END_IF;
+
+(* ----------------------------------------------------------------------------------------- *)
+(* 2.0 TRIPLE MODULAR REDUNDANCY (2oo3) SENSOR VOTING & DEGRADATION ARBITRATION             *)
+(* Executes median voting across 3 channels; degrades to 1oo2 average if 1 channel drifts.   *)
+(* ----------------------------------------------------------------------------------------- *)
+bDegradedSensorMode := FALSE;
+
+(* 2.1 Brine Supply Temperature Voting *)
+rDiffAB := ABS(rBrineInletTemp_A - rBrineInletTemp_B);
+rDiffBC := ABS(rBrineInletTemp_B - rBrineInletTemp_C);
+rDiffCA := ABS(rBrineInletTemp_C - rBrineInletTemp_A);
+bHealthyA := (rDiffAB <= rBrineTempTol) OR (rDiffCA <= rBrineTempTol);
+bHealthyB := (rDiffAB <= rBrineTempTol) OR (rDiffBC <= rBrineTempTol);
+bHealthyC := (rDiffBC <= rBrineTempTol) OR (rDiffCA <= rBrineTempTol);
+
+IF bHealthyA AND bHealthyB AND bHealthyC THEN
+    (* Complete 3-Channel Healthy: Select True Median *)
+    IF (rBrineInletTemp_A >= rBrineInletTemp_B AND rBrineInletTemp_A <= rBrineInletTemp_C) OR
+       (rBrineInletTemp_A <= rBrineInletTemp_B AND rBrineInletTemp_A >= rBrineInletTemp_C) THEN
+        rVotedBrineInletTemp := rBrineInletTemp_A;
+    ELSIF (rBrineInletTemp_B >= rBrineInletTemp_A AND rBrineInletTemp_B <= rBrineInletTemp_C) OR
+          (rBrineInletTemp_B <= rBrineInletTemp_A AND rBrineInletTemp_B >= rBrineInletTemp_C) THEN
+        rVotedBrineInletTemp := rBrineInletTemp_B;
+    ELSE
+        rVotedBrineInletTemp := rBrineInletTemp_C;
+    END_IF;
+    bBrineInletTemp_Degraded := FALSE;
+    bBrineInletTemp_Fault := FALSE;
+ELSIF bHealthyA AND bHealthyB THEN
+    rVotedBrineInletTemp := (rBrineInletTemp_A + rBrineInletTemp_B) * 0.5;
+    bBrineInletTemp_Degraded := TRUE;
+    bDegradedSensorMode := TRUE;
+    dwAlarmWord2 := dwAlarmWord2 OR 16#0000_0001; (* Brine Temp Channel C Fault *)
+ELSIF bHealthyB AND bHealthyC THEN
+    rVotedBrineInletTemp := (rBrineInletTemp_B + rBrineInletTemp_C) * 0.5;
+    bBrineInletTemp_Degraded := TRUE;
+    bDegradedSensorMode := TRUE;
+    dwAlarmWord2 := dwAlarmWord2 OR 16#0000_0002; (* Brine Temp Channel A Fault *)
+ELSIF bHealthyA AND bHealthyC THEN
+    rVotedBrineInletTemp := (rBrineInletTemp_A + rBrineInletTemp_C) * 0.5;
+    bBrineInletTemp_Degraded := TRUE;
+    bDegradedSensorMode := TRUE;
+    dwAlarmWord2 := dwAlarmWord2 OR 16#0000_0004; (* Brine Temp Channel B Fault *)
+ELSE
+    bBrineInletTemp_Fault := TRUE;
+    bSystemTrip := TRUE;
+    dwTripWord := dwTripWord OR 16#0000_0002; (* 2oo3 Loss of Brine Temperature Measurement *)
+END_IF;
+
+(* 2.2 Brine Mass Flowrate Voting *)
+rDiffAB := ABS(rBrineMassFlow_A - rBrineMassFlow_B);
+rDiffBC := ABS(rBrineMassFlow_B - rBrineMassFlow_C);
+rDiffCA := ABS(rBrineMassFlow_C - rBrineMassFlow_A);
+bHealthyA := (rDiffAB <= rBrineFlowTol) OR (rDiffCA <= rBrineFlowTol);
+bHealthyB := (rDiffAB <= rBrineFlowTol) OR (rDiffBC <= rBrineFlowTol);
+bHealthyC := (rDiffBC <= rBrineFlowTol) OR (rDiffCA <= rBrineFlowTol);
+
+IF bHealthyA AND bHealthyB AND bHealthyC THEN
+    IF (rBrineMassFlow_A >= rBrineMassFlow_B AND rBrineMassFlow_A <= rBrineMassFlow_C) OR
+       (rBrineMassFlow_A <= rBrineMassFlow_B AND rBrineMassFlow_A >= rBrineMassFlow_C) THEN
+        rVotedBrineMassFlow := rBrineMassFlow_A;
+    ELSIF (rBrineMassFlow_B >= rBrineMassFlow_A AND rBrineMassFlow_B <= rBrineMassFlow_C) OR
+          (rBrineMassFlow_B <= rBrineMassFlow_A AND rBrineMassFlow_B >= rBrineMassFlow_C) THEN
+        rVotedBrineMassFlow := rBrineMassFlow_B;
+    ELSE
+        rVotedBrineMassFlow := rBrineMassFlow_C;
+    END_IF;
+    bBrineMassFlow_Degraded := FALSE;
+    bBrineMassFlow_Fault := FALSE;
+ELSIF bHealthyA AND bHealthyB THEN
+    rVotedBrineMassFlow := (rBrineMassFlow_A + rBrineMassFlow_B) * 0.5;
+    bBrineMassFlow_Degraded := TRUE;
+    bDegradedSensorMode := TRUE;
+ELSIF bHealthyB AND bHealthyC THEN
+    rVotedBrineMassFlow := (rBrineMassFlow_B + rBrineMassFlow_C) * 0.5;
+    bBrineMassFlow_Degraded := TRUE;
+    bDegradedSensorMode := TRUE;
+ELSIF bHealthyA AND bHealthyC THEN
+    rVotedBrineMassFlow := (rBrineMassFlow_A + rBrineMassFlow_C) * 0.5;
+    bBrineMassFlow_Degraded := TRUE;
+    bDegradedSensorMode := TRUE;
+ELSE
+    bBrineMassFlow_Fault := TRUE;
+    bSystemTrip := TRUE;
+    dwTripWord := dwTripWord OR 16#0000_0004; (* 2oo3 Loss of Brine Flow Measurement *)
+END_IF;
+
+(* 2.3 Separator Drum Pressure Voting *)
+rDiffAB := ABS(rSeparatorPress_A - rSeparatorPress_B);
+rDiffBC := ABS(rSeparatorPress_B - rSeparatorPress_C);
+rDiffCA := ABS(rSeparatorPress_C - rSeparatorPress_A);
+bHealthyA := (rDiffAB <= rSeparatorPressTol) OR (rDiffCA <= rSeparatorPressTol);
+bHealthyB := (rDiffAB <= rSeparatorPressTol) OR (rDiffBC <= rSeparatorPressTol);
+bHealthyC := (rDiffBC <= rSeparatorPressTol) OR (rDiffCA <= rSeparatorPressTol);
+
+IF bHealthyA AND bHealthyB AND bHealthyC THEN
+    IF (rSeparatorPress_A >= rSeparatorPress_B AND rSeparatorPress_A <= rSeparatorPress_C) OR
+       (rSeparatorPress_A <= rSeparatorPress_B AND rSeparatorPress_A >= rSeparatorPress_C) THEN
+        rVotedSeparatorPress := rSeparatorPress_A;
+    ELSIF (rSeparatorPress_B >= rSeparatorPress_A AND rSeparatorPress_B <= rSeparatorPress_C) OR
+          (rSeparatorPress_B <= rSeparatorPress_A AND rSeparatorPress_B >= rSeparatorPress_C) THEN
+        rVotedSeparatorPress := rSeparatorPress_B;
+    ELSE
+        rVotedSeparatorPress := rSeparatorPress_C;
+    END_IF;
+    bSeparatorPress_Degraded := FALSE;
+    bSeparatorPress_Fault := FALSE;
+ELSIF bHealthyA AND bHealthyB THEN
+    rVotedSeparatorPress := (rSeparatorPress_A + rSeparatorPress_B) * 0.5;
+    bSeparatorPress_Degraded := TRUE;
+    bDegradedSensorMode := TRUE;
+ELSIF bHealthyB AND bHealthyC THEN
+    rVotedSeparatorPress := (rSeparatorPress_B + rSeparatorPress_C) * 0.5;
+    bSeparatorPress_Degraded := TRUE;
+    bDegradedSensorMode := TRUE;
+ELSIF bHealthyA AND bHealthyC THEN
+    rVotedSeparatorPress := (rSeparatorPress_A + rSeparatorPress_C) * 0.5;
+    bSeparatorPress_Degraded := TRUE;
+    bDegradedSensorMode := TRUE;
+ELSE
+    bSeparatorPress_Fault := TRUE;
+    bSystemTrip := TRUE;
+    dwTripWord := dwTripWord OR 16#0000_0008; (* 2oo3 Loss of Separator Pressure Measurement *)
+END_IF;
+
+(* 2.4 Separator Overhead Rich Vapor Ammonia Concentration Voting *)
+rDiffAB := ABS(rVaporAmmoniaConc_A - rVaporAmmoniaConc_B);
+rDiffBC := ABS(rVaporAmmoniaConc_B - rVaporAmmoniaConc_C);
+rDiffCA := ABS(rVaporAmmoniaConc_C - rVaporAmmoniaConc_A);
+bHealthyA := (rDiffAB <= rVaporAmmoniaTol) OR (rDiffCA <= rVaporAmmoniaTol);
+bHealthyB := (rDiffAB <= rVaporAmmoniaTol) OR (rDiffBC <= rVaporAmmoniaTol);
+bHealthyC := (rDiffBC <= rVaporAmmoniaTol) OR (rDiffCA <= rVaporAmmoniaTol);
+
+IF bHealthyA AND bHealthyB AND bHealthyC THEN
+    IF (rVaporAmmoniaConc_A >= rVaporAmmoniaConc_B AND rVaporAmmoniaConc_A <= rVaporAmmoniaConc_C) OR
+       (rVaporAmmoniaConc_A <= rVaporAmmoniaConc_B AND rVaporAmmoniaConc_A >= rVaporAmmoniaConc_C) THEN
+        rVotedVaporAmmoniaConc := rVaporAmmoniaConc_A;
+    ELSIF (rVaporAmmoniaConc_B >= rVaporAmmoniaConc_A AND rVaporAmmoniaConc_B <= rVaporAmmoniaConc_C) OR
+          (rVaporAmmoniaConc_B <= rVaporAmmoniaConc_A AND rVaporAmmoniaConc_B >= rVaporAmmoniaConc_C) THEN
+        rVotedVaporAmmoniaConc := rVaporAmmoniaConc_B;
+    ELSE
+        rVotedVaporAmmoniaConc := rVaporAmmoniaConc_C;
+    END_IF;
+    bVaporAmmoniaConc_Degraded := FALSE;
+ELSIF bHealthyA AND bHealthyB THEN
+    rVotedVaporAmmoniaConc := (rVaporAmmoniaConc_A + rVaporAmmoniaConc_B) * 0.5;
+    bVaporAmmoniaConc_Degraded := TRUE;
+    bDegradedSensorMode := TRUE;
+ELSIF bHealthyB AND bHealthyC THEN
+    rVotedVaporAmmoniaConc := (rVaporAmmoniaConc_B + rVaporAmmoniaConc_C) * 0.5;
+    bVaporAmmoniaConc_Degraded := TRUE;
+    bDegradedSensorMode := TRUE;
+ELSIF bHealthyA AND bHealthyC THEN
+    rVotedVaporAmmoniaConc := (rVaporAmmoniaConc_A + rVaporAmmoniaConc_C) * 0.5;
+    bVaporAmmoniaConc_Degraded := TRUE;
+    bDegradedSensorMode := TRUE;
+ELSE
+    bVaporAmmoniaConc_Fault := TRUE;
+    bSystemWarning := TRUE;
+    dwAlarmWord1 := dwAlarmWord1 OR 16#0000_0002; (* Vapor Concentration Sensor Failure *)
+END_IF;
+
+(* 2.5 Turbine Expander Shaft Speed Voting *)
+rDiffAB := ABS(rTurbineSpeed_A - rTurbineSpeed_B);
+rDiffBC := ABS(rTurbineSpeed_B - rTurbineSpeed_C);
+rDiffCA := ABS(rTurbineSpeed_C - rTurbineSpeed_A);
+bHealthyA := (rDiffAB <= rTurbineSpeedTol) OR (rDiffCA <= rTurbineSpeedTol);
+bHealthyB := (rDiffAB <= rTurbineSpeedTol) OR (rDiffBC <= rTurbineSpeedTol);
+bHealthyC := (rDiffBC <= rTurbineSpeedTol) OR (rDiffCA <= rTurbineSpeedTol);
+
+IF bHealthyA AND bHealthyB AND bHealthyC THEN
+    IF (rTurbineSpeed_A >= rTurbineSpeed_B AND rTurbineSpeed_A <= rTurbineSpeed_C) OR
+       (rTurbineSpeed_A <= rTurbineSpeed_B AND rTurbineSpeed_A >= rTurbineSpeed_C) THEN
+        rVotedTurbineSpeed := rTurbineSpeed_A;
+    ELSIF (rTurbineSpeed_B >= rTurbineSpeed_A AND rTurbineSpeed_B <= rTurbineSpeed_C) OR
+          (rTurbineSpeed_B <= rTurbineSpeed_A AND rTurbineSpeed_B >= rTurbineSpeed_C) THEN
+        rVotedTurbineSpeed := rTurbineSpeed_B;
+    ELSE
+        rVotedTurbineSpeed := rTurbineSpeed_C;
+    END_IF;
+    bTurbineSpeed_Degraded := FALSE;
+    bTurbineSpeed_Fault := FALSE;
+ELSIF bHealthyA AND bHealthyB THEN
+    rVotedTurbineSpeed := (rTurbineSpeed_A + rTurbineSpeed_B) * 0.5;
+    bTurbineSpeed_Degraded := TRUE;
+    bDegradedSensorMode := TRUE;
+ELSIF bHealthyB AND bHealthyC THEN
+    rVotedTurbineSpeed := (rTurbineSpeed_B + rTurbineSpeed_C) * 0.5;
+    bTurbineSpeed_Degraded := TRUE;
+    bDegradedSensorMode := TRUE;
+ELSIF bHealthyA AND bHealthyC THEN
+    rVotedTurbineSpeed := (rTurbineSpeed_A + rTurbineSpeed_C) * 0.5;
+    bTurbineSpeed_Degraded := TRUE;
+    bDegradedSensorMode := TRUE;
+ELSE
+    bTurbineSpeed_Fault := TRUE;
+    bSystemTrip := TRUE;
+    dwTripWord := dwTripWord OR 16#0000_0010; (* 2oo3 Loss of Turbine Speed Feedback *)
+END_IF;
+
+(* 2.6 Condenser / Absorber Low-Pressure Shell Pressure Voting *)
+rDiffAB := ABS(rCondenserPressure_A - rCondenserPressure_B);
+rDiffBC := ABS(rCondenserPressure_B - rCondenserPressure_C);
+rDiffCA := ABS(rCondenserPressure_C - rCondenserPressure_A);
+bHealthyA := (rDiffAB <= rCondenserPressTol) OR (rDiffCA <= rCondenserPressTol);
+bHealthyB := (rDiffAB <= rCondenserPressTol) OR (rDiffBC <= rCondenserPressTol);
+bHealthyC := (rDiffBC <= rCondenserPressTol) OR (rDiffCA <= rCondenserPressTol);
+
+IF bHealthyA AND bHealthyB AND bHealthyC THEN
+    IF (rCondenserPressure_A >= rCondenserPressure_B AND rCondenserPressure_A <= rCondenserPressure_C) OR
+       (rCondenserPressure_A <= rCondenserPressure_B AND rCondenserPressure_A >= rCondenserPressure_C) THEN
+        rVotedCondenserPressure := rCondenserPressure_A;
+    ELSIF (rCondenserPressure_B >= rCondenserPressure_A AND rCondenserPressure_B <= rCondenserPressure_C) OR
+          (rCondenserPressure_B <= rCondenserPressure_A AND rCondenserPressure_B >= rCondenserPressure_C) THEN
+        rVotedCondenserPressure := rCondenserPressure_B;
+    ELSE
+        rVotedCondenserPressure := rCondenserPressure_C;
+    END_IF;
+    bCondenserPressure_Degraded := FALSE;
+ELSIF bHealthyA AND bHealthyB THEN
+    rVotedCondenserPressure := (rCondenserPressure_A + rCondenserPressure_B) * 0.5;
+    bCondenserPressure_Degraded := TRUE;
+    bDegradedSensorMode := TRUE;
+ELSIF bHealthyB AND bHealthyC THEN
+    rVotedCondenserPressure := (rCondenserPressure_B + rCondenserPressure_C) * 0.5;
+    bCondenserPressure_Degraded := TRUE;
+    bDegradedSensorMode := TRUE;
+ELSIF bHealthyA AND bHealthyC THEN
+    rVotedCondenserPressure := (rCondenserPressure_A + rCondenserPressure_C) * 0.5;
+    bCondenserPressure_Degraded := TRUE;
+    bDegradedSensorMode := TRUE;
+ELSE
+    bCondenserPressure_Fault := TRUE;
+    bSystemTrip := TRUE;
+    dwTripWord := dwTripWord OR 16#0000_0020; (* 2oo3 Loss of Condenser Vacuum Measurement *)
+END_IF;
+
+(* 2.7 Liquid Float Level Voting (Separator, Hotwell, HTR, LTR, Preheater) *)
+rVotedSeparatorFloatLevel := (rSeparatorFloatLevel_A + rSeparatorFloatLevel_B + rSeparatorFloatLevel_C) / 3.0;
+rVotedHotwellFloatLevel   := (rHotwellFloatLevel_A + rHotwellFloatLevel_B + rHotwellFloatLevel_C) / 3.0;
+rVotedHTR_FloatLevel      := (rHTR_FloatLevel_A + rHTR_FloatLevel_B + rHTR_FloatLevel_C) / 3.0;
+rVotedLTR_FloatLevel      := (rLTR_FloatLevel_A + rLTR_FloatLevel_B + rLTR_FloatLevel_C) / 3.0;
+rVotedPreheaterFloatLevel := (rPreheaterFloatLevel_A + rPreheaterFloatLevel_B + rPreheaterFloatLevel_C) / 3.0;
+rVotedFeedFlow            := (rWorkingFluidFeedFlow_A + rWorkingFluidFeedFlow_B + rWorkingFluidFeedFlow_C) / 3.0;
+rVotedGeneratorRealPower  := (rGeneratorRealPower_A + rGeneratorRealPower_B + rGeneratorRealPower_C) / 3.0;
+rVotedTurbineInletPress   := (rTurbineInletPress_A + rTurbineInletPress_B + rTurbineInletPress_C) / 3.0;
+rVotedTurbineExhaustPress := (rTurbineExhaustPress_A + rTurbineExhaustPress_B + rTurbineExhaustPress_C) / 3.0;
+rVotedNCGLockPressure     := (rNCGLockPressure_A + rNCGLockPressure_B) * 0.5;
+
+(* ----------------------------------------------------------------------------------------- *)
+(* 3.0 THERMODYNAMIC PROPERTY ESTIMATION & VLE CALCULATIONS                                  *)
+(* Estimates zeotropic ammonia-water equilibrium, superheat clearance, and silica saturation *)
+(* ----------------------------------------------------------------------------------------- *)
+(* 3.1 Bubble-Point Temperature of Basic Mixture at High Pressure *)
+(* Polynomial approximation: T_bub = f(P_sep, x_b) *)
+rCalcBubblePointTemp := 45.2 + (2.15 * rVotedSeparatorPress) - (0.015 * rVotedSeparatorPress * rVotedSeparatorPress)
+                        - (48.0 * rVotedBasicAmmoniaConc) + (18.5 * rVotedBasicAmmoniaConc * rVotedBasicAmmoniaConc)
+                        + (0.35 * rVotedSeparatorPress * (1.0 - rVotedBasicAmmoniaConc));
+
+(* 3.2 Dew-Point Temperature of Separator Overhead Vapor Stream *)
+(* T_dew = f(P_sep, x_v) *)
+rCalcDewPointTemp := 78.4 + (2.65 * rVotedSeparatorPress) - (0.018 * rVotedSeparatorPress * rVotedSeparatorPress)
+                     - (32.0 * rVotedVaporAmmoniaConc) + (12.0 * rVotedVaporAmmoniaConc * rVotedVaporAmmoniaConc);
+
+(* 3.3 Vapor Superheat Margin Clearance *)
+rSeparatorVaporSuperheat := rSeparatorVaporTemp_A - rCalcDewPointTemp;
+rDewPointMargin_degC := rSeparatorVaporSuperheat;
+
+(* If superheat margin is deficient, risk of liquid droplets eroding turbine blading *)
+IF (rDewPointMargin_degC < c_rMinVaporSuperheatMargin) AND (iState >= 70) THEN
+    dwAlarmWord1 := dwAlarmWord1 OR 16#0000_0004; (* Inadequate Vapor Superheat Margin *)
+ELSE
+    dwAlarmWord1 := dwAlarmWord1 AND NOT 16#0000_0004;
+END_IF;
+
+(* 3.4 Geothermal Brine Reinjection Silica Solubility Margin *)
+(* Fournier & Rowe empirical equilibrium equation for amorphous silica solubility: *)
+(* log10(C_SiO2_sat [mg/kg]) = 4.52 - 731.0 / (T_K) *)
+IF rVotedBrineOutletTemp > 10.0 THEN
+    rSilicaEquilibriumSolubility := EXPT(10.0, (4.52 - (731.0 / (rVotedBrineOutletTemp + 273.15))));
+ELSE
+    rSilicaEquilibriumSolubility := 120.0;
+END_IF;
+
+IF rSilicaEquilibriumSolubility > 1.0 THEN
+    rSilicaSaturationIndex := rMeasuredSilicaConcentration / rSilicaEquilibriumSolubility;
+ELSE
+    rSilicaSaturationIndex := 1.5;
+END_IF;
+
+(* Silica Precipitation Prevention Interlock *)
+IF (rVotedBrineOutletTemp < c_rMinBrineReinjectTemp) OR (rSilicaSaturationIndex > 1.05) THEN
+    dwAlarmWord1 := dwAlarmWord1 OR 16#0000_0008; (* Silica Scaling Excursion on Reinjection *)
+    tSilicaExcursionTimer := tSilicaExcursionTimer + c_rScanTime_Ts;
+    IF tSilicaExcursionTimer > 30.0 THEN
+        bSystemTrip := TRUE;
+        dwTripWord := dwTripWord OR 16#0000_0040; (* Silica Scaling Emergency Lockout Trip *)
+    END_IF;
+ELSE
+    tSilicaExcursionTimer := 0.0;
+    dwAlarmWord1 := dwAlarmWord1 AND NOT 16#0000_0008;
+END_IF;
+
+(* 3.5 Cycle Thermal Duties and First/Second Law Efficiencies *)
+(* Brine Heat Transfer Rate = m_brine * c_p_brine * (T_in - T_out) where c_p ~ 4.18 kJ/(kg*K) *)
+rBrineHeatExtraction_kW := rVotedBrineMassFlow * 4.184 * (rVotedBrineInletTemp - rVotedBrineOutletTemp);
+rTotalThermalDuty_kW := rBrineHeatExtraction_kW * 0.965; (* 3.5% thermal shell losses *)
+
+IF rTotalThermalDuty_kW > 100.0 THEN
+    rKalinaThermalEfficiency := (rVotedGeneratorRealPower / rTotalThermalDuty_kW) * 100.0;
+    (* Exergy of 165°C brine against ambient wet-bulb reference: *)
+    rSecondLawExergyEfficiency := (rVotedGeneratorRealPower / (rTotalThermalDuty_kW * (1.0 - ((rAmbientWetBulbTemp + 273.15) / (rVotedBrineInletTemp + 273.15))))) * 100.0;
+ELSE
+    rKalinaThermalEfficiency := 0.0;
+    rSecondLawExergyEfficiency := 0.0;
+END_IF;
+
+(* ----------------------------------------------------------------------------------------- *)
+(* 4.0 VARIABLE WORKING FLUID CONCENTRATION DYNAMIC TRIMMING                                 *)
+(* Shifts basic ammonia-water concentration based on ambient wet-bulb temperature.          *)
+(* ----------------------------------------------------------------------------------------- *)
+IF bAutoConcentrationShiftEnable THEN
+    (* Higher ambient sink temperature -> Lower basic concentration needed to maintain condensation pressure *)
+    (* Lower ambient sink temperature (e.g. night) -> Higher concentration to maximize turbine expansion *)
+    rTargetBasicAmmoniaConc := 0.865 - (0.0042 * rAmbientWetBulbTemp);
+    IF rTargetBasicAmmoniaConc > 0.840 THEN
+        rTargetBasicAmmoniaConc := 0.840;
+    ELSIF rTargetBasicAmmoniaConc < 0.720 THEN
+        rTargetBasicAmmoniaConc := 0.720;
+    END_IF;
+ELSE
+    rTargetBasicAmmoniaConc := 0.780; (* Manual Default Baseline *)
+END_IF;
+
+(* ----------------------------------------------------------------------------------------- *)
+(* 5.0 DYNAMIC FRACTIONATION DISTILLATION & SEPARATOR LEVEL FLOAT BALANCE                    *)
+(* Regulates overhead vapor purity (x_v > 0.94) and bottoms lean liquid drain to HTR.        *)
+(* ----------------------------------------------------------------------------------------- *)
+(* 5.1 Distillation Overhead Reflux Control *)
+(* If vapor concentration falls below target, increase reflux flow to enrich column top *)
+IF rVotedVaporAmmoniaConc < rTargetVaporConc THEN
+    rDistillationReflux_Cmd := rDistillationReflux_Cmd + ((rTargetVaporConc - rVotedVaporAmmoniaConc) * 15.0 * c_rScanTime_Ts);
+ELSE
+    rDistillationReflux_Cmd := rDistillationReflux_Cmd - ((rVotedVaporAmmoniaConc - rTargetVaporConc) * 8.0 * c_rScanTime_Ts);
+END_IF;
+
+IF rDistillationReflux_Cmd > 85.0 THEN
+    rDistillationReflux_Cmd := 85.0;
+ELSIF rDistillationReflux_Cmd < 5.0 THEN
+    rDistillationReflux_Cmd := 5.0;
+END_IF;
+
+(* 5.2 Separator Bottoms Lean Liquid Float Level Control *)
+rSepLevelError := rVotedSeparatorFloatLevel - rTargetSeparatorLevel;
+rSepLevelIntegral := rSepLevelIntegral + (rSepLevelError * c_rScanTime_Ts);
+IF rSepLevelIntegral > 250.0 THEN rSepLevelIntegral := 250.0; ELSIF rSepLevelIntegral < -250.0 THEN rSepLevelIntegral := -250.0; END_IF;
+
+rSepFloatValveDemand := (rSepLevelKp * rSepLevelError) + (rSepLevelKi * rSepLevelIntegral) + 45.0;
+
+(* Anti-Vapor Blow-Through Interlock: If liquid level is dangerously low, throttle drain *)
+IF rVotedSeparatorFloatLevel < 18.0 THEN
+    bAntiVaporBlowThrough_Active := TRUE;
+    rLeanLiquidDrainValve_Cmd := 0.0; (* Hard Close Drain *)
+    dwAlarmWord1 := dwAlarmWord1 OR 16#0000_0010; (* Separator Low-Low Level Blow-Through Trip *)
+ELSIF rVotedSeparatorFloatLevel > 82.0 THEN
+    bAntiLiquidCarryOver_Active := TRUE;
+    rLeanLiquidDrainValve_Cmd := 100.0; (* Force 100% Drain Open *)
+    dwAlarmWord1 := dwAlarmWord1 OR 16#0000_0020; (* Separator High-High Level Carry-Over Alarm *)
+ELSE
+    bAntiVaporBlowThrough_Active := FALSE;
+    bAntiLiquidCarryOver_Active := FALSE;
+    dwAlarmWord1 := dwAlarmWord1 AND NOT 16#0000_0030;
+    IF rSepFloatValveDemand > 100.0 THEN
+        rLeanLiquidDrainValve_Cmd := 100.0;
+    ELSIF rSepFloatValveDemand < 0.0 THEN
+        rLeanLiquidDrainValve_Cmd := 0.0;
+    ELSE
+        rLeanLiquidDrainValve_Cmd := rSepFloatValveDemand;
+    END_IF;
+END_IF;
+"""
+
+with open("scratch/part4_logic_a.txt", "w", encoding="utf-8") as f:
+    f.write(part4_logic_a)
+
+print("Part 4A written. Length:", len(part4_logic_a))

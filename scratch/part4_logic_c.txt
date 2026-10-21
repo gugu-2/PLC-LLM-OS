@@ -1,0 +1,323 @@
+(* ----------------------------------------------------------------------------------------- *)
+(* 10.0 MULTI-STAGE SUPERVISORY FINITE STATE MACHINE (FSM)                                   *)
+(* Controls plant lifecycle from cold evacuation to synchronous baseload generation.        *)
+(* ----------------------------------------------------------------------------------------- *)
+IF iState <> iPrevState THEN
+    tStateTimer := 0.0; (* Reset State Dwell Timer on State Transition *)
+    iPrevState := iState;
+ELSE
+    tStateTimer := tStateTimer + c_rScanTime_Ts;
+END_IF;
+
+CASE iState OF
+    0: (* STATE_UNINITIALIZED_POST: Power-On Self-Test & Diagnostic Initialization *)
+        bSystemReady := FALSE;
+        bSystemRunning := FALSE;
+        bMPC_Active := FALSE;
+        rBrineControlValve_Cmd := 0.0;
+        rBrineBypassValve_Cmd := 100.0;
+        rTurbineThrottleValve_Cmd := 0.0;
+        rTurbineBypassValve_Cmd := 100.0;
+        bEmergencyStopValve_Trip := FALSE;
+        rDistillationReflux_Cmd := 10.0;
+        rCondensatePumpSpeed_Cmd := 0.0;
+
+        (* Check analog transmitters and safety circuit *)
+        IF bEmergencyStop AND NOT bTripLatched AND (tStateTimer >= 3.0) THEN
+            iState := 10; (* Proceed to Standby Ready *)
+        END_IF;
+
+    10: (* STATE_STANDBY_READY: System Ready for Start Permissive *)
+        bSystemReady := TRUE;
+        bSystemRunning := FALSE;
+        bMPC_Active := FALSE;
+        rBrineControlValve_Cmd := 0.0;
+        rBrineBypassValve_Cmd := 100.0;
+        rTurbineThrottleValve_Cmd := 0.0;
+        rTurbineBypassValve_Cmd := 100.0;
+        bEmergencyStopValve_Trip := FALSE;
+
+        IF bEnableSystem AND NOT bSystemTrip THEN
+            iState := 20; (* Initiate Evacuation & Vacuum Priming *)
+        END_IF;
+
+    20: (* STATE_NCG_LOCK_PREVACUUM: Condenser Deep Evacuation & NCG Priming *)
+        bSystemReady := TRUE;
+        bSystemRunning := FALSE;
+        bNCGVacuumPump_Run := TRUE;
+        bNCGScrubberPump_Run := TRUE;
+        rNCGLockInletValve_Cmd := 50.0;
+
+        (* Once low-pressure shell pressure is below 480 kPa, proceed to charging *)
+        IF (rVotedCondenserPressure <= 480.0) AND (tStateTimer >= 10.0) THEN
+            rNCGLockInletValve_Cmd := 0.0;
+            bNCGVacuumPump_Run := FALSE;
+            iState := 30; (* Working Fluid Inventory Stabilization *)
+        ELSIF tStateTimer >= 60.0 THEN
+            (* Evacuation timeout *)
+            bSystemWarning := TRUE;
+            dwAlarmWord2 := dwAlarmWord2 OR 16#0000_0010; (* Condenser Vacuum Draw Timeout *)
+            iState := 30;
+        END_IF;
+
+    30: (* STATE_AMMONIA_WATER_BLENDING: Inventory Charge & Basic Concentration Balance *)
+        bSystemReady := TRUE;
+        bSystemRunning := FALSE;
+        rCondensatePumpSpeed_Cmd := 35.0; (* Establish low-rate circulation *)
+        rDistillationReflux_Cmd := 25.0;
+
+        IF (rVotedBasicAmmoniaConc >= 0.70) AND (rVotedBasicAmmoniaConc <= 0.85) AND (tStateTimer >= 8.0) THEN
+            iState := 40; (* Introduce Brine Warm-Up *)
+            tBrineWarmupTimer := 0.0;
+        END_IF;
+
+    40: (* STATE_BRINE_INTRO_WARMUP: Controlled Heat Exchanger Ramp-Up (dT/dt <= 2.5 C/min) *)
+        bSystemReady := TRUE;
+        bSystemRunning := FALSE;
+        tBrineWarmupTimer := tBrineWarmupTimer + c_rScanTime_Ts;
+
+        (* Gradually modulate brine control valve from 0 to 45% while throttling bypass *)
+        IF rBrineControlValve_Cmd < 45.0 THEN
+            rBrineControlValve_Cmd := rBrineControlValve_Cmd + (0.50 * c_rScanTime_Ts);
+            rBrineBypassValve_Cmd := 100.0 - rBrineControlValve_Cmd;
+        END_IF;
+
+        (* Maintain minimum reinjection temperature to protect silica scaling *)
+        IF (rVotedBrineOutletTemp >= c_rMinBrineReinjectTemp) AND (rVotedSeparatorVaporTemp >= 115.0) AND (tBrineWarmupTimer >= 30.0) THEN
+            bBrineThermalRampComplete := TRUE;
+            iState := 50; (* Fractionation Equilibrium *)
+        END_IF;
+
+    50: (* STATE_FRACTIONATION_DISTILLATION: Establish VLE Separation & Vapor Purity *)
+        bSystemReady := TRUE;
+        bSystemRunning := FALSE;
+        rBrineControlValve_Cmd := 65.0;
+        rBrineBypassValve_Cmd := 35.0;
+
+        (* Verify overhead vapor ammonia purity and superheat clearance *)
+        IF (rVotedVaporAmmoniaConc >= 0.930) AND (rDewPointMargin_degC >= c_rMinVaporSuperheatMargin) AND (tStateTimer >= 15.0) THEN
+            bDistillationEquilibriumReached := TRUE;
+            iState := 60; (* Turbine Casing Warmup *)
+        END_IF;
+
+    60: (* STATE_TURBINE_CASING_WARMUP: Turning Gear Slow-Roll & Pre-Spin Thermal Soak *)
+        bSystemReady := TRUE;
+        bSystemRunning := FALSE;
+        tTurbineWarmupTimer := tTurbineWarmupTimer + c_rScanTime_Ts;
+        rVanePitchAngle_Cmd := 20.0;
+        rTurbineBypassValve_Cmd := 90.0;
+        rTurbineThrottleValve_Cmd := 5.0; (* Minor pilot steam admission *)
+
+        IF (rTurbineInletTemp_A >= 130.0) AND (tTurbineWarmupTimer >= 20.0) THEN
+            bTurbinePreheatSatisfied := TRUE;
+            iState := 70; (* Accelerate Expander *)
+        END_IF;
+
+    70: (* STATE_TURBINE_ACCEL_GOVERNOR: Ramp Through Resonances to Synchronous Speed *)
+        bSystemReady := TRUE;
+        bSystemRunning := TRUE;
+        bEmergencyStopValve_Trip := TRUE; (* Solenoid Energized *)
+        rBrineControlValve_Cmd := 85.0;
+        rBrineBypassValve_Cmd := 15.0;
+
+        (* Governor handles acceleration ramp to 12,000 rpm *)
+        IF bGovernorSynchronized AND (tStateTimer >= 25.0) THEN
+            iState := 80; (* Synchronize to High-Voltage Grid *)
+            tSyncWatchdogTimer := 0.0;
+        END_IF;
+
+    80: (* STATE_GRID_SYNCHRONIZATION: Frequency & Phase Lock, Breaker Closure *)
+        bSystemReady := TRUE;
+        bSystemRunning := TRUE;
+        tSyncWatchdogTimer := tSyncWatchdogTimer + c_rScanTime_Ts;
+
+        IF bGridBreakerClosed THEN
+            iState := 90; (* Baseload Online Generation *)
+        ELSIF tSyncWatchdogTimer >= 60.0 THEN
+            (* Synchronization timeout *)
+            dwAlarmWord2 := dwAlarmWord2 OR 16#0000_0020; (* Sync Watchdog Expiry *)
+            iState := 70; (* Re-arm Speed Loop *)
+        END_IF;
+
+    90: (* STATE_BASELOAD_ONLINE_MPC: 6-State Constrained MPC Optimal Power Generation *)
+        bSystemReady := TRUE;
+        bSystemRunning := TRUE;
+        bMPC_Active := TRUE;
+
+        (* Apply MPC Output Corrections on Top of Base Operating Schedules *)
+        rBrineControlValve_Cmd := 92.0 + rDelta_u3_Brine;
+        IF rBrineControlValve_Cmd > 100.0 THEN rBrineControlValve_Cmd := 100.0; ELSIF rBrineControlValve_Cmd < 40.0 THEN rBrineControlValve_Cmd := 40.0; END_IF;
+        rBrineBypassValve_Cmd := 100.0 - rBrineControlValve_Cmd;
+
+        (* Monitor for Grid Frequency Excursions *)
+        IF ABS(rGridFrequency_Hz - 50.0) > 0.25 THEN
+            iState := 100; (* Dynamic Frequency Droop Support *)
+        END_IF;
+
+        IF NOT bEnableSystem THEN
+            iState := 110; (* Controlled Shutdown Command *)
+        END_IF;
+
+    100: (* STATE_FREQUENCY_RESPONSE_DROOP: Primary Grid Frequency Support *)
+        bSystemReady := TRUE;
+        bSystemRunning := TRUE;
+        bMPC_Active := FALSE; (* Temporarily suspend MPC to prioritize fast droop response *)
+
+        (* Fast governor throttle modulation active via Section 6.3 droop *)
+        IF ABS(rGridFrequency_Hz - 50.0) <= 0.08 THEN
+            iState := 90; (* Return to Optimal Baseload MPC *)
+        END_IF;
+
+        IF NOT bEnableSystem THEN
+            iState := 110;
+        END_IF;
+
+    110: (* STATE_CONTROLLED_SHUTDOWN: Deloading, Brine Ramp Down & Expander Coast-Down *)
+        bSystemReady := FALSE;
+        bSystemRunning := FALSE;
+        bMPC_Active := FALSE;
+
+        (* Ramp down brine valve *)
+        IF rBrineControlValve_Cmd > 0.0 THEN
+            rBrineControlValve_Cmd := rBrineControlValve_Cmd - (1.5 * c_rScanTime_Ts);
+            rBrineBypassValve_Cmd := 100.0 - rBrineControlValve_Cmd;
+        ELSE
+            rBrineControlValve_Cmd := 0.0;
+            rBrineBypassValve_Cmd := 100.0;
+        END_IF;
+
+        (* Unload turbine *)
+        IF rTurbineThrottleValve_Cmd > 0.0 THEN
+            rTurbineThrottleValve_Cmd := rTurbineThrottleValve_Cmd - (2.5 * c_rScanTime_Ts);
+            rTurbineBypassValve_Cmd := 100.0;
+        ELSE
+            rTurbineThrottleValve_Cmd := 0.0;
+            bEmergencyStopValve_Trip := FALSE;
+        END_IF;
+
+        IF (rVotedTurbineSpeed <= 300.0) AND (rBrineControlValve_Cmd <= 0.0) THEN
+            iState := 130; (* Safe Inventory Cold Park *)
+        END_IF;
+
+    120: (* STATE_EMERGENCY_TRIP_SHUTDOWN: Rapid Isolation, Bypass Dump & Vent Lock *)
+        bSystemReady := FALSE;
+        bSystemRunning := FALSE;
+        bMPC_Active := FALSE;
+
+        (* Fast SIL-3 Actions (<100 ms) *)
+        bEmergencyStopValve_Trip := FALSE; (* Immediate Hardwired Trip Solenoid De-Energized *)
+        rTurbineThrottleValve_Cmd := 0.0;
+        rTurbineBypassValve_Cmd := 100.0; (* Full Open Dump *)
+        rBrineControlValve_Cmd := 0.0;
+        rBrineBypassValve_Cmd := 100.0;
+        rVanePitchAngle_Cmd := 15.0;
+
+        (* If fault acknowledged and cleared, proceed to safe park *)
+        IF NOT bTripLatched AND (rVotedTurbineSpeed < 200.0) THEN
+            iState := 130;
+        END_IF;
+
+    130: (* STATE_POST_TRIP_COLD_PARK: Safe Inventory Lockdown & Thermal Relief *)
+        bSystemReady := FALSE;
+        bSystemRunning := FALSE;
+        bMPC_Active := FALSE;
+        bEmergencyStopValve_Trip := FALSE;
+        rTurbineThrottleValve_Cmd := 0.0;
+        rTurbineBypassValve_Cmd := 100.0;
+        rBrineControlValve_Cmd := 0.0;
+        rBrineBypassValve_Cmd := 100.0;
+        rCondensatePumpSpeed_Cmd := 0.0;
+        rDistillationReflux_Cmd := 0.0;
+
+        IF bAcknowledgeFault AND bEmergencyStop THEN
+            iState := 10; (* Return to Standby Ready *)
+        END_IF;
+
+END_CASE;
+
+(* Update Output State Index *)
+iCurrentState := iState;
+
+(* ----------------------------------------------------------------------------------------- *)
+(* 11.0 COMPLEX ALARM TREE, SIL-3 DIAGNOSTICS & SYSTEM STATUS BITMASKS                       *)
+(* Evaluates process boundaries, debounces alarms, and packs 32-bit monitoring words.        *)
+(* ----------------------------------------------------------------------------------------- *)
+(* 11.1 Turbomachinery Mechanical Protection Interlocks *)
+IF rVotedTurbineSpeed > c_rTurbineTripSpeed THEN
+    tOverspeedDebounceTimer := tOverspeedDebounceTimer + c_rScanTime_Ts;
+    IF tOverspeedDebounceTimer >= 0.050 THEN
+        bSystemTrip := TRUE;
+        dwTripWord := dwTripWord OR 16#0000_0080; (* API 612 Expander Hard Overspeed (110%) Trip *)
+        iState := 120;
+    END_IF;
+ELSE
+    tOverspeedDebounceTimer := 0.0;
+END_IF;
+
+IF (rTurbineVibrationRadial_X > c_rMaxAllowableVibration) OR
+   (rTurbineVibrationRadial_Y > c_rMaxAllowableVibration) THEN
+    tVibrationExcursionTimer := tVibrationExcursionTimer + c_rScanTime_Ts;
+    dwAlarmWord2 := dwAlarmWord2 OR 16#0000_0040; (* Radial Shaft Vibration High Alarm *)
+    IF tVibrationExcursionTimer >= 1.50 THEN
+        bSystemTrip := TRUE;
+        dwTripWord := dwTripWord OR 16#0000_0100; (* API 670 High Vibration Automatic Trip *)
+        iState := 120;
+    END_IF;
+ELSE
+    tVibrationExcursionTimer := 0.0;
+    dwAlarmWord2 := dwAlarmWord2 AND NOT 16#0000_0040;
+END_IF;
+
+IF rTurbineThrustDisplacement > c_rMaxAxialThrustDisplacement THEN
+    bSystemTrip := TRUE;
+    dwTripWord := dwTripWord OR 16#0000_0200; (* Thrust Bearing Axial Float Excursion Trip *)
+    iState := 120;
+END_IF;
+
+(* 11.2 Condenser Vacuum Loss Protection *)
+IF rVotedCondenserPressure > c_rMaxAllowableCondenserPress THEN
+    tVacuumLossTimer := tVacuumLossTimer + c_rScanTime_Ts;
+    dwAlarmWord2 := dwAlarmWord2 OR 16#0000_0080; (* Condenser Shell High Backpressure Alarm *)
+    IF tVacuumLossTimer >= 3.0 THEN
+        bSystemTrip := TRUE;
+        dwTripWord := dwTripWord OR 16#0000_0400; (* Severe Condenser Vacuum Collapse Trip *)
+        iState := 120;
+    END_IF;
+ELSE
+    tVacuumLossTimer := 0.0;
+    dwAlarmWord2 := dwAlarmWord2 AND NOT 16#0000_0080;
+END_IF;
+
+(* 11.3 High-Pressure Separator Overpressure Protection *)
+IF rVotedSeparatorPress > c_rMaxSeparatorPress THEN
+    bSystemTrip := TRUE;
+    dwTripWord := dwTripWord OR 16#0000_0800; (* Evaporator Drum Catastrophic Overpressure Trip *)
+    iState := 120;
+END_IF;
+
+(* 11.4 Environmental Ammonia Release Protection *)
+IF rNCGAmmoniaVaporPPM > c_rMaxAllowableAmmoniaPPM THEN
+    dwAlarmWord2 := dwAlarmWord2 OR 16#0000_0100; (* Atmospheric Vent Ammonia Release Warning *)
+    rNCGLockVentValve_Cmd := 0.0; (* Immediate Close Vent *)
+END_IF;
+
+(* 11.5 Pack 32-Bit Operational Status Bitmask (dwSystemStatusWord) *)
+dwSystemStatusWord := 16#0000_0000;
+IF bSystemReady              THEN dwSystemStatusWord := dwSystemStatusWord OR 16#0000_0001; END_IF;
+IF bSystemRunning            THEN dwSystemStatusWord := dwSystemStatusWord OR 16#0000_0002; END_IF;
+IF bEmergencyStop            THEN dwSystemStatusWord := dwSystemStatusWord OR 16#0000_0004; END_IF;
+IF bGridBreakerClosed        THEN dwSystemStatusWord := dwSystemStatusWord OR 16#0000_0008; END_IF;
+IF bGovernorSynchronized     THEN dwSystemStatusWord := dwSystemStatusWord OR 16#0000_0010; END_IF;
+IF bMPC_Active               THEN dwSystemStatusWord := dwSystemStatusWord OR 16#0000_0020; END_IF;
+IF bDegradedSensorMode       THEN dwSystemStatusWord := dwSystemStatusWord OR 16#0000_0040; END_IF;
+IF bNCGPurgeCycleActive      THEN dwSystemStatusWord := dwSystemStatusWord OR 16#0000_0080; END_IF;
+IF bAntiVaporBlowThrough_Active THEN dwSystemStatusWord := dwSystemStatusWord OR 16#0000_0100; END_IF;
+IF bAntiLiquidCarryOver_Active  THEN dwSystemStatusWord := dwSystemStatusWord OR 16#0000_0200; END_IF;
+IF bBrineThermalRampComplete THEN dwSystemStatusWord := dwSystemStatusWord OR 16#0000_0400; END_IF;
+IF bDistillationEquilibriumReached THEN dwSystemStatusWord := dwSystemStatusWord OR 16#0000_0800; END_IF;
+IF bTurbinePreheatSatisfied  THEN dwSystemStatusWord := dwSystemStatusWord OR 16#0000_1000; END_IF;
+IF bTripLatched              THEN dwSystemStatusWord := dwSystemStatusWord OR 16#0000_2000; END_IF;
+IF bSystemWarning            THEN dwSystemStatusWord := dwSystemStatusWord OR 16#0000_4000; END_IF;
+IF bSystemTrip               THEN dwSystemStatusWord := dwSystemStatusWord OR 16#0000_8000; END_IF;
+
+END_FUNCTION_BLOCK

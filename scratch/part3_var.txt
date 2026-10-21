@@ -1,0 +1,374 @@
+VAR
+    (* ===================================================================================== *)
+    (* 1.0 PHYSICAL, CHEMICAL & THERMODYNAMIC SYSTEM CONSTANTS                               *)
+    (* ===================================================================================== *)
+    c_rR_GasConstant                : REAL := 8.314462; (* Universal Molar Gas Constant [J/(mol*K)] *)
+    c_rMW_NH3                       : REAL := 17.0305;  (* Molecular Weight of Pure Ammonia (NH3) [g/mol] *)
+    c_rMW_H2O                       : REAL := 18.0153;  (* Molecular Weight of Pure Water (H2O) [g/mol] *)
+    c_rMinBrineReinjectTemp         : REAL := 72.0;     (* Hard Reinjection Lower Limit for Silica Precipitation [deg C] *)
+    c_rMaxBrineSupplyTemp           : REAL := 175.0;    (* Maximum Allowable Wellhead Brine Inflow Temperature [deg C] *)
+    c_rMaxSeparatorPress            : REAL := 38.0;     (* Design Gauge Pressure Limit of High-Pressure Separator [bar] *)
+    c_rMinVaporSuperheatMargin      : REAL := 8.0;      (* Minimum Allowable Vapor Superheat Above Dew Point [deg C] *)
+    c_rRatedTurbineSpeed            : REAL := 12000.0;  (* Nominal Synchronous Speed of Radial Inflow Expander [rpm] *)
+    c_rTurbineTripSpeed             : REAL := 13200.0;  (* Mechanical / Electrical Hard Overspeed Trip Limit (110%) [rpm] *)
+    c_rTurbineRotorDiameter         : REAL := 0.285;    (* Expander Rotor Outer Impeller Tip Diameter [m] *)
+    c_rRatedGeneratorPower_kW       : REAL := 8500.0;   (* Nameplate Nominal Continuous Electric Generator Rating [kW] *)
+    c_rMaxAllowableVibration        : REAL := 38.0;     (* API 670 Radial Casing Shaft Vibration Shutdown Threshold [um] *)
+    c_rMaxAxialThrustDisplacement   : REAL := 0.35;     (* API 670 Active-Face Axial Rotor Displacement Trip Limit [mm] *)
+    c_rMaxAllowableCondenserPress   : REAL := 650.0;    (* Condenser Shell Rupture Disc & Trip Backpressure [kPa] *)
+    c_rMaxAllowableAmmoniaPPM       : REAL := 25.0;     (* OSHA / EPA Maximum Atmospheric Vent Exposure Limit [ppm] *)
+    c_rScanTime_Ts                  : REAL := 0.050;    (* Discrete Execution Sampling Interval (50 milliseconds) [s] *)
+
+    (* ===================================================================================== *)
+    (* 2.0 TRIPLE MODULAR REDUNDANCY (2oo3) VOTING REGISTERS & DISCREPANCY TRACKERS         *)
+    (* Graceful degradation architecture: 2oo3 healthy -> 1oo2 degraded -> Fail-Safe Trip     *)
+    (* ===================================================================================== *)
+    (* Brine Supply Temperature Group [deg C] *)
+    rVotedBrineInletTemp            : REAL := 165.0;
+    bBrineInletTemp_Degraded        : BOOL := FALSE;
+    bBrineInletTemp_Fault           : BOOL := FALSE;
+    rBrineTempTol                   : REAL := 4.5;      (* Permissible Inter-Channel Spread Threshold [deg C] *)
+
+    (* Brine Supply Pressure Group [bar] *)
+    rVotedBrineInletPress           : REAL := 18.5;
+    bBrineInletPress_Degraded       : BOOL := FALSE;
+    bBrineInletPress_Fault          : BOOL := FALSE;
+    rBrinePressTol                  : REAL := 1.2;      (* Permissible Inter-Channel Spread Threshold [bar] *)
+
+    (* Brine Mass Flowrate Group [kg/s] *)
+    rVotedBrineMassFlow             : REAL := 140.0;
+    bBrineMassFlow_Degraded         : BOOL := FALSE;
+    bBrineMassFlow_Fault            : BOOL := FALSE;
+    rBrineFlowTol                   : REAL := 8.0;      (* Permissible Inter-Channel Spread Threshold [kg/s] *)
+
+    (* Brine Reinjection Temperature Group [deg C] *)
+    rVotedBrineOutletTemp           : REAL := 75.0;
+    bBrineOutletTemp_Degraded       : BOOL := FALSE;
+    bBrineOutletTemp_Fault          : BOOL := FALSE;
+    rBrineOutletTempTol             : REAL := 3.5;      (* Permissible Inter-Channel Spread Threshold [deg C] *)
+
+    (* Separator High Pressure Drum Group [bar] *)
+    rVotedSeparatorPress            : REAL := 32.5;
+    bSeparatorPress_Degraded        : BOOL := FALSE;
+    bSeparatorPress_Fault           : BOOL := FALSE;
+    rSeparatorPressTol              : REAL := 1.5;      (* Permissible Inter-Channel Spread Threshold [bar] *)
+
+    (* Separator Overhead Rich Vapor Temperature Group [deg C] *)
+    rVotedSeparatorVaporTemp        : REAL := 142.0;
+    bSeparatorVaporTemp_Degraded    : BOOL := FALSE;
+    bSeparatorVaporTemp_Fault       : BOOL := FALSE;
+    rSeparatorTempTol               : REAL := 4.0;      (* Permissible Inter-Channel Spread Threshold [deg C] *)
+
+    (* Separator Overhead Rich Vapor Ammonia Concentration Group [mol/mol] *)
+    rVotedVaporAmmoniaConc          : REAL := 0.945;
+    bVaporAmmoniaConc_Degraded      : BOOL := FALSE;
+    bVaporAmmoniaConc_Fault         : BOOL := FALSE;
+    rVaporAmmoniaTol                : REAL := 0.025;    (* Permissible Inter-Channel Spread Threshold [mol/mol] *)
+
+    (* Basic Working Fluid Circulation Concentration Group [mol/mol] *)
+    rVotedBasicAmmoniaConc          : REAL := 0.780;
+    bBasicAmmoniaConc_Degraded      : BOOL := FALSE;
+    bBasicAmmoniaConc_Fault         : BOOL := FALSE;
+    rBasicAmmoniaTol                : REAL := 0.025;    (* Permissible Inter-Channel Spread Threshold [mol/mol] *)
+
+    (* Separator Drum Liquid Level Float Group [%] *)
+    rVotedSeparatorFloatLevel       : REAL := 50.0;
+    bSeparatorFloatLevel_Degraded   : BOOL := FALSE;
+    bSeparatorFloatLevel_Fault      : BOOL := FALSE;
+    rSeparatorLevelTol              : REAL := 6.0;      (* Permissible Inter-Channel Spread Threshold [%] *)
+
+    (* High-Pressure Working Fluid Feed Flow Group [kg/s] *)
+    rVotedFeedFlow                  : REAL := 38.5;
+    bFeedFlow_Degraded              : BOOL := FALSE;
+    bFeedFlow_Fault                 : BOOL := FALSE;
+    rFeedFlowTol                    : REAL := 3.0;      (* Permissible Inter-Channel Spread Threshold [kg/s] *)
+
+    (* Turbine Expander Shaft Speed Group [rpm] *)
+    rVotedTurbineSpeed              : REAL := 12000.0;
+    bTurbineSpeed_Degraded          : BOOL := FALSE;
+    bTurbineSpeed_Fault             : BOOL := FALSE;
+    rTurbineSpeedTol                : REAL := 150.0;    (* Permissible Inter-Channel Spread Threshold [rpm] *)
+
+    (* Turbine Casing Inlet Pressure Group [bar] *)
+    rVotedTurbineInletPress         : REAL := 31.8;
+    bTurbineInletPress_Degraded     : BOOL := FALSE;
+    bTurbineInletPress_Fault        : BOOL := FALSE;
+    rTurbineInletPressTol           : REAL := 1.5;      (* Permissible Inter-Channel Spread Threshold [bar] *)
+
+    (* Turbine Radial Diffuser Exhaust Pressure Group [bar] *)
+    rVotedTurbineExhaustPress       : REAL := 4.85;
+    bTurbineExhaustPress_Degraded   : BOOL := FALSE;
+    bTurbineExhaustPress_Fault      : BOOL := FALSE;
+    rTurbineExhaustPressTol         : REAL := 0.35;     (* Permissible Inter-Channel Spread Threshold [bar] *)
+
+    (* 3-Phase Generator Active Real Power Group [kW] *)
+    rVotedGeneratorRealPower        : REAL := 7200.0;
+    bGeneratorRealPower_Degraded    : BOOL := FALSE;
+    bGeneratorRealPower_Fault       : BOOL := FALSE;
+    rGeneratorPowerTol              : REAL := 250.0;    (* Permissible Inter-Channel Spread Threshold [kW] *)
+
+    (* Condenser / Absorber Low-Pressure Shell Group [kPa] *)
+    rVotedCondenserPressure         : REAL := 465.0;
+    bCondenserPressure_Degraded     : BOOL := FALSE;
+    bCondenserPressure_Fault        : BOOL := FALSE;
+    rCondenserPressTol              : REAL := 25.0;     (* Permissible Inter-Channel Spread Threshold [kPa] *)
+
+    (* Condenser Hotwell Condensate Float Level Group [%] *)
+    rVotedHotwellFloatLevel         : REAL := 52.0;
+    bHotwellFloatLevel_Degraded     : BOOL := FALSE;
+    bHotwellFloatLevel_Fault        : BOOL := FALSE;
+    rHotwellLevelTol                : REAL := 6.0;      (* Permissible Inter-Channel Spread Threshold [%] *)
+
+    (* High-Temperature Recuperator Drain Float Level Group [%] *)
+    rVotedHTR_FloatLevel            : REAL := 48.0;
+    bHTR_FloatLevel_Degraded        : BOOL := FALSE;
+    bHTR_FloatLevel_Fault           : BOOL := FALSE;
+    rHTR_LevelTol                   : REAL := 6.0;      (* Permissible Inter-Channel Spread Threshold [%] *)
+
+    (* Low-Temperature Recuperator Drain Float Level Group [%] *)
+    rVotedLTR_FloatLevel            : REAL := 51.0;
+    bLTR_FloatLevel_Degraded        : BOOL := FALSE;
+    bLTR_FloatLevel_Fault           : BOOL := FALSE;
+    rLTR_LevelTol                   : REAL := 6.0;      (* Permissible Inter-Channel Spread Threshold [%] *)
+
+    (* Evaporator Preheater Condensate Float Level Group [%] *)
+    rVotedPreheaterFloatLevel       : REAL := 49.5;
+    bPreheaterFloatLevel_Degraded   : BOOL := FALSE;
+    bPreheaterFloatLevel_Fault      : BOOL := FALSE;
+    rPreheaterLevelTol              : REAL := 6.0;      (* Permissible Inter-Channel Spread Threshold [%] *)
+
+    (* NCG Lock Chamber Pressure Group [kPa] *)
+    rVotedNCGLockPressure           : REAL := 450.0;
+    bNCGLockPressure_Degraded       : BOOL := FALSE;
+    bNCGLockPressure_Fault          : BOOL := FALSE;
+    rNCGLockPressTol                : REAL := 20.0;     (* Permissible Inter-Channel Spread Threshold [kPa] *)
+
+    (* Intermediate Voting Temporary Variables *)
+    rDiffAB                         : REAL := 0.0;
+    rDiffBC                         : REAL := 0.0;
+    rDiffCA                         : REAL := 0.0;
+    bHealthyA                       : BOOL := TRUE;
+    bHealthyB                       : BOOL := TRUE;
+    bHealthyC                       : BOOL := TRUE;
+
+    (* ===================================================================================== *)
+    (* 3.0 THERMODYNAMIC PROPERTY & VLE FRACTIONATION ESTIMATION REGISTERS                   *)
+    (* Ammonia-Water binary mixture phase equilibrium based on modified Tillner-Roth EOS     *)
+    (* ===================================================================================== *)
+    rCalcBubblePointTemp            : REAL := 82.5;     (* Calculated Bubble Point at Current Basic Concentration [deg C] *)
+    rCalcDewPointTemp               : REAL := 131.2;    (* Calculated Dew Point of Separator Overhead Vapor [deg C] *)
+    rSeparatorVaporSuperheat        : REAL := 10.8;     (* Superheat Margin = T_vap_voted - T_dew [deg C] *)
+    rVaporEnthalpy_kJ_kg            : REAL := 1585.0;   (* Separator Overhead Rich Vapor Specific Enthalpy [kJ/kg] *)
+    rLiquidEnthalpy_kJ_kg           : REAL := 345.0;    (* Separator Bottoms Lean Liquid Specific Enthalpy [kJ/kg] *)
+    rTurbineExhaustEnthalpy_kJ_kg   : REAL := 1385.0;   (* Actual Expander Exhaust Discharge Enthalpy [kJ/kg] *)
+    rIsentropicExhaustEnthalpy      : REAL := 1355.0;   (* Ideal Isentropic Expansion Discharge Enthalpy [kJ/kg] *)
+    rSpoutingVelocity_c0            : REAL := 678.2;    (* Theoretical Spouting Velocity c0 = SQRT(2 * Delta_h_is) [m/s] *)
+    rRotorBladeTipSpeed_u           : REAL := 179.0;    (* Tangential Impeller Tip Speed u = pi * D * N / 60 [m/s] *)
+    rSilicaEquilibriumSolubility    : REAL := 220.0;    (* Maximum Dissolved Amorphous SiO2 Solubility at T_out [mg/kg] *)
+    rMeasuredSilicaConcentration    : REAL := 185.0;    (* Real-Time Silica Concentration in Brine Resource [mg/kg] *)
+    rCondenserSatTemp               : REAL := 28.5;     (* Theoretical Equilibrium Saturation Temperature at P_cond [deg C] *)
+    rCondenserThermalApproach       : REAL := 6.0;      (* Cooling Water Return vs Sump Saturation Temperature Approach [deg C] *)
+    rAmmoniaPartialPressureEst      : REAL := 425.0;    (* Estimated Equilibrium Ammonia Partial Pressure in Shell [kPa] *)
+    rNCGPartialPressureDiff         : REAL := 40.0;     (* Incondensable Overpressure Margin = P_cond - P_sat_mix [kPa] *)
+
+    (* ===================================================================================== *)
+    (* 4.0 COMPLETE DISCRETE STATE-SPACE MATRICES (Ad, Bd, Cd, Dd) & MPC REGISTERS           *)
+    (* Linearized continuous-time system discretized at Ts = 0.050s:                         *)
+    (* States x = [Delta_x_vap (mol/mol), Delta_P_evap (bar), Delta_omega (rad/s),           *)
+    (*             Delta_L_sep (%), Delta_P_cond (kPa), Delta_L_cond (%)]'                  *)
+    (* Controls u = [Delta_theta_vane (%), Delta_u_reflux (%), Delta_u_brine (%),           *)
+    (*               Delta_u_cond_pump (%)]'                                                *)
+    (* Outputs y = [Delta_P_elec (kW), Delta_P_evap (bar), Delta_omega (rad/s),              *)
+    (*              Delta_P_cond (kPa)]'                                                    *)
+    (* ===================================================================================== *)
+    (* Discrete State Transition Matrix Ad (6x6) *)
+    Ad_11 : REAL := 0.9825; Ad_12 : REAL := 0.0018; Ad_13 : REAL := 0.0000; Ad_14 : REAL := -0.0012; Ad_15 : REAL := 0.0000; Ad_16 : REAL := 0.0000;
+    Ad_21 : REAL := 0.1250; Ad_22 : REAL := 0.9745; Ad_23 : REAL := -0.0085; Ad_24 : REAL := 0.0042; Ad_25 : REAL := 0.0015; Ad_26 : REAL := 0.0000;
+    Ad_31 : REAL := 0.4500; Ad_32 : REAL := 0.3200; Ad_33 : REAL := 0.9650; Ad_34 : REAL := 0.0000; Ad_35 : REAL := -0.0450; Ad_36 : REAL := 0.0000;
+    Ad_41 : REAL := -0.0850; Ad_42 : REAL := -0.0450; Ad_43 : REAL := 0.0000; Ad_44 : REAL := 0.9880; Ad_45 : REAL := 0.0000; Ad_46 : REAL := 0.0025;
+    Ad_51 : REAL := 0.0000; Ad_52 : REAL := 0.0250; Ad_53 : REAL := 0.0180; Ad_54 : REAL := 0.0000; Ad_55 : REAL := 0.9620; Ad_56 : REAL := 0.0045;
+    Ad_61 : REAL := 0.0000; Ad_62 : REAL := 0.0000; Ad_63 : REAL := 0.0000; Ad_64 : REAL := 0.0050; Ad_65 : REAL := -0.0280; Ad_66 : REAL := 0.9850;
+
+    (* Discrete Input Coupling Matrix Bd (6x4) *)
+    Bd_11 : REAL := 0.0005; Bd_12 : REAL := 0.0045; Bd_13 : REAL := -0.0008; Bd_14 : REAL := 0.0000;
+    Bd_21 : REAL := -0.0450; Bd_22 : REAL := 0.0120; Bd_23 : REAL := 0.0580; Bd_24 : REAL := -0.0035;
+    Bd_31 : REAL := 0.1850; Bd_32 : REAL := 0.0000; Bd_33 : REAL := 0.0240; Bd_34 : REAL := 0.0000;
+    Bd_41 : REAL := 0.0150; Bd_42 : REAL := -0.0380; Bd_43 : REAL := 0.0250; Bd_44 : REAL := 0.0000;
+    Bd_51 : REAL := 0.0850; Bd_52 : REAL := 0.0000; Bd_53 : REAL := 0.0000; Bd_54 : REAL := -0.0650;
+    Bd_61 : REAL := 0.0000; Bd_62 : REAL := 0.0000; Bd_63 : REAL := 0.0000; Bd_64 : REAL := -0.0920;
+
+    (* Discrete Output Measurement Matrix Cd (4x6) *)
+    Cd_11 : REAL := 125.0; Cd_12 : REAL := 85.00; Cd_13 : REAL := 42.50; Cd_14 : REAL := 0.0000; Cd_15 : REAL := -12.50; Cd_16 : REAL := 0.0000;
+    Cd_21 : REAL := 0.0000; Cd_22 : REAL := 1.0000; Cd_23 : REAL := 0.0000; Cd_24 : REAL := 0.0000; Cd_25 : REAL := 0.0000; Cd_26 : REAL := 0.0000;
+    Cd_31 : REAL := 0.0000; Cd_32 : REAL := 0.0000; Cd_33 : REAL := 1.0000; Cd_34 : REAL := 0.0000; Cd_35 : REAL := 0.0000; Cd_36 : REAL := 0.0000;
+    Cd_41 : REAL := 0.0000; Cd_42 : REAL := 0.0000; Cd_43 : REAL := 0.0000; Cd_44 : REAL := 0.0000; Cd_45 : REAL := 1.0000; Cd_46 : REAL := 0.0000;
+
+    (* Discrete Direct Feedthrough Matrix Dd (4x4) *)
+    Dd_11 : REAL := 18.50; Dd_12 : REAL := 0.0000; Dd_13 : REAL := 0.0000; Dd_14 : REAL := 0.0000;
+    Dd_21 : REAL := 0.0000; Dd_22 : REAL := 0.0000; Dd_23 : REAL := 0.0000; Dd_24 : REAL := 0.0000;
+    Dd_31 : REAL := 0.0000; Dd_32 : REAL := 0.0000; Dd_33 : REAL := 0.0000; Dd_34 : REAL := 0.0000;
+    Dd_41 : REAL := 0.0000; Dd_42 : REAL := 0.0000; Dd_43 : REAL := 0.0000; Dd_44 : REAL := 0.0000;
+
+    (* State Deviation Registers *)
+    x1_ConcDev                      : REAL := 0.0;      (* Delta Separator Vapor Ammonia Fraction [mol/mol] *)
+    x2_PressDev                     : REAL := 0.0;      (* Delta High-Pressure Separator Pressure [bar] *)
+    x3_SpeedDev                     : REAL := 0.0;      (* Delta Expander Shaft Angular Speed [rad/s] *)
+    x4_SepLevelDev                  : REAL := 0.0;      (* Delta Separator Drum Float Level [%] *)
+    x5_CondPressDev                 : REAL := 0.0;      (* Delta Condenser Backpressure [kPa] *)
+    x6_HotwellLevelDev              : REAL := 0.0;      (* Delta Condenser Hotwell Float Level [%] *)
+
+    (* 1-Step Ahead Predicted States x_pred = Ad * x + Bd * u *)
+    x1_Pred : REAL := 0.0; x2_Pred : REAL := 0.0; x3_Pred : REAL := 0.0;
+    x4_Pred : REAL := 0.0; x5_Pred : REAL := 0.0; x6_Pred : REAL := 0.0;
+
+    (* 1-Step Ahead Predicted Outputs y_pred = Cd * x_pred + Dd * u *)
+    y1_PredPower                    : REAL := 0.0;      (* Predicted Power Output Deviation [kW] *)
+    y2_PredPress                    : REAL := 0.0;      (* Predicted Separator Pressure Deviation [bar] *)
+    y3_PredSpeed                    : REAL := 0.0;      (* Predicted Turbine Speed Deviation [rad/s] *)
+    y4_PredCondPress                : REAL := 0.0;      (* Predicted Condenser Pressure Deviation [kPa] *)
+
+    (* Reference Operating Points *)
+    rTargetVaporConc                : REAL := 0.945;    (* Target Overhead Rich Vapor Ammonia Concentration [mol/mol] *)
+    rTargetSeparatorPress           : REAL := 32.5;     (* Target High-Pressure Evaporator Pressure [bar] *)
+    rTargetTurbineSpeedRadS         : REAL := 1256.637; (* Target Turbine Speed 12,000 rpm in rad/s (12000 * 2*pi/60) *)
+    rTargetSeparatorLevel           : REAL := 50.0;     (* Target Separator Liquid Level [%] *)
+    rTargetCondenserPress           : REAL := 465.0;    (* Target Condenser Shell Backpressure [kPa] *)
+    rTargetHotwellLevel             : REAL := 50.0;     (* Target Hotwell Sump Level [%] *)
+
+    (* Quadratic Cost Penalty Weights *)
+    rMPC_Weight_Conc                : REAL := 24.0;     (* Penalty Weight on Vapor Purity Excursion *)
+    rMPC_Weight_Press               : REAL := 35.0;     (* Penalty Weight on High Evaporator Pressure Excursion *)
+    rMPC_Weight_Speed               : REAL := 80.0;     (* Penalty Weight on Shaft Frequency Deviation *)
+    rMPC_Weight_SepLevel            : REAL := 15.0;     (* Penalty Weight on Separator Level Error *)
+    rMPC_Weight_CondPress           : REAL := 20.0;     (* Penalty Weight on Condenser Vacuum Degradation *)
+    rMPC_Weight_HotwellLevel        : REAL := 10.0;     (* Penalty Weight on Hotwell Sump Level Deviation *)
+
+    (* Actuator Rate Penalty Weights (R_Delta) *)
+    rMPC_Weight_dVane               : REAL := 4.5;      (* Slew Rate Suppression on Nozzle Guide Vane *)
+    rMPC_Weight_dReflux             : REAL := 2.5;      (* Slew Rate Suppression on Distillation Reflux Valve *)
+    rMPC_Weight_dBrine              : REAL := 6.0;      (* Slew Rate Suppression on Brine Thermal Supply Valve *)
+    rMPC_Weight_dCondPump           : REAL := 3.0;      (* Slew Rate Suppression on Condensate Extraction Pump *)
+
+    (* Computed Optimal Control Increments Delta_u *)
+    rDelta_u1_Vane                  : REAL := 0.0;      (* Optimal Delta Vane Pitch Angle [%] *)
+    rDelta_u2_Reflux                : REAL := 0.0;      (* Optimal Delta Reflux Valve Position [%] *)
+    rDelta_u3_Brine                 : REAL := 0.0;      (* Optimal Delta Brine Control Valve [%] *)
+    rDelta_u4_CondPump              : REAL := 0.0;      (* Optimal Delta Condensate Pump Speed [%] *)
+
+    (* Unconstrained Analytical Gradient Vector g = Bd' * Q * x *)
+    rGrad1 : REAL := 0.0; rGrad2 : REAL := 0.0; rGrad3 : REAL := 0.0; rGrad4 : REAL := 0.0;
+
+    (* Approximate Hessian Diagonal Elements H_ii = Bd_i' * Q * Bd_i + R_ii *)
+    rHess11 : REAL := 1.0; rHess22 : REAL := 1.0; rHess33 : REAL := 1.0; rHess44 : REAL := 1.0;
+
+    (* Active-Set Projection Bounds and Slew Limiters *)
+    rMaxVaneSlewRate                : REAL := 5.0;      (* Maximum Allowable Guide Vane Movement per Second [%/s] *)
+    rMaxRefluxSlewRate              : REAL := 4.0;      (* Maximum Allowable Reflux Valve Movement per Second [%/s] *)
+    rMaxBrineSlewRate               : REAL := 2.0;      (* Thermal Shock Avoidance Brine Valve Slew Rate [%/s] *)
+    rMaxCondPumpSlewRate            : REAL := 5.0;      (* Extraction Pump Hydraulic Slew Rate [%/s] *)
+
+    (* Prior Actuator Command Memory *)
+    rPrevVanePitchAngle             : REAL := 0.0;
+    rPrevRefluxValve                : REAL := 0.0;
+    rPrevBrineValve                 : REAL := 0.0;
+    rPrevCondPumpSpeed              : REAL := 0.0;
+
+    (* ===================================================================================== *)
+    (* 5.0 VARIABLE-GEOMETRY TURBINE SYNCHRONOUS GOVERNOR REGISTERS                          *)
+    (* Electro-hydraulic governor with 4.0% droop and anti-overspeed decoupling             *)
+    (* ===================================================================================== *)
+    rGovernorSpeedRef_rpm           : REAL := 0.0;      (* Dynamic Speed Target Ramp from 0 to 12,000 rpm *)
+    rGovernorSpeedError_rpm         : REAL := 0.0;      (* Current Speed Deviation = N_ref - N_voted [rpm] *)
+    rGovernorIntegralAccum          : REAL := 0.0;      (* Governor Integral Memory Register [rpm*s] *)
+    rGovernorDerivativePrevError    : REAL := 0.0;      (* Prior Cycle Speed Error for Derivative Calculation *)
+    rGovernorDerivativeFiltered     : REAL := 0.0;      (* 1st-Order Low-Pass Filtered Derivative Term *)
+    rGovernorPID_Out                : REAL := 0.0;      (* Raw Unclamped Governor Output Demand [0..100%] *)
+    rGovernorKp                     : REAL := 0.045;    (* Governor Proportional Gain [%/rpm] *)
+    rGovernorKi                     : REAL := 0.018;    (* Governor Integral Reset Gain [%/(rpm*s)] *)
+    rGovernorKd                     : REAL := 0.012;    (* Governor Rate Derivative Gain [%/(rpm/s)] *)
+    rDroopRegulationFactor          : REAL := 0.040;    (* Standard 4.0% Grid Frequency Droop Constant *)
+    rDroopSpeedOffset_rpm           : REAL := 0.0;      (* Frequency Offset = - Droop * (f_grid - 50.0)/50.0 * N_rated *)
+    bGovernorAntiWindupActive       : BOOL := FALSE;    (* Anti-Windup Clamping Engaged Flag *)
+    bQuickBypassActive              : BOOL := FALSE;    (* Fast Turbine Bypass Opened on Sudden Trip *)
+
+    (* Aerodynamic Nozzle Vane Coordination Schedule *)
+    rOptimalNozzleVelocityRatio     : REAL := 0.705;    (* Target u / c0 Design Velocity Ratio for Radial Inflow *)
+    rAerodynamicPressureRatio       : REAL := 6.55;     (* Real-time Expansion Pressure Ratio = P_in / P_exh *)
+    rScheduledVanePosition          : REAL := 55.0;     (* Feedforward Aerodynamic Optimal Guide Vane Base Angle [%] *)
+
+    (* ===================================================================================== *)
+    (* 6.0 RECUPERATOR & PREHEATER CONDENSATION FLOAT BALANCE CONTROLLERS                    *)
+    (* Multi-element float balance to prevent vapor blow-through and liquid carry-over       *)
+    (* ===================================================================================== *)
+    (* Separator Bottoms Lean Liquid Float Balance *)
+    rSepLevelError                  : REAL := 0.0;
+    rSepLevelIntegral               : REAL := 0.0;
+    rSepFloatValveDemand            : REAL := 0.0;
+    rSepLevelKp                     : REAL := 1.85;     (* Float Proportional Gain [%/%] *)
+    rSepLevelKi                     : REAL := 0.12;     (* Float Integral Reset Gain [%/(%*s)] *)
+
+    (* High-Temperature Recuperator (HTR) Float Balance *)
+    rHTR_LevelError                 : REAL := 0.0;
+    rHTR_LevelIntegral              : REAL := 0.0;
+    rHTR_DrainValveDemand           : REAL := 0.0;
+    rHTR_LevelKp                    : REAL := 1.65;
+    rHTR_LevelKi                    : REAL := 0.10;
+
+    (* Low-Temperature Recuperator (LTR) Float Balance *)
+    rLTR_LevelError                 : REAL := 0.0;
+    rLTR_LevelIntegral              : REAL := 0.0;
+    rLTR_DrainValveDemand           : REAL := 0.0;
+    rLTR_LevelKp                    : REAL := 1.70;
+    rLTR_LevelKi                    : REAL := 0.11;
+
+    (* Evaporator Preheater Condensate Float Balance *)
+    rPreheaterLevelError            : REAL := 0.0;
+    rPreheaterLevelIntegral         : REAL := 0.0;
+    rPreheaterDrainValveDemand      : REAL := 0.0;
+    rPreheaterLevelKp               : REAL := 1.55;
+    rPreheaterLevelKi               : REAL := 0.09;
+
+    (* Condenser Hotwell Condensate Float Balance *)
+    rHotwellLevelError              : REAL := 0.0;
+    rHotwellLevelIntegral           : REAL := 0.0;
+    rHotwellPumpDemand              : REAL := 0.0;
+    rHotwellLevelKp                 : REAL := 2.10;
+    rHotwellLevelKi                 : REAL := 0.15;
+
+    (* Interlock Overrides *)
+    bAntiVaporBlowThrough_Active    : BOOL := FALSE;    (* Drain Valves Throttled to Prevent Vapor Blow-Through *)
+    bAntiLiquidCarryOver_Active     : BOOL := FALSE;    (* Separator Liquid Surge Imminent - Protection Active *)
+
+    (* ===================================================================================== *)
+    (* 7.0 NON-CONDENSABLE GAS (NCG) PURGE VACUUM LOCK SEQUENCE REGISTERS                   *)
+    (* Differential-pressure lock-hopper sub-state machine                                   *)
+    (* ===================================================================================== *)
+    iNCG_State                      : INT := 0;         (* NCG Lock Cycle State Identifier *)
+    tNCG_Timer                      : REAL := 0.0;      (* Internal Phase Elapsed Dwell Timer [s] *)
+    iPurgeCycleCount                : DINT := 0;        (* Total Completed Purge Cycles Counter *)
+    bNCGPurgeCycleActive            : BOOL := FALSE;    (* Autonomous Purge Sequence Currently Running *)
+    bNCGScrubberHighAmmoniaTrip     : BOOL := FALSE;    (* Atmospheric Vent Blocked Due to NH3 Breakthrough *)
+    rLockChamberTargetVacuum        : REAL := 8.0;      (* Evacuation Deep Vacuum Setpoint [kPa] *)
+
+    (* ===================================================================================== *)
+    (* 8.0 SUPERVISORY OPERATING FINITE STATE MACHINE (FSM) REGISTERS                        *)
+    (* ===================================================================================== *)
+    iState                          : INT := 0;         (* Current Supervisory Finite State Machine Index *)
+    iPrevState                      : INT := -1;        (* Prior Cycle State Index for Transition Detection *)
+    tStateTimer                     : REAL := 0.0;      (* Time Spent in Current State [s] *)
+    tBrineWarmupTimer               : REAL := 0.0;      (* Elapsed Brine Controlled Thermal Expansion Timer [s] *)
+    tTurbineWarmupTimer             : REAL := 0.0;      (* Turbine Casing Pre-Spin Soak Timer [s] *)
+    tSyncWatchdogTimer              : REAL := 0.0;      (* Maximum Permitted Grid Parallel Interlock Timer [s] *)
+    bBrineThermalRampComplete       : BOOL := FALSE;    (* Brine Heat Exchanger Heatup Limit Complete *)
+    bDistillationEquilibriumReached : BOOL := FALSE;    (* Steady-State Vapor Purity Verified (x_v > 0.93) *)
+    bTurbinePreheatSatisfied        : BOOL := FALSE;    (* Casing Temperature Gradient Uniformity Verified *)
+
+    (* ===================================================================================== *)
+    (* 9.0 ALARM ACCUMULATORS, FAULT LATCHES & DIAGNOSTIC BITMASKS                           *)
+    (* ===================================================================================== *)
+    bTripLatched                    : BOOL := FALSE;    (* Unacknowledged Safety Trip Latch *)
+    tSilicaExcursionTimer           : REAL := 0.0;      (* Accumulator for Silica Scaling Danger Duration [s] *)
+    tVibrationExcursionTimer        : REAL := 0.0;      (* API 670 Radial Vibration Filter Accumulator [s] *)
+    tOverspeedDebounceTimer         : REAL := 0.0;      (* High-Speed Hardware Overspeed Confirmation Timer [s] *)
+    tVacuumLossTimer                : REAL := 0.0;      (* Condenser Vacuum Degradation Soak Timer [s] *)
+END_VAR
