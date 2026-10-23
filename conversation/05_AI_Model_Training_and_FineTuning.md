@@ -370,3 +370,9 @@ Otherwise, we can just let the dataset sit ready to go, and you can train the mo
 
 
 ---
+
+
+---
+
+## 3. Lifecycle Audit Note (Turns 1 to 306)
+As of October 24, 2026 (Turn #306), training datasets (data/master/train.jsonl and validation.jsonl) are partitioned, verified, and pre-formatted in OpenAI ChatML, Alpaca, and ShareGPT formats across plc-synthetic-ai-engine/data/03_by_format_and_training_splits/.
