@@ -134,3 +134,13 @@ python plc-synthetic-ai-engine/run.py --agents 8 --backend gemini --model gemini
 # Or 100% offline local generation with an NVIDIA GPU via Ollama
 python plc-synthetic-ai-engine/run.py --agents 4 --backend ollama --model qwen2.5-coder:14b --infinite
 ```
+
+
+---
+
+## Part 5: Complete Conversation Archive & Engineering Changelog
+
+The repository includes a complete historical record of all 306 conversation turns, user requests, architectural decisions, and code changes:
+* **[00_Master_Chronology_and_Index.md](conversation/00_Master_Chronology_and_Index.md)**: Full master index of all 306 turns.
+* **[09_Full_Project_Lifetime_Chat_History_and_Changelog.md](conversation/09_Full_Project_Lifetime_Chat_History_and_Changelog.md)**: Turn-by-turn detailed changelog describing exact file mutations, tools invoked, and engineering actions.
+* **Thematic Logs (conversation/01 to conversation/08)**: Deep-dive archives categorized by Architecture, Scraping, Swarms, Validation, Training, Offline RTX 5050, and Git Maintenance.
