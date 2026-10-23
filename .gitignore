@@ -8,7 +8,7 @@ htmlcov/
 .env
 .DS_Store
 Thumbs.db
-*.jsonl
+.venv/
 data/repair_log.txt
 data/temp.json
 *service_key*
@@ -23,3 +23,4 @@ assistant_content.txt
 temp_record1.json
 temp_script.py
 plc-synthetic-ai-engine/
+gugu-2/
