@@ -16,9 +16,31 @@ if (-not $pythonCmd) {
 $pyVersion = python --version
 Write-Host "✔ Found Python: $pyVersion" -ForegroundColor Green
 
-# 2. Setup Virtual Environment
-if (-not (Test-Path ".venv")) {
-    Write-Host "Creating Python virtual environment (.venv)..." -ForegroundColor Yellow
+# 2. Setup Virtual Environment (Self-Healing if copied from another PC via USB)
+$needRecreate = $false
+if (Test-Path ".venv") {
+    $venvPy = ".\.venv\Scripts\python.exe"
+    if (Test-Path $venvPy) {
+        $testPrefix = & $venvPy -c "import sys; print(sys.prefix)" 2>$null
+        $currentDir = (Get-Location).Path
+        $expectedPrefix = Join-Path $currentDir ".venv"
+        if (-not $testPrefix -or ($testPrefix.TrimEnd('\') -ne $expectedPrefix.TrimEnd('\'))) {
+            Write-Host "⚠️ Detected .venv copied from another computer/path. Rebuilding for this PC..." -ForegroundColor Yellow
+            $needRecreate = $true
+        }
+    } else {
+        $needRecreate = $true
+    }
+} else {
+    $needRecreate = $true
+}
+
+if ($needRecreate) {
+    if (Test-Path ".venv") {
+        Write-Host "Cleaning up old virtual environment..." -ForegroundColor Gray
+        Remove-Item -Recurse -Force ".venv" -ErrorAction SilentlyContinue
+    }
+    Write-Host "Creating fresh Python virtual environment (.venv)..." -ForegroundColor Yellow
     python -m venv .venv
 }
 

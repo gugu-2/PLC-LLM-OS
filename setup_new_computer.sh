@@ -17,9 +17,22 @@ fi
 
 echo "✔ Found Python: $(python3 --version)"
 
-# 2. Setup Virtual Environment
-if [ ! -d ".venv" ]; then
-    echo "Creating Python virtual environment (.venv)..."
+# 2. Setup Virtual Environment (Self-Healing if copied from another PC via USB)
+need_recreate=false
+if [ -d ".venv" ]; then
+    test_prefix=$(.venv/bin/python3 -c "import sys; print(sys.prefix)" 2>/dev/null || true)
+    expected_prefix="$(pwd)/.venv"
+    if [ "$test_prefix" != "$expected_prefix" ]; then
+        echo "⚠️ Detected .venv copied from another computer/path. Rebuilding for this PC..."
+        need_recreate=true
+    fi
+else
+    need_recreate=true
+fi
+
+if [ "$need_recreate" = true ]; then
+    rm -rf .venv
+    echo "Creating fresh Python virtual environment (.venv)..."
     python3 -m venv .venv
 fi
 
