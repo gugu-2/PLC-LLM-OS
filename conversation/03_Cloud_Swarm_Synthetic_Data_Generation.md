@@ -10436,3 +10436,151 @@ The system has recovered from the minor network interruption automatically and i
 
 
 ---
+
+---
+
+## Part 2: Recent Phase Turns (Turns 250 to 306)
+
+### Turn #250 — 2026-09-11 16:52 UTC
+**User Prompt:** After 9:13 you haven't worked What is the problem with the agents I need to see agents OK
+**Changes Performed:** Executed 1 CLI commands ("Get-ChildItem) | Orchestrated 9 subagents (Subagent, Subagent, Subagent, Subagent)
+
+### Turn #251 — 2026-09-11 18:05 UTC
+**User Prompt:** Write down what are the problems are in it analyze the entire code base and analyze randomly 10 synthetically generated data and give you a score how much good or bad those data is like how much great or good or bad
+**Changes Performed:** Executed 2 CLI commands ("\n$files, "Get-ChildItem) | Orchestrated 1 subagents (Subagent)
+
+### Turn #252 — 2026-09-11 18:11 UTC
+**User Prompt:** After  fixing the all the issues then you will stop generating new data set synthetically
+**Changes Performed:** Executed 3 CLI commands ("python, "\n#, "\ngit)
+
+### Turn #255 — 2026-09-11 18:46 UTC
+**User Prompt:** i will choose qwen2.5-coder:14b  Tell me all the cons to choose this
+**Changes Performed:** Technical consultation, architecture analysis, mathematical proof & prompt formulation
+
+### Turn #256 — 2026-09-11 19:06 UTC
+**User Prompt:** @[Quote]    I can't understand both are of 14 billion parameter model Just one is quantized another one is not quantized yeah then please do one thing you need to compare three models these two models and other will be the 7 billion parameter model also
+**Changes Performed:** Technical consultation, architecture analysis, mathematical proof & prompt formulation
+
+### Turn #258 — 2026-09-11 22:29 UTC
+**User Prompt:** Start generating the codes You need to generate them with your loops again and the generation needs to be very high very best
+**Changes Performed:** Orchestrated 29 subagents (Subagent, Subagent, Subagent, Subagent)
+
+### Turn #260 — 2026-09-16 20:11 UTC
+**User Prompt:** When he was extracting the data the creating the data lot of agent got stopped so you need to restart those agent or just remove those agent then you need to restart the loop to create the synthetic data and do not stop just create them one after 1 those data need to be very high quality out of the box
+**Changes Performed:** Orchestrated 11 subagents (Subagent, Subagent, Subagent, Subagent)
+
+### Turn #262 — 2026-09-17 08:45 UTC
+**User Prompt:** Start the loop again generate high quality data
+**Changes Performed:** Orchestrated 11 subagents (Subagent, Subagent, Subagent, Subagent)
+
+### Turn #263 — 2026-09-17 09:44 UTC
+**User Prompt:** How many of said you have created till now it one hour you haven't created anything
+ said you have created till now it one hour you haven't created anything
+**Changes Performed:** Executed 3 CLI commands ("(Get-ChildItem, "Get-ChildItem)
+
+### Turn #264 — 2026-09-17 09:45 UTC
+**User Prompt:** we continue to let it run
+**Changes Performed:** Orchestrated 5 subagents (Subagent, Subagent, Subagent, Subagent)
+
+### Turn #266 — 2026-09-17 12:33 UTC
+**User Prompt:** Now stop everything
+**Changes Performed:** Technical consultation, architecture analysis, mathematical proof & prompt formulation
+
+### Turn #268 — 2026-09-17 21:31 UTC
+**User Prompt:** I don't think so we have successfully completed it please make pull request
+**Changes Performed:** Executed 2 CLI commands ("git)
+
+### Turn #269 — 2026-09-17 21:55 UTC
+**User Prompt:** Then start generating the best data set so then start the loop again and don't stop Create the out of the box data
+**Changes Performed:** Orchestrated 21 subagents (Subagent, Subagent, Subagent, Subagent)
+
+### Turn #270 — 2026-09-19 21:11 UTC
+**User Prompt:** Restart the loop again generate better data than the previous data set don't stop
+**Changes Performed:** Orchestrated 3 subagents (Subagent, Subagent, Subagent)
+
+### Turn #271 — 2026-09-19 21:23 UTC
+**User Prompt:** Why you always stop please always be in the loop and show me the agents who are working
+**Changes Performed:** Orchestrated 5 subagents (Subagent, Subagent, Subagent, Subagent)
+
+### Turn #272 — 2026-09-19 21:46 UTC
+**User Prompt:** I told you that look will always Going you have stopped the loop twenty minutes ago
+**Changes Performed:** Orchestrated 1 subagents (Subagent)
+
+### Turn #273 — 2026-09-19 21:51 UTC
+**User Prompt:** I think you have some terrible problem in the working Still the same issue is going on whenever I am prompting you then you send me or then you start using your agent otherwise you don't loop is not working
+**Changes Performed:** Orchestrated 4 subagents (Subagent, Subagent, Subagent, Subagent)
+
+### Turn #274 — 2026-09-19 22:14 UTC
+**User Prompt:** From now whatever you will do don't do it in background show me all the agents OK start the loop
+**Changes Performed:** Orchestrated 6 subagents (Subagent, Subagent, Subagent, Subagent)
+
+### Turn #275 — 2026-09-19 22:53 UTC
+**User Prompt:** After this one you will stop
+**Changes Performed:** Orchestrated 1 subagents (Subagent)
+
+### Turn #277 — 2026-09-20 18:22 UTC
+**User Prompt:** Restart the lobe again and show me everything here don't do the task in background show me the agents here and those datasets need to be better than the previous one
+**Changes Performed:** Orchestrated 20 subagents (Subagent, Subagent, Subagent, Subagent)
+
+### Turn #278 — 2026-09-20 20:16 UTC
+**User Prompt:** After this batch you will stop it
+**Changes Performed:** Technical consultation, architecture analysis, mathematical proof & prompt formulation
+
+### Turn #280 — 2026-09-22 16:54 UTC
+**User Prompt:** Start the loop again create the better data set
+**Changes Performed:** Orchestrated 9 subagents (Subagent, Subagent, Subagent, Subagent)
+
+### Turn #282 — 2026-10-15 06:42 UTC
+**User Prompt:** Restart the loop again and please try to make better datasets with different scenario different industrial scenarios
+**Changes Performed:** Orchestrated 5 subagents (Subagent, Subagent, Subagent, Subagent)
+
+### Turn #283 — 2026-10-15 07:09 UTC
+**User Prompt:** Also I wanna say use the tokens in extreme level because I need to make it a little bit fast also you need you can easily like at 6 to 7 or 8 sub agents in the same time and eat all the tokens
+**Changes Performed:** Orchestrated 13 subagents (Subagent, Subagent, Subagent, Subagent)
+
+### Turn #284 — 2026-10-15 07:57 UTC
+**User Prompt:** After this batch you will stop it
+**Changes Performed:** Executed 2 CLI commands ("git, "powershell)
+
+### Turn #285 — 2026-10-15 23:40 UTC
+**User Prompt:** Also I wanna say use the tokens in extreme level because I need to make it a little bit fast also you need you can easily like at 6 to 7 or 8 sub agents in the same time and eat all the tokens
+**Changes Performed:** Executed 25 CLI commands ("git, "powershell) | Orchestrated 5 subagents (Subagent, Subagent, Subagent, Subagent)
+
+### Turn #287 — 2026-10-16 18:51 UTC
+**User Prompt:** Also I wanna say use the tokens in extreme level  you need to easily like add 6 to 7 or 8 sub agents in the same time and eat all the tokens  make more nice datasets
+**Changes Performed:** Executed 92 CLI commands ("python, "powershell) | Orchestrated 2 subagents (Subagent, Subagent)
+
+### Turn #289 — 2026-10-17 20:38 UTC
+**User Prompt:** never stop loop, always generate more better and complex datasets
+**Changes Performed:** Executed 86 CLI commands ("python) | Orchestrated 6 subagents (Subagent, Subagent, Subagent, Subagent)
+
+### Turn #290 — 2026-10-17 21:32 UTC
+**User Prompt:** stop it
+**Changes Performed:** Executed 1 CLI commands ("python)
+
+### Turn #291 — 2026-10-18 05:15 UTC
+**User Prompt:** start the loop again
+**Changes Performed:** Executed 22 CLI commands ("python) | Orchestrated 6 subagents (Subagent, Subagent, Subagent, Subagent)
+
+### Turn #294 — 2026-10-22 01:48 UTC
+**User Prompt:** Will it work in the same way like when I will open it and start it it will like use different 7 to eight agents AI agents and then each AI agents will create each single datasets
+**Changes Performed:** Technical consultation, architecture analysis, mathematical proof & prompt formulation
+
+### Turn #295 — 2026-10-22 01:49 UTC
+**User Prompt:** It will not generate same data set again and again yeah so it will always generate better data set
+**Changes Performed:** Modified 1 files: evolver.py" | Executed 2 CLI commands ("python, "git)
+
+### Turn #298 — 2026-10-22 01:59 UTC
+**User Prompt:** How many data set you have generated with different Apis and AI agent also the different model of the AI agent I have used Gemini pro and now I am using Gemini 3.8 and also I have used cloud I have used different AI agents in total with all those AI agents how many data set you have generated
+**Changes Performed:** Executed 1 CLI commands ("python)
+
+### Turn #300 — 2026-10-22 02:13 UTC
+**User Prompt:** Also please classify datasets with their AI models and API roles like "Gemini Current ("Gemini 3.8" / Pro / Flash), (Antigravity Subagent Swarm),
+Gemini Pro (1.5 Pro / Pro API)	,
+(Evol-Instruct + Enterprise V3)	.
+Claude (3.5 Sonnet / Opus - "Cloud")	"
+**Changes Performed:** Created/Wrote 1 files: classify_by_model.py" | Modified 1 files: README.md" | Executed 10 CLI commands ("python)
+
+### Turn #302 — 2026-10-22 21:50 UTC
+**User Prompt:** I want the prom prompt To start the loop of Generation of individual data set by AI agents different AI agents one AI agent will be dedicated to generate one data set after creating the data set that agent will be killed a new agent will come and also like you always show the agents whatever the life whatever the real time agents are you always show it on your chat board you also do it in the another PC the new PC I will migrate and mostly agents will be now like focused on industries rather than the labs so like industries like auto well industries electronics mechanical engines hardware parts plastic parts or whatever food processing industries like they are like billion dollar industries very big industries this product will be used by only industries not by any lab in the space So yeah let me know what prompt I need to write down in the new PC to do this kind of thing
+**Changes Performed:** Created/Wrote 3 files: AGENTS.md", SKILL.md", HOW_TO_PROMPT_AGENT_ON_NEW_COMPUTER.md" | Executed 4 CLI commands ("git)
