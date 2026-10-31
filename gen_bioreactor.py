@@ -1,0 +1,67 @@
+# Script to construct and validate FB_Biotech_SingleUse_PerfusionBioreactor_500L
+import json
+import os
+import re
+import subprocess
+
+def generate_iec_st():
+    lines = []
+    
+    # Header
+    lines.append("FUNCTION_BLOCK FB_Biotech_SingleUse_PerfusionBioreactor_500L")
+    lines.append("(*")
+    lines.append("========================================================================================================================")
+    lines.append("LUMINA CYBER-PHYSICAL AUTOMATION ENGINE - SYNTHETIC DATASET V7 MAX-PERSONA")
+    lines.append("COMMERCIAL BIOPHARMACEUTICALS & LIFE SCIENCES - ADVANCED THERAPY MEDICINAL PRODUCTS (ATMP)")
+    lines.append("500-LITER SINGLE-USE CONTINUOUS PERFUSION BIOREACTOR (SUB) WITH TANGENTIAL FLOW FILTRATION (TFF)")
+    lines.append("========================================================================================================================")
+    lines.append("ARCHITECTURE OVERVIEW:")
+    lines.append("  This production-grade Function Block implements full multi-variable cyber-physical control for an industrial 500-liter")
+    lines.append("  Single-Use Bioreactor (SUB) engineered for continuous high-density mammalian (CHO-DG44/CHO-K1) cell culture producing")
+    lines.append("  recombinant therapeutic monoclonal antibodies (mAbs). The block integrates mechanical, thermodynamic, chemical, and")
+    lines.append("  cellular metabolic models into a deterministic PLC execution loop.")
+    lines.append("")
+    lines.append("CORE SUBSYSTEMS & MATHEMATICAL FOUNDATIONS:")
+    lines.append("  1. TRIPLE MODULAR REDUNDANCY (2oo3 TMR) SENSOR VOTING:")
+    lines.append("     - Redundant optical dissolved oxygen (DO) sensors with dynamic drift detection and bumpless degradation.")
+    lines.append("     - Redundant combination optical/potentiometric pH transmitters with temperature compensation.")
+    lines.append("     - Triplicate shear-beam load cells for skid gross weight and broth liquid inventory reconciliation.")
+    lines.append("     - Triplicate diaphragm-isolated sanitary pressure transmitters on the TFF permeate collection manifold.")
+    lines.append("  2. GAS BLENDING & MASS FLOW CONTROL MANIFOLD:")
+    lines.append("     - 4-Gas thermal mass flow controllers (O2, N2, CO2, Clean Compressed Air).")
+    lines.append("     - Micro-sparger (sintered porous frit 20-50 um pore size) for ultra-efficient non-damaging oxygen mass transfer (OTR).")
+    lines.append("     - Drilled-hole macro-sparger (1.5 mm orifices) for bulk CO2 stripping and headspace blanket ventilation.")
+    lines.append("     - Dynamic gas blending ratio based on off-gas carbon dioxide evolution rate (CER) to suppress hypercapnic stress.")
+    lines.append("  3. DUAL-RANGE ASYMMETRIC pH REGULATION:")
+    lines.append("     - Acid addition executed via high-frequency pulse-width modulated (PWM) CO2 gas sparging.")
+    lines.append("     - Base addition executed via variable-speed peristaltic pump dispensing sterile 1.0 M sodium bicarbonate (NaHCO3).")
+    lines.append("     - Anti-windup deadband compensation to eliminate cyclic buffer additions and prevent osmolality runaway (> 380 mOsm/kg).")
+    lines.append("  4. TANGENTIAL FLOW FILTRATION (TFF) & ALTERNATING CELL RETENTION (ATF):")
+    lines.append("     - Hollow-fiber polyethersulfone (PES) membrane cell retention with 0.2 um microfiltration rating.")
+    lines.append("     - Continuous transmembrane pressure (TMP = (P_feed + P_retentate)/2 - P_permeate) calculation.")
+    lines.append("     - Automated high-frequency reverse backflush pulse pacing to disrupt laminar cake layer polarization.")
+    lines.append("     - Shear rate monitoring (gamma = 4*Q / (pi*r^3 * N_fibers)) strictly held below 2000 s^-1 to avoid cell shear lysis.")
+    lines.append("     - Continuous automated cell bleed chemostat pacing to maintain Viable Cell Density (VCD) > 80 x 10^6 cells/mL.")
+    lines.append("  5. OFF-GAS METABOLIC SPECTROMETRY & RESPIRATORY QUOTIENT (RQ):")
+    lines.append("     - Real-time molar gas balances utilizing paramagnetic O2 and non-dispersive infrared (NDIR) CO2 off-gas analyzers.")
+    lines.append("     - Inert gas (N2) balancing to eliminate errors from barometric pressure swings and humidity variations.")
+    lines.append("     - Real-time Oxygen Uptake Rate (OUR [mmol/(L*h)]) and Carbon Dioxide Evolution Rate (CER [mmol/(L*h)]).")
+    lines.append("     - Respiratory Quotient calculation (RQ = CER / OUR) to detect metabolic shifts (glycolysis vs. Krebs TCA cycle).")
+    lines.append("  6. DISCRETE CYBER-PHYSICAL STATE-SPACE MODEL (12x12 A, 12x8 B, 8x12 C):")
+    lines.append("     - 12 Dynamic States: VCD, Non-viable Cell Density, Glucose, Glutamine, Lactate, Ammonia, mAb Titre, DO, pH, Temp, Vol, R_f.")
+    lines.append("     - Coupled Monod and Michaelis-Menten multi-substrate limitation with dual product inhibition kinetics.")
+    lines.append("     - Volumetric oxygen transfer coefficient (kLa) empirical correlation with specific power input (P/V) and gas superficial velocity.")
+    lines.append("  7. RECEDING-HORIZON MODEL PREDICTIVE CONTROL (MPC):")
+    lines.append("     - Quadratic cost function penalizing state tracking errors (Q) and actuator move rates (R).")
+    lines.append("     - Prediction horizon Np = 5 steps, control horizon Nc = 3 steps.")
+    lines.append("     - Projected gradient descent solver computing constrained actuator commands within physical pump/MFC bounds.")
+    lines.append("  8. 12-STAGE OPERATIONAL FINITE STATE MACHINE (FSM):")
+    lines.append("     - From pre-use single-use bag integrity leak hold test to continuous perfusion harvest and CIP line decontamination.")
+    lines.append("  9. ISA-18.2 MULTI-TIERED ALARM MANAGEMENT & PACKED DIAGNOSTIC DWORDS:")
+    lines.append("     - Multi-level trip thresholds (HH, H, L, LL) with deadband hysteresis and qualification debounce filters.")
+    lines.append("========================================================================================================================")
+    lines.append("*)")
+    
+    return "\n".join(lines)
+
+print(generate_iec_st()[:300])
