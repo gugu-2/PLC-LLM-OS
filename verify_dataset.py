@@ -1,42 +1,55 @@
-import json
+# -*- coding: utf-8 -*-
 import re
+from test_generator import build_code
 
-with open('data/swarm_raw/agent_e217271f.json', 'r', encoding='utf-8') as f:
-    data = json.load(f)
+def check_parity(code):
+    # Remove comments (* ... *) before checking tokens
+    clean_code = re.sub(r'\(\*.*?\*\)', '', code, flags=re.DOTALL)
 
-user_msg = data['messages'][0]['content']
-asst_msg = data['messages'][1]['content']
+    # Remove string literals
+    clean_code = re.sub(r"'.*?'", '', clean_code)
+    clean_code = re.sub(r'".*?"', '', clean_code)
 
-print(f"User message length: {len(user_msg)}")
-print(f"Assistant message length: {len(asst_msg)}")
+    # Check tokens
+    # Note: ELSIF contains IF if not matching word boundary properly, \bIF\b avoids ELSIF
+    # But wait! \bIF\b matches 'IF' in 'END_IF' if not preceded by END_! So let's be very careful:
+    # (?<!END_)IF\b
+    if_count = len(re.findall(r'(?<!END_)IF\b', clean_code, re.IGNORECASE))
+    # Wait, ELSIF has IF! We don't want ELSIF to count as IF:
+    # (?<!END_)(?<!ELS)IF\b
+    if_count = len(re.findall(r'(?<!END_)(?<!ELS)IF\b', clean_code, re.IGNORECASE))
+    endif_count = len(re.findall(r'\bEND_IF\b', clean_code, re.IGNORECASE))
 
-assert asst_msg.startswith("```iec-st\n"), "Fence error at start"
-assert asst_msg.endswith("\n```"), "Fence error at end"
+    case_count = len(re.findall(r'(?<!END_)CASE\b', clean_code, re.IGNORECASE))
+    endcase_count = len(re.findall(r'\bEND_CASE\b', clean_code, re.IGNORECASE))
 
-inner_code = asst_msg[len("```iec-st\n"):-len("\n```")].strip()
-lines = inner_code.split('\n')
+    for_count = len(re.findall(r'(?<!END_)FOR\b', clean_code, re.IGNORECASE))
+    endfor_count = len(re.findall(r'\bEND_FOR\b', clean_code, re.IGNORECASE))
 
-print(f"Total code lines: {len(lines)}")
-print(f"First line: '{lines[0]}'")
-print(f"Last line: '{lines[-1]}'")
+    fb_count = len(re.findall(r'(?<!END_)FUNCTION_BLOCK\b', clean_code, re.IGNORECASE))
+    endfb_count = len(re.findall(r'\bEND_FUNCTION_BLOCK\b', clean_code, re.IGNORECASE))
 
-assert lines[0] == "FUNCTION_BLOCK FB_HybridManufacturing_DED_CNC_CoordinateSync"
-assert lines[-1] == "END_FUNCTION_BLOCK"
+    var_input_count = len(re.findall(r'\bVAR_INPUT\b', clean_code, re.IGNORECASE))
+    var_output_count = len(re.findall(r'\bVAR_OUTPUT\b', clean_code, re.IGNORECASE))
+    var_internal_count = len(re.findall(r'(?<!END_)\bVAR\b', clean_code, re.IGNORECASE))
+    total_var = var_input_count + var_output_count + var_internal_count
+    endvar_count = len(re.findall(r'\bEND_VAR\b', clean_code, re.IGNORECASE))
 
-# Parity checks
-code_no_comments = re.sub(r'\(\*[\s\S]*?\*\)', '', inner_code)
-if_count = len(re.findall(r'\bIF\b', code_no_comments))
-endif_count = len(re.findall(r'\bEND_IF\b', code_no_comments))
-case_count = len(re.findall(r'\bCASE\b', code_no_comments))
-endcase_count = len(re.findall(r'\bEND_CASE\b', code_no_comments))
-for_count = len(re.findall(r'\bFOR\b', code_no_comments))
-endfor_count = len(re.findall(r'\bEND_FOR\b', code_no_comments))
+    print(f"IF: {if_count}, END_IF: {endif_count}, Parity: {if_count == endif_count}")
+    print(f"CASE: {case_count}, END_CASE: {endcase_count}, Parity: {case_count == endcase_count}")
+    print(f"FOR: {for_count}, END_FOR: {endfor_count}, Parity: {for_count == endfor_count}")
+    print(f"FUNCTION_BLOCK: {fb_count}, END_FUNCTION_BLOCK: {endfb_count}, Parity: {fb_count == endfb_count}")
+    print(f"VAR sections (IN={var_input_count}, OUT={var_output_count}, INTERNAL={var_internal_count}): Total={total_var}, END_VAR: {endvar_count}, Parity: {total_var == endvar_count}")
 
-print(f"IF: {if_count}, END_IF: {endif_count}")
-print(f"CASE: {case_count}, END_CASE: {endcase_count}")
-print(f"FOR: {for_count}, END_FOR: {endfor_count}")
+    passed = (if_count == endif_count and 
+              case_count == endcase_count and 
+              for_count == endfor_count and 
+              fb_count == endfb_count and 
+              total_var == endvar_count)
+    return passed
 
-assert if_count == endif_count
-assert case_count == endcase_count
-assert for_count == endfor_count
-print("ALL RIGOROUS CHECKS PASSED PERFECTLY!")
+if __name__ == "__main__":
+    code = build_code()
+    print("Testing parity...")
+    ok = check_parity(code)
+    print("All Delimiters Parity Check Passed:", ok)
