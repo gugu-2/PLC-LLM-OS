@@ -1,496 +1,526 @@
-# Python script to generate FB_HydraulicDieForging_MultiCylinderRam_Leveling
-import json
-import os
-import re
-import sys
+# -*- coding: utf-8 -*-
+"""
+Full Generator for FB_Mechanical_HeavyPress_ServoDieCushion_TonnageSync
+Lumina V7 Max-Persona Protocol: 3,500-Ton BIW Servo Press Automation
+"""
 
-def build_code():
+import sys
+import os
+import json
+import uuid
+import re
+
+def build_full_iec_st():
     parts = []
 
     # 1. Header
-    parts.append("""FUNCTION_BLOCK FB_HydraulicDieForging_MultiCylinderRam_Leveling
+    parts.append("""FUNCTION_BLOCK FB_Mechanical_HeavyPress_ServoDieCushion_TonnageSync
 (*
- ==========================================================================================
-  PROJECT:       HEAVY COMMERCIAL AEROSPACE & DEFENSE CLOSED-DIE FORGING AUTOMATION
-  SUBSYSTEM:     50,000-TON MULTI-CYLINDER HYDRAULIC FORGING PRESS RAM LEVELING & EJECTOR
-  DISCIPLINE:    HIGH-PRESSURE HYDRAULICS / FINITE TILT RECEDING-HORIZON MPC / TMR 2oo3
-  IEC STANDARD:  IEC 61131-3 3RD EDITION (DETERMINISTIC EMBEDDED AUTOMATION)
-  PLATFORM:      SAFETY PLC / HIGH-PERFORMANCE INDUSTRIAL MOTION CONTROLLER
- ==========================================================================================
-  ARCHITECTURAL SPECIFICATION:
-  This Function Block executes deterministically on real-time industrial PLC controllers
-  (1.0 ms nominal execution cycle) governing a 50,000-metric-ton closed-die hydraulic
-  forging press. Such presses are heavily deployed in aerospace manufacturing for forging
-  heavy titanium (Ti-6Al-4V) bulkheads, large nickel-based superalloy (Inconel 718) turbine
-  discs, and commercial widebody aircraft landing gear main outer cylinders.
-
-  PHYSICAL ACTUATION & SENSORY STRUCTURE:
-  1. Main Hydraulic Cylinder Ram Array:
-     - 4 Main Corner Pressing Cylinders:
-       * Cyl 1: Front-Left  (FL), Piston Area A_cyl1 = 1.6513 m2 (Bore = 1450 mm, Rod = 1200 mm)
-       * Cyl 2: Front-Right (FR), Piston Area A_cyl2 = 1.6513 m2
-       * Cyl 3: Rear-Right  (RR), Piston Area A_cyl3 = 1.6513 m2
-       * Cyl 4: Rear-Left   (RL), Piston Area A_cyl4 = 1.6513 m2
-     - Press Column Structural Geometry: Width (Roll axis, L_x) = 3800 mm, Depth (Pitch axis, L_y) = 5200 mm.
-     - Maximum Moving Ram Mass: M_ram = 2,450 metric tons (2,450,000 kg).
-
-  2. High-Pressure Fluid Dynamics & Bulk Modulus:
-     - Hydraulic Fluid: ISO VG 46 synthetic water-glycol / polyol ester fire-resistant fluid.
-     - Operating Supply Pressure: P_supply = 350.0 bar nominal (420.0 bar mechanical proof rating).
-     - Non-linear secant fluid bulk modulus beta(p, T) modeled dynamically across 20.0 to 70.0 deg C
-       and 1.0 to 400.0 bar: beta = beta_0 + m_bulk * p - k_T * (T - T_0).
-     - Trapped High-Pressure Fluid Volume: V_total ~ 38,500 L, storing > 42 MJ of elastic energy.
-     - Controlled multi-stage decompression ramp limits dp/dt <= 650.0 bar/s to prevent hydraulic
-       water-hammer cavitation, catastrophic pipe-flange rupture, and pre-fill valve chatter.
-
-  3. Cyber-Physical Receding-Horizon MPC Tilt Leveling:
-     - Asymmetric forging deformation and flash gutter resistance create eccentric tipping moments
-       (M_pitch, M_roll) exceeding 15,000 kNm, inducing severe ram tilt.
-     - MPC algorithm evaluates discrete state-space predictions (x[k+1] = A*x[k] + B*u[k]) over an
-       8-state x 6-input formulation to modulate 4 high-speed servo proportional valves (frequency
-       response -3 dB at 85 Hz), achieving sub-millimeter ram tilt (< 0.10 mm/m) under 40,000 Ton.
-
-  4. Triple Modular Redundancy (2oo3) Sensor Voting:
-     - Ram Corner Displacements: 4 corners x 3 redundant magnetostrictive SSI linear transducers.
-     - Cylinder Hydraulic Pressures: 4 corners x 3 redundant 600-bar piezoresistive transmitters.
-     - Tie-Rod Column Forging Tonnage: 4 corners x 3 redundant semiconductor strain gauge bridges.
-     - Accumulator Station Pressure: 3 redundant ceramic diaphragm sensors.
-     - Accumulator N2 Pre-Charge Bottles: 3 redundant piezoresistive transmitters.
-     - Lower Die Ejector Pin Displacements: 3 redundant linear LVDTs.
-     - Full discrepancy timing, bumpless degradation to 1oo2, and fail-safe latching.
-
-  5. Dynamic Forging Cycle FSM:
-     - States: 0 (IDLE), 10 (PERMISSIVE CHECK), 20 (RAPID GRAVITY APPROACH PREFILL),
-       30 (PRE-CONTACT DECEL & ACCUMULATOR PRIMING), 40 (HIGH-PRESSURE FORGING PENETRATION),
-       50 (TONNAGE DWELL & RECRYSTALLIZATION HOLD), 60 (CONTROLLED S-CURVE DECOMPRESSION),
-       70 (DECOMPRESSION CONFIRMATION & PRE-FILL OPEN), 80 (RAPID RAM RETRACTION),
-       90 (TDC CUSHION & MECHANICAL WEDGE LOCK), 100 (PULSED EJECTOR PIN CYCLE),
-       110 (SCALE BLOWOFF & DIE LUBE), 999 (EMERGENCY SAFETY DUMP).
-
-  6. ISA-18.2 Multi-Tiered Alarm Matrix:
-     - HH, H, L, LL alarms with deadband hysteresis, bit-packed into status and diagnostic words.
- ==========================================================================================
+====================================================================================================
+ LUMINA CYBER-PHYSICAL AUTOMATION ARCHITECTURE - V7 MAX-PERSONA SPECIFICATION
+ CORE SECTOR  : HEAVY MECHANICAL ENGINEERING & COMMERCIAL AUTOMOTIVE STAMPING (TIER 1 PRIORITY)
+ SYSTEM       : 3,500-TON (35,000 kN) AUTOMOTIVE BODY-IN-WHITE (BIW) SERVO-MECHANICAL STAMPING PRESS
+ FUNCTION     : SYNCHRONIZED MULTI-POINT SERVO DIE CUSHIONING, ECCENTRIC TONNAGE BALANCING & SAFETY
+ P&ID TAGGING : ISA-5.1 STANDARD DESIGNATION (WT/ZT/PT/ST/TT/AT/DI/DO/AO SERIES 100-800)
+ STANDARDS    : EN ISO 13849-1 (PL e, CAT 4), EN 692 (MECHANICAL PRESS SAFETY), ANSI B11.1, ISA-18.2
+ CYBER-PHYSICS: 8x8 DISCRETE STATE-SPACE (Ts = 2 ms) COUPLED WITH RECEDING-HORIZON MPC CONTROLLER
+ KINEMATICS   : NON-LINEAR SLIDER-CRANK ECCENTRIC LINK KINEMATICS WITH ELASTIC FRAME DEFLECTION
+ CUSHION DYN  : 8-POINT SERVO-HYDRAULIC DIE CUSHION WITH ACTIVE ANTI-REBOUND DAMPING & PRE-ACCELERATION
+ ECCENTRICITY : REAL-TIME 4-CORNER LOAD CELL SUMMATION, TIPPING MOMENT (Mx, My) & PARALLELISM LEVELING
+ SAFETY SYSTEM: DUAL-CHANNEL OPTICAL LIGHT CURTAIN MUTING, DIE PROTECTION & MECHANICAL BRAKE MONITOR
+ REDUNDANCY   : 19-CHANNEL 2oo3 TRIPLE MODULAR REDUNDANCY VOTING ENGINES WITH PERSISTENCE TIMERS
+ ALARM ENGINE : ISA-18.2 MULTI-TIER PROCESS ALARM HIERARCHY (HH/H/L/LL) & 4x32-BIT PACKED STATUS WORDS
+ FSM TOPOLOGY : 14-STAGE DETERMINISTIC OPERATIONAL FINITE STATE MACHINE (TDC TO BDC FORMING CYCLE)
+====================================================================================================
 *)
-VAR_INPUT
-    (* ===================================================================================== *)
-    (* 1. 2oo3 TMR RAM POSITION SENSORS (MAGNETOSTRICTIVE SSI ENCODERS)                     *)
-    (* ===================================================================================== *)
-    rPos_Corner1_SensorA_mm         : REAL;     (* Ram Corner 1 (FL) Displacement Ch A [mm] *)
-    rPos_Corner1_SensorB_mm         : REAL;     (* Ram Corner 1 (FL) Displacement Ch B [mm] *)
-    rPos_Corner1_SensorC_mm         : REAL;     (* Ram Corner 1 (FL) Displacement Ch C [mm] *)
-    rPos_Corner2_SensorA_mm         : REAL;     (* Ram Corner 2 (FR) Displacement Ch A [mm] *)
-    rPos_Corner2_SensorB_mm         : REAL;     (* Ram Corner 2 (FR) Displacement Ch B [mm] *)
-    rPos_Corner2_SensorC_mm         : REAL;     (* Ram Corner 2 (FR) Displacement Ch C [mm] *)
-    rPos_Corner3_SensorA_mm         : REAL;     (* Ram Corner 3 (RR) Displacement Ch A [mm] *)
-    rPos_Corner3_SensorB_mm         : REAL;     (* Ram Corner 3 (RR) Displacement Ch B [mm] *)
-    rPos_Corner3_SensorC_mm         : REAL;     (* Ram Corner 3 (RR) Displacement Ch C [mm] *)
-    rPos_Corner4_SensorA_mm         : REAL;     (* Ram Corner 4 (RL) Displacement Ch A [mm] *)
-    rPos_Corner4_SensorB_mm         : REAL;     (* Ram Corner 4 (RL) Displacement Ch B [mm] *)
-    rPos_Corner4_SensorC_mm         : REAL;     (* Ram Corner 4 (RL) Displacement Ch C [mm] *)
+""")
 
-    (* ===================================================================================== *)
-    (* 2. 2oo3 TMR HYDRAULIC CYLINDER PRESSURES (HIGH-FREQUENCY PIEZORESISTIVE)              *)
-    (* ===================================================================================== *)
-    rPress_Cyl1_SensorA_bar         : REAL;     (* Main Cylinder 1 Chamber Pressure Ch A [bar] *)
-    rPress_Cyl1_SensorB_bar         : REAL;     (* Main Cylinder 1 Chamber Pressure Ch B [bar] *)
-    rPress_Cyl1_SensorC_bar         : REAL;     (* Main Cylinder 1 Chamber Pressure Ch C [bar] *)
-    rPress_Cyl2_SensorA_bar         : REAL;     (* Main Cylinder 2 Chamber Pressure Ch A [bar] *)
-    rPress_Cyl2_SensorB_bar         : REAL;     (* Main Cylinder 2 Chamber Pressure Ch B [bar] *)
-    rPress_Cyl2_SensorC_bar         : REAL;     (* Main Cylinder 2 Chamber Pressure Ch C [bar] *)
-    rPress_Cyl3_SensorA_bar         : REAL;     (* Main Cylinder 3 Chamber Pressure Ch A [bar] *)
-    rPress_Cyl3_SensorB_bar         : REAL;     (* Main Cylinder 3 Chamber Pressure Ch B [bar] *)
-    rPress_Cyl3_SensorC_bar         : REAL;     (* Main Cylinder 3 Chamber Pressure Ch C [bar] *)
-    rPress_Cyl4_SensorA_bar         : REAL;     (* Main Cylinder 4 Chamber Pressure Ch A [bar] *)
-    rPress_Cyl4_SensorB_bar         : REAL;     (* Main Cylinder 4 Chamber Pressure Ch B [bar] *)
-    rPress_Cyl4_SensorC_bar         : REAL;     (* Main Cylinder 4 Chamber Pressure Ch C [bar] *)
+    # 2. VAR_INPUT
+    parts.append("""VAR_INPUT
+    (* ============================================================================================== *)
+    (* SECTION 1: CRANKSHAFT ANGLE 2oo3 RESOLVER & OPTICAL SHAFT ENCODERS                            *)
+    (* ============================================================================================== *)
+    ST_CRANK_RESOLVER_A               : REAL := 0.000;    (* Crankshaft Absolute Resolver Angle Ch A [deg] *)
+    ST_CRANK_RESOLVER_B               : REAL := 0.000;    (* Crankshaft Absolute Resolver Angle Ch B [deg] *)
+    ST_CRANK_RESOLVER_C               : REAL := 0.000;    (* Crankshaft Absolute Resolver Angle Ch C [deg] *)
 
-    (* ===================================================================================== *)
-    (* 3. 2oo3 TMR TIE-ROD COLUMN LOAD CELLS (DUAL-BRIDGE FOIL STRAIN GAUGES)               *)
-    (* ===================================================================================== *)
-    rLoad_Corner1_SensorA_kN        : REAL;     (* Tie-Rod 1 Tensile Force Ch A [kN] *)
-    rLoad_Corner1_SensorB_kN        : REAL;     (* Tie-Rod 1 Tensile Force Ch B [kN] *)
-    rLoad_Corner1_SensorC_kN        : REAL;     (* Tie-Rod 1 Tensile Force Ch C [kN] *)
-    rLoad_Corner2_SensorA_kN        : REAL;     (* Tie-Rod 2 Tensile Force Ch A [kN] *)
-    rLoad_Corner2_SensorB_kN        : REAL;     (* Tie-Rod 2 Tensile Force Ch B [kN] *)
-    rLoad_Corner2_SensorC_kN        : REAL;     (* Tie-Rod 2 Tensile Force Ch C [kN] *)
-    rLoad_Corner3_SensorA_kN        : REAL;     (* Tie-Rod 3 Tensile Force Ch A [kN] *)
-    rLoad_Corner3_SensorB_kN        : REAL;     (* Tie-Rod 3 Tensile Force Ch B [kN] *)
-    rLoad_Corner3_SensorC_kN        : REAL;     (* Tie-Rod 3 Tensile Force Ch C [kN] *)
-    rLoad_Corner4_SensorA_kN        : REAL;     (* Tie-Rod 4 Tensile Force Ch A [kN] *)
-    rLoad_Corner4_SensorB_kN        : REAL;     (* Tie-Rod 4 Tensile Force Ch B [kN] *)
-    rLoad_Corner4_SensorC_kN        : REAL;     (* Tie-Rod 4 Tensile Force Ch C [kN] *)
+    (* ============================================================================================== *)
+    (* SECTION 2: 4-CORNER SLIDE POSITION LINEAR OPTICAL SCALE ENCODERS (2oo3 REDUNDANT)             *)
+    (* ============================================================================================== *)
+    ZT_SLIDE_POS_FL_A                 : REAL := 0.000;    (* Slide Front-Left Linear Scale Position Ch A [mm] *)
+    ZT_SLIDE_POS_FL_B                 : REAL := 0.000;    (* Slide Front-Left Linear Scale Position Ch B [mm] *)
+    ZT_SLIDE_POS_FL_C                 : REAL := 0.000;    (* Slide Front-Left Linear Scale Position Ch C [mm] *)
+    ZT_SLIDE_POS_FR_A                 : REAL := 0.000;    (* Slide Front-Right Linear Scale Position Ch A [mm] *)
+    ZT_SLIDE_POS_FR_B                 : REAL := 0.000;    (* Slide Front-Right Linear Scale Position Ch B [mm] *)
+    ZT_SLIDE_POS_FR_C                 : REAL := 0.000;    (* Slide Front-Right Linear Scale Position Ch C [mm] *)
+    ZT_SLIDE_POS_RL_A                 : REAL := 0.000;    (* Slide Rear-Left Linear Scale Position Ch A [mm] *)
+    ZT_SLIDE_POS_RL_B                 : REAL := 0.000;    (* Slide Rear-Left Linear Scale Position Ch B [mm] *)
+    ZT_SLIDE_POS_RL_C                 : REAL := 0.000;    (* Slide Rear-Left Linear Scale Position Ch C [mm] *)
+    ZT_SLIDE_POS_RR_A                 : REAL := 0.000;    (* Slide Rear-Right Linear Scale Position Ch A [mm] *)
+    ZT_SLIDE_POS_RR_B                 : REAL := 0.000;    (* Slide Rear-Right Linear Scale Position Ch B [mm] *)
+    ZT_SLIDE_POS_RR_C                 : REAL := 0.000;    (* Slide Rear-Right Linear Scale Position Ch C [mm] *)
 
-    (* ===================================================================================== *)
-    (* 4. 2oo3 TMR ACCUMULATOR & AUXILIARY HYDRAULIC PRESSURE TRANSMITTERS                 *)
-    (* ===================================================================================== *)
-    rPress_AccSupply_SensorA_bar    : REAL;     (* High-Pressure Accumulator Bank Header Ch A [bar] *)
-    rPress_AccSupply_SensorB_bar    : REAL;     (* High-Pressure Accumulator Bank Header Ch B [bar] *)
-    rPress_AccSupply_SensorC_bar    : REAL;     (* High-Pressure Accumulator Bank Header Ch C [bar] *)
-    rPress_N2Precharge_SensorA_bar  : REAL;     (* Accumulator Nitrogen Bottle Precharge Ch A [bar] *)
-    rPress_N2Precharge_SensorB_bar  : REAL;     (* Accumulator Nitrogen Bottle Precharge Ch B [bar] *)
-    rPress_N2Precharge_SensorC_bar  : REAL;     (* Accumulator Nitrogen Bottle Precharge Ch C [bar] *)
-    rPress_DecompHeader_SensorA_bar : REAL;     (* Decompression Return Line Pressure Ch A [bar] *)
-    rPress_DecompHeader_SensorB_bar : REAL;     (* Decompression Return Line Pressure Ch B [bar] *)
-    rPress_DecompHeader_SensorC_bar : REAL;     (* Decompression Return Line Pressure Ch C [bar] *)
+    (* ============================================================================================== *)
+    (* SECTION 3: 4-CORNER PRESS FRAME TIE-ROD STRAIN GAUGE TONNAGE LOAD CELLS (2oo3 REDUNDANT)      *)
+    (* ============================================================================================== *)
+    WT_LOAD_FL_A                      : REAL := 0.000;    (* Front-Left Corner Press Tonnage Load Cell Ch A [kN] *)
+    WT_LOAD_FL_B                      : REAL := 0.000;    (* Front-Left Corner Press Tonnage Load Cell Ch B [kN] *)
+    WT_LOAD_FL_C                      : REAL := 0.000;    (* Front-Left Corner Press Tonnage Load Cell Ch C [kN] *)
+    WT_LOAD_FR_A                      : REAL := 0.000;    (* Front-Right Corner Press Tonnage Load Cell Ch A [kN] *)
+    WT_LOAD_FR_B                      : REAL := 0.000;    (* Front-Right Corner Press Tonnage Load Cell Ch B [kN] *)
+    WT_LOAD_FR_C                      : REAL := 0.000;    (* Front-Right Corner Press Tonnage Load Cell Ch C [kN] *)
+    WT_LOAD_RL_A                      : REAL := 0.000;    (* Rear-Left Corner Press Tonnage Load Cell Ch A [kN] *)
+    WT_LOAD_RL_B                      : REAL := 0.000;    (* Rear-Left Corner Press Tonnage Load Cell Ch B [kN] *)
+    WT_LOAD_RL_C                      : REAL := 0.000;    (* Rear-Left Corner Press Tonnage Load Cell Ch C [kN] *)
+    WT_LOAD_RR_A                      : REAL := 0.000;    (* Rear-Right Corner Press Tonnage Load Cell Ch A [kN] *)
+    WT_LOAD_RR_B                      : REAL := 0.000;    (* Rear-Right Corner Press Tonnage Load Cell Ch B [kN] *)
+    WT_LOAD_RR_C                      : REAL := 0.000;    (* Rear-Right Corner Press Tonnage Load Cell Ch C [kN] *)
 
-    (* ===================================================================================== *)
-    (* 5. 2oo3 TMR LOWER DIE HYDRAULIC EJECTOR PIN SENSORS                                  *)
-    (* ===================================================================================== *)
-    rPos_EjectorPin_SensorA_mm      : REAL;     (* Ejector Pin Hydraulic Stroke Ch A [mm] *)
-    rPos_EjectorPin_SensorB_mm      : REAL;     (* Ejector Pin Hydraulic Stroke Ch B [mm] *)
-    rPos_EjectorPin_SensorC_mm      : REAL;     (* Ejector Pin Hydraulic Stroke Ch C [mm] *)
-    rPress_EjectorHyd_SensorA_bar   : REAL;     (* Ejector Cylinder Push Pressure Ch A [bar] *)
-    rPress_EjectorHyd_SensorB_bar   : REAL;     (* Ejector Cylinder Push Pressure Ch B [bar] *)
-    rPress_EjectorHyd_SensorC_bar   : REAL;     (* Ejector Cylinder Push Pressure Ch C [bar] *)
+    (* ============================================================================================== *)
+    (* SECTION 4: 8-POINT SERVO DIE CUSHION HYDRAULIC PRESSURE TRANSMITTERS (2oo3 REDUNDANT)         *)
+    (* ============================================================================================== *)
+    PT_CUSH_P1_A                      : REAL := 15.000;   (* Die Cushion Cylinder 1 Chamber Pressure Ch A [bar] *)
+    PT_CUSH_P1_B                      : REAL := 15.000;   (* Die Cushion Cylinder 1 Chamber Pressure Ch B [bar] *)
+    PT_CUSH_P1_C                      : REAL := 15.000;   (* Die Cushion Cylinder 1 Chamber Pressure Ch C [bar] *)
+    PT_CUSH_P2_A                      : REAL := 15.000;   (* Die Cushion Cylinder 2 Chamber Pressure Ch A [bar] *)
+    PT_CUSH_P2_B                      : REAL := 15.000;   (* Die Cushion Cylinder 2 Chamber Pressure Ch B [bar] *)
+    PT_CUSH_P2_C                      : REAL := 15.000;   (* Die Cushion Cylinder 2 Chamber Pressure Ch C [bar] *)
+    PT_CUSH_P3_A                      : REAL := 15.000;   (* Die Cushion Cylinder 3 Chamber Pressure Ch A [bar] *)
+    PT_CUSH_P3_B                      : REAL := 15.000;   (* Die Cushion Cylinder 3 Chamber Pressure Ch B [bar] *)
+    PT_CUSH_P3_C                      : REAL := 15.000;   (* Die Cushion Cylinder 3 Chamber Pressure Ch C [bar] *)
+    PT_CUSH_P4_A                      : REAL := 15.000;   (* Die Cushion Cylinder 4 Chamber Pressure Ch A [bar] *)
+    PT_CUSH_P4_B                      : REAL := 15.000;   (* Die Cushion Cylinder 4 Chamber Pressure Ch B [bar] *)
+    PT_CUSH_P4_C                      : REAL := 15.000;   (* Die Cushion Cylinder 4 Chamber Pressure Ch C [bar] *)
+    PT_CUSH_P5_A                      : REAL := 15.000;   (* Die Cushion Cylinder 5 Chamber Pressure Ch A [bar] *)
+    PT_CUSH_P5_B                      : REAL := 15.000;   (* Die Cushion Cylinder 5 Chamber Pressure Ch B [bar] *)
+    PT_CUSH_P5_C                      : REAL := 15.000;   (* Die Cushion Cylinder 5 Chamber Pressure Ch C [bar] *)
+    PT_CUSH_P6_A                      : REAL := 15.000;   (* Die Cushion Cylinder 6 Chamber Pressure Ch A [bar] *)
+    PT_CUSH_P6_B                      : REAL := 15.000;   (* Die Cushion Cylinder 6 Chamber Pressure Ch B [bar] *)
+    PT_CUSH_P6_C                      : REAL := 15.000;   (* Die Cushion Cylinder 6 Chamber Pressure Ch C [bar] *)
+    PT_CUSH_P7_A                      : REAL := 15.000;   (* Die Cushion Cylinder 7 Chamber Pressure Ch A [bar] *)
+    PT_CUSH_P7_B                      : REAL := 15.000;   (* Die Cushion Cylinder 7 Chamber Pressure Ch B [bar] *)
+    PT_CUSH_P7_C                      : REAL := 15.000;   (* Die Cushion Cylinder 7 Chamber Pressure Ch C [bar] *)
+    PT_CUSH_P8_A                      : REAL := 15.000;   (* Die Cushion Cylinder 8 Chamber Pressure Ch A [bar] *)
+    PT_CUSH_P8_B                      : REAL := 15.000;   (* Die Cushion Cylinder 8 Chamber Pressure Ch B [bar] *)
+    PT_CUSH_P8_C                      : REAL := 15.000;   (* Die Cushion Cylinder 8 Chamber Pressure Ch C [bar] *)
 
-    (* ===================================================================================== *)
-    (* 6. HYDRAULIC SYSTEM TELEMETRY & VALVE SPOOL FEEDBACK                                 *)
-    (* ===================================================================================== *)
-    rTemp_HydraulicFluid_degC       : REAL;     (* Main Hydraulic Fluid Reservoir Temperature [deg C] *)
-    rPress_FilterDeltaP_bar         : REAL;     (* High-Pressure Fluid Filter Differential Pressure [bar] *)
-    rSpool_ServoValve1_Feedback_pct : REAL;     (* Corner 1 Proportional Servo Spool LVDT Feedback [%] *)
-    rSpool_ServoValve2_Feedback_pct : REAL;     (* Corner 2 Proportional Servo Spool LVDT Feedback [%] *)
-    rSpool_ServoValve3_Feedback_pct : REAL;     (* Corner 3 Proportional Servo Spool LVDT Feedback [%] *)
-    rSpool_ServoValve4_Feedback_pct : REAL;     (* Corner 4 Proportional Servo Spool LVDT Feedback [%] *)
-    rStroke_PrefillValve_Feedback_pct:REAL;     (* Overhead Tank Pilot Pre-fill Poppet Stroke Feedback [%] *)
-    rSpool_DecompValve_Feedback_pct : REAL;     (* Active Decompression Proportional Valve Spool [%] *)
+    (* ============================================================================================== *)
+    (* SECTION 5: DIE CUSHION BED LINEAR DISPLACEMENT TRANSDUCERS (2oo3 REDUNDANT)                   *)
+    (* ============================================================================================== *)
+    ZT_CUSH_POS_L_A                   : REAL := 0.000;    (* Die Cushion Left Bed Displacement Scale Ch A [mm] *)
+    ZT_CUSH_POS_L_B                   : REAL := 0.000;    (* Die Cushion Left Bed Displacement Scale Ch B [mm] *)
+    ZT_CUSH_POS_L_C                   : REAL := 0.000;    (* Die Cushion Left Bed Displacement Scale Ch C [mm] *)
+    ZT_CUSH_POS_R_A                   : REAL := 0.000;    (* Die Cushion Right Bed Displacement Scale Ch A [mm] *)
+    ZT_CUSH_POS_R_B                   : REAL := 0.000;    (* Die Cushion Right Bed Displacement Scale Ch B [mm] *)
+    ZT_CUSH_POS_R_C                   : REAL := 0.000;    (* Die Cushion Right Bed Displacement Scale Ch C [mm] *)
 
-    (* ===================================================================================== *)
-    (* 7. OPERATOR RECIPE SETPOINTS & KINEMATIC TARGETS                                     *)
-    (* ===================================================================================== *)
-    rTargetPressTonnage_Ton         : REAL;     (* Final Forging Clamping Tonnage Target [Ton] *)
-    rTargetBottomDeadCenter_mm      : REAL;     (* Target Bottom Dead Center Penetration Depth [mm] *)
-    rTargetApproachSpeed_mms        : REAL;     (* Rapid Gravity Descent Speed Setpoint [mm/s] *)
-    rTargetForgingSpeed_mms         : REAL;     (* High-Pressure Forging Penetration Speed [mm/s] *)
-    rTargetRetractSpeed_mms         : REAL;     (* Ram Upward Return Retract Speed [mm/s] *)
-    rTargetDwellDuration_s          : REAL;     (* Isothermal Forging Tonnage Dwell Duration [s] *)
-    rTargetDecompDuration_s         : REAL;     (* Active S-Curve Decompression Ramp Time [s] *)
-    rMaxPermissibleTilt_Pitch_mmm   : REAL;     (* Maximum Allowable Pitch Tilt Threshold [mm/m] *)
-    rMaxPermissibleTilt_Roll_mmm    : REAL;     (* Maximum Allowable Roll Tilt Threshold [mm/m] *)
-    rTargetEjectorStroke_mm         : REAL;     (* Lower Die Ejector Part Extraction Stroke [mm] *)
-    nTargetEjectorPulses            : INT;      (* Number of Hydraulic Ejection Vibration Pulses [-] *)
-    rEjectorPulseFrequency_Hz       : REAL;     (* Ejector Hydraulic Pulsing Frequency [Hz] *)
-    rBilletPyrometerTemp_degC       : REAL;     (* Infrared Pyrometer Heated Billet Surface Temp [deg C] *)
-    rBilletMinForgingTemp_degC      : REAL;     (* Minimum Allowable Billet Forging Temp [deg C] *)
+    (* ============================================================================================== *)
+    (* SECTION 6: HYDRAULIC POWER UNIT (HPU) AUXILIARY PROCESS SENSORS                               *)
+    (* ============================================================================================== *)
+    PT_HYD_SUPPLY                     : REAL := 250.000;  (* Main HPU High Pressure Supply Manifold [bar] *)
+    PT_HYD_RETURN                     : REAL := 3.500;    (* Main HPU Return Line Tank Back-Pressure [bar] *)
+    PT_HYD_ACCUMULATOR                : REAL := 240.000;  (* Nitrogen Piston Accumulator Pre-Charge Pressure [bar] *)
+    PT_HYD_PILOT                      : REAL := 45.000;   (* Proportional Servo Valve Pilot Control Pressure [bar] *)
+    PT_SLIDE_COUNTERBALANCE           : REAL := 55.000;   (* Pneumatic/Hydraulic Slide Counterbalance Pressure [bar] *)
+    TT_HYD_OIL_TEMP                   : REAL := 42.500;   (* Main Hydraulic Reservoir Bulk Oil Temperature [deg C] *)
 
-    (* ===================================================================================== *)
-    (* 8. DISCRETE PERMISSIVES & SAFETY INTERLOCKS                                          *)
-    (* ===================================================================================== *)
-    bEnablePressCycle               : BOOL;     (* Master Press Enable Permissive Flag *)
-    bAutoCycleStart                 : BOOL;     (* Automatic Single-Cycle Start Pushbutton *)
-    bEmergencyStop_NC               : BOOL;     (* Hardwired Fail-Safe E-Stop PB (Normally Closed: 1=OK, 0=Trip) *)
-    bSafetyLightCurtainClear        : BOOL;     (* Perimeter Optical Safety Light Curtain Muted/Clear *)
-    bDieSafetyShieldClosed          : BOOL;     (* Hydraulic Ballistic Shrapnel Protective Shield Closed *)
-    bBilletLoadedConfirmed          : BOOL;     (* Vision / Laser In-Die Billet Seating Confirmation *)
-    bDieLubricationCycleDone        : BOOL;     (* Graphite Die Lubricant Robot Cycle Finished *)
-    bHydraulicPumpsRunning          : BOOL;     (* Main Variable-Displacement High-Pressure Pumps On *)
-    bAccumulatorChargePermissive    : BOOL;     (* Accumulator Charging Manifold Ready *)
-    bResetFaults                    : BOOL;     (* Operator Alarm Reset and Latched Fault Clear PB *)
-    bManualJogRamUp                 : BOOL;     (* Manual Maintenance Jog Ram Retract *)
-    bManualJogRamDown               : BOOL;     (* Manual Maintenance Jog Ram Advance *)
-END_VAR
+    (* ============================================================================================== *)
+    (* SECTION 7: SAFETY OPTICAL LIGHT CURTAINS & MUTING DISCRETE SENSORS                             *)
+    (* ============================================================================================== *)
+    DI_OPTICAL_CURTAIN_FRONT_OSSD1    : BOOL := TRUE;     (* Front Light Curtain Safe Channel OSSD 1 [BOOL] *)
+    DI_OPTICAL_CURTAIN_FRONT_OSSD2    : BOOL := TRUE;     (* Front Light Curtain Safe Channel OSSD 2 [BOOL] *)
+    DI_OPTICAL_CURTAIN_REAR_OSSD1     : BOOL := TRUE;     (* Rear Light Curtain Safe Channel OSSD 1 [BOOL] *)
+    DI_OPTICAL_CURTAIN_REAR_OSSD2     : BOOL := TRUE;     (* Rear Light Curtain Safe Channel OSSD 2 [BOOL] *)
+    DI_MUTING_SENSOR_MS1              : BOOL := FALSE;    (* Optical Muting Initiator Sensor MS1 Entrance [BOOL] *)
+    DI_MUTING_SENSOR_MS2              : BOOL := FALSE;    (* Optical Muting Initiator Sensor MS2 Inner [BOOL] *)
+    DI_MUTING_SENSOR_MS3              : BOOL := FALSE;    (* Optical Muting Initiator Sensor MS3 Outer [BOOL] *)
+    DI_MUTING_SENSOR_MS4              : BOOL := FALSE;    (* Optical Muting Initiator Sensor MS4 Exit [BOOL] *)
 
-VAR_OUTPUT
-    (* ===================================================================================== *)
-    (* 1. ANALOG & MODULATING VALVE COMMANDS                                                *)
-    (* ===================================================================================== *)
-    rCmdServoValve1_pct             : REAL;     (* Corner 1 Proportional Servo Spool Command [%] *)
-    rCmdServoValve2_pct             : REAL;     (* Corner 2 Proportional Servo Spool Command [%] *)
-    rCmdServoValve3_pct             : REAL;     (* Corner 3 Proportional Servo Spool Command [%] *)
-    rCmdServoValve4_pct             : REAL;     (* Corner 4 Proportional Servo Spool Command [%] *)
-    rCmdPrefillValvePilot_pct       : REAL;     (* Pilot-Operated Pre-Fill Poppet Opening Command [%] *)
-    rCmdDecompressionValve_pct      : REAL;     (* Multi-Stage S-Curve Decompression Valve Command [%] *)
-    rCmdRetractCylinders_pct        : REAL;     (* High-Speed Ram Pullback Retract Cylinders [%] *)
-    rCmdEjectorPinValve_pct         : REAL;     (* Lower Die Ejector Proportional Valve Command [%] *)
-    rCmdGraphiteSprayAir_pct        : REAL;     (* Atomized Graphite Die Lubrication Proportional Air [%] *)
-    rCmdDescalingBlast_pct          : REAL;     (* High-Pressure Billet Water/Air Descaling Blast [%] *)
+    (* ============================================================================================== *)
+    (* SECTION 8: DIE PROTECTION & MECHANICAL BRAKE MONITORS                                         *)
+    (* ============================================================================================== *)
+    DI_DIE_PROT_DOUBLE_BLANK          : BOOL := FALSE;    (* Die Protection Laser Double Blank Detection Sensor [BOOL] *)
+    DI_DIE_PROT_PART_SEATED           : BOOL := TRUE;     (* Die Lower Cavity Blank In-Nest Seating Sensor [BOOL] *)
+    DI_DIE_PROT_PART_EJECTED          : BOOL := FALSE;    (* Upper Die Part Stripped and Ejected Optical Barrier [BOOL] *)
+    DI_DIE_PROT_SCRAP_CHUTE_CLEAR     : BOOL := TRUE;     (* Scrap Discharge Chute Obstruction Laser Monitor [BOOL] *)
+    DI_BRAKE_PRESSURE_SWITCH          : BOOL := TRUE;     (* Mechanical Flywheel Brake Release Hydraulic Switch [BOOL] *)
+    DI_BRAKE_LINING_WEAR_SWITCH       : BOOL := FALSE;    (* Mechanical Brake Pad Friction Lining Wear Limit [BOOL] *)
+    DI_BRAKE_ENGAGEMENT_FEEDBACK      : BOOL := FALSE;    (* Mechanical Brake Caliper Microswitch Contact [BOOL] *)
+    DI_SAFETY_GATE_INTERLOCKS_OK      : BOOL := TRUE;     (* Perimeter Guard Safety Interlock Gate Circuit OK [BOOL] *)
+    DI_EMERGENCY_STOP_HARDWIRE_OK     : BOOL := TRUE;     (* Dual-Channel Hardwired Emergency Stop Relay Healthy [BOOL] *)
 
-    (* ===================================================================================== *)
-    (* 2. DISCRETE SAFETY & DIRECTIONAL SOLENOID ACTUATION                                  *)
-    (* ===================================================================================== *)
-    bCmdMechanicalWedgeLocksRetract : BOOL;     (* Top Dead Center Hydraulic Safety Wedge Retract Solenoid *)
-    bCmdMainAccumulatorIsolationOpen: BOOL;     (* High-Pressure Accumulator Bank Isolation Gate Solenoid *)
-    bCmdEmergencyDecompressionDump  : BOOL;     (* Fail-Safe Emergency Hydraulic Fast Dump Valve *)
-    bCmdPumpUnloadCirculation       : BOOL;     (* Main Hydraulic Pump High-Pressure Unload Bypass Solenoid *)
-    bCmdCoolingRecirculationValve   : BOOL;     (* Oil Cooler Recirculation Heat Exchanger Pump *)
-
-    (* ===================================================================================== *)
-    (* 3. SYSTEM TELEMETRY, OBSERVERS & CYBER-PHYSICAL ESTIMATIONS                          *)
-    (* ===================================================================================== *)
-    rActualAverageRamPos_mm         : REAL;     (* Real-time Center-of-Ram Vertical Position [mm] *)
-    rActualRamVelocity_mms          : REAL;     (* Filtered Numerical Derivative Ram Velocity [mm/s] *)
-    rActualRamTilt_Pitch_mmm        : REAL;     (* Dynamic Ram Pitch Tilt Angle Differential [mm/m] *)
-    rActualRamTilt_Roll_mmm         : REAL;     (* Dynamic Ram Roll Tilt Angle Differential [mm/m] *)
-    rActualTotalPressTonnage_Ton    : REAL;     (* Summed 4-Corner Tie-Rod Press Tonnage [Ton] *)
-    rActualEccentricMoment_Pitch_kNm: REAL;     (* Off-Center Forging Load Tipping Moment Pitch Axis [kNm] *)
-    rActualEccentricMoment_Roll_kNm : REAL;     (* Off-Center Forging Load Tipping Moment Roll Axis [kNm] *)
-    rActualFluidBulkModulus_bar     : REAL;     (* Dynamic Real-Time Fluid Bulk Modulus beta(p, T) [bar] *)
-    rActualDecompressionRate_bars   : REAL;     (* High-Frequency Pressure Decay Gradient dp/dt [bar/s] *)
-    rMPC_ObjectiveCost_J            : REAL;     (* Receding-Horizon Leveling Quadratic Cost Metric [-] *)
-    rCycleDurationTimer_s           : REAL;     (* Total Forging Cycle Execution Timer [s] *)
-
-    (* ===================================================================================== *)
-    (* 4. OPERATIONAL STATUS WORDS & ISA-18.2 ALARM PACKING                                 *)
-    (* ===================================================================================== *)
-    bSystemOperationalReady         : BOOL;     (* All Interlocks Satisfied, Accumulator Primed, Ready *)
-    bPressCycleRunning              : BOOL;     (* Automated Forging Sequence In Active Execution *)
-    bRamInTonnageDwell              : BOOL;     (* Pressing Holding Full Setpoint Tonnage at BDC *)
-    bDecompressionCompleted         : BOOL;     (* Controlled Multi-Stage Decompression Completed *)
-    bRamAtTopDeadCenter             : BOOL;     (* Ram Locked at Top Dead Center Home *)
-    bEjectorSequenceComplete        : BOOL;     (* Lower Die Ejection Sequence Completed *)
-    bSystemSafetyTripActive         : BOOL;     (* Critical Safety Trip Active, Hydraulics Dumped *)
-    nActiveFSMState                 : INT;      (* Current Numeric State of Forging Finite State Machine *)
-    dwOperationalStatusWord         : DWORD;    (* Bit-Packed Press Telemetry & Subsystem State *)
-    dwAlarmStatusWord_1             : DWORD;    (* ISA-18.2 Critical Emergency Safety Trips [Bit-Packed] *)
-    dwAlarmStatusWord_2             : DWORD;    (* ISA-18.2 Process Warnings & Leveling Tolerances [Bit-Packed] *)
-    dwDegradationWord               : DWORD;    (* 2oo3 TMR Sensor Degradation & Channel Fallback Status *)
-END_VAR
-
-VAR
-    (* ===================================================================================== *)
-    (* 1. DISCRETE STATE-SPACE MODEL MATRICES & VECTORS (8 STATES x 6 INPUTS)               *)
-    (* ===================================================================================== *)
-    (* State Vector x[k]:
-       x[1] = rActualAverageRamPos_mm        (Ram Vertical Position, [mm])
-       x[2] = rActualRamVelocity_mms         (Ram Vertical Velocity, [mm/s])
-       x[3] = rActualRamTilt_Pitch_mmm       (Ram Pitch Angle Differential, [mm/m])
-       x[4] = rActualRamTilt_Roll_mmm        (Ram Roll Angle Differential, [mm/m])
-       x[5] = rVotedPress_Cyl1_bar           (Corner 1 Chamber Pressure, [bar])
-       x[6] = rVotedPress_Cyl2_bar           (Corner 2 Chamber Pressure, [bar])
-       x[7] = rVotedPress_Cyl3_bar           (Corner 3 Chamber Pressure, [bar])
-       x[8] = rVotedPress_Cyl4_bar           (Corner 4 Chamber Pressure, [bar])
-       Control Vector u[k]:
-       u[1] = rCmdServoValve1_pct            (Corner 1 Servo Valve Command, [%])
-       u[2] = rCmdServoValve2_pct            (Corner 2 Servo Valve Command, [%])
-       u[3] = rCmdServoValve3_pct            (Corner 3 Servo Valve Command, [%])
-       u[4] = rCmdServoValve4_pct            (Corner 4 Servo Valve Command, [%])
-       u[5] = rCmdPrefillValvePilot_pct      (Pilot Pre-Fill Poppet Opening, [%])
-       u[6] = rCmdDecompressionValve_pct     (Active Decompression Valve, [%])
-    *)
-    rA_Matrix                       : ARRAY[1..8, 1..8] OF REAL; (* Discrete System Transition Matrix *)
-    rB_Matrix                       : ARRAY[1..8, 1..6] OF REAL; (* Discrete Input Coupling Matrix *)
-    rC_Matrix                       : ARRAY[1..8, 1..8] OF REAL; (* Output Observation Matrix *)
-    rD_Matrix                       : ARRAY[1..8, 1..6] OF REAL; (* Direct Feedthrough Matrix *)
-
-    rStateVector_x                  : ARRAY[1..8] OF REAL;       (* Current Discrete System State Vector *)
-    rStateTarget_r                  : ARRAY[1..8] OF REAL;       (* Reference Setpoint State Vector *)
-    rStateError_e                   : ARRAY[1..8] OF REAL;       (* State Tracking Error e[k] = x[k] - r[k] *)
-    rStateVector_xNext              : ARRAY[1..8] OF REAL;       (* Forward Predicted State x[k+1] *)
-
-    (* MPC Cost Weightings & Optimization Tuning *)
-    rQ_DiagWeights                  : ARRAY[1..8] OF REAL;       (* State Error Quadratic Penalty Weights *)
-    rR_DiagWeights                  : ARRAY[1..6] OF REAL;       (* Actuator Effort Quadratic Penalty Weights *)
-    rP_TerminalWeights              : ARRAY[1..8] OF REAL;       (* Terminal State Error Quadratic Penalty *)
-    rS_SlewWeights                  : ARRAY[1..6] OF REAL;       (* Control Rate of Change (Slew) Penalty *)
-
-    rControlVector_u                : ARRAY[1..6] OF REAL;       (* Current Optimization Control Vector *)
-    rControlVector_uPrev            : ARRAY[1..6] OF REAL;       (* Previous Cycle Control Vector u[k-1] *)
-    rGradient_J                     : ARRAY[1..6] OF REAL;       (* Cost Gradient Vector del_J / del_u *)
-    rDeltaU_SlewLimit               : ARRAY[1..6] OF REAL;       (* Maximum Permissible Slew Step per ms *)
-    rU_UpperBound                   : ARRAY[1..6] OF REAL;       (* Actuator Hard Saturation Maximum *)
-    rU_LowerBound                   : ARRAY[1..6] OF REAL;       (* Actuator Hard Saturation Minimum *)
-
-    rMPC_StepGain                   : REAL;                      (* Gradient Descent Optimization Step Size *)
-    rSumTempMatrix                  : REAL;                      (* Scratch Accumulator for Matrix Multiply *)
-    rCostStatePenalty               : REAL;                      (* State Error Cost Component *)
-    rCostActuatorPenalty            : REAL;                      (* Actuator Effort Cost Component *)
-    rCostSlewPenalty                : REAL;                      (* Actuator Slew Rate Cost Component *)
-
-    (* Active Leveling Trim Computations *)
-    rTrimPitch_P                    : REAL;                      (* Pitch Proportional Tilt Trim *)
-    rTrimPitch_D                    : REAL;                      (* Pitch Derivative Tilt Trim *)
-    rTrimRoll_P                     : REAL;                      (* Roll Proportional Tilt Trim *)
-    rTrimRoll_D                     : REAL;                      (* Roll Derivative Tilt Trim *)
-    rPrevTiltPitch                  : REAL;                      (* Prior Cycle Pitch Tilt for Derivative *)
-    rPrevTiltRoll                   : REAL;                      (* Prior Cycle Roll Tilt for Derivative *)
-    rDeltaTiltPitch_dt              : REAL;                      (* Tilt Rate of Change Pitch [mm/(m*s)] *)
-    rDeltaTiltRoll_dt               : REAL;                      (* Tilt Rate of Change Roll [mm/(m*s)] *)
-    rBaseAdvanceCmd_pct             : REAL;                      (* Base Synchronous Advance Command [%] *)
-
-    (* ===================================================================================== *)
-    (* 2. 2oo3 TMR SENSOR VOTING STRUCTURES, DISCREPANCY TIMERS & HEALTH FLAGS              *)
-    (* ===================================================================================== *)
-    (* Voted Sensor Signal Registers *)
-    rVotedPos_Corner1_mm            : REAL;
-    rVotedPos_Corner2_mm            : REAL;
-    rVotedPos_Corner3_mm            : REAL;
-    rVotedPos_Corner4_mm            : REAL;
-
-    rVotedPress_Cyl1_bar            : REAL;
-    rVotedPress_Cyl2_bar            : REAL;
-    rVotedPress_Cyl3_bar            : REAL;
-    rVotedPress_Cyl4_bar            : REAL;
-
-    rVotedLoad_Corner1_kN           : REAL;
-    rVotedLoad_Corner2_kN           : REAL;
-    rVotedLoad_Corner3_kN           : REAL;
-    rVotedLoad_Corner4_kN           : REAL;
-
-    rVotedPress_AccSupply_bar       : REAL;
-    rVotedPress_N2Precharge_bar     : REAL;
-    rVotedPress_DecompHeader_bar    : REAL;
-    rVotedPos_EjectorPin_mm         : REAL;
-    rVotedPress_EjectorHyd_bar      : REAL;
-
-    (* Discrepancy Thresholds & Timers [ms] *)
-    rDiscrepancyThresholdPos_mm     : REAL;
-    rDiscrepancyThresholdPress_bar  : REAL;
-    rDiscrepancyThresholdLoad_kN    : REAL;
-    rDiscrepancyThresholdAcc_bar    : REAL;
-
-    nTimerDiscrepancy_PosC1         : INT;
-    nTimerDiscrepancy_PosC2         : INT;
-    nTimerDiscrepancy_PosC3         : INT;
-    nTimerDiscrepancy_PosC4         : INT;
-
-    nTimerDiscrepancy_PressC1       : INT;
-    nTimerDiscrepancy_PressC2       : INT;
-    nTimerDiscrepancy_PressC3       : INT;
-    nTimerDiscrepancy_PressC4       : INT;
-
-    nTimerDiscrepancy_LoadC1        : INT;
-    nTimerDiscrepancy_LoadC2        : INT;
-    nTimerDiscrepancy_LoadC3        : INT;
-    nTimerDiscrepancy_LoadC4        : INT;
-
-    nTimerDiscrepancy_AccSupply     : INT;
-    nTimerDiscrepancy_N2Precharge   : INT;
-    nTimerDiscrepancy_Decomp        : INT;
-    nTimerDiscrepancy_Ejector       : INT;
-
-    (* Health & Degradation Status Flags *)
-    bHealthy_PosC1                  : BOOL;
-    bHealthy_PosC2                  : BOOL;
-    bHealthy_PosC3                  : BOOL;
-    bHealthy_PosC4                  : BOOL;
-
-    bHealthy_PressC1                : BOOL;
-    bHealthy_PressC2                : BOOL;
-    bHealthy_PressC3                : BOOL;
-    bHealthy_PressC4                : BOOL;
-
-    bHealthy_LoadC1                 : BOOL;
-    bHealthy_LoadC2                 : BOOL;
-    bHealthy_LoadC3                 : BOOL;
-    bHealthy_LoadC4                 : BOOL;
-
-    bHealthy_AccSupply              : BOOL;
-    bHealthy_N2Precharge            : BOOL;
-    bHealthy_Decomp                 : BOOL;
-    bHealthy_Ejector                : BOOL;
-
-    bDegraded_PosAny                : BOOL;
-    bDegraded_PressAny              : BOOL;
-    bDegraded_LoadAny               : BOOL;
-    bDegraded_AccAny                : BOOL;
-
-    (* TMR Scratch Variables for Sorting and Median Selection *)
-    rTMR_A                          : REAL;
-    rTMR_B                          : REAL;
-    rTMR_C                          : REAL;
-    rTMR_DiffAB                     : REAL;
-    rTMR_DiffBC                     : REAL;
-    rTMR_DiffCA                     : REAL;
-    rTMR_MedianResult               : REAL;
-
-    (* ===================================================================================== *)
-    (* 3. FLUID BULK MODULUS & THERMODYNAMIC COMPRESSIBILITY PROPERTIES                     *)
-    (* ===================================================================================== *)
-    rFluidBulkModulus_0_bar         : REAL;     (* Base Bulk Modulus at 1 bar, 20 deg C [bar] *)
-    rBulkPressureSlope_m            : REAL;     (* Pressure Stiffening Coefficient m [-] *)
-    rBulkTempSlope_kT               : REAL;     (* Thermal Softening Coefficient k_T [bar/deg C] *)
-    rTrappedFluidVolume_L           : REAL;     (* Total Volume of High-Pressure Hydraulic Fluid [L] *)
-    rCompressedElasticStrainDeltaV_L: REAL;     (* Elastic Compressed Fluid Volume Delta V [L] *)
-    rStoredElasticEnergy_MJ         : REAL;     (* Trapped Stored Elastic Strain Energy [MJ] *)
-
-    (* Numerical Filtering Registers for Velocity & Decompression Rate *)
-    rPrevAverageRamPos_mm           : REAL;     (* Position at Cycle k-1 [mm] *)
-    rPrevAverageCylPress_bar        : REAL;     (* Chamber Pressure at Cycle k-1 [bar] *)
-    rRawRamVelocity_mms             : REAL;     (* Unfiltered Velocity [mm/s] *)
-    rRawDecompressionRate_bars      : REAL;     (* Unfiltered dp/dt [bar/s] *)
-
-    (* ===================================================================================== *)
-    (* 4. DYNAMIC FORGING FINITE STATE MACHINE (FSM) TIMERS & SEQUENCING                    *)
-    (* ===================================================================================== *)
-    nFSMState                       : INT;      (* Internal State Code *)
-    nNextFSMState                   : INT;      (* Next State Pending Transition *)
-    nFSMStateTimer_ms               : DINT;     (* Dwell/State Elapsed Milliseconds [ms] *)
-    nDwellTimer_ms                  : DINT;     (* High-Pressure Tonnage Dwell Timer [ms] *)
-    nDecompTimer_ms                 : DINT;     (* Decompression S-Curve Timer [ms] *)
-    nEjectorPulseCounter            : INT;      (* Active Pulse Count for Ejector Pins [-] *)
-    nEjectorPeriodTimer_ms          : INT;      (* Ejector Frequency Sub-Timer [ms] *)
-    bEjectorStrokeExtend            : BOOL;     (* Ejector Pulse Direction Flip-Flop *)
-    nScaleBlastTimer_ms             : INT;      (* Scale Blowoff Air Solenoid Timer [ms] *)
-    nDieLubeTimer_ms                : INT;      (* Graphite Spray Atomizer Timer [ms] *)
-    bCycleCompletedLatch            : BOOL;     (* Single-Cycle Done Memory Bit *)
-
-    (* S-Curve Decompression Mathematical Profile *)
-    rDecompNormTime_tau             : REAL;     (* Normalized Time tau = t / t_decomp [0.0..1.0] *)
-    rDecompPressureTarget_bar       : REAL;     (* Analytical Target Pressure Curve p(t) [bar] *)
-    rDecompStartPressure_bar        : REAL;     (* Cylinder Pressure at Inception of Decompression [bar] *)
-
-    (* ===================================================================================== *)
-    (* 5. ISA-18.2 ALARM THRESHOLDS, DEADBANDS, TIMERS & LATCHES                            *)
-    (* ===================================================================================== *)
-    (* Threshold Definitions *)
-    rLimit_PressSupply_HH_bar       : REAL;
-    rLimit_PressSupply_H_bar        : REAL;
-    rLimit_PressSupply_L_bar        : REAL;
-    rLimit_PressSupply_LL_bar       : REAL;
-
-    rLimit_TiltPitch_HH_mmm         : REAL;
-    rLimit_TiltPitch_H_mmm          : REAL;
-    rLimit_TiltRoll_HH_mmm          : REAL;
-    rLimit_TiltRoll_H_mmm           : REAL;
-
-    rLimit_EccentricMoment_HH_kNm   : REAL;
-    rLimit_N2Precharge_LL_bar       : REAL;
-    rLimit_N2Precharge_L_bar        : REAL;
-
-    rLimit_FluidTemp_HH_degC        : REAL;
-    rLimit_FluidTemp_H_degC         : REAL;
-    rLimit_FilterDeltaP_HH_bar      : REAL;
-    rLimit_FilterDeltaP_H_bar       : REAL;
-
-    rLimit_DecompShock_HH_bars      : REAL;
-
-    (* Deadbands *)
-    rAlarmDeadband_Press_bar        : REAL;
-    rAlarmDeadband_Tilt_mmm         : REAL;
-    rAlarmDeadband_Temp_degC        : REAL;
-
-    (* Latched Alarm Bits *)
-    bAlarm_PressSupply_HH           : BOOL;
-    bAlarm_PressSupply_H            : BOOL;
-    bAlarm_PressSupply_L            : BOOL;
-    bAlarm_PressSupply_LL           : BOOL;
-
-    bAlarm_TiltPitch_HH             : BOOL;
-    bAlarm_TiltPitch_H              : BOOL;
-    bAlarm_TiltRoll_HH              : BOOL;
-    bAlarm_TiltRoll_H               : BOOL;
-
-    bAlarm_EccentricMoment_HH       : BOOL;
-    bAlarm_N2Precharge_LL           : BOOL;
-    bAlarm_N2Precharge_L            : BOOL;
-
-    bAlarm_FluidTemp_HH             : BOOL;
-    bAlarm_FluidTemp_H              : BOOL;
-    bAlarm_FilterDeltaP_HH          : BOOL;
-    bAlarm_FilterDeltaP_H           : BOOL;
-
-    bAlarm_DecompShock_HH           : BOOL;
-    bAlarm_EStop_Trip               : BOOL;
-    bAlarm_LightCurtain_Breach      : BOOL;
-    bAlarm_BilletUnderTemp_Trip     : BOOL;
-    bAlarm_EjectorStall_Trip        : BOOL;
-
-    (* General Purpose Loop Counters *)
-    i                               : INT;
-    j                               : INT;
-    bFirstScanDone                  : BOOL;
+    (* ============================================================================================== *)
+    (* SECTION 9: RECIPE SETPOINTS, OPERATIONAL LIMITS & CONTROL COMMANDS                            *)
+    (* ============================================================================================== *)
+    SETPOINT_PRESS_SPEED_SPM          : REAL := 22.000;   (* Nominal Continuous Operating Speed [1/min] *)
+    SETPOINT_NOMINAL_TONNAGE          : REAL := 30000.00; (* Stamping Stroke Nominal Target Total Force [kN] *)
+    SETPOINT_MAX_ALLOWABLE_TONNAGE    : REAL := 35000.00; (* Maximum Permissible Press Structural Rating [kN] *)
+    SETPOINT_CUSHION_FORCE_TOTAL      : REAL := 6000.00;  (* Total Synchronized Die Cushion Blank Holder Force [kN] *)
+    SETPOINT_CUSHION_PRE_ACCEL_STROKE : REAL := 35.000;   (* Die Cushion Pre-Acceleration Downward Stroke [mm] *)
+    SETPOINT_PRE_ACCEL_ADVANCE_ANGLE  : REAL := 115.000;  (* Crankshaft Angle Initiating Cushion Pre-Accel [deg] *)
+    SETPOINT_BDC_DWELL_TIME_MS        : REAL := 40.000;   (* Bottom Dead Center Deep Draw Coining Dwell Time [ms] *)
+    SETPOINT_DECOMPRESSION_TIME_MS    : REAL := 55.000;   (* Controlled Hydraulic Decompression Time Window [ms] *)
+    SETPOINT_ANTI_REBOUND_DAMP_GAIN   : REAL := 85.000;   (* Active Anti-Rebound Dynamic Hydraulic Damping Gain [%] *)
+    SETPOINT_TOLERANCE_TILT_MAX       : REAL := 0.120;    (* Maximum Allowable Slide Parallelism Tilt Error [mm] *)
+    SETPOINT_ECCENTRIC_MOMENT_LIMIT   : REAL := 750.000;  (* Maximum Permissible Press Eccentric Tipping Moment [kNm] *)
+    SETPOINT_BRAKE_MAX_STOP_TIME_MS   : REAL := 145.000;  (* Mechanical Brake Dynamic Stopping Time HH Trip Limit [ms] *)
+    SETPOINT_BRAKE_MAX_OVERRUN_ANGLE  : REAL := 18.500;   (* Crankshaft Dynamic Stopping Angle Overrun HH Limit [deg] *)
+    ENABLE_AUTO_CYCLE                 : BOOL := FALSE;    (* Supervisory Automatic Continuous Cycling Permissive [BOOL] *)
+    REQUEST_SINGLE_STROKE             : BOOL := FALSE;    (* Operator Single Stamping Stroke Command Pulse [BOOL] *)
+    MANUAL_INCHING_FORWARD            : BOOL := FALSE;    (* Manual Maintenance Inching Downward Jog Command [BOOL] *)
+    MANUAL_INCHING_REVERSE            : BOOL := FALSE;    (* Manual Maintenance Inching Upward Jog Command [BOOL] *)
+    RESET_ALARMS                      : BOOL := FALSE;    (* Supervisory Master Alarm Reset Pushbutton Command [BOOL] *)
+    ENABLE_PARALLELISM_ACTIVE_COMP    : BOOL := TRUE;     (* Enable 4-Corner Real-Time Hydraulic Leveling Trim [BOOL] *)
+    ENABLE_CUSHION_PRE_ACCELERATION   : BOOL := TRUE;     (* Enable Cushion Impact Velocity Matching Sequence [BOOL] *)
 END_VAR
 """)
+
+    # 3. VAR_OUTPUT
+    parts.append("""VAR_OUTPUT
+    (* ============================================================================================== *)
+    (* SECTION 1: SERVO RAM DRIVE & MECHANICAL CLUTCH/BRAKE ACTUATION COMMANDS                       *)
+    (* ============================================================================================== *)
+    OUT_SERVO_RAM_SPEED_REF           : REAL := 0.000;    (* Direct-Drive Servo Ram Velocity Command [mm/s] *)
+    OUT_SERVO_RAM_TORQUE_LIMIT        : REAL := 100.000;  (* Main Drive Motor Dynamic Torque Clamping Limit [%] *)
+    OUT_BRAKE_RELEASE_SOLENOID        : BOOL := FALSE;    (* Mechanical Flywheel Brake Pneumatic Release Solenoid [BOOL] *)
+    OUT_CLUTCH_ENGAGE_SOLENOID        : BOOL := FALSE;    (* Press Main Mechanical Drive Clutch Solenoid [BOOL] *)
+
+    (* ============================================================================================== *)
+    (* SECTION 2: 8-POINT PROPORTIONAL SERVO CUSHION PRESSURE/FLOW VALVE COMMANDS                    *)
+    (* ============================================================================================== *)
+    OUT_CUSH_VALVE_CMD_P1             : REAL := 0.000;    (* Cushion Point 1 Proportional Servo Valve Command [%] *)
+    OUT_CUSH_VALVE_CMD_P2             : REAL := 0.000;    (* Cushion Point 2 Proportional Servo Valve Command [%] *)
+    OUT_CUSH_VALVE_CMD_P3             : REAL := 0.000;    (* Cushion Point 3 Proportional Servo Valve Command [%] *)
+    OUT_CUSH_VALVE_CMD_P4             : REAL := 0.000;    (* Cushion Point 4 Proportional Servo Valve Command [%] *)
+    OUT_CUSH_VALVE_CMD_P5             : REAL := 0.000;    (* Cushion Point 5 Proportional Servo Valve Command [%] *)
+    OUT_CUSH_VALVE_CMD_P6             : REAL := 0.000;    (* Cushion Point 6 Proportional Servo Valve Command [%] *)
+    OUT_CUSH_VALVE_CMD_P7             : REAL := 0.000;    (* Cushion Point 7 Proportional Servo Valve Command [%] *)
+    OUT_CUSH_VALVE_CMD_P8             : REAL := 0.000;    (* Cushion Point 8 Proportional Servo Valve Command [%] *)
+
+    (* ============================================================================================== *)
+    (* SECTION 3: 4-CORNER SLIDE PARALLELISM ACTIVE LEVELING TILT VALVE COMMANDS                     *)
+    (* ============================================================================================== *)
+    OUT_TILT_VALVE_CMD_FL             : REAL := 0.000;    (* Slide Leveling Cylinder Front-Left Hydraulic Valve [%] *)
+    OUT_TILT_VALVE_CMD_FR             : REAL := 0.000;    (* Slide Leveling Cylinder Front-Right Hydraulic Valve [%] *)
+    OUT_TILT_VALVE_CMD_RL             : REAL := 0.000;    (* Slide Leveling Cylinder Rear-Left Hydraulic Valve [%] *)
+    OUT_TILT_VALVE_CMD_RR             : REAL := 0.000;    (* Slide Leveling Cylinder Rear-Right Hydraulic Valve [%] *)
+
+    (* ============================================================================================== *)
+    (* SECTION 4: FAST DECOMPRESSION DUMP & ANTI-REBOUND DAMPING ACTUATION                           *)
+    (* ============================================================================================== *)
+    OUT_FAST_DECOMP_VALVE_FL          : BOOL := FALSE;    (* High-Speed Hydraulic Decompression Poppet Valve FL [BOOL] *)
+    OUT_FAST_DECOMP_VALVE_FR          : BOOL := FALSE;    (* High-Speed Hydraulic Decompression Poppet Valve FR [BOOL] *)
+    OUT_FAST_DECOMP_VALVE_RL          : BOOL := FALSE;    (* High-Speed Hydraulic Decompression Poppet Valve RL [BOOL] *)
+    OUT_FAST_DECOMP_VALVE_RR          : BOOL := FALSE;    (* High-Speed Hydraulic Decompression Poppet Valve RR [BOOL] *)
+    OUT_ANTI_REBOUND_DAMP_L           : REAL := 0.000;    (* Die Cushion Left Side Active Counter-Pressure Valve [%] *)
+    OUT_ANTI_REBOUND_DAMP_R           : REAL := 0.000;    (* Die Cushion Right Side Active Counter-Pressure Valve [%] *)
+    OUT_CUSH_PRE_ACCEL_VALVE          : REAL := 0.000;    (* Cushion Pre-Acceleration Downward Boost Valve Command [%] *)
+    OUT_PART_LIFTER_EXTEND            : BOOL := FALSE;    (* Die Cushion Pin Part Ejection Lifter Hydraulic Extend [BOOL] *)
+
+    (* ============================================================================================== *)
+    (* SECTION 5: SAFETY STATUS, MUTING & BRAKE PERFORMANCE MONITORING                               *)
+    (* ============================================================================================== *)
+    OUT_SAFETY_MUTING_ACTIVE          : BOOL := FALSE;    (* Optical Light Curtain Certified Muting Condition Active [BOOL] *)
+    OUT_SAFETY_READY_INTERLOCK        : BOOL := FALSE;    (* Press Master Safety Permissive Circuit Closed & Ready [BOOL] *)
+    OUT_BRAKE_STOPPING_TIME_MS        : REAL := 0.000;    (* Measured Mechanical Brake Full Stopping Time Latency [ms] *)
+    OUT_BRAKE_STOPPING_ANGLE_DEG      : REAL := 0.000;    (* Measured Mechanical Brake Crankshaft Overrun Angle [deg] *)
+    OUT_TRIP_EMERGENCY_ACTIVE         : BOOL := FALSE;    (* Master Critical Safety System Trip & Fast Dump Active [BOOL] *)
+
+    (* ============================================================================================== *)
+    (* SECTION 6: PROCESS VALUES, CYBER-PHYSICAL OBSERVER STATES & TONNAGE METRICS                   *)
+    (* ============================================================================================== *)
+    OUT_VOTED_CRANK_ANGLE             : REAL := 0.000;    (* Triply Redundant Voted Crankshaft Angular Position [deg] *)
+    OUT_VOTED_SLIDE_POSITION          : REAL := 0.000;    (* Mean Voted Slide Linear Displacement from TDC [mm] *)
+    OUT_ESTIMATED_RAM_VELOCITY        : REAL := 0.000;    (* First-Principles Cyber-Physical Slide Velocity [mm/s] *)
+    OUT_ESTIMATED_TOTAL_TONNAGE       : REAL := 0.000;    (* Summed 4-Corner Measured Press Forming Force [kN] *)
+    OUT_ESTIMATED_TONNAGE_FL          : REAL := 0.000;    (* Front-Left Corner Press Tonnage Load [kN] *)
+    OUT_ESTIMATED_TONNAGE_FR          : REAL := 0.000;    (* Front-Right Corner Press Tonnage Load [kN] *)
+    OUT_ESTIMATED_TONNAGE_RL          : REAL := 0.000;    (* Rear-Left Corner Press Tonnage Load [kN] *)
+    OUT_ESTIMATED_TONNAGE_RR          : REAL := 0.000;    (* Rear-Right Corner Press Tonnage Load [kN] *)
+    OUT_ESTIMATED_ECCENTRIC_MOMENT_X  : REAL := 0.000;    (* Calculated Press Pitch Overturning Moment Mx [kNm] *)
+    OUT_ESTIMATED_ECCENTRIC_MOMENT_Y  : REAL := 0.000;    (* Calculated Press Roll Overturning Moment My [kNm] *)
+    OUT_SLIDE_PARALLELISM_TILT_X      : REAL := 0.000;    (* Measured Slide Front-to-Back Pitch Tilt Deviation [mm] *)
+    OUT_SLIDE_PARALLELISM_TILT_Y      : REAL := 0.000;    (* Measured Slide Left-to-Right Roll Tilt Deviation [mm] *)
+    OUT_TOTAL_CUSHION_FORCE           : REAL := 0.000;    (* Summed 8-Point Dynamic Hydraulic Cushion Resistance [kN] *)
+    OUT_MEAN_CUSHION_PRESSURE         : REAL := 0.000;    (* Mean Hydraulic Chamber Pressure Across 8 Cushion Points [bar] *)
+    OUT_FRAME_ELASTIC_DEFLECTION      : REAL := 0.000;    (* Estimated Structural Tie-Rod Column Stretch [um] *)
+
+    (* ============================================================================================== *)
+    (* SECTION 7: FSM EXECUTION, METRICS & PACKED 32-BIT STATUS WORDS                                *)
+    (* ============================================================================================== *)
+    OUT_ACTIVE_FSM_STATE              : INT  := 0;        (* Current Operational Finite State Machine State Code [INT] *)
+    OUT_CYCLE_TIME_CURRENT_MS         : REAL := 0.000;    (* Active Press Forming Stroke Cycle Duration [ms] *)
+    OUT_CYCLE_TIME_LAST_MS            : REAL := 0.000;    (* Completed Previous Stroke Total Cycle Time [ms] *)
+    OUT_TOTAL_STROKE_COUNT            : DINT := 0;        (* Total Press Operational Lifetime Stroke Counter [DINT] *)
+    OUT_STROKE_COMPLETED_PULSE        : BOOL := FALSE;    (* Single Scan Cycle Completion Strobe Indicator [BOOL] *)
+    OUT_STATUS_WORD_01_SYS            : DWORD := 16#00000000; (* Bit-Packed Operational State & Execution Word [DWORD] *)
+    OUT_STATUS_WORD_02_ALM            : DWORD := 16#00000000; (* Bit-Packed ISA-18.2 Process Alarm Matrix Word [DWORD] *)
+    OUT_STATUS_WORD_03_SAFETY         : DWORD := 16#00000000; (* Bit-Packed Safety Interlock & Brake Monitor Word [DWORD] *)
+    OUT_STATUS_WORD_04_CUSH           : DWORD := 16#00000000; (* Bit-Packed 8-Point Cushion & 2oo3 Sensor Health [DWORD] *)
+END_VAR
+""")
+
+    # 4. VAR
+    parts.append("""VAR
+    (* ============================================================================================== *)
+    (* INTERNAL CYBER-PHYSICAL STATE-SPACE MATRICES (8x8 A, C, L; 8x5 B, D; Ts = 2 ms)               *)
+    (* States x: [theta_deg, z_pos_mm, v_ram_mms, tilt_x_mm, tilt_y_mm, p_cush_bar, f_bh_kn, def_um] *)
+    (* Inputs u: [t_ram_pct, q_cush_pct, m_bal_x_kNm, m_bal_y_kNm, x_decomp_pct]                     *)
+    (* ============================================================================================== *)
+    A_MAT : ARRAY[1..8, 1..8] OF REAL; (* Discrete System Dynamics Transition Matrix A *)
+    B_MAT : ARRAY[1..8, 1..5] OF REAL; (* Discrete Control Input Coupling Matrix B *)
+    C_MAT : ARRAY[1..8, 1..8] OF REAL; (* Discrete State Measurement Mapping Matrix C *)
+    D_MAT : ARRAY[1..8, 1..5] OF REAL; (* Discrete Direct Transmission Matrix D *)
+    L_OBS : ARRAY[1..8, 1..8] OF REAL; (* Luenberger Cyber-Physical State Observer Gain Matrix L *)
+
+    (* State Estimation Vectors *)
+    x_state_hat     : ARRAY[1..8] OF REAL; (* Estimated System State Vector [k] *)
+    x_state_pred    : ARRAY[1..8] OF REAL; (* Predicted System State Vector [k+1|k] *)
+    y_meas_vec      : ARRAY[1..8] OF REAL; (* Current Sensor Measurement Vector [k] *)
+    y_pred_vec      : ARRAY[1..8] OF REAL; (* Predicted Output Vector [k|k-1] *)
+    innov_vec       : ARRAY[1..8] OF REAL; (* Innovation Vector e = y_meas - y_pred *)
+    u_control_cmd   : ARRAY[1..5] OF REAL; (* Current Optimized Control Effort Vector [k] *)
+    u_control_prev  : ARRAY[1..5] OF REAL; (* Previous Execution Cycle Control Effort Vector [k-1] *)
+
+    (* ============================================================================================== *)
+    (* RECEDING-HORIZON MPC QUADRATIC COST WEIGHT MATRICES & OPTIMIZER DATA STRUCTURES                *)
+    (* Horizon: Np = 10, Nc = 4. Optimization: Projected Gradient Descent (PGD) with Box Constraints *)
+    (* ============================================================================================== *)
+    Q_WEIGHT_DIAG   : ARRAY[1..8] OF REAL; (* State Tracking Error Diagonal Penalties Q *)
+    R_WEIGHT_DIAG   : ARRAY[1..5] OF REAL; (* Actuator Effort Deviation Diagonal Penalties R *)
+    S_WEIGHT_DIAG   : ARRAY[1..5] OF REAL; (* Actuator Slew Rate Variation Diagonal Penalties S *)
+    P_WEIGHT_DIAG   : ARRAY[1..8] OF REAL; (* Terminal State Cost Horizon Diagonal Penalties P *)
+    x_ref_trajectory: ARRAY[1..10, 1..8] OF REAL; (* Predictive Target Trajectory Over Horizon Np *)
+    u_opt_horizon   : ARRAY[1..4, 1..5] OF REAL;  (* Predictive Control Actuation Sequence Over Nc *)
+    grad_J_u        : ARRAY[1..4, 1..5] OF REAL;  (* Quadratic Cost Functional Gradient Vector *)
+    u_box_min       : ARRAY[1..5] OF REAL; (* Physical Lower Saturation Bounds for Actuators *)
+    u_box_max       : ARRAY[1..5] OF REAL; (* Physical Upper Saturation Bounds for Actuators *)
+    u_slew_max      : ARRAY[1..5] OF REAL; (* Dynamic Maximum Permissible Slew Rates per Cycle *)
+
+    (* ============================================================================================== *)
+    (* 2oo3 TRIPLE MODULAR REDUNDANCY (TMR) SENSOR VOTING STRUCTURES (19 SENSOR CHANNELS)            *)
+    (* ============================================================================================== *)
+    (* Channel 1: Crankshaft Resolver Angle *)
+    TMR_CRANK_CH_A_VAL      : REAL;
+    TMR_CRANK_CH_B_VAL      : REAL;
+    TMR_CRANK_CH_C_VAL      : REAL;
+    TMR_CRANK_DEV_AB        : REAL;
+    TMR_CRANK_DEV_BC        : REAL;
+    TMR_CRANK_DEV_CA        : REAL;
+    TMR_CRANK_TOLERANCE     : REAL := 1.250; (* [deg] *)
+    TMR_CRANK_DISC_TMR_A    : DINT := 0;
+    TMR_CRANK_DISC_TMR_B    : DINT := 0;
+    TMR_CRANK_DISC_TMR_C    : DINT := 0;
+    TMR_CRANK_CH_A_HEALTHY  : BOOL := TRUE;
+    TMR_CRANK_CH_B_HEALTHY  : BOOL := TRUE;
+    TMR_CRANK_CH_C_HEALTHY  : BOOL := TRUE;
+    TMR_CRANK_VOTED_RESULT  : REAL := 0.000;
+    TMR_CRANK_DEGRADED_MODE : INT  := 0; (* 0=3ch, 1=2ch, 2=Degraded 1ch, 3=Fault Hold *)
+
+    (* Channel 2 to 5: 4-Corner Slide Optical Scales (FL, FR, RL, RR) *)
+    TMR_SLIDE_FL_CH_A_VAL   : REAL; TMR_SLIDE_FL_CH_B_VAL : REAL; TMR_SLIDE_FL_CH_C_VAL : REAL;
+    TMR_SLIDE_FL_DEV_AB     : REAL; TMR_SLIDE_FL_DEV_BC   : REAL; TMR_SLIDE_FL_DEV_CA   : REAL;
+    TMR_SLIDE_FL_DISC_TMR_A : DINT := 0; TMR_SLIDE_FL_DISC_TMR_B : DINT := 0; TMR_SLIDE_FL_DISC_TMR_C : DINT := 0;
+    TMR_SLIDE_FL_HEALTHY_A  : BOOL := TRUE; TMR_SLIDE_FL_HEALTHY_B : BOOL := TRUE; TMR_SLIDE_FL_HEALTHY_C : BOOL := TRUE;
+    TMR_SLIDE_FL_VOTED      : REAL := 0.000; TMR_SLIDE_FL_DEGRADED : INT := 0;
+
+    TMR_SLIDE_FR_CH_A_VAL   : REAL; TMR_SLIDE_FR_CH_B_VAL : REAL; TMR_SLIDE_FR_CH_C_VAL : REAL;
+    TMR_SLIDE_FR_DEV_AB     : REAL; TMR_SLIDE_FR_DEV_BC   : REAL; TMR_SLIDE_FR_DEV_CA   : REAL;
+    TMR_SLIDE_FR_DISC_TMR_A : DINT := 0; TMR_SLIDE_FR_DISC_TMR_B : DINT := 0; TMR_SLIDE_FR_DISC_TMR_C : DINT := 0;
+    TMR_SLIDE_FR_HEALTHY_A  : BOOL := TRUE; TMR_SLIDE_FR_HEALTHY_B : BOOL := TRUE; TMR_SLIDE_FR_HEALTHY_C : BOOL := TRUE;
+    TMR_SLIDE_FR_VOTED      : REAL := 0.000; TMR_SLIDE_FR_DEGRADED : INT := 0;
+
+    TMR_SLIDE_RL_CH_A_VAL   : REAL; TMR_SLIDE_RL_CH_B_VAL : REAL; TMR_SLIDE_RL_CH_C_VAL : REAL;
+    TMR_SLIDE_RL_DEV_AB     : REAL; TMR_SLIDE_RL_DEV_BC   : REAL; TMR_SLIDE_RL_DEV_CA   : REAL;
+    TMR_SLIDE_RL_DISC_TMR_A : DINT := 0; TMR_SLIDE_RL_DISC_TMR_B : DINT := 0; TMR_SLIDE_RL_DISC_TMR_C : DINT := 0;
+    TMR_SLIDE_RL_HEALTHY_A  : BOOL := TRUE; TMR_SLIDE_RL_HEALTHY_B : BOOL := TRUE; TMR_SLIDE_RL_HEALTHY_C : BOOL := TRUE;
+    TMR_SLIDE_RL_VOTED      : REAL := 0.000; TMR_SLIDE_RL_DEGRADED : INT := 0;
+
+    TMR_SLIDE_RR_CH_A_VAL   : REAL; TMR_SLIDE_RR_CH_B_VAL : REAL; TMR_SLIDE_RR_CH_C_VAL : REAL;
+    TMR_SLIDE_RR_DEV_AB     : REAL; TMR_SLIDE_RR_DEV_BC   : REAL; TMR_SLIDE_RR_DEV_CA   : REAL;
+    TMR_SLIDE_RR_DISC_TMR_A : DINT := 0; TMR_SLIDE_RR_DISC_TMR_B : DINT := 0; TMR_SLIDE_RR_DISC_TMR_C : DINT := 0;
+    TMR_SLIDE_RR_HEALTHY_A  : BOOL := TRUE; TMR_SLIDE_RR_HEALTHY_B : BOOL := TRUE; TMR_SLIDE_RR_HEALTHY_C : BOOL := TRUE;
+    TMR_SLIDE_RR_VOTED      : REAL := 0.000; TMR_SLIDE_RR_DEGRADED : INT := 0;
+
+    (* Channel 6 to 9: 4-Corner Tonnage Strain Gauge Load Cells (FL, FR, RL, RR) *)
+    TMR_LOAD_FL_CH_A_VAL    : REAL; TMR_LOAD_FL_CH_B_VAL : REAL; TMR_LOAD_FL_CH_C_VAL : REAL;
+    TMR_LOAD_FL_DEV_AB      : REAL; TMR_LOAD_FL_DEV_BC   : REAL; TMR_LOAD_FL_DEV_CA   : REAL;
+    TMR_LOAD_FL_DISC_TMR_A  : DINT := 0; TMR_LOAD_FL_DISC_TMR_B : DINT := 0; TMR_LOAD_FL_DISC_TMR_C : DINT := 0;
+    TMR_LOAD_FL_HEALTHY_A   : BOOL := TRUE; TMR_LOAD_FL_HEALTHY_B : BOOL := TRUE; TMR_LOAD_FL_HEALTHY_C : BOOL := TRUE;
+    TMR_LOAD_FL_VOTED       : REAL := 0.000; TMR_LOAD_FL_DEGRADED : INT := 0;
+
+    TMR_LOAD_FR_CH_A_VAL    : REAL; TMR_LOAD_FR_CH_B_VAL : REAL; TMR_LOAD_FR_CH_C_VAL : REAL;
+    TMR_LOAD_FR_DEV_AB      : REAL; TMR_LOAD_FR_DEV_BC   : REAL; TMR_LOAD_FR_DEV_CA   : REAL;
+    TMR_LOAD_FR_DISC_TMR_A  : DINT := 0; TMR_LOAD_FR_DISC_TMR_B : DINT := 0; TMR_LOAD_FR_DISC_TMR_C : DINT := 0;
+    TMR_LOAD_FR_HEALTHY_A   : BOOL := TRUE; TMR_LOAD_FR_HEALTHY_B : BOOL := TRUE; TMR_LOAD_FR_HEALTHY_C : BOOL := TRUE;
+    TMR_LOAD_FR_VOTED       : REAL := 0.000; TMR_LOAD_FR_DEGRADED : INT := 0;
+
+    TMR_LOAD_RL_CH_A_VAL    : REAL; TMR_LOAD_RL_CH_B_VAL : REAL; TMR_LOAD_RL_CH_C_VAL : REAL;
+    TMR_LOAD_RL_DEV_AB      : REAL; TMR_LOAD_RL_DEV_BC   : REAL; TMR_LOAD_RL_DEV_CA   : REAL;
+    TMR_LOAD_RL_DISC_TMR_A  : DINT := 0; TMR_LOAD_RL_DISC_TMR_B : DINT := 0; TMR_LOAD_RL_DISC_TMR_C : DINT := 0;
+    TMR_LOAD_RL_HEALTHY_A   : BOOL := TRUE; TMR_LOAD_RL_HEALTHY_B : BOOL := TRUE; TMR_LOAD_RL_HEALTHY_C : BOOL := TRUE;
+    TMR_LOAD_RL_VOTED       : REAL := 0.000; TMR_LOAD_RL_DEGRADED : INT := 0;
+
+    TMR_LOAD_RR_CH_A_VAL    : REAL; TMR_LOAD_RR_CH_B_VAL : REAL; TMR_LOAD_RR_CH_C_VAL : REAL;
+    TMR_LOAD_RR_DEV_AB      : REAL; TMR_LOAD_RR_DEV_BC   : REAL; TMR_LOAD_RR_DEV_CA   : REAL;
+    TMR_LOAD_RR_DISC_TMR_A  : DINT := 0; TMR_LOAD_RR_DISC_TMR_B : DINT := 0; TMR_LOAD_RR_DISC_TMR_C : DINT := 0;
+    TMR_LOAD_RR_HEALTHY_A   : BOOL := TRUE; TMR_LOAD_RR_HEALTHY_B : BOOL := TRUE; TMR_LOAD_RR_HEALTHY_C : BOOL := TRUE;
+    TMR_LOAD_RR_VOTED       : REAL := 0.000; TMR_LOAD_RR_DEGRADED : INT := 0;
+
+    (* Channel 10 to 17: 8-Point Cushion Pressure Transmitters (P1 to P8) *)
+    TMR_PRESS_P1_VOTED : REAL := 15.0; TMR_PRESS_P1_DEGRADED : INT := 0;
+    TMR_PRESS_P2_VOTED : REAL := 15.0; TMR_PRESS_P2_DEGRADED : INT := 0;
+    TMR_PRESS_P3_VOTED : REAL := 15.0; TMR_PRESS_P3_DEGRADED : INT := 0;
+    TMR_PRESS_P4_VOTED : REAL := 15.0; TMR_PRESS_P4_DEGRADED : INT := 0;
+    TMR_PRESS_P5_VOTED : REAL := 15.0; TMR_PRESS_P5_DEGRADED : INT := 0;
+    TMR_PRESS_P6_VOTED : REAL := 15.0; TMR_PRESS_P6_DEGRADED : INT := 0;
+    TMR_PRESS_P7_VOTED : REAL := 15.0; TMR_PRESS_P7_DEGRADED : INT := 0;
+    TMR_PRESS_P8_VOTED : REAL := 15.0; TMR_PRESS_P8_DEGRADED : INT := 0;
+    TMR_P_DISC_TMR_A : ARRAY[1..8] OF DINT;
+    TMR_P_DISC_TMR_B : ARRAY[1..8] OF DINT;
+    TMR_P_DISC_TMR_C : ARRAY[1..8] OF DINT;
+    TMR_P_HEALTHY_A  : ARRAY[1..8] OF BOOL;
+    TMR_P_HEALTHY_B  : ARRAY[1..8] OF BOOL;
+    TMR_P_HEALTHY_C  : ARRAY[1..8] OF BOOL;
+
+    (* Channel 18 to 19: Cushion Left & Right Bed Linear Scale Displacements *)
+    TMR_CUSH_POS_L_VOTED : REAL := 0.0; TMR_CUSH_POS_L_DEGRADED : INT := 0;
+    TMR_CUSH_POS_R_VOTED : REAL := 0.0; TMR_CUSH_POS_R_DEGRADED : INT := 0;
+    TMR_CUSH_DISC_TMR_L_A : DINT := 0; TMR_CUSH_DISC_TMR_L_B : DINT := 0; TMR_CUSH_DISC_TMR_L_C : DINT := 0;
+    TMR_CUSH_DISC_TMR_R_A : DINT := 0; TMR_CUSH_DISC_TMR_R_B : DINT := 0; TMR_CUSH_DISC_TMR_R_C : DINT := 0;
+    TMR_CUSH_HLTH_L_A : BOOL := TRUE; TMR_CUSH_HLTH_L_B : BOOL := TRUE; TMR_CUSH_HLTH_L_C : BOOL := TRUE;
+    TMR_CUSH_HLTH_R_A : BOOL := TRUE; TMR_CUSH_HLTH_R_B : BOOL := TRUE; TMR_CUSH_HLTH_R_C : BOOL := TRUE;
+
+    (* ============================================================================================== *)
+    (* MECHANICAL KINEMATICS, ECCENTRIC MOMENTS & LEVELING CONTROLLER VARIABLES                       *)
+    (* ============================================================================================== *)
+    CONST_CRANK_RADIUS_RC   : REAL := 350.000;   (* Eccentric Crank Radius [mm] *)
+    CONST_CONROD_LENGTH_LR  : REAL := 1400.000;  (* Main Connecting Rod Link Length [mm] *)
+    CONST_LINK_RATIO_LAMBDA : REAL := 0.250000;  (* Kinematic Ratio Lambda = Rc / Lr *)
+    CONST_FRAME_STIFFNESS_K : REAL := 17500.00;  (* Stamping Press Bed/Crown Elastic Stiffness [kN/mm] *)
+    CONST_BED_WIDTH_X       : REAL := 4500.000;  (* Stamping Press Bolster Bed Span Across X-Axis [mm] *)
+    CONST_BED_DEPTH_Y       : REAL := 2500.000;  (* Stamping Press Bolster Bed Span Across Y-Axis [mm] *)
+    CONST_CUSH_BORE_AREA_M2 : REAL := 0.031416;  (* Die Cushion 200 mm Bore Cylinder Piston Area [m2] *)
+
+    (* Calculated Kinematic Properties *)
+    theta_crank_rad         : REAL;
+    sin_theta               : REAL;
+    cos_theta               : REAL;
+    sin_2theta              : REAL;
+    kinematic_stroke_z      : REAL;
+    kinematic_velocity_vz   : REAL;
+    kinematic_accel_az      : REAL;
+    omega_crank_rad_s       : REAL;
+
+    (* Eccentric Load Cell Balancing Properties *)
+    sum_tonnage_front       : REAL;
+    sum_tonnage_rear        : REAL;
+    sum_tonnage_left        : REAL;
+    sum_tonnage_right       : REAL;
+    eccentric_offset_x_mm   : REAL;
+    eccentric_offset_y_mm   : REAL;
+    overturning_moment_mx   : REAL;
+    overturning_moment_my   : REAL;
+    parallelism_tilt_pitch  : REAL;
+    parallelism_tilt_roll   : REAL;
+
+    (* 4-Corner Parallelism Active Leveling PID Controllers *)
+    pid_pitch_error         : REAL;
+    pid_pitch_integral      : REAL := 0.000;
+    pid_pitch_deriv         : REAL;
+    pid_pitch_error_prev    : REAL := 0.000;
+    pid_pitch_out           : REAL;
+
+    pid_roll_error          : REAL;
+    pid_roll_integral       : REAL := 0.000;
+    pid_roll_deriv          : REAL;
+    pid_roll_error_prev     : REAL := 0.000;
+    pid_roll_out            : REAL;
+
+    (* ============================================================================================== *)
+    (* 8-POINT SERVO DIE CUSHION DYNAMIC CONTROL & ANTI-REBOUND STRUCTURES                            *)
+    (* ============================================================================================== *)
+    cush_target_force_table : ARRAY[1..10] OF REAL; (* Force vs Depth Profile Table [kN] *)
+    cush_depth_breakpoints  : ARRAY[1..10] OF REAL; (* Displacement Breakpoints 0 to 250 mm [mm] *)
+    cush_target_current_kn  : REAL;
+    cush_target_press_bar   : REAL;
+    cush_pre_accel_target_v : REAL;
+    cush_anti_rebound_damping_effort : REAL;
+    decomp_decay_factor     : REAL;
+    decomp_time_elapsed_ms  : REAL := 0.000;
+    bdc_latched_pressure    : REAL := 0.000;
+
+    (* ============================================================================================== *)
+    (* OPTICAL SAFETY LIGHT CURTAIN MUTING & MECHANICAL BRAKE MONITOR INTERNAL REGISTERS              *)
+    (* ============================================================================================== *)
+    muting_entry_latch      : BOOL := FALSE;
+    muting_active_flag      : BOOL := FALSE;
+    muting_timer_ms         : REAL := 0.000;
+    muting_direction_valid  : BOOL := FALSE;
+    ossd_discrepancy_timer  : REAL := 0.000;
+
+    brake_monitor_in_test   : BOOL := FALSE;
+    brake_stop_cmd_angle    : REAL := 0.000;
+    brake_stop_cmd_timer_ms : REAL := 0.000;
+    brake_measured_stop_time: REAL := 0.000;
+    brake_measured_stop_ang : REAL := 0.000;
+    brake_speed_at_trip_spm : REAL := 0.000;
+
+    (* ============================================================================================== *)
+    (* ISA-18.2 MULTI-TIER PROCESS ALARM RECORDS (16 ALARM BLOCKS)                                    *)
+    (* Trip Points: High-High (HH), High (H), Low (L), Low-Low (LL) with Clearance Deadband          *)
+    (* ============================================================================================== *)
+    ALM_TONNAGE_TOTAL_HH_TRIP   : BOOL := FALSE;
+    ALM_TONNAGE_TOTAL_H_WARN    : BOOL := FALSE;
+    ALM_MOMENT_MX_HH_TRIP       : BOOL := FALSE;
+    ALM_MOMENT_MX_H_WARN        : BOOL := FALSE;
+    ALM_MOMENT_MY_HH_TRIP       : BOOL := FALSE;
+    ALM_MOMENT_MY_H_WARN        : BOOL := FALSE;
+    ALM_TILT_PARALLEL_HH_TRIP   : BOOL := FALSE;
+    ALM_TILT_PARALLEL_H_WARN    : BOOL := FALSE;
+    ALM_CUSH_PRESS_HH_TRIP      : BOOL := FALSE;
+    ALM_CUSH_PRESS_H_WARN       : BOOL := FALSE;
+    ALM_CUSH_CAVITATION_LL_TRIP : BOOL := FALSE;
+    ALM_BRAKE_STOP_TIME_HH_TRIP : BOOL := FALSE;
+    ALM_BRAKE_OVERRUN_HH_TRIP   : BOOL := FALSE;
+    ALM_SAFETY_CURTAIN_TRIP     : BOOL := FALSE;
+    ALM_DIE_DOUBLE_BLANK_TRIP   : BOOL := FALSE;
+    ALM_DIE_PART_NOT_SEATED     : BOOL := FALSE;
+    ALM_DIE_PART_NOT_EJECTED    : BOOL := FALSE;
+    ALM_TMR_SENSOR_DEGRADED     : BOOL := FALSE;
+    ALM_HYD_SUPPLY_PRESS_LOW    : BOOL := FALSE;
+    ALM_HYD_OIL_TEMP_HIGH       : BOOL := FALSE;
+
+    (* Alarm Threshold Constants *)
+    CFG_DEADBAND_TONNAGE        : REAL := 350.00; (* [kN] *)
+    CFG_DEADBAND_MOMENT         : REAL := 25.00;  (* [kNm] *)
+    CFG_DEADBAND_TILT           : REAL := 0.015;  (* [mm] *)
+    CFG_DEADBAND_PRESSURE       : REAL := 4.50;   (* [bar] *)
+
+    (* ============================================================================================== *)
+    (* FINITE STATE MACHINE (FSM) CONTROL STRUCTURES (14 STAGES)                                      *)
+    (* ============================================================================================== *)
+    nFSM_CurrentState           : INT := 0;
+    nFSM_PreviousState          : INT := 0;
+    fsm_state_timer_ms          : REAL := 0.000;
+    fsm_cycle_timer_ms          : REAL := 0.000;
+    fsm_dwell_timer_ms          : REAL := 0.000;
+    fsm_eject_timer_ms          : REAL := 0.000;
+    fsm_init_complete           : BOOL := FALSE;
+    bFirstScanDone              : BOOL := FALSE;
+
+    (* Iteration and Index Loop Counters *)
+    i_loop                      : INT;
+    j_loop                      : INT;
+    k_loop                      : INT;
+    pgd_iter                    : INT;
+    step_idx                    : INT;
+    val_temp                    : REAL;
+    diff_temp                   : REAL;
+    cost_current                : REAL;
+END_VAR
+""")
+
     return "".join(parts)
 
-print("Part 1 builder compiled successfully.")
+print("VAR declarations constructed.")
