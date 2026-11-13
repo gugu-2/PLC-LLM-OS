@@ -1,0 +1,304 @@
+(* ==================================================================================================== *)
+(* PHASE 0: FIRST SCAN INITIALIZATION & DISCRETE CYBER-PHYSICAL STATE-SPACE MATRIX CONFIGURATION        *)
+(* Sampling Period Ts = 0.020 [s] (20 [ms] Hard Real-Time Deterministic Cyclic Scan)                    *)
+(* States: x[0]=DP [mbar], x[1]=P_Cl2 [bar], x[2]=P_H2 [bar], x[3]=C_NaCl [g/L], x[4]=C_NaOH [wt%],     *)
+(*         x[5]=T_cell [deg C]                                                                          *)
+(* Inputs: u[0]=CV_H2 [%], u[1]=CV_Cl2 [%], u[2]=CV_Water [%], u[3]=CV_Brine [%], u[4]=I_rect [kA]      *)
+(* ==================================================================================================== *)
+IF NOT bFirstScanDone THEN
+    (* ------------------------------------------------------------------------------------------------ *)
+    (* 6x6 Discrete State Transition Dynamic Matrix A                                                  *)
+    (* Reflects Gas Compressibility, Membrane Cross-Migration, Electrochemical Reactions & Joule Heat   *)
+    (* ------------------------------------------------------------------------------------------------ *)
+    matA[0, 0] := 0.98520; (* DP Autoregressive Pole (Cathode/Anode Compartment Compliance) [-] *)
+    matA[0, 1] := -0.01250; (* Cl2 Header Pressure Cross-Coupling on Differential Pressure [-] *)
+    matA[0, 2] := 0.01420; (* H2 Header Pressure Cross-Coupling on Differential Pressure [-] *)
+    matA[0, 3] := 0.00015; (* Anolyte Density & Static Head Drift on Cell Differential Pressure [-] *)
+    matA[0, 4] := -0.00028; (* Catholyte Density & Dynamic Viscosity Drift on Cell DP [-] *)
+    matA[0, 5] := 0.00350; (* Thermal Expansion and Gas Expansion Molar Flow Rate on Cell DP [-] *)
+
+    matA[1, 0] := -0.00180; (* Differential Pressure Feedback onto Cl2 Collector Header [-] *)
+    matA[1, 1] := 0.99120; (* Cl2 Header Gas Volume Hold-Up and Acoustic Flow Decay [-] *)
+    matA[1, 2] := 0.00045; (* Hydraulic Inter-Header Pressure Cross-Talk via Acid Seal [-] *)
+    matA[1, 3] := 0.00008; (* Brine Saturation Influence on Cl2 Gas Desorption Rate [-] *)
+    matA[1, 4] := 0.00000; (* Catholyte Caustic Decoupled from Chlorine Header [-] *)
+    matA[1, 5] := 0.00115; (* Thermal Influence on Wet Chlorine Header Vapor Pressure [-] *)
+
+    matA[2, 0] := 0.00210; (* Differential Pressure Feedback onto H2 Collector Header [-] *)
+    matA[2, 1] := 0.00050; (* Cl2 to H2 Acoustic Wave Cross-Coupling via Cell Frames [-] *)
+    matA[2, 2] := 0.99080; (* H2 Header Gas Volume Hold-Up and Compressor Suction Decay [-] *)
+    matA[2, 3] := 0.00000; (* Anolyte Brine Decoupled from Hydrogen Header [-] *)
+    matA[2, 4] := -0.00012; (* Caustic Concentration Effect on Hydrogen Water Vapor Evaporation [-] *)
+    matA[2, 5] := 0.00135; (* Thermal Influence on Saturated Hydrogen Gas Header Pressure [-] *)
+
+    matA[3, 0] := 0.00005; (* Differential Pressure Membrane Flexing on Anolyte Retention [-] *)
+    matA[3, 1] := 0.00010; (* Chlorine Gas Evolution Gas-Lift Circulation Rate on Brine Mixing [-] *)
+    matA[3, 2] := 0.00000; (* Hydrogen Header Decoupled from Anolyte NaCl [-] *)
+    matA[3, 3] := 0.99780; (* Anolyte Saturated Brine Hydraulic Residence Time Decay [-] *)
+    matA[3, 4] := -0.00040; (* Osmotic Water Transport Across Membrane from Anolyte to Catholyte [-] *)
+    matA[3, 5] := -0.00185; (* Temperature Acceleration of Electrochemical Consumption of NaCl [-] *)
+
+    matA[4, 0] := -0.00008; (* Differential Pressure Membrane Piezoresistive Deformation on Water Flow [-] *)
+    matA[4, 1] := 0.00000; (* Chlorine Header Decoupled from Caustic Concentration [-] *)
+    matA[4, 2] := 0.00012; (* Hydrogen Gas-Lift Mixing Kinetics in Catholyte Compartment [-] *)
+    matA[4, 3] := 0.00025; (* Hydration Sphere Electro-Osmotic Drag Coupling (3.5 H2O / Na+) [-] *)
+    matA[4, 4] := 0.99810; (* Catholyte Tank Caustic Inventory Dynamic Residence Pole [-] *)
+    matA[4, 5] := 0.00095; (* Evaporative Loss of Water Elevating Caustic Concentration [-] *)
+
+    matA[5, 0] := 0.00010; (* Pressure Fluctuation Joule Heat Redistribution [-] *)
+    matA[5, 1] := 0.00020; (* Cl2 Vaporization Heat Removal Coupling [-] *)
+    matA[5, 2] := 0.00025; (* H2 Vaporization Latent Heat Removal Coupling [-] *)
+    matA[5, 3] := -0.00050; (* Brine Inflow Sensible Heat Advection Rate [-] *)
+    matA[5, 4] := -0.00065; (* Soft Water Dilution Sensible Heat Advection Rate [-] *)
+    matA[5, 5] := 0.99890; (* Electrolyzer Cell Stack Bulk Thermal Inertia Time Constant [-] *)
+
+    (* ------------------------------------------------------------------------------------------------ *)
+    (* 6x5 Discrete Input Mapping Matrix B: Fast Valves, Water Dilution, Brine Trim & DC Current       *)
+    (* Inputs: u[0]=CV_H2 [%], u[1]=CV_Cl2 [%], u[2]=CV_Water [%], u[3]=CV_Brine [%], u[4]=I_rect [kA]  *)
+    (* ------------------------------------------------------------------------------------------------ *)
+    matB[0, 0] := -0.1850; (* Opening H2 Backpressure Valve Drops H2 Pressure, Decreasing DP [mbar/%] *)
+    matB[0, 1] := 0.1920;  (* Opening Cl2 Scrubber Vent Drops Cl2 Pressure, Increasing DP [mbar/%] *)
+    matB[0, 2] := -0.0045; (* Soft Water Inflow Slightly Increases Catholyte Liquid Head [mbar/%] *)
+    matB[0, 3] := 0.0035;  (* Fresh Saturated Brine Feed Increases Anolyte Hydrostatic Head [mbar/%] *)
+    matB[0, 4] := 0.0450;  (* Fast Rectifier Current Step Generates Transient Molar Gas Delta [mbar/kA] *)
+
+    matB[1, 0] := 0.0008;  (* H2 Backpressure Minor Cross-Talk to Cl2 Header via Pressure Transducers [bar/%] *)
+    matB[1, 1] := -0.0145; (* Opening Cl2 Scrubber Valve Directly Depressurizes Cl2 Header [bar/%] *)
+    matB[1, 2] := 0.0000;  (* Soft Water Dilution Decoupled from Chlorine Header [bar/%] *)
+    matB[1, 3] := 0.0001;  (* Brine Infeed Entrained Gas Displacement [bar/%] *)
+    matB[1, 4] := 0.0085;  (* Faradaic Chlorine Gas Generation Rate: 1 kA -> 0.0085 bar/scan [bar/kA] *)
+
+    matB[2, 0] := -0.0152; (* Opening H2 Backpressure Valve Directly Depressurizes H2 Header [bar/%] *)
+    matB[2, 1] := 0.0007;  (* Cl2 Scrubber Vent Valve Acoustic Reflection on H2 Header [bar/%] *)
+    matB[2, 2] := 0.0002;  (* Water Addition Minor Vapor Space Compression [bar/%] *)
+    matB[2, 3] := 0.0000;  (* Brine Feed Decoupled from Hydrogen Gas Header [bar/%] *)
+    matB[2, 4] := 0.0088;  (* Faradaic Hydrogen Gas Generation Rate: 1 kA -> 0.0088 bar/scan [bar/kA] *)
+
+    matB[3, 0] := 0.0000;  (* H2 Valve Decoupled from Brine Concentration [g/L/%] *)
+    matB[3, 1] := 0.0000;  (* Cl2 Valve Decoupled from Brine Concentration [g/L/%] *)
+    matB[3, 2] := -0.0015; (* Catholyte Dilution Slight Water Osmosis Shift on Brine [g/L/%] *)
+    matB[3, 3] := 0.0850;  (* Saturated Feed Brine Trim Valve Increases Salt Concentration [g/L/%] *)
+    matB[3, 4] := -0.1250; (* Faradaic Consumption of NaCl: -0.125 g/L per kA per scan [g/L/kA] *)
+
+    matB[4, 0] := 0.0000;  (* H2 Valve Decoupled from Caustic Concentration [wt%/%] *)
+    matB[4, 1] := 0.0000;  (* Cl2 Valve Decoupled from Caustic Concentration [wt%/%] *)
+    matB[4, 2] := -0.0480; (* Soft Demin Water Dilution Valve Lowers Caustic Concentration [wt%/%] *)
+    matB[4, 3] := 0.0005;  (* Saturated Brine Trace Water Cross-Transport [wt%/%] *)
+    matB[4, 4] := 0.0385;  (* Faradaic Generation of NaOH: +0.0385 wt% per kA per scan [wt%/kA] *)
+
+    matB[5, 0] := -0.0005; (* H2 Depressurization Flash Cooling [deg C/%] *)
+    matB[5, 1] := -0.0005; (* Cl2 Depressurization Flash Cooling [deg C/%] *)
+    matB[5, 2] := -0.0120; (* Cold Demin Water Inflow Thermal Quenching [deg C/%] *)
+    matB[5, 3] := 0.0080;  (* Warm Saturated Brine Inflow Sensible Heating [deg C/%] *)
+    matB[5, 4] := 0.0650;  (* Rectifier Ohmic & Kinetic Overpotential Joule Dissipation [deg C/kA] *)
+
+    (* ------------------------------------------------------------------------------------------------ *)
+    (* 6x6 Discrete Measurement Mapping Matrix C: Direct Voted Sensor Projections                      *)
+    (* ------------------------------------------------------------------------------------------------ *)
+    matC[0, 0] := 1.0000; (* y[0] = Voted Cell Differential Pressure [mbar] *)
+    matC[0, 1] := 0.0000;
+    matC[0, 2] := 0.0000;
+    matC[0, 3] := 0.0000;
+    matC[0, 4] := 0.0000;
+    matC[0, 5] := 0.0000;
+
+    matC[1, 0] := 0.0000;
+    matC[1, 1] := 1.0000; (* y[1] = Voted Chlorine Header Pressure [bar] *)
+    matC[1, 2] := 0.0000;
+    matC[1, 3] := 0.0000;
+    matC[1, 4] := 0.0000;
+    matC[1, 5] := 0.0000;
+
+    matC[2, 0] := 0.0000;
+    matC[2, 1] := 0.0000;
+    matC[2, 2] := 1.0000; (* y[2] = Voted Hydrogen Header Pressure [bar] *)
+    matC[2, 3] := 0.0000;
+    matC[2, 4] := 0.0000;
+    matC[2, 5] := 0.0000;
+
+    matC[3, 0] := 0.0000;
+    matC[3, 1] := 0.0000;
+    matC[3, 2] := 0.0000;
+    matC[3, 3] := 1.0000; (* y[3] = Voted Anolyte Depleted Brine Concentration [g/L] *)
+    matC[3, 4] := 0.0000;
+    matC[3, 5] := 0.0000;
+
+    matC[4, 0] := 0.0000;
+    matC[4, 1] := 0.0000;
+    matC[4, 2] := 0.0000;
+    matC[4, 3] := 0.0000;
+    matC[4, 4] := 1.0000; (* y[4] = Voted Catholyte Caustic Concentration [wt%] *)
+    matC[4, 5] := 0.0000;
+
+    matC[5, 0] := 0.0000;
+    matC[5, 1] := 0.0000;
+    matC[5, 2] := 0.0000;
+    matC[5, 3] := 0.0000;
+    matC[5, 4] := 0.0000;
+    matC[5, 5] := 1.0000; (* y[5] = Electrolyzer Cell Bulk Temperature [deg C] *)
+
+    (* ------------------------------------------------------------------------------------------------ *)
+    (* 6x5 Direct Feedthrough Matrix D: Transient Pneumatic Acoustic Shock Feedthrough                 *)
+    (* ------------------------------------------------------------------------------------------------ *)
+    matD[0, 0] := -0.0150; (* High-Speed Acoustic Delta Pressure Pulse from H2 Valve Quick-Opening [-] *)
+    matD[0, 1] := 0.0160;  (* High-Speed Acoustic Delta Pressure Pulse from Cl2 Valve Quick-Opening [-] *)
+    matD[0, 2] := 0.0000;
+    matD[0, 3] := 0.0000;
+    matD[0, 4] := 0.0050;  (* Rectifier Rapid Commutation Inductive Kickback [-] *)
+
+    matD[1, 0] := 0.0000;
+    matD[1, 1] := -0.0025; (* Cl2 Valve Throat Pneumatic Choke Transient [-] *)
+    matD[1, 2] := 0.0000;
+    matD[1, 3] := 0.0000;
+    matD[1, 4] := 0.0010;  (* Immediate Faradaic Gas Bubble Nucleation Displacement [-] *)
+
+    matD[2, 0] := -0.0028; (* H2 Valve Throat Sonic Choke Transient [-] *)
+    matD[2, 1] := 0.0000;
+    matD[2, 2] := 0.0000;
+    matD[2, 3] := 0.0000;
+    matD[2, 4] := 0.0012;  (* Immediate Cathode Gas Bubble Nucleation Displacement [-] *)
+
+    matD[3, 0] := 0.0000;
+    matD[3, 1] := 0.0000;
+    matD[3, 2] := 0.0000;
+    matD[3, 3] := 0.0050;  (* Brine Inflow Manifold Header Local Conductivity Spike [-] *)
+    matD[3, 4] := 0.0000;
+
+    matD[4, 0] := 0.0000;
+    matD[4, 1] := 0.0000;
+    matD[4, 2] := -0.0040; (* Dilution Water Quench Injection Manifold Local Dilution [-] *)
+    matD[4, 3] := 0.0000;
+    matD[4, 4] := 0.0000;
+
+    matD[5, 0] := 0.0000;
+    matD[5, 1] := 0.0000;
+    matD[5, 2] := 0.0000;
+    matD[5, 3] := 0.0000;
+    matD[5, 4] := 0.0020;  (* Fast Busbar Resistive Ohmic Dissipation Sensor Radiance [-] *)
+
+    (* ------------------------------------------------------------------------------------------------ *)
+    (* 6x6 Steady-State Luenberger Observer Innovation Gain Matrix L (Discrete Kalman Filter Solution) *)
+    (* Eliminates Sensor Noise While Retaining High-Bandwidth Response to DP Deviations                *)
+    (* ------------------------------------------------------------------------------------------------ *)
+    matL[0, 0] := 0.3250; (* Primary DP Innovation Gain on Differential Pressure Estimate [-] *)
+    matL[0, 1] := -0.0450; (* Cl2 Pressure Error Correction on Differential Pressure [-] *)
+    matL[0, 2] := 0.0480; (* H2 Pressure Error Correction on Differential Pressure [-] *)
+    matL[0, 3] := 0.0015; (* Brine Measurement Innovation on Differential Pressure [-] *)
+    matL[0, 4] := -0.0020; (* Caustic Innovation on Differential Pressure [-] *)
+    matL[0, 5] := 0.0085; (* Temperature Innovation on Differential Pressure [-] *)
+
+    matL[1, 0] := -0.0250; (* DP Residual on Cl2 Header Pressure Estimate [-] *)
+    matL[1, 1] := 0.2850; (* Cl2 Pressure Innovation Gain on Cl2 Header Estimate [-] *)
+    matL[1, 2] := 0.0120; (* H2 Residual Cross-Correction on Cl2 Header [-] *)
+    matL[1, 3] := 0.0010; (* Brine Concentration Correction [-] *)
+    matL[1, 4] := 0.0000;
+    matL[1, 5] := 0.0045; (* Temperature Residual Correction on Cl2 Header [-] *)
+
+    matL[2, 0] := 0.0280; (* DP Residual on H2 Header Pressure Estimate [-] *)
+    matL[2, 1] := 0.0110; (* Cl2 Residual Cross-Correction on H2 Header [-] *)
+    matL[2, 2] := 0.2920; (* H2 Pressure Innovation Gain on H2 Header Estimate [-] *)
+    matL[2, 3] := 0.0000;
+    matL[2, 4] := -0.0015; (* Caustic Concentration Correction [-] *)
+    matL[2, 5] := 0.0050; (* Temperature Residual Correction on H2 Header [-] *)
+
+    matL[3, 0] := 0.0020; (* DP Residual on Anolyte Brine Concentration [-] *)
+    matL[3, 1] := 0.0035; (* Cl2 Header Residual on Brine [-] *)
+    matL[3, 2] := 0.0000;
+    matL[3, 3] := 0.2150; (* Brine Innovation Gain on Anolyte NaCl Estimate [-] *)
+    matL[3, 4] := -0.0080; (* Caustic Residual on Brine [-] *)
+    matL[3, 5] := -0.0120; (* Temperature Residual on Brine Estimate [-] *)
+
+    matL[4, 0] := -0.0030; (* DP Residual on Catholyte Caustic Concentration [-] *)
+    matL[4, 1] := 0.0000;
+    matL[4, 2] := 0.0040; (* H2 Header Residual on Caustic [-] *)
+    matL[4, 3] := 0.0065; (* Brine Residual on Caustic [-] *)
+    matL[4, 4] := 0.2280; (* Caustic Innovation Gain on Catholyte NaOH Estimate [-] *)
+    matL[4, 5] := 0.0145; (* Temperature Residual on Caustic Estimate [-] *)
+
+    matL[5, 0] := 0.0050; (* DP Residual on Cell Temperature [-] *)
+    matL[5, 1] := 0.0080; (* Cl2 Header Residual on Cell Temperature [-] *)
+    matL[5, 2] := 0.0090; (* H2 Header Residual on Cell Temperature [-] *)
+    matL[5, 3] := -0.0150; (* Brine Residual on Temperature [-] *)
+    matL[5, 4] := -0.0180; (* Caustic Residual on Temperature [-] *)
+    matL[5, 5] := 0.1950; (* Temperature Innovation Gain on Bulk Cell Temperature [-] *)
+
+    (* ------------------------------------------------------------------------------------------------ *)
+    (* Model Predictive Control (MPC) Quadratic Weighting Tuning Matrices                              *)
+    (* Q: State Tracking Penalty (Diagonal), R: Actuator Effort, R_delta: Slew Rate, P: Terminal Cost    *)
+    (* ------------------------------------------------------------------------------------------------ *)
+    vecQ_weight[0] := 75.0;  (* Very High Penalty on Differential Pressure Tracking Error [mbar] *)
+    vecQ_weight[1] := 25.0;  (* Chlorine Header Pressure Tracking Penalty [bar] *)
+    vecQ_weight[2] := 25.0;  (* Hydrogen Header Pressure Tracking Penalty [bar] *)
+    vecQ_weight[3] := 3.5;   (* Anolyte Brine Concentration Tracking Penalty [g/L] *)
+    vecQ_weight[4] := 5.0;   (* Catholyte Caustic Concentration Tracking Penalty [wt%] *)
+    vecQ_weight[5] := 2.0;   (* Bulk Cell Electrolyte Temperature Tracking Penalty [deg C] *)
+
+    vecR_weight[0] := 0.18;  (* H2 Backpressure Valve Position Deviation Penalty [-] *)
+    vecR_weight[1] := 0.18;  (* Cl2 Scrubber Vent Valve Position Deviation Penalty [-] *)
+    vecR_weight[2] := 0.12;  (* Demin Water Dilution Valve Position Penalty [-] *)
+    vecR_weight[3] := 0.12;  (* Primary Brine Feed Trim Valve Position Penalty [-] *)
+    vecR_weight[4] := 0.04;  (* DC Rectifier Load Current Setpoint Penalty [-] *)
+
+    vecR_delta_weight[0] := 1.85; (* Strict Penalty on H2 Valve High-Frequency Chattering [-] *)
+    vecR_delta_weight[1] := 1.85; (* Strict Penalty on Cl2 Valve Rapid Movement [-] *)
+    vecR_delta_weight[2] := 0.65; (* Soft Water Slew Rate Penalty [-] *)
+    vecR_delta_weight[3] := 0.65; (* Brine Trim Valve Slew Rate Penalty [-] *)
+    vecR_delta_weight[4] := 4.50; (* Severe Slew Rate Penalty on Rectifier Current Commutation [-] *)
+
+    vecP_terminal[0] := 180.0; (* Receding Terminal Horizon State Penalty on DP Balance [-] *)
+    vecP_terminal[1] := 60.0;  (* Terminal Penalty on Cl2 Header Pressure [-] *)
+    vecP_terminal[2] := 60.0;  (* Terminal Penalty on H2 Header Pressure [-] *)
+    vecP_terminal[3] := 8.0;   (* Terminal Penalty on Brine Depletion [-] *)
+    vecP_terminal[4] := 12.0;  (* Terminal Penalty on Caustic Concentration [-] *)
+    vecP_terminal[5] := 5.0;   (* Terminal Penalty on Cell Temperature [-] *)
+
+    (* Actuator Physical Saturation Limits & Maximum Permissible Slew Rates *)
+    vecU_min[0] := 0.0;     (* H2 Backpressure Valve Minimum Position [%] *)
+    vecU_max[0] := 100.0;   (* H2 Backpressure Valve Maximum Position [%] *)
+    vecU_slewMax[0] := 5.0; (* H2 Valve Max Slew: 5.0% per 20 ms scan (250 %/s) [%] *)
+
+    vecU_min[1] := 0.0;     (* Cl2 Vent Scrubber Valve Minimum Position [%] *)
+    vecU_max[1] := 100.0;   (* Cl2 Vent Scrubber Valve Maximum Position [%] *)
+    vecU_slewMax[1] := 5.0; (* Cl2 Valve Max Slew: 5.0% per 20 ms scan (250 %/s) [%] *)
+
+    vecU_min[2] := 0.0;     (* Soft Water Dilution Valve Minimum Position [%] *)
+    vecU_max[2] := 100.0;   (* Soft Water Dilution Valve Maximum Position [%] *)
+    vecU_slewMax[2] := 1.5; (* Soft Water Slew: 1.5% per 20 ms scan (75 %/s) [%] *)
+
+    vecU_min[3] := 0.0;     (* Brine Feed Trim Valve Minimum Position [%] *)
+    vecU_max[3] := 100.0;   (* Brine Feed Trim Valve Maximum Position [%] *)
+    vecU_slewMax[3] := 1.5; (* Brine Trim Slew: 1.5% per 20 ms scan (75 %/s) [%] *)
+
+    vecU_min[4] := 0.0;     (* Rectifier Load Current Minimum: 0.0 kA [kA] *)
+    vecU_max[4] := 75.0;    (* Rectifier Load Current Maximum: 75.0 kA (2.8 kA/m2) [kA] *)
+    vecU_slewMax[4] := 0.15;(* Rectifier Max Slew: 0.15 kA per scan (7.5 kA/s max ramp) [kA] *)
+
+    (* Initialize State Estimates and Target Vectors to Safe Cold Standby Defaults *)
+    vecX_hat[0] := 0.0;     (* Baseline Zero Differential Pressure [mbar] *)
+    vecX_hat[1] := 0.0;     (* Atmospheric Starting Cl2 Header Pressure [bar] *)
+    vecX_hat[2] := 0.0;     (* Atmospheric Starting H2 Header Pressure [bar] *)
+    vecX_hat[3] := 305.0;   (* Fresh Saturated Brine Feed Salt Concentration [g/L] *)
+    vecX_hat[4] := 30.0;    (* Starting Weak Caustic Soda Concentration [wt%] *)
+    vecX_hat[5] := 25.0;    (* Ambient Starting Cell Temperature [deg C] *)
+
+    vecX_target[0] := 30.0;  (* Design Baseload Differential Pressure Setpoint [mbar] *)
+    vecX_target[1] := 0.250; (* Design Baseload Cl2 Header Pressure [bar] *)
+    vecX_target[2] := 0.280; (* Design Baseload H2 Header Pressure [bar] *)
+    vecX_target[3] := 205.0; (* Optimal Anolyte Depleted Brine Outlet Concentration [g/L] *)
+    vecX_target[4] := 32.5;  (* Optimal Commercial Product Caustic Concentration [wt%] *)
+    vecX_target[5] := 88.0;  (* Optimal Electrochemical Operating Temperature [deg C] *)
+
+    vecU_prev[0] := 0.0;
+    vecU_prev[1] := 0.0;
+    vecU_prev[2] := 0.0;
+    vecU_prev[3] := 0.0;
+    vecU_prev[4] := 0.0;
+
+    vecU[0] := 0.0;
+    vecU[1] := 0.0;
+    vecU[2] := 0.0;
+    vecU[3] := 0.0;
+    vecU[4] := 0.0;
+
+    bFirstScanDone := TRUE;
+END_IF;

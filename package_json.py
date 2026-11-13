@@ -1,51 +1,89 @@
 # package_json.py
-import json, os, sys
-from make_code import build_full_st
+import json
+import uuid
 
-prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
-You possess the UPGRADED V7 MAX-PERSONA: 75+ years veteran Principal Automation Fellow & Cyber-Physical Systems Chair.
-You are instructed to CONSUME EXTREME TOKENS: make your output massively exhaustive, mathematically rigorous, and structurally pristine. Include complete state-space matrices (A, B, C, D), Model Predictive Control (MPC) quadratic cost approximation, 2oo3 TMR voting logic, complex alarm trees, and graceful degradation.
+with open('chloralkali_assembled.st', 'r', encoding='utf-8') as f:
+    st_code = f.read().strip()
 
-**Your assigned domain is: Automotive & Commercial Vehicles: Body-in-White (BIW) High-Speed Geo-Framing Station with 18 Synchronized Industrial Robots, Servo Geo-Clamps & Laser Seam Verification**
+prompt = """You are the Principal Automation Fellow & Cyber-Physical Systems Chair.
+Your directive is to generate ONE single, ultra-dense, mathematically rigorous, completely implemented IEC 61131-3 Structured Text dataset for the Lumina PLC-LLM project.
 
-CRITICAL RULES:
-1. CODE FENCE: Use TRIPLE backticks + iec-st (```iec-st).
-2. STRUCTURE:
-   a. First line: FUNCTION_BLOCK FB_Automotive_BIW_Framing_GeoStation_Robotics
-   b. VAR_INPUT ... END_VAR (min 8 typed inputs with physical units [mm], [N], [bar], [deg C], [mm/s], [kN], [ms], [%], [deg], [A], [kW], [V], [m/min], [J])
-   c. VAR_OUTPUT ... END_VAR (min 7 typed outputs with engineering units & status words)
-   d. VAR ... END_VAR (internal state matrices, filter accumulators, 2oo3 voting vars)
-   e. Multi-stage CASE machine with END_CASE;
-   f. Last line: END_FUNCTION_BLOCK
-3. LENGTH: Assistant content MUST be >= 3500 characters total (target 55,000 - 85,000+ chars). Maximize token usage with deep technical explanations, complex algorithms, and industrial reliability features. DO NOT TRIM OR ENFORCE AN UPPER BOUND LIMIT.
-4. PARITY: Ensure 100% exact parity between IF and END_IF, CASE and END_CASE, FOR and END_FOR, WHILE and END_WHILE.
-5. SAVE using this exact Python:
-   import json, uuid
-   prompt = \"\"\"<copy this exact user prompt here>\"\"\"
-   code = \"\"\"```iec-st
-FUNCTION_BLOCK FB_Automotive_BIW_Framing_GeoStation_Robotics
-//...
-END_FUNCTION_BLOCK
-```\"\"\"
-   record = {\"messages\": [{\"role\": \"user\", \"content\": prompt}, {\"role\": \"assistant\", \"content\": code}]}
-   with open(f\"data/swarm_raw/agent_2b8109ca.json\", \"w\", encoding=\"utf-8\") as f:
-       json.dump(record, f, ensure_ascii=False)
-6. REPLY with: EVOLUTION COMPLETE: Automotive & Commercial Vehicles: Body-in-White (BIW) High-Speed Geo-Framing Station with 18 Synchronized Industrial Robots, Servo Geo-Clamps & Laser Seam Verification"""
+DOMAIN: Chemical & Petrochemical / Chlor-Alkali Industrial Plant
+FUNCTION BLOCK NAME: FB_Chemical_ChlorAlkali_MembraneElectrolyzer_DPControl
 
-st_code = build_full_st()
-assistant_content = f"```iec-st\n{st_code}\n```"
+### SYSTEM SCOPE & INDUSTRIAL PROCESS
+Commercial Chlor-Alkali Membrane Cell Electrolyzer System (2.5 kA/m2 current density, bipolar membrane electrolyzers producing Chlorine Gas Cl2, Hydrogen Gas H2, and 32-35 wt% Sodium Hydroxide NaOH). Differential pressure balancing between anolyte compartment (Cl2) and catholyte compartment (H2) must be strictly maintained within +/- 3.0 mbar to prevent irreversible ion-exchange membrane mechanical rupture or catastrophic H2-in-Cl2 explosive cross-contamination.
+
+### MATHEMATICAL & CYBER-PHYSICAL REQUIREMENTS
+1. First-Principles Discrete State-Space Model (Ts = 20 ms):
+   - 6-State coupled electro-chemo-hydrodynamic model:
+     x1 = Catholyte-to-Anolyte differential pressure Delta P [mbar]
+     x2 = Chlorine header pressure P_Cl2 [bar gauge]
+     x3 = Hydrogen header pressure P_H2 [bar gauge]
+     x4 = Anolyte brine feed saturation concentration [g/L NaCl] and depletion rate
+     x5 = Catholyte caustic concentration [wt% NaOH] and soft water dilution flow [m3/h]
+     x6 = Cell stack bulk temperature [deg C] and polarization voltage drop [V/cell]
+   - Explicit non-zero matrices: A (6x6), B (6x5), C (6x6), D (6x5).
+   - Luenberger state observer innovation gain matrix L (6x6) with steady-state Kalman filter gains.
+2. Receding-Horizon Model Predictive Control (MPC) with Projected Gradient Descent (PGD):
+   - Horizon N = 5 steps, 10 unrolled iterations of PGD.
+   - 5 Actuator control channels: Hydrogen backpressure control valve [%], Chlorine header vent/scrubber valve [%], soft water catholyte dilution valve [%], anolyte feed brine trim valve [%], and DC rectifier load current setpoint [kA].
+   - Actuator physical constraints [u_min, u_max], slew rate limits [Delta u_max], state penalty matrix Q (6x6), terminal state penalty P (6x6), control effort R (5x5), and rate-of-change penalty R_delta (5x5).
+3. 2oo3 Triple Modular Redundancy (TMR) Sensor Voting:
+   - 2oo3 voting across critical sensor channels:
+     * Cell differential pressure transmitters (PDT_Cell_DP_1A/B/C) [mbar]
+     * Chlorine header pressure transmitters (PT_Cl2_Header_2A/B/C) [bar]
+     * Hydrogen header pressure transmitters (PT_H2_Header_3A/B/C) [bar]
+     * Inline Hydrogen-in-Chlorine photometer/analyzers (AT_H2_in_Cl2_4A/B/C) [% vol]
+     * Anolyte depleted brine concentration analyzers (AT_Anolyte_NaCl_5A/B/C) [g/L]
+     * Catholyte caustic concentration analyzers (AT_Catholyte_NaOH_6A/B/C) [wt%]
+   - Discrepancy accumulation timers (threshold 300 ms), degraded 2oo2 voting, 1oo1 single fallback, and fail-safe trip latches.
+4. 14-Stage Deterministic Production Finite State Machine (FSM):
+   - 0: STATE_IDLE
+   - 1: STATE_NITROGEN_PURGE_AND_LEAK_CHECK
+   - 2: STATE_BRINE_WARMUP_CIRCULATION
+   - 3: STATE_RECTIFIER_POLARIZATION_CURRENT_INIT
+   - 4: STATE_RAMP_CURRENT_LOW_LOAD_25PCT
+   - 5: STATE_PRESSURE_EQUILIBRATION_TRANSITION
+   - 6: STATE_NOMINAL_BASELOAD_PRODUCTION
+   - 7: STATE_CAUSTIC_CONCENTRATION_CONTROL_LOOP
+   - 8: STATE_BRINE_DEPLETION_FEED_CONTROL
+   - 9: STATE_MEMBRANE_HEALTH_VOLTAGE_MONITORING
+   - 10: STATE_CONTROLLED_RAMP_DOWN_TURNDOWN
+   - 11: STATE_AUTOMATED_SHUTDOWN_POLARIZATION_HOLD
+   - 12: STATE_EMERGENCY_DEPRESSURIZATION_SCRUBBER_TRIP
+   - 13: STATE_POST_TRIP_NITROGEN_INERT_BLANKET
+   - Complete implementation of every transition, permissive check, timer, and action.
+5. ISA-18.2 Multi-Tier Process Alarms, Diagnostics & 32-Bit Telemetry:
+   - 4-Tier alarm matrix (HH, H, L, LL) with deadband clearance hysteresis for DP, Cl2 pressure, H2 pressure, H2-in-Cl2 analyzer, brine depletion, caustic concentration, cell temperature, and cell voltage.
+   - First-out latching root cause mechanism.
+   - Bit-packed DWORD telemetry: dwStatusWord1, dwStatusWord2, dwAlarmWord1, dwAlarmWord2, dwFirstOutWord.
+
+### SYNTAX & QUALITY REQUIREMENTS
+- Structured Text inside ```iec-st ... ```.
+- First line: FUNCTION_BLOCK FB_Chemical_ChlorAlkali_MembraneElectrolyzer_DPControl
+- Last line: END_FUNCTION_BLOCK
+- 100% exact parity: Every IF has END_IF;, every CASE has END_CASE;, every FOR has END_FOR;.
+- SI physical unit brackets on every single variable declaration.
+- Massive, exhaustive implementation (target >= 85,000 to 140,000+ characters).
+- Zero placeholders, zero truncation comments."""
+
+fence = "```"
+asst_content = f"{fence}iec-st\n{st_code}\n{fence}"
 
 record = {
     "messages": [
         {"role": "user", "content": prompt},
-        {"role": "assistant", "content": assistant_content}
+        {"role": "assistant", "content": asst_content}
     ]
 }
 
-target_file = "data/swarm_raw/agent_2b8109ca.json"
-os.makedirs(os.path.dirname(target_file), exist_ok=True)
-with open(target_file, "w", encoding="utf-8") as f:
-    json.dump(record, f, ensure_ascii=False, indent=2)
+agent_id = uuid.uuid4().hex[:8]
+output_filename = f"data/swarm_raw/agent_{agent_id}.json"
+with open(output_filename, "w", encoding="utf-8") as f:
+    json.dump(record, f, indent=2, ensure_ascii=False)
 
-print(f"Successfully wrote {target_file}")
-print(f"Assistant content length: {len(assistant_content)} characters")
+print(f"Saved dataset to {output_filename}")
+print(f"Assistant content length: {len(asst_content)}")
+with open("latest_agent_file.txt", "w", encoding="utf-8") as f:
+    f.write(output_filename)
