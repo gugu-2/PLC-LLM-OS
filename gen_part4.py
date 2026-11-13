@@ -1,0 +1,154 @@
+# gen_part4.py
+
+part4 = """(* ==================================================================================================== *)
+(* PHASE 2: FIRST-PRINCIPLES CYBER-PHYSICAL STATE-SPACE ESTIMATION & ELECTROCHEMICAL KINETICS           *)
+(* Architecture: Luenberger Observer (Prediction -> Measurement -> Innovation -> Filtered Estimate)     *)
+(* Electrochemical Kinetics: Faraday Production, Nernst Reversible Potential, Butler-Volmer/Tafel,     *)
+(*                           Membrane Area Resistance, Specific Energy & Thermal Balance                *)
+(* ==================================================================================================== *)
+
+(* ---------------------------------------------------------------------------------------------------- *)
+(* Step 1: One-Step-Ahead Cyber-Physical State Prediction (x_pred = A * x_hat + B * u)                  *)
+(* ---------------------------------------------------------------------------------------------------- *)
+FOR iIdx := 0 TO 5 DO
+    rTempSum := 0.0;
+    FOR jIdx := 0 TO 5 DO
+        rTempSum := rTempSum + (matA[iIdx, jIdx] * vecX_hat[jIdx]);
+    END_FOR;
+    FOR mIdx := 0 TO 4 DO
+        rTempSum := rTempSum + (matB[iIdx, mIdx] * vecU[mIdx]);
+    END_FOR;
+    vecX_pred[iIdx] := rTempSum;
+END_FOR;
+
+(* ---------------------------------------------------------------------------------------------------- *)
+(* Step 2: Predicted Measurement Projection (y_hat = C * x_pred + D * u)                                *)
+(* ---------------------------------------------------------------------------------------------------- *)
+FOR iIdx := 0 TO 5 DO
+    rTempSum := 0.0;
+    FOR jIdx := 0 TO 5 DO
+        rTempSum := rTempSum + (matC[iIdx, jIdx] * vecX_pred[jIdx]);
+    END_FOR;
+    FOR mIdx := 0 TO 4 DO
+        rTempSum := rTempSum + (matD[iIdx, mIdx] * vecU[mIdx]);
+    END_FOR;
+    vecY_hat[iIdx] := rTempSum;
+END_FOR;
+
+(* ---------------------------------------------------------------------------------------------------- *)
+(* Step 3: Innovation Residual Vector Computation (vecInnov = vecY_meas - vecY_hat)                    *)
+(* ---------------------------------------------------------------------------------------------------- *)
+FOR iIdx := 0 TO 5 DO
+    vecInnov[iIdx] := vecY_meas[iIdx] - vecY_hat[iIdx];
+END_FOR;
+
+(* ---------------------------------------------------------------------------------------------------- *)
+(* Step 4: Luenberger Innovation Correction Update (x_hat = x_pred + L * innov)                         *)
+(* ---------------------------------------------------------------------------------------------------- *)
+FOR iIdx := 0 TO 5 DO
+    rTempSum := 0.0;
+    FOR jIdx := 0 TO 5 DO
+        rTempSum := rTempSum + (matL[iIdx, jIdx] * vecInnov[jIdx]);
+    END_FOR;
+    vecX_hat[iIdx] := vecX_pred[iIdx] + rTempSum;
+END_FOR;
+
+(* Assign Filtered Estimates to Dedicated Physical Telemetry Outputs *)
+rEst_Cell_DP_mbar          := vecX_hat[0];
+rEst_P_Cl2_bar             := vecX_hat[1];
+rEst_P_H2_bar              := vecX_hat[2];
+rEst_Anolyte_NaCl_gL       := vecX_hat[3];
+rEst_Catholyte_NaOH_pct    := vecX_hat[4];
+rEst_Cell_Temperature_degC := vecX_hat[5];
+
+(* ---------------------------------------------------------------------------------------------------- *)
+(* Step 5: Advanced Electrochemical Reaction Kinetics & Real-Time Performance Analytics                 *)
+(* ---------------------------------------------------------------------------------------------------- *)
+(* 1. Operating Current Density J [kA/m2] across Active Membrane Area *)
+IF rTotalActiveMembraneArea_m2 > 1.0 THEN
+    rCalc_CurrentDensity_kAm2 := (rRectifier_CurrentFb_kA * rNumberCellsInBipolarStack) / rTotalActiveMembraneArea_m2;
+ELSE
+    rCalc_CurrentDensity_kAm2 := 0.0;
+END_IF;
+
+(* 2. Faraday Current Efficiency Model (Sensitive to Caustic Concentration & Electrolyte Temp) *)
+rFaradayCurrentEfficiency := 0.9850 - (0.0035 * ABS(rEst_Catholyte_NaOH_pct - 32.5)) - (0.00045 * MAX(0.0, rEst_Cell_Temperature_degC - 85.0));
+IF rFaradayCurrentEfficiency > 0.9850 THEN
+    rFaradayCurrentEfficiency := 0.9850;
+ELSIF rFaradayCurrentEfficiency < 0.8800 THEN
+    rFaradayCurrentEfficiency := 0.8800;
+END_IF;
+rCalc_FaradayEfficiency_pct := rFaradayCurrentEfficiency * 100.0;
+
+(* 3. Faraday Law Gas Production Rates: Chlorine Cl2 and Hydrogen H2 in Standard [Nm3/h] *)
+(* n_mols/s = (I * N_cells * eta) / (z * F), where z = 2 electrons per molecule *)
+rTempGasMols := (rRectifier_CurrentFb_kA * 1000.0 * rNumberCellsInBipolarStack * rFaradayCurrentEfficiency) / (2.0 * rFaradayConst_C_mol);
+rCalc_Cl2_ProductionRate_Nm3h := rTempGasMols * 3600.0 * (rMolarVol_Nm3_kmol / 1000.0);
+rCalc_H2_ProductionRate_Nm3h  := rCalc_Cl2_ProductionRate_Nm3h;
+
+(* 4. 100% Equivalent Caustic Soda (NaOH) Production Rate in [kg/h] (z = 1 electron per NaOH) *)
+rCalc_NaOH_ProductionRate_kgh := (rRectifier_CurrentFb_kA * 1000.0 * rNumberCellsInBipolarStack * rFaradayCurrentEfficiency / rFaradayConst_C_mol) * 3600.0 * (rMolarMass_NaOH_kg_kmol / 1000.0);
+
+(* 5. Reversible Nernst Potential E_rev [V] as function of Bulk Temperature & Activities *)
+rNernstPotential_V := rStandardElectrodePotential_V - (0.00085 * (rEst_Cell_Temperature_degC - 25.0)) +
+                      (((rGasConst_J_molK * (rEst_Cell_Temperature_degC + 273.15)) / (2.0 * rFaradayConst_C_mol)) * 0.045);
+
+(* 6. Anode Kinetic Overpotential (RuO2-TiO2 DSA Coating Tafel Equation) *)
+IF rCalc_CurrentDensity_kAm2 > 0.01 THEN
+    rAnodeOverpotential_V := 0.042 + (0.032 * (rCalc_CurrentDensity_kAm2 / 2.50));
+ELSE
+    rAnodeOverpotential_V := 0.005;
+END_IF;
+
+(* 7. Cathode Kinetic Overpotential (Nickel Mesh Cathode Tafel Equation) *)
+IF rCalc_CurrentDensity_kAm2 > 0.01 THEN
+    rCathodeOverpotential_V := 0.065 + (0.048 * (rCalc_CurrentDensity_kAm2 / 2.50));
+ELSE
+    rCathodeOverpotential_V := 0.010;
+END_IF;
+
+(* 8. Membrane Specific Ohmic Resistance [mOhm.cm2] with Arrhenius Temperature Correction *)
+(* Nafion/Flemion Perfluorosulfonic Carboxylic Bilayer Area Resistance *)
+rCalc_MembraneAreaResist_mOhm := 210.0 * (1.0 + (0.045 * (rEst_Catholyte_NaOH_pct - 32.0))) *
+                                 (1.0 - (0.011 * (rEst_Cell_Temperature_degC - 85.0)));
+IF rCalc_MembraneAreaResist_mOhm < 120.0 THEN
+    rCalc_MembraneAreaResist_mOhm := 120.0;
+ELSIF rCalc_MembraneAreaResist_mOhm > 450.0 THEN
+    rCalc_MembraneAreaResist_mOhm := 450.0;
+END_IF;
+
+(* Membrane IR Voltage Drop [V] *)
+rMembraneOhmicDrop_V := (rCalc_CurrentDensity_kAm2 * 1000.0 / 10000.0) * (rCalc_MembraneAreaResist_mOhm / 1000.0);
+
+(* 9. Electrolyte Brine & Caustic Solution IR Voltage Drop [V] *)
+rElectrolyteOhmicDrop_V := (rCalc_CurrentDensity_kAm2 * 0.055) * (1.0 + (0.002 * MAX(0.0, 220.0 - rEst_Anolyte_NaCl_gL)));
+
+(* 10. Theoretical Sum of Cell Voltage & Discrepancy Diagnostics *)
+rTheoreticalCellVoltage_V := rNernstPotential_V + rAnodeOverpotential_V + rCathodeOverpotential_V +
+                             rMembraneOhmicDrop_V + rElectrolyteOhmicDrop_V + 0.075;
+rCellVoltageDeviation_V   := rCell_AverageVoltage_V - rTheoreticalCellVoltage_V;
+
+(* 11. Specific DC Electrical Energy Consumption [kWh / Metric Ton Cl2] *)
+IF rCalc_Cl2_ProductionRate_Nm3h > 0.1 AND rFaradayCurrentEfficiency > 0.50 THEN
+    rCalc_SpecificPower_kWh_tCl2 := (rCell_AverageVoltage_V * 2.0 * rFaradayConst_C_mol) /
+                                    (rFaradayCurrentEfficiency * rMolarMass_Cl2_kg_kmol * 3.60);
+ELSE
+    rCalc_SpecificPower_kWh_tCl2 := 0.0;
+END_IF;
+
+(* 12. Cell Stack Thermal Dissipation & Required Heat Exchanger Duty [kW] *)
+(* Thermoneutral potential E_th = 1.48 V. Heat gen = I * (V_cell - 1.48) * N_cells *)
+IF rRectifier_CurrentFb_kA > 0.5 THEN
+    rCalc_ThermalHeatGen_kW := rRectifier_CurrentFb_kA * MAX(0.0, rCell_AverageVoltage_V - 1.480) * rNumberCellsInBipolarStack;
+    (* Cooling requirement to maintain setpoint temperature *)
+    rCalc_CoolingRequirement_kW := MAX(0.0, rCalc_ThermalHeatGen_kW - (0.45 * (rEst_Cell_Temperature_degC - 25.0)));
+ELSE
+    rCalc_ThermalHeatGen_kW     := 0.0;
+    rCalc_CoolingRequirement_kW := 0.0;
+END_IF;
+"""
+
+with open("dataset_parts/part4_state_space.txt", "w", encoding="utf-8") as f:
+    f.write(part4)
+
+print("Part 4 written successfully.")
