@@ -1,95 +1,90 @@
-# Package dataset to data/swarm_raw/agent_<uuid>.json
-import os, sys, json, uuid
-from assemble_dataset import assemble
+# package_dataset.py
+import json
+import uuid
+import os
+import subprocess
+from generate_ecu_smt_fb import generate_st_code
 
-def package():
-    code_text = assemble()
-    asst_content = f"```iec-st\n{code_text}\n```"
-    
-    prompt = """You are the Principal Automation Fellow & Cyber-Physical Systems Chair.
-Your directive is to generate ONE single, ultra-dense, mathematically rigorous, completely implemented IEC 61131-3 Structured Text dataset for the Lumina PLC-LLM project.
+prompt = """You are Lumina's Elite Synthetic Data Architect for IEC 61131-3 Programmable Logic Controllers (V7 Max-Persona: 75+ years Principal Automation Fellow & Cyber-Physical Systems Chair).
 
-DOMAIN: Biopharmaceutical & Life Sciences (Continuous Tangential Flow Filtration - TFF / Cross-Flow Ultrafiltration & Diafiltration for Monoclonal Antibody Downstream Processing)
-FUNCTION BLOCK NAME: FB_Pharma_Bioprocess_TFF_Ultrafiltration_Diafiltration
+Your mission is to generate an ultra-complex, mathematically exhaustive, production-grade IEC 61131-3 Structured Text FUNCTION_BLOCK for the following heavy automotive manufacturing domain:
 
-### MATHEMATICAL & CYBER-PHYSICAL REQUIREMENTS
-1. First-Principles State-Space Model (Ts = 10 ms):
-   - 8-State model covering membrane transmembrane pressure (TMP), concentration polarization gel layer hydrodynamic resistance (film theory model), wall shear rate, permeate flux decline kinetics, retentate protein concentration, diafiltration buffer volume exchange ratio, and cassette hydraulic resistance:
-     States: x1=Transmembrane Pressure TMP [bar], x2=Permeate Volumetric Flux [L/m2/h LMH], x3=Retentate Monoclonal Antibody Concentration [g/L], x4=Membrane Gel Polarization Resistance Rg [m-1], x5=Retentate Channel Wall Shear Rate [s-1], x6=Diafiltration Buffer Volume Exchange Counter [DV], x7=Retentate Recirculation Temperature [degC], x8=Buffer Addition Sump Weight Deviation [g].
-   - Explicit non-zero matrices: A (8x8), B (8x6), C (6x8), D (6x6), with state propagation x[k+1] = A * x[k] + B * u[k].
-   - Steady-state Luenberger / Kalman observer innovation gain matrix L (8x6).
+### Commercial Sector: Automotive Electronics Manufacturing / High-Speed SMT Factory
+### Target System: 120,000 CPH High-Speed Dual-Gantry Dual-Lane SMT Pick-and-Place Machine for Automotive ECUs — Linear Motors Jerk Limiting, Multi-Nozzle Vacuum Decay & On-the-Fly 3D Vision Alignment
+### Function Block Name: `FB_Electronics_AutomotiveECU_SMT_PickAndPlace_VisionMotion`
 
-2. Model Predictive Control (MPC) with Projected Gradient Descent (PGD):
-   - Receding horizon N = 5 steps, 6 unrolled iterations of PGD.
-   - Dynamic TMP & Wall Shear Decoupling: feed pump servo speed dynamically controls wall shear rate while the retentate proportional pinch/diaphragm valve simultaneously modulates TMP without fouling or shearing delicate proteins.
-   - Actuator constraints: Feed quaternary diaphragm pump VFD [0..3000 rpm], retentate automated control valve [0..100%], diafiltration buffer metering pump [0..100%], permeate automated control valve [0..100%], heat exchanger chiller glycol valve [0..100%], feed divert recovery valve [0..100%]. Slew rate limits on all actuators.
+---
 
-3. 2oo3 (Two-out-of-Three) Triple Modular Redundancy (TMR) Voting:
-   - Implement 2oo3 voting across critical sensor channels:
-     * Feed Line Sanitary Diaphragm Pressure Transmitters (PT_FEED_101A/B/C) [bar]
-     * Retentate Line Sanitary Pressure Transmitters (PT_RET_201A/B/C) [bar]
-     * Permeate Line Sanitary Pressure Transmitters (PT_PERM_301A/B/C) [bar]
-     * Inline Optical UV-Vis 280 nm Protein Concentration Sensors (AT_UV_401A/B/C) [g/L]
-     * Feed Coriolis Mass Flowmeters (FT_FEED_501A/B/C) [L/h]
-   - Discrepancy accumulation timers (threshold 100 ms) and bumpless degradation.
+## 1. Mathematical & Cyber-Physical Requirements:
+1. **High-Speed Linear Motor Motion Dynamics & Vacuum Pickup Physics**:
+   - Dual-gantry linear motor motion synthesis with 5th-order polynomial S-curve jerk limiting: j_max = 250 m/s^3, a_max = 50 m/s^2, minimizing mechanical structural vibration settling time (< 8 ms) during ultra-high-speed placement (120,000 components per hour).
+   - Multi-nozzle rotary vacuum manifold pneumatic decay dynamics: micro-piezoresistive vacuum sensor decay analysis detecting missed pickups, component tombstoning, and nozzle air leakage (P_vac <= -75 kPa threshold for 0201 passives to automotive BGA/QFN chips).
+   - On-the-fly high-speed strobe vision camera image acquisition and sub-pixel optical edge processing: calculating Cartesian offsets (Delta_x, Delta_y, Delta_theta) during travel from feeder to PCB.
+   - Dual-lane conveyor PCB dynamic clamping, board warpage laser height sensor triangulation compensation (Z_offset), and thermal expansion thermal drift correction.
+2. **Discrete State-Space Model (6x6)**:
+   - x[k+1] = A * x[k] + B * u[k], y[k] = C * x[k] + D * u[k]
+   - Observer Innovation: x_hat[k+1] = A * x_hat[k] + B * u[k] + L * (y[k] - C * x_hat[k])
+   - States: x1: Gantry X-axis position tracking error [um], x2: Gantry Y-axis position tracking error [um], x3: Placement head rotary nozzle vacuum pressure [kPa], x4: Placement component Z-axis contact force [N], x5: Placement angular theta offset [mrad], x6: Structural gantry vibration RMS acceleration [m/s2].
+   - Actuators: u1: Linear motor X-axis drive current [%], u2: Linear motor Y-axis drive current [%], u3: Rotary placement head voice coil Z-axis force servo [%], u4: Multi-nozzle vacuum venturi solenoid [%], u5: High-speed positive pressure blow-off puff valve [%].
+3. **Receding-Horizon MPC with 10 Unrolled Projected Gradient Descent (PGD) Iterations**:
+   - Explicit quadratic cost matrices: Q (X, Y, theta tracking and vacuum errors), R (linear motor current and voice coil force penalties), S (slew rate damping), P (terminal state cost).
+   - Strict dynamic constraint handling preventing automotive semiconductor die micro-cracking (F_placement <= 2.5 N) and avoiding solder paste displacement.
+   - 10 unrolled PGD iterations explicitly computing adjoint costates and projected input updates.
+4. **2oo3 Triple Modular Redundancy (TMR) Sensor Voting Suite**:
+   - 4 independent sensor triplets with median voting, deviation limit timers (persistence 20 ms), and bumpless degradation:
+     * Triplicated optical linear scale encoders on X/Y gantry axes [um]
+     * Triplicated micro-piezoresistive vacuum pressure sensors [kPa]
+     * Triplicated placement nozzle piezoelectric touch contact force load cells [N]
+     * Triplicated 3-axis machine frame structural accelerometers [m/s2]
+5. **Deterministic 14-Stage Production Finite State Machine (FSM)**:
+   - `CASE State OF ... END_CASE` covering:
+     * 0: `STATE_IDLE`
+     * 1: `STATE_DUAL_LANE_CONVEYOR_PCB_FEED_AND_WARPAGE_SCAN`
+     * 2: `STATE_PCB_HYDRAULIC_BOTTOM_SUPPORT_PIN_ENGAGEMENT`
+     * 3: `STATE_GANTRY_HIGH_SPEED_SLEW_TO_FEEDER_BANK`
+     * 4: `STATE_MULTI_NOZZLE_SIMULTANEOUS_PICKUP_DESCENT`
+     * 5: `STATE_VACUUM_LEVEL_VERIFICATION_AND_TOMBSTONE_CHECK`
+     * 6: `STATE_HIGH_SPEED_TRAVERSE_OVER_FLYING_VISION_CAMERA`
+     * 7: `STATE_ON_THE_FLY_OPTICAL_ALIGNMENT_OFFSET_COMPUTATION`
+     * 8: `STATE_ROTARY_NOZZLE_THETA_ORIENTATION_CORRECTION`
+     * 9: `STATE_PRECISION_PLACEMENT_DESCENT_MPC_RUN`
+     * 10: `STATE_CONTROLLED_CONTACT_FORCE_LANDING_AND_PUFF_RELEASE`
+     * 11: `STATE_NOZZLE_RAPID_RETRACT_AND_OPTICAL_AOI_INSPECT`
+     * 12: `STATE_FINISHED_PCB_UNCLAMP_AND_LANE_DISCHARGE`
+     * 13: `STATE_EMERGENCY_HEAD_COLLISION_OR_VACUUM_LOSS_TRIP`
+6. **ISA-18.2 Multi-Tier Alarms & 32-Bit Telemetry DWORDs**:
+   - High-High, High, Low, Low-Low alarm levels with deadband hysteresis.
+   - Bit-packed DWORDs: `dwStatusWord1`, `dwStatusWord2`, `dwAlarmWord1`, `dwAlarmWord2`, `dwFirstOutWord`."""
 
-4. Deterministic 14-Stage Bioprocessing State Machine (FSM):
-   - CASE eState OF:
-     0: SANITARY_STANDBY_AND_INTEGRITY_CHECK
-     1: WFI_FLUSH_AND_INITIAL_NWP_BASE_WATER_TEST
-     2: EQUILIBRATION_BUFFER_CONDITIONING_PRIME
-     3: PROTEIN_BULK_FEED_INTRODUCTION_RAMP
-     4: ULTRAFILTRATION_CONCENTRATION_PHASE_1
-     5: AUTOMATED_CONSTANT_VOLUME_DIAFILTRATION (7 DV)
-     6: ULTRAFILTRATION_FINAL_TARGET_CONCENTRATION
-     7: PRODUCT_CHILLDOWN_AND_STABILIZATION (4 degC)
-     8: RETENTATE_RECOVERY_DRAIN_AND_WFI_CHASE
-     9: AIR_BLOWDOWN_FLUID_RECOVERY_CYCLE
-     10: CAUSTIC_CIP_MEMBRANE_CLEANING_RECIRCULATION
-     11: POST_CIP_NWP_MEMBRANE_RECOVERY_EVALUATION
-     12: PRESERVATIVE_STORAGE_FLUSH (0.1M NaOH)
-     13: EMERGENCY_OVERPRESSURE_RUPTURE_DISC_INTERLOCK
-   - Fully implement every single state transition and logic.
+st_code = generate_st_code()
+assistant_content = f"```iec-st\n{st_code}\n```"
 
-5. ISA-18.2 Process Alarms, Protein Shear Denaturation & 32-Bit Telemetry:
-   - High TMP (>3.5 bar) fast feed pump trip (<10 ms).
-   - 4-tier alarm matrix (HH, H, L, LL) with deadband clearance hysteresis.
-   - Bit-packed DWORD telemetry: dwStatusWord1, dwStatusWord2, dwAlarmWord1, dwAlarmWord2, dwFirstOutWord.
+record = {
+    "messages": [
+        {"role": "user", "content": prompt},
+        {"role": "assistant", "content": assistant_content}
+    ]
+}
 
-### SYNTAX & STANDARDIZED DATASET FORMAT
-- The IEC 61131-3 Structured Text MUST be 85,000 to 140,000+ characters.
-- First line: `FUNCTION_BLOCK FB_Pharma_Bioprocess_TFF_Ultrafiltration_Diafiltration`
-- Last line: `END_FUNCTION_BLOCK`
-- 100% exact parity: Every IF has END_IF;, every CASE has END_CASE;, every FOR has END_FOR;.
-- SI physical unit brackets on every single variable declaration.
-- Zero placeholders, zero truncation comments, zero `// ... rest of code`. Every line fully written."""
+os.makedirs("data/swarm_raw", exist_ok=True)
+agent_id = uuid.uuid4().hex[:8]
+filename = f"data/swarm_raw/agent_{agent_id}.json"
 
-    record = {
-        "instruction": prompt,
-        "input": "",
-        "output": asst_content,
-        "messages": [
-            {"role": "user", "content": prompt},
-            {"role": "assistant", "content": asst_content}
-        ]
-    }
-    
-    unique_id = uuid.uuid4().hex[:8]
-    filename = f"data/swarm_raw/agent_{unique_id}.json"
-    os.makedirs("data/swarm_raw", exist_ok=True)
-    with open(filename, "w", encoding="utf-8") as f:
-        json.dump(record, f, ensure_ascii=False, indent=2)
-    
-    print(f"Successfully wrote dataset file: {filename}")
-    print(f"Assistant content character count: {len(asst_content)}")
-    return filename
+with open(filename, "w", encoding="utf-8") as f:
+    json.dump(record, f, ensure_ascii=False, indent=2)
 
-if __name__ == "__main__":
-    fname = package()
-    print("Validating with validate_iec.py...")
-    ret = os.system(f"python validate_iec.py {fname}")
-    if ret == 0:
-        print("VALIDATION SUCCESSFUL!")
-    else:
-        print("VALIDATION FAILED!")
-        sys.exit(1)
+print(f"Dataset saved to {filename}")
+print(f"Assistant content character count: {len(assistant_content)}")
+
+# Validate with validate_iec.py
+res = subprocess.run(["python", "validate_iec.py", filename], capture_output=True, text=True)
+print(res.stdout)
+if res.stderr:
+    print("STDERR:", res.stderr)
+if res.returncode != 0:
+    print("VALIDATION FAILED!")
+    exit(1)
+else:
+    print(f"SUCCESS: agent_{agent_id}.json PASSED ALL CHECKS!")
+    with open("latest_agent_file.txt", "w", encoding="utf-8") as f:
+        f.write(filename)

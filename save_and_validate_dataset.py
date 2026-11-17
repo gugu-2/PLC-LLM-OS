@@ -1,82 +1,124 @@
+# save_and_validate_dataset.py
+
 import json
+import uuid
 import os
-import sys
-from builder_smt_pnp import generate_code
+import subprocess
+import build_gigapress_full as bg
+import test_var_block as tv
+import section0_and_1 as s01
+import section2_physics as s2
+import section3_mpc as s3
+import section4_fsm as s4
+import section5_6_7 as s567
 
-def main():
-    st_code = generate_code()
-    wrapped_code = f"```iec-st\n{st_code}\n```"
-    
-    user_prompt = """You are part of the Lumina AI Cloud Swarm generating synthetic IEC 61131-3 training data.
-You possess the UPGRADED V7 MAX-PERSONA: 75+ years veteran Principal Automation Fellow & Cyber-Physical Systems Chair.
-You are instructed to CONSUME EXTREME TOKENS: make your output massively exhaustive, deeply engineered, mathematically complete, and structurally pristine. Include complete discrete state-space matrices (A, B, C, D, L), Model Predictive Control (MPC) quadratic cost optimization with Projected Gradient Descent (PGD), 2oo3 Triple Modular Redundancy (TMR) sensor voting logic with dynamic discrepancy timers and bumpless degradation, ISA-18.2 multi-tiered alarm matrices with deadband hysteresis, and a deterministic 14-stage finite state machine.
+# 1. Exact prompt from user/parent
+prompt = """You are Lumina's Elite Synthetic Data Architect for IEC 61131-3 Programmable Logic Controllers (V7 Max-Persona: 75+ years Principal Automation Fellow & Cyber-Physical Systems Chair).
 
-**Your assigned domain is: Electronics & Semiconductor Packaging (Tier 1 Priority Commercial Sector) — Ultra-High-Speed 65,000 cph Multi-Gantry SMT Pick-and-Place Machine, Flying Vision Component Alignment & Placement Impact Force Control.**
+Your mission is to generate an ultra-complex, mathematically exhaustive, production-grade IEC 61131-3 Structured Text FUNCTION_BLOCK for the following heavy automotive manufacturing domain:
 
-**Function Block Name**: `FB_Electronics_SMT_HighSpeed_PickAndPlace_VisionMotion`
+### Commercial Sector: Automotive Heavy Foundry & Structural Mega-Casting
+### Target System: 9,000-Ton Ultra-Large High-Pressure Die Casting Machine (Giga-Press) — Real-Time Closed-Loop Shot Control, Vacuum Extraction & 4-Tie-Bar Tonnage Balancing
+### Function Block Name: `FB_Automotive_MegaCasting_9000Ton_RealTimeShot_Vacuum`
 
-### MATHEMATICAL & CYBER-PHYSICAL REQUIREMENTS
-1. First-Principles State-Space Model (Ts = 0.5 ms):
-   - 8-State model covering dual linear motor gantry kinematics, spindle theta rotary alignment, nozzle vacuum level dynamics, component placement contact impact stiffness, PCB substrate dynamic deflection, and linear scale thermal drift:
-     States: x1=Gantry Master X-Axis Linear Position [mm], x2=Gantry Slave X-Axis Position Skew [um], x3=Pick Head Spindle Theta Rotation Angle [deg], x4=Nozzle Vacuum Suction Pressure [kPa], x5=Placement Z-Axis Contact Force [N], x6=PCB Substrate Dynamic Deflection [um], x7=Linear Scale Thermal Expansion Offset [um], x8=Vacuum Blow-off Pressure Wave Transient [kPa].
-   - Explicit non-zero matrices: A (8x8), B (8x6), C (6x8), D (6x6), with state propagation x[k+1] = A * x[k] + B * u[k].
-   - Steady-state Luenberger / Kalman observer innovation gain matrix L (8x6).
+---
 
-2. Model Predictive Control (MPC) with Projected Gradient Descent (PGD):
-   - Receding horizon N = 5 steps, 6 unrolled iterations of PGD.
-   - Dynamic Jerk-Limited S-Curve Contour Optimization: eliminate master-slave gantry skew (<5 um) and control Z-axis touchdown force (<3.0 N ± 0.2 N) to prevent microscopic die cracking.
-   - Actuator constraints: X-master linear motor current command [-100%..+100%], X-slave linear motor current command [-100%..+100%], Theta direct-drive motor torque [-100%..+100%], Z-voice coil actuator current [-100%..+100%], vacuum proportional valve [0..100%], blow-off pulse solenoid [0..100%]. Slew rate limits on all actuators.
+## 1. Mathematical & Cyber-Physical Requirements:
+1. **Multi-Phase Injection Shot Hydraulics & Vacuum Dynamics**:
+   - 3-Phase high-speed injection hydraulic dynamics:
+     * Phase 1 (Slow shot): Plunger advances at v1 = 0.25 m/s to gently gather molten aluminum alloy (A380/AlSi10MnMg, 110 kg dose) without creating wave turbulence or trapping air pockets.
+     * Phase 2 (Fast shot): High-acceleration transition (a_shot >= 45 m/s^2, v2 = 8.5 m/s) filling complex thin-walled rear underbody cavity in < 40 ms.
+     * Phase 3 (Intensification): Hydraulic pressure multiplier spike (P_intens = 1,400 bar) squeezing out solidification shrinkage porosity before gate freeze.
+   - High-vacuum cavity extraction system: multi-stage Roots vacuum blowers pulling mold cavity below 25 mbar, with hydraulic chill-block shutoff valve closing in < 8 ms before molten metal reaches vacuum lines.
+   - 4-Tie-Bar hydraulic pre-stress clamping tonnage balancing: dynamic strain gauge feedback across four 750 mm diameter tie-bars (Total clamping force = 90,000 kN +/- 2%), preventing die flash and tie-bar thermal asymmetry.
+   - Multi-channel pressurized die thermal regulation: water/oil cooling and electric cartridge heaters tracking mold surface temperature (220 °C to 280 °C).
+2. **Discrete State-Space Model (6x6)**:
+   - x[k+1] = A * x[k] + B * u[k], y[k] = C * x[k] + D * u[k]
+   - Observer Innovation: x_hat[k+1] = A * x_hat[k] + B * u[k] + L * (y[k] - C * x_hat[k])
+   - States: x1: Plunger injection velocity [m/s], x2: Hydraulic shot cylinder head pressure [bar], x3: Mold cavity vacuum pressure [mbar], x4: Total tie-bar clamping force [kN], x5: Die face cavity temperature [deg C], x6: Cast part solidification thickness [mm].
+   - Actuators: u1: Servo injection proportional pilot valve [%], u2: Hydraulic accumulator fast-discharge poppet valve [%], u3: Intensifier multiplier cylinder pilot valve [%], u4: Vacuum line high-speed extraction valve [%], u5: Die thermal tempering oil circulating pump speed [%].
+3. **Receding-Horizon MPC with 10 Unrolled Projected Gradient Descent (PGD) Iterations**:
+   - Explicit quadratic cost matrices: Q (plunger velocity, intensification pressure, and vacuum errors), R (hydraulic valve actuation and pump power penalties), S (slew rate damping), P (terminal state cost).
+   - Strict dynamic constraint handling preventing molten metal flash blowout, cold shuts, and gas porosity defects.
+   - 10 unrolled PGD iterations explicitly computing adjoint costates and projected input updates.
+4. **2oo3 Triple Modular Redundancy (TMR) Sensor Voting Suite**:
+   - 4 independent sensor triplets with median voting, deviation limit timers (persistence 20 ms), and bumpless degradation:
+     * Triplicated shot cylinder magnetostrictive linear velocity transducers [m/s]
+     * Triplicated hydraulic shot pressure piezoresistive sensors [bar]
+     * Triplicated mold cavity vacuum Pirani/capacitance transmitters [mbar]
+     * Triplicated tie-bar strain gauge extensometer load cells [kN]
+5. **Deterministic 14-Stage Production Finite State Machine (FSM)**:
+   - `CASE State OF ... END_CASE` covering:
+     * 0: `STATE_IDLE`
+     * 1: `STATE_DIE_SAFETY_DOOR_LOCK_AND_PARTING_AGENT_SPRAY`
+     * 2: `STATE_4_TIE_BAR_HYDRAULIC_CLAMP_TO_90000KN`
+     * 3: `STATE_LADLE_ROBOT_MOLTEN_ALUMINUM_POUR_INTO_SLEEVE`
+     * 4: `STATE_MOLD_CAVITY_HIGH_VACUUM_EVACUATION_BELOW_25MBAR`
+     * 5: `STATE_PHASE1_SLOW_SHOT_WAVE_SURGE_SUPPRESSION`
+     * 6: `STATE_PHASE2_FAST_SHOT_HIGH_ACCELERATION_CAVITY_FILL`
+     * 7: `STATE_VACUUM_CHILL_BLOCK_VALVE_FAST_SHUTOFF`
+     * 8: `STATE_PHASE3_INTENSIFICATION_PRESSURE_SQUEEZE_1400BAR`
+     * 9: `STATE_IN_DIE_SOLIDIFICATION_COOLING_HOLD`
+     * 10: `STATE_TIE_BAR_DECOMPRESSION_AND_DIE_OPEN_STROKE`
+     * 11: `STATE_HYDRAULIC_EJECTOR_PINS_MULTI_POINT_PUSH`
+     * 12: `STATE_EXTRACTOR_ROBOT_PART_GRIP_AND_LASER_METROLOGY`
+     * 13: `STATE_EMERGENCY_FLASH_BLOWOUT_OR_TIE_BAR_OVERSTRAIN_TRIP`
+6. **ISA-18.2 Multi-Tier Alarms & 32-Bit Telemetry DWORDs**:
+   - High-High, High, Low, Low-Low alarm levels with deadband hysteresis.
+   - Bit-packed DWORDs: `dwStatusWord1`, `dwStatusWord2`, `dwAlarmWord1`, `dwAlarmWord2`, `dwFirstOutWord`.
 
-3. 2oo3 (Two-out-of-Three) Triple Modular Redundancy (TMR) Voting:
-   - Implement 2oo3 voting across critical sensor channels:
-     * Master/Slave Optical Linear Scale Encoders (ST_SCALE_101A/B/C) [um]
-     * Nozzle Fast Piezoresistive Vacuum Sensors (PT_VAC_201A/B/C) [kPa]
-     * Z-Axis Piezoelectric Placement Force Sensors (WT_FORCE_301A/B/C) [N]
-     * Gantry Carriage Triaxial Accelerometers (AT_ACC_401A/B/C) [m/s2]
-     * Machine Bed Invar Reference Thermistors (TT_BED_501A/B/C) [degC]
-   - Discrepancy accumulation timers (threshold 50 ms) and bumpless degradation.
+---
 
-4. Deterministic 14-Stage Production State Machine (FSM):
-   - CASE eState OF:
-     0: MACHINE_IDLE_AND_INTERLOCK_VERIFY
-     1: GANTRY_GANTRY_SKEW_CALIBRATION_AND_HOMING
-     2: FEEDER_TAPE_INDEX_AND_POCKET_ALIGN
-     3: MULTI_NOZZLE_PARALLEL_VACUUM_PICK
-     4: FLYING_VISION_ON_THE_FLY_OPTICAL_CAPTURE
-     5: COMPONENT_THETA_AND_XY_OFFSET_CALCULATE
-     6: PCB_INSPECTION_AND_GLOBAL_FIDUCIAL_ALIGN
-     7: HIGH_SPEED_GANTRY_TRAJECTORY_S_CURVE_RUN
-     8: SOFT_TOUCHDOWN_PLACEMENT_FORCE_DECELERATION
-     9: POSITIVE_PRESSURE_AIR_BLOW_OFF_RELEASE
-     10: POST_PLACEMENT_VISION_CO-PLANARITY_CHECK
-     11: FEEDER_EMPTY_AUTO_SPLICE_OR_RELOAD_ALERT
-     12: NOZZLE_ULTRASONIC_TIP_CLEAN_CYCLE
-     13: EMERGENCY_DYNAMIC_BRAKE_COLLISION_LOCKOUT
-   - Fully implement every single state transition and logic.
+## 2. STRICT SYNTAX & PARITY RULES:
+- First line MUST be `FUNCTION_BLOCK FB_Automotive_MegaCasting_9000Ton_RealTimeShot_Vacuum`
+- Last line MUST be `END_FUNCTION_BLOCK`
+- Code fenced strictly with ` ```iec-st `
+- 100% exact parity: Every `IF` must have `END_IF;`, every `CASE` must have `END_CASE;`, every `FOR` must have `END_FOR;`.
+- SI physical units in brackets for all I/O variables: `[m/s]`, `[bar]`, `[mbar]`, `[kN]`, `[deg C]`, `[mm]`, `[%]`.
+- TARGET LENGTH: 85,000 to 140,000+ characters. Zero truncation comments, zero placeholders!"""
 
-5. ISA-18.2 Process Alarms, Die Crack & Gantry Skew Interlock & 32-Bit Telemetry:
-   - Placement impact force spike fast interrupt (<0.5 ms dynamic brake firing).
-   - 4-tier alarm matrix (HH, H, L, LL) with deadband clearance hysteresis.
-   - Bit-packed DWORD telemetry: dwStatusWord1, dwStatusWord2, dwAlarmWord1, dwAlarmWord2, dwFirstOutWord.
+# 2. Assemble ST code
+st_code = (
+    bg.get_header().strip() + "\n" +
+    bg.get_var_input().strip() + "\n" +
+    bg.get_var_output().strip() + "\n" +
+    tv.get_var_block().strip() + "\n" +
+    s01.get_section0().strip() + "\n" +
+    s01.get_section1().strip() + "\n" +
+    s2.get_section2().strip() + "\n" +
+    s3.get_section3().strip() + "\n" +
+    s4.get_section4().strip() + "\n" +
+    s567.get_section5_6_7().strip()
+)
 
-Generate a complete, fully implemented IEC 61131-3 Structured Text FUNCTION_BLOCK named `FB_Electronics_SMT_HighSpeed_PickAndPlace_VisionMotion` with zero placeholders, full state-space matrix initialization, MPC optimization, 2oo3 voting, full FSM execution, and ISA-18.2 alarm matrix."""
+# 3. Wrap in code fence
+asst_content = f"```iec-st\n{st_code}\n```"
 
-    filename = "data/swarm_raw/agent_77e534b5.json"
-    record = {
-        "messages": [
-            {"role": "user", "content": user_prompt},
-            {"role": "assistant", "content": wrapped_code}
-        ],
-        "output": wrapped_code
-    }
-    
-    os.makedirs("data/swarm_raw", exist_ok=True)
-    with open(filename, "w", encoding="utf-8") as f:
-        json.dump(record, f, indent=2, ensure_ascii=False)
-        
-    print(f"Successfully wrote {filename}")
-    print(f"Total JSON file size: {os.path.getsize(filename):,} bytes")
-    print(f"Assistant code character length: {len(wrapped_code):,} chars")
+record = {
+    "messages": [
+        {"role": "user", "content": prompt},
+        {"role": "assistant", "content": asst_content}
+    ]
+}
 
-if __name__ == "__main__":
-    main()
+file_uuid = uuid.uuid4().hex[:8]
+filename = f"data/swarm_raw/agent_{file_uuid}.json"
+os.makedirs("data/swarm_raw", exist_ok=True)
+
+with open(filename, "w", encoding="utf-8") as f:
+    json.dump(record, f, ensure_ascii=False, indent=2)
+
+print(f"Dataset saved to: {filename}")
+print(f"Total Assistant Content Length: {len(asst_content)} characters")
+print(f"Total Structured Text Length: {len(st_code)} characters")
+
+# 4. Run validate_iec.py
+import validate_iec
+errs = validate_iec.validate_json_file(filename)
+if errs:
+    print("VALIDATION FAILED:")
+    for e in errs:
+        print(" -", e)
+    sys.exit(1)
+else:
+    print("VALIDATION SUCCESS: 0 errors detected!")
