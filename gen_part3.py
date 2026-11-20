@@ -1,622 +1,406 @@
-# gen_part3.py
+# gen_part3.py - Comprehensive 4-Channel 2oo3 TMR Voting Logic with Noise Variance Filtering
+def get_part3():
+    lines = []
+    def w(s=""):
+        lines.append(s)
 
-part3 = """(* ==================================================================================================== *)
-(* PHASE 1: 2oo3 TRIPLE MODULAR REDUNDANCY (TMR) SENSOR VOTING WITH DISCREPANCY TIMERS                 *)
-(* Channels: 1. Cell Differential Pressure (PDT-101A/B/C) [mbar]                                         *)
-(*           2. Chlorine Header Pressure (PT-201A/B/C) [bar]                                             *)
-(*           3. Hydrogen Header Pressure (PT-301A/B/C) [bar]                                             *)
-(*           4. Inline Hydrogen-in-Chlorine Photometer (AT-401A/B/C) [% vol]                             *)
-(*           5. Anolyte Depleted Brine Concentration (AT-501A/B/C) [g/L]                                 *)
-(*           6. Catholyte Caustic Concentration (AT-601A/B/C) [wt%]                                      *)
-(* Fault Handling: Pairwise Discrepancy -> Timer Accumulation -> Disqualification -> Bumpless Degraded   *)
-(* ==================================================================================================== *)
+    w("(* ==================================================================================================== *)")
+    w("(* === PHASE 1: 4-CHANNEL 2oo3 TRIPLE MODULAR REDUNDANCY (TMR) SENSOR VOTING WITH 50ms TIMERS === *)")
+    w("(* ==================================================================================================== *)")
+    w("")
+    w("(* Deterministic Task Interval Normalization *)")
+    w("IF r_CycleScanPeriod_ms > 0.05 AND r_CycleScanPeriod_ms < 500.0 THEN")
+    w("    r_dt_s := r_CycleScanPeriod_ms * 0.001;")
+    w("ELSE")
+    w("    r_dt_s := 0.001; (* Default 1.0 ms Task Execution Interval *)")
+    w("END_IF;")
+    w("")
+    w("(* ---------------------------------------------------------------------------------------------------- *)")
+    w("(* CHANNEL 1: LIFTER TABLE AXIAL CLAMPING LOAD CELLS (12 kN Range) [N]                                  *)")
+    w("(* ---------------------------------------------------------------------------------------------------- *)")
+    w("(* Online First-Order Digital Low-Pass Smoothing & Signal Noise Variance Tracking *)")
+    w("r_LifterForce_Filt_A := 0.820 * r_LifterForce_Filt_A + 0.180 * r_LifterAxialForce_SensorA;")
+    w("r_LifterForce_Filt_B := 0.820 * r_LifterForce_Filt_B + 0.180 * r_LifterAxialForce_SensorB;")
+    w("r_LifterForce_Filt_C := 0.820 * r_LifterForce_Filt_C + 0.180 * r_LifterAxialForce_SensorC;")
+    w("")
+    w("r_LifterForce_Var_A  := 0.950 * r_LifterForce_Var_A + 0.050 * EXPT(r_LifterAxialForce_SensorA - r_LifterForce_Filt_A, 2);")
+    w("r_LifterForce_Var_B  := 0.950 * r_LifterForce_Var_B + 0.050 * EXPT(r_LifterAxialForce_SensorB - r_LifterForce_Filt_B, 2);")
+    w("r_LifterForce_Var_C  := 0.950 * r_LifterForce_Var_C + 0.050 * EXPT(r_LifterAxialForce_SensorC - r_LifterForce_Filt_C, 2);")
+    w("")
+    w("(* Inter-Channel Pairwise Absolute Divergence *)")
+    w("r_diff_AB := ABS(r_LifterAxialForce_SensorA - r_LifterAxialForce_SensorB);")
+    w("r_diff_BC := ABS(r_LifterAxialForce_SensorB - r_LifterAxialForce_SensorC);")
+    w("r_diff_AC := ABS(r_LifterAxialForce_SensorA - r_LifterAxialForce_SensorC);")
+    w("")
+    w("(* Discrepancy Debounce Persistence Timers *)")
+    w("IF r_diff_AB > r_Tol_LifterAxialForce THEN")
+    w("    r_Timer_Ch1_AB := r_Timer_Ch1_AB + r_dt_s;")
+    w("ELSE")
+    w("    r_Timer_Ch1_AB := MAX(0.0, r_Timer_Ch1_AB - r_dt_s * 2.0);")
+    w("END_IF;")
+    w("")
+    w("IF r_diff_BC > r_Tol_LifterAxialForce THEN")
+    w("    r_Timer_Ch1_BC := r_Timer_Ch1_BC + r_dt_s;")
+    w("ELSE")
+    w("    r_Timer_Ch1_BC := MAX(0.0, r_Timer_Ch1_BC - r_dt_s * 2.0);")
+    w("END_IF;")
+    w("")
+    w("IF r_diff_AC > r_Tol_LifterAxialForce THEN")
+    w("    r_Timer_Ch1_AC := r_Timer_Ch1_AC + r_dt_s;")
+    w("ELSE")
+    w("    r_Timer_Ch1_AC := MAX(0.0, r_Timer_Ch1_AC - r_dt_s * 2.0);")
+    w("END_IF;")
+    w("")
+    w("(* Fault Isolation Discrimination Logic *)")
+    w("IF r_Timer_Ch1_AB > r_TMR_DiscrepancyLimit_s AND r_Timer_Ch1_AC > r_TMR_DiscrepancyLimit_s THEN")
+    w("    b_Ch1_A_Healthy := FALSE; (* Sensor A Diverged from both B and C *)")
+    w("END_IF;")
+    w("IF r_Timer_Ch1_AB > r_TMR_DiscrepancyLimit_s AND r_Timer_Ch1_BC > r_TMR_DiscrepancyLimit_s THEN")
+    w("    b_Ch1_B_Healthy := FALSE; (* Sensor B Diverged from both A and C *)")
+    w("END_IF;")
+    w("IF r_Timer_Ch1_AC > r_TMR_DiscrepancyLimit_s AND r_Timer_Ch1_BC > r_TMR_DiscrepancyLimit_s THEN")
+    w("    b_Ch1_C_Healthy := FALSE; (* Sensor C Diverged from both A and B *)")
+    w("END_IF;")
+    w("")
+    w("IF b_ResetAlarms THEN")
+    w("    b_Ch1_A_Healthy := TRUE;")
+    w("    b_Ch1_B_Healthy := TRUE;")
+    w("    b_Ch1_C_Healthy := TRUE;")
+    w("    r_Timer_Ch1_AB := 0.0;")
+    w("    r_Timer_Ch1_BC := 0.0;")
+    w("    r_Timer_Ch1_AC := 0.0;")
+    w("END_IF;")
+    w("")
+    w("(* Bumpless Degradation Voting Strategy *)")
+    w("IF b_Ch1_A_Healthy AND b_Ch1_B_Healthy AND b_Ch1_C_Healthy THEN")
+    w("    n_Ch1_DegradationMode := 0; (* Nominal 3oo3 Median Mode *)")
+    w("    IF (r_LifterAxialForce_SensorA >= r_LifterAxialForce_SensorB AND r_LifterAxialForce_SensorA <= r_LifterAxialForce_SensorC) OR")
+    w("       (r_LifterAxialForce_SensorA <= r_LifterAxialForce_SensorB AND r_LifterAxialForce_SensorA >= r_LifterAxialForce_SensorC) THEN")
+    w("        r_Voted_LifterAxialForce := r_LifterAxialForce_SensorA;")
+    w("    ELSIF (r_LifterAxialForce_SensorB >= r_LifterAxialForce_SensorA AND r_LifterAxialForce_SensorB <= r_LifterAxialForce_SensorC) OR")
+    w("          (r_LifterAxialForce_SensorB <= r_LifterAxialForce_SensorA AND r_LifterAxialForce_SensorB >= r_LifterAxialForce_SensorC) THEN")
+    w("        r_Voted_LifterAxialForce := r_LifterAxialForce_SensorB;")
+    w("    ELSE")
+    w("        r_Voted_LifterAxialForce := r_LifterAxialForce_SensorC;")
+    w("    END_IF;")
+    w("ELSIF b_Ch1_A_Healthy AND b_Ch1_B_Healthy THEN")
+    w("    n_Ch1_DegradationMode := 1; (* 2oo2 Dual-Channel Average *)")
+    w("    r_Voted_LifterAxialForce := (r_LifterAxialForce_SensorA + r_LifterAxialForce_SensorB) * 0.5;")
+    w("ELSIF b_Ch1_B_Healthy AND b_Ch1_C_Healthy THEN")
+    w("    n_Ch1_DegradationMode := 1;")
+    w("    r_Voted_LifterAxialForce := (r_LifterAxialForce_SensorB + r_LifterAxialForce_SensorC) * 0.5;")
+    w("ELSIF b_Ch1_A_Healthy AND b_Ch1_C_Healthy THEN")
+    w("    n_Ch1_DegradationMode := 1;")
+    w("    r_Voted_LifterAxialForce := (r_LifterAxialForce_SensorA + r_LifterAxialForce_SensorC) * 0.5;")
+    w("ELSIF b_Ch1_A_Healthy THEN")
+    w("    n_Ch1_DegradationMode := 2; (* 1oo2 Degraded Mode *)")
+    w("    r_Voted_LifterAxialForce := r_LifterAxialForce_SensorA;")
+    w("ELSIF b_Ch1_B_Healthy THEN")
+    w("    n_Ch1_DegradationMode := 2;")
+    w("    r_Voted_LifterAxialForce := r_LifterAxialForce_SensorB;")
+    w("ELSIF b_Ch1_C_Healthy THEN")
+    w("    n_Ch1_DegradationMode := 2;")
+    w("    r_Voted_LifterAxialForce := r_LifterAxialForce_SensorC;")
+    w("ELSE")
+    w("    n_Ch1_DegradationMode := 3; (* Redundancy Exhausted Fail-Safe *)")
+    w("    r_Voted_LifterAxialForce := 0.0;")
+    w("END_IF;")
+    w("")
+    w("(* ---------------------------------------------------------------------------------------------------- *)")
+    w("(* CHANNEL 2: 1ST OPERATION SEAMING ROLL RADIAL FORCE TRANSDUCERS (6,000 N Range) [N]                   *)")
+    w("(* ---------------------------------------------------------------------------------------------------- *)")
+    w("r_Roll1Force_Filt_A := 0.820 * r_Roll1Force_Filt_A + 0.180 * r_Roll1_RadialForce_SensorA;")
+    w("r_Roll1Force_Filt_B := 0.820 * r_Roll1Force_Filt_B + 0.180 * r_Roll1_RadialForce_SensorB;")
+    w("r_Roll1Force_Filt_C := 0.820 * r_Roll1Force_Filt_C + 0.180 * r_Roll1_RadialForce_SensorC;")
+    w("")
+    w("r_Roll1Force_Var_A  := 0.950 * r_Roll1Force_Var_A + 0.050 * EXPT(r_Roll1_RadialForce_SensorA - r_Roll1Force_Filt_A, 2);")
+    w("r_Roll1Force_Var_B  := 0.950 * r_Roll1Force_Var_B + 0.050 * EXPT(r_Roll1_RadialForce_SensorB - r_Roll1Force_Filt_B, 2);")
+    w("r_Roll1Force_Var_C  := 0.950 * r_Roll1Force_Var_C + 0.050 * EXPT(r_Roll1_RadialForce_SensorC - r_Roll1Force_Filt_C, 2);")
+    w("")
+    w("r_diff_AB := ABS(r_Roll1_RadialForce_SensorA - r_Roll1_RadialForce_SensorB);")
+    w("r_diff_BC := ABS(r_Roll1_RadialForce_SensorB - r_Roll1_RadialForce_SensorC);")
+    w("r_diff_AC := ABS(r_Roll1_RadialForce_SensorA - r_Roll1_RadialForce_SensorC);")
+    w("")
+    w("IF r_diff_AB > r_Tol_Roll1Force THEN")
+    w("    r_Timer_Ch2_AB := r_Timer_Ch2_AB + r_dt_s;")
+    w("ELSE")
+    w("    r_Timer_Ch2_AB := MAX(0.0, r_Timer_Ch2_AB - r_dt_s * 2.0);")
+    w("END_IF;")
+    w("")
+    w("IF r_diff_BC > r_Tol_Roll1Force THEN")
+    w("    r_Timer_Ch2_BC := r_Timer_Ch2_BC + r_dt_s;")
+    w("ELSE")
+    w("    r_Timer_Ch2_BC := MAX(0.0, r_Timer_Ch2_BC - r_dt_s * 2.0);")
+    w("END_IF;")
+    w("")
+    w("IF r_diff_AC > r_Tol_Roll1Force THEN")
+    w("    r_Timer_Ch2_AC := r_Timer_Ch2_AC + r_dt_s;")
+    w("ELSE")
+    w("    r_Timer_Ch2_AC := MAX(0.0, r_Timer_Ch2_AC - r_dt_s * 2.0);")
+    w("END_IF;")
+    w("")
+    w("IF r_Timer_Ch2_AB > r_TMR_DiscrepancyLimit_s AND r_Timer_Ch2_AC > r_TMR_DiscrepancyLimit_s THEN")
+    w("    b_Ch2_A_Healthy := FALSE;")
+    w("END_IF;")
+    w("IF r_Timer_Ch2_AB > r_TMR_DiscrepancyLimit_s AND r_Timer_Ch2_BC > r_TMR_DiscrepancyLimit_s THEN")
+    w("    b_Ch2_B_Healthy := FALSE;")
+    w("END_IF;")
+    w("IF r_Timer_Ch2_AC > r_TMR_DiscrepancyLimit_s AND r_Timer_Ch2_BC > r_TMR_DiscrepancyLimit_s THEN")
+    w("    b_Ch2_C_Healthy := FALSE;")
+    w("END_IF;")
+    w("")
+    w("IF b_ResetAlarms THEN")
+    w("    b_Ch2_A_Healthy := TRUE;")
+    w("    b_Ch2_B_Healthy := TRUE;")
+    w("    b_Ch2_C_Healthy := TRUE;")
+    w("    r_Timer_Ch2_AB := 0.0;")
+    w("    r_Timer_Ch2_BC := 0.0;")
+    w("    r_Timer_Ch2_AC := 0.0;")
+    w("END_IF;")
+    w("")
+    w("IF b_Ch2_A_Healthy AND b_Ch2_B_Healthy AND b_Ch2_C_Healthy THEN")
+    w("    n_Ch2_DegradationMode := 0;")
+    w("    IF (r_Roll1_RadialForce_SensorA >= r_Roll1_RadialForce_SensorB AND r_Roll1_RadialForce_SensorA <= r_Roll1_RadialForce_SensorC) OR")
+    w("       (r_Roll1_RadialForce_SensorA <= r_Roll1_RadialForce_SensorB AND r_Roll1_RadialForce_SensorA >= r_Roll1_RadialForce_SensorC) THEN")
+    w("        r_Voted_Roll1_RadialForce := r_Roll1_RadialForce_SensorA;")
+    w("    ELSIF (r_Roll1_RadialForce_SensorB >= r_Roll1_RadialForce_SensorA AND r_Roll1_RadialForce_SensorB <= r_Roll1_RadialForce_SensorC) OR")
+    w("          (r_Roll1_RadialForce_SensorB <= r_Roll1_RadialForce_SensorA AND r_Roll1_RadialForce_SensorB >= r_Roll1_RadialForce_SensorC) THEN")
+    w("        r_Voted_Roll1_RadialForce := r_Roll1_RadialForce_SensorB;")
+    w("    ELSE")
+    w("        r_Voted_Roll1_RadialForce := r_Roll1_RadialForce_SensorC;")
+    w("    END_IF;")
+    w("ELSIF b_Ch2_A_Healthy AND b_Ch2_B_Healthy THEN")
+    w("    n_Ch2_DegradationMode := 1;")
+    w("    r_Voted_Roll1_RadialForce := (r_Roll1_RadialForce_SensorA + r_Roll1_RadialForce_SensorB) * 0.5;")
+    w("ELSIF b_Ch2_B_Healthy AND b_Ch2_C_Healthy THEN")
+    w("    n_Ch2_DegradationMode := 1;")
+    w("    r_Voted_Roll1_RadialForce := (r_Roll1_RadialForce_SensorB + r_Roll1_RadialForce_SensorC) * 0.5;")
+    w("ELSIF b_Ch2_A_Healthy AND b_Ch2_C_Healthy THEN")
+    w("    n_Ch2_DegradationMode := 1;")
+    w("    r_Voted_Roll1_RadialForce := (r_Roll1_RadialForce_SensorA + r_Roll1_RadialForce_SensorC) * 0.5;")
+    w("ELSIF b_Ch2_A_Healthy THEN")
+    w("    n_Ch2_DegradationMode := 2;")
+    w("    r_Voted_Roll1_RadialForce := r_Roll1_RadialForce_SensorA;")
+    w("ELSIF b_Ch2_B_Healthy THEN")
+    w("    n_Ch2_DegradationMode := 2;")
+    w("    r_Voted_Roll1_RadialForce := r_Roll1_RadialForce_SensorB;")
+    w("ELSIF b_Ch2_C_Healthy THEN")
+    w("    n_Ch2_DegradationMode := 2;")
+    w("    r_Voted_Roll1_RadialForce := r_Roll1_RadialForce_SensorC;")
+    w("ELSE")
+    w("    n_Ch2_DegradationMode := 3;")
+    w("    r_Voted_Roll1_RadialForce := 0.0;")
+    w("END_IF;")
+    w("")
+    w("(* ---------------------------------------------------------------------------------------------------- *)")
+    w("(* CHANNEL 3: 2ND OPERATION SEAMING ROLL RADIAL FORCE TRANSDUCERS (8,000 N Range) [N]                   *)")
+    w("(* ---------------------------------------------------------------------------------------------------- *)")
+    w("r_Roll2Force_Filt_A := 0.820 * r_Roll2Force_Filt_A + 0.180 * r_Roll2_RadialForce_SensorA;")
+    w("r_Roll2Force_Filt_B := 0.820 * r_Roll2Force_Filt_B + 0.180 * r_Roll2_RadialForce_SensorB;")
+    w("r_Roll2Force_Filt_C := 0.820 * r_Roll2Force_Filt_C + 0.180 * r_Roll2_RadialForce_SensorC;")
+    w("")
+    w("r_Roll2Force_Var_A  := 0.950 * r_Roll2Force_Var_A + 0.050 * EXPT(r_Roll2_RadialForce_SensorA - r_Roll2Force_Filt_A, 2);")
+    w("r_Roll2Force_Var_B  := 0.950 * r_Roll2Force_Var_B + 0.050 * EXPT(r_Roll2_RadialForce_SensorB - r_Roll2Force_Filt_B, 2);")
+    w("r_Roll2Force_Var_C  := 0.950 * r_Roll2Force_Var_C + 0.050 * EXPT(r_Roll2_RadialForce_SensorC - r_Roll2Force_Filt_C, 2);")
+    w("")
+    w("r_diff_AB := ABS(r_Roll2_RadialForce_SensorA - r_Roll2_RadialForce_SensorB);")
+    w("r_diff_BC := ABS(r_Roll2_RadialForce_SensorB - r_Roll2_RadialForce_SensorC);")
+    w("r_diff_AC := ABS(r_Roll2_RadialForce_SensorA - r_Roll2_RadialForce_SensorC);")
+    w("")
+    w("IF r_diff_AB > r_Tol_Roll2Force THEN")
+    w("    r_Timer_Ch3_AB := r_Timer_Ch3_AB + r_dt_s;")
+    w("ELSE")
+    w("    r_Timer_Ch3_AB := MAX(0.0, r_Timer_Ch3_AB - r_dt_s * 2.0);")
+    w("END_IF;")
+    w("")
+    w("IF r_diff_BC > r_Tol_Roll2Force THEN")
+    w("    r_Timer_Ch3_BC := r_Timer_Ch3_BC + r_dt_s;")
+    w("ELSE")
+    w("    r_Timer_Ch3_BC := MAX(0.0, r_Timer_Ch3_BC - r_dt_s * 2.0);")
+    w("END_IF;")
+    w("")
+    w("IF r_diff_AC > r_Tol_Roll2Force THEN")
+    w("    r_Timer_Ch3_AC := r_Timer_Ch3_AC + r_dt_s;")
+    w("ELSE")
+    w("    r_Timer_Ch3_AC := MAX(0.0, r_Timer_Ch3_AC - r_dt_s * 2.0);")
+    w("END_IF;")
+    w("")
+    w("IF r_Timer_Ch3_AB > r_TMR_DiscrepancyLimit_s AND r_Timer_Ch3_AC > r_TMR_DiscrepancyLimit_s THEN")
+    w("    b_Ch3_A_Healthy := FALSE;")
+    w("END_IF;")
+    w("IF r_Timer_Ch3_AB > r_TMR_DiscrepancyLimit_s AND r_Timer_Ch3_BC > r_TMR_DiscrepancyLimit_s THEN")
+    w("    b_Ch3_B_Healthy := FALSE;")
+    w("END_IF;")
+    w("IF r_Timer_Ch3_AC > r_TMR_DiscrepancyLimit_s AND r_Timer_Ch3_BC > r_TMR_DiscrepancyLimit_s THEN")
+    w("    b_Ch3_C_Healthy := FALSE;")
+    w("END_IF;")
+    w("")
+    w("IF b_ResetAlarms THEN")
+    w("    b_Ch3_A_Healthy := TRUE;")
+    w("    b_Ch3_B_Healthy := TRUE;")
+    w("    b_Ch3_C_Healthy := TRUE;")
+    w("    r_Timer_Ch3_AB := 0.0;")
+    w("    r_Timer_Ch3_BC := 0.0;")
+    w("    r_Timer_Ch3_AC := 0.0;")
+    w("END_IF;")
+    w("")
+    w("IF b_Ch3_A_Healthy AND b_Ch3_B_Healthy AND b_Ch3_C_Healthy THEN")
+    w("    n_Ch3_DegradationMode := 0;")
+    w("    IF (r_Roll2_RadialForce_SensorA >= r_Roll2_RadialForce_SensorB AND r_Roll2_RadialForce_SensorA <= r_Roll2_RadialForce_SensorC) OR")
+    w("       (r_Roll2_RadialForce_SensorA <= r_Roll2_RadialForce_SensorB AND r_Roll2_RadialForce_SensorA >= r_Roll2_RadialForce_SensorC) THEN")
+    w("        r_Voted_Roll2_RadialForce := r_Roll2_RadialForce_SensorA;")
+    w("    ELSIF (r_Roll2_RadialForce_SensorB >= r_Roll2_RadialForce_SensorA AND r_Roll2_RadialForce_SensorB <= r_Roll2_RadialForce_SensorC) OR")
+    w("          (r_Roll2_RadialForce_SensorB <= r_Roll2_RadialForce_SensorA AND r_Roll2_RadialForce_SensorB >= r_Roll2_RadialForce_SensorC) THEN")
+    w("        r_Voted_Roll2_RadialForce := r_Roll2_RadialForce_SensorB;")
+    w("    ELSE")
+    w("        r_Voted_Roll2_RadialForce := r_Roll2_RadialForce_SensorC;")
+    w("    END_IF;")
+    w("ELSIF b_Ch3_A_Healthy AND b_Ch3_B_Healthy THEN")
+    w("    n_Ch3_DegradationMode := 1;")
+    w("    r_Voted_Roll2_RadialForce := (r_Roll2_RadialForce_SensorA + r_Roll2_RadialForce_SensorB) * 0.5;")
+    w("ELSIF b_Ch3_B_Healthy AND b_Ch3_C_Healthy THEN")
+    w("    n_Ch3_DegradationMode := 1;")
+    w("    r_Voted_Roll2_RadialForce := (r_Roll2_RadialForce_SensorB + r_Roll2_RadialForce_SensorC) * 0.5;")
+    w("ELSIF b_Ch3_A_Healthy AND b_Ch3_C_Healthy THEN")
+    w("    n_Ch3_DegradationMode := 1;")
+    w("    r_Voted_Roll2_RadialForce := (r_Roll2_RadialForce_SensorA + r_Roll2_RadialForce_SensorC) * 0.5;")
+    w("ELSIF b_Ch3_A_Healthy THEN")
+    w("    n_Ch2_DegradationMode := 2;")
+    w("    r_Voted_Roll2_RadialForce := r_Roll2_RadialForce_SensorA;")
+    w("ELSIF b_Ch3_B_Healthy THEN")
+    w("    n_Ch3_DegradationMode := 2;")
+    w("    r_Voted_Roll2_RadialForce := r_Roll2_RadialForce_SensorB;")
+    w("ELSIF b_Ch3_C_Healthy THEN")
+    w("    n_Ch3_DegradationMode := 2;")
+    w("    r_Voted_Roll2_RadialForce := r_Roll2_RadialForce_SensorC;")
+    w("ELSE")
+    w("    n_Ch3_DegradationMode := 3;")
+    w("    r_Voted_Roll2_RadialForce := 0.0;")
+    w("END_IF;")
+    w("")
+    w("(* ---------------------------------------------------------------------------------------------------- *)")
+    w("(* CHANNEL 4: CHUCK SPINDLE ROTARY ENCODERS [rpm] & RESOLVER ANGLES [deg]                                *)")
+    w("(* ---------------------------------------------------------------------------------------------------- *)")
+    w("r_SpindleSpeed_Filt_A := 0.850 * r_SpindleSpeed_Filt_A + 0.150 * r_SpindleSpeed_SensorA;")
+    w("r_SpindleSpeed_Filt_B := 0.850 * r_SpindleSpeed_Filt_B + 0.150 * r_SpindleSpeed_SensorB;")
+    w("r_SpindleSpeed_Filt_C := 0.850 * r_SpindleSpeed_Filt_C + 0.150 * r_SpindleSpeed_SensorC;")
+    w("")
+    w("r_diff_AB := ABS(r_SpindleSpeed_SensorA - r_SpindleSpeed_SensorB);")
+    w("r_diff_BC := ABS(r_SpindleSpeed_SensorB - r_SpindleSpeed_SensorC);")
+    w("r_diff_AC := ABS(r_SpindleSpeed_SensorA - r_SpindleSpeed_SensorC);")
+    w("")
+    w("IF r_diff_AB > r_Tol_SpindleSpeed THEN")
+    w("    r_Timer_Ch4_AB := r_Timer_Ch4_AB + r_dt_s;")
+    w("ELSE")
+    w("    r_Timer_Ch4_AB := MAX(0.0, r_Timer_Ch4_AB - r_dt_s * 2.0);")
+    w("END_IF;")
+    w("")
+    w("IF r_diff_BC > r_Tol_SpindleSpeed THEN")
+    w("    r_Timer_Ch4_BC := r_Timer_Ch4_BC + r_dt_s;")
+    w("ELSE")
+    w("    r_Timer_Ch4_BC := MAX(0.0, r_Timer_Ch4_BC - r_dt_s * 2.0);")
+    w("END_IF;")
+    w("")
+    w("IF r_diff_AC > r_Tol_SpindleSpeed THEN")
+    w("    r_Timer_Ch4_AC := r_Timer_Ch4_AC + r_dt_s;")
+    w("ELSE")
+    w("    r_Timer_Ch4_AC := MAX(0.0, r_Timer_Ch4_AC - r_dt_s * 2.0);")
+    w("END_IF;")
+    w("")
+    w("IF r_Timer_Ch4_AB > r_TMR_DiscrepancyLimit_s AND r_Timer_Ch4_AC > r_TMR_DiscrepancyLimit_s THEN")
+    w("    b_Ch4_A_Healthy := FALSE;")
+    w("END_IF;")
+    w("IF r_Timer_Ch4_AB > r_TMR_DiscrepancyLimit_s AND r_Timer_Ch4_BC > r_TMR_DiscrepancyLimit_s THEN")
+    w("    b_Ch4_B_Healthy := FALSE;")
+    w("END_IF;")
+    w("IF r_Timer_Ch4_AC > r_TMR_DiscrepancyLimit_s AND r_Timer_Ch4_BC > r_TMR_DiscrepancyLimit_s THEN")
+    w("    b_Ch4_C_Healthy := FALSE;")
+    w("END_IF;")
+    w("")
+    w("IF b_ResetAlarms THEN")
+    w("    b_Ch4_A_Healthy := TRUE;")
+    w("    b_Ch4_B_Healthy := TRUE;")
+    w("    b_Ch4_C_Healthy := TRUE;")
+    w("    r_Timer_Ch4_AB := 0.0;")
+    w("    r_Timer_Ch4_BC := 0.0;")
+    w("    r_Timer_Ch4_AC := 0.0;")
+    w("END_IF;")
+    w("")
+    w("IF b_Ch4_A_Healthy AND b_Ch4_B_Healthy AND b_Ch4_C_Healthy THEN")
+    w("    n_Ch4_DegradationMode := 0;")
+    w("    IF (r_SpindleSpeed_SensorA >= r_SpindleSpeed_SensorB AND r_SpindleSpeed_SensorA <= r_SpindleSpeed_SensorC) OR")
+    w("       (r_SpindleSpeed_SensorA <= r_SpindleSpeed_SensorB AND r_SpindleSpeed_SensorA >= r_SpindleSpeed_SensorC) THEN")
+    w("        r_Voted_SpindleSpeed := r_SpindleSpeed_SensorA;")
+    w("        r_Voted_SpindleAngle := r_SpindleAngle_SensorA;")
+    w("    ELSIF (r_SpindleSpeed_SensorB >= r_SpindleSpeed_SensorA AND r_SpindleSpeed_SensorB <= r_SpindleSpeed_SensorC) OR")
+    w("          (r_SpindleSpeed_SensorB <= r_SpindleSpeed_SensorA AND r_SpindleSpeed_SensorB >= r_SpindleSpeed_SensorC) THEN")
+    w("        r_Voted_SpindleSpeed := r_SpindleSpeed_SensorB;")
+    w("        r_Voted_SpindleAngle := r_SpindleAngle_SensorB;")
+    w("    ELSE")
+    w("        r_Voted_SpindleSpeed := r_SpindleSpeed_SensorC;")
+    w("        r_Voted_SpindleAngle := r_SpindleAngle_SensorC;")
+    w("    END_IF;")
+    w("ELSIF b_Ch4_A_Healthy AND b_Ch4_B_Healthy THEN")
+    w("    n_Ch4_DegradationMode := 1;")
+    w("    r_Voted_SpindleSpeed := (r_SpindleSpeed_SensorA + r_SpindleSpeed_SensorB) * 0.5;")
+    w("    r_Voted_SpindleAngle := (r_SpindleAngle_SensorA + r_SpindleAngle_SensorB) * 0.5;")
+    w("ELSIF b_Ch4_B_Healthy AND b_Ch4_C_Healthy THEN")
+    w("    n_Ch4_DegradationMode := 1;")
+    w("    r_Voted_SpindleSpeed := (r_SpindleSpeed_SensorB + r_SpindleSpeed_SensorC) * 0.5;")
+    w("    r_Voted_SpindleAngle := (r_SpindleAngle_SensorB + r_SpindleAngle_SensorC) * 0.5;")
+    w("ELSIF b_Ch4_A_Healthy AND b_Ch4_C_Healthy THEN")
+    w("    n_Ch4_DegradationMode := 1;")
+    w("    r_Voted_SpindleSpeed := (r_SpindleSpeed_SensorA + r_SpindleSpeed_SensorC) * 0.5;")
+    w("    r_Voted_SpindleAngle := (r_SpindleAngle_SensorA + r_SpindleAngle_SensorC) * 0.5;")
+    w("ELSIF b_Ch4_A_Healthy THEN")
+    w("    n_Ch4_DegradationMode := 2;")
+    w("    r_Voted_SpindleSpeed := r_SpindleSpeed_SensorA;")
+    w("    r_Voted_SpindleAngle := r_SpindleAngle_SensorA;")
+    w("ELSIF b_Ch4_B_Healthy THEN")
+    w("    n_Ch4_DegradationMode := 2;")
+    w("    r_Voted_SpindleSpeed := r_SpindleSpeed_SensorB;")
+    w("    r_Voted_SpindleAngle := r_SpindleAngle_SensorB;")
+    w("ELSIF b_Ch4_C_Healthy THEN")
+    w("    n_Ch4_DegradationMode := 2;")
+    w("    r_Voted_SpindleSpeed := r_SpindleSpeed_SensorC;")
+    w("    r_Voted_SpindleAngle := r_SpindleAngle_SensorC;")
+    w("ELSE")
+    w("    n_Ch4_DegradationMode := 3;")
+    w("    r_Voted_SpindleSpeed := 0.0;")
+    w("    r_Voted_SpindleAngle := 0.0;")
+    w("END_IF;")
+    w("")
+    w("(* Compile 32-Bit TMR Health & Diagnostics Word *)")
+    w("dw_TMRHealth := 16#00000000;")
+    w("IF b_Ch1_A_Healthy THEN dw_TMRHealth := dw_TMRHealth OR 16#00000001; END_IF;")
+    w("IF b_Ch1_B_Healthy THEN dw_TMRHealth := dw_TMRHealth OR 16#00000002; END_IF;")
+    w("IF b_Ch1_C_Healthy THEN dw_TMRHealth := dw_TMRHealth OR 16#00000004; END_IF;")
+    w("IF b_Ch2_A_Healthy THEN dw_TMRHealth := dw_TMRHealth OR 16#00000010; END_IF;")
+    w("IF b_Ch2_B_Healthy THEN dw_TMRHealth := dw_TMRHealth OR 16#00000020; END_IF;")
+    w("IF b_Ch2_C_Healthy THEN dw_TMRHealth := dw_TMRHealth OR 16#00000040; END_IF;")
+    w("IF b_Ch3_A_Healthy THEN dw_TMRHealth := dw_TMRHealth OR 16#00000100; END_IF;")
+    w("IF b_Ch3_B_Healthy THEN dw_TMRHealth := dw_TMRHealth OR 16#00000200; END_IF;")
+    w("IF b_Ch3_C_Healthy THEN dw_TMRHealth := dw_TMRHealth OR 16#00000400; END_IF;")
+    w("IF b_Ch4_A_Healthy THEN dw_TMRHealth := dw_TMRHealth OR 16#00001000; END_IF;")
+    w("IF b_Ch4_B_Healthy THEN dw_TMRHealth := dw_TMRHealth OR 16#00002000; END_IF;")
+    w("IF b_Ch4_C_Healthy THEN dw_TMRHealth := dw_TMRHealth OR 16#00004000; END_IF;")
+    w("IF n_Ch1_DegradationMode > 0 THEN dw_TMRHealth := dw_TMRHealth OR 16#00010000; END_IF;")
+    w("IF n_Ch2_DegradationMode > 0 THEN dw_TMRHealth := dw_TMRHealth OR 16#00020000; END_IF;")
+    w("IF n_Ch3_DegradationMode > 0 THEN dw_TMRHealth := dw_TMRHealth OR 16#00040000; END_IF;")
+    w("IF n_Ch4_DegradationMode > 0 THEN dw_TMRHealth := dw_TMRHealth OR 16#00080000; END_IF;")
+    w("IF r_LifterForce_Var_A > 250.0 OR r_LifterForce_Var_B > 250.0 OR r_LifterForce_Var_C > 250.0 THEN")
+    w("    dw_TMRHealth := dw_TMRHealth OR 16#01000000; (* Ch1 Sensor Noise Variance Warning *)")
+    w("END_IF;")
+    w("IF r_Roll1Force_Var_A > 200.0 OR r_Roll1Force_Var_B > 200.0 OR r_Roll1Force_Var_C > 200.0 THEN")
+    w("    dw_TMRHealth := dw_TMRHealth OR 16#02000000; (* Ch2 Sensor Noise Variance Warning *)")
+    w("END_IF;")
+    w("IF r_Roll2Force_Var_A > 300.0 OR r_Roll2Force_Var_B > 300.0 OR r_Roll2Force_Var_C > 300.0 THEN")
+    w("    dw_TMRHealth := dw_TMRHealth OR 16#04000000; (* Ch3 Sensor Noise Variance Warning *)")
+    w("END_IF;")
+    w("")
 
-(* ---------------------------------------------------------------------------------------------------- *)
-(* Channel Group 1: Cell Differential Pressure (Catholyte minus Anolyte) [mbar]                         *)
-(* Physical Safe Tolerance: +/- 3.0 mbar; Sensor Range: -50.0 to 100.0 mbar                              *)
-(* ---------------------------------------------------------------------------------------------------- *)
-(* Sensor Channel Range Sanity Verification *)
-IF rPDT_Cell_DP_1A_mbar < -50.0 OR rPDT_Cell_DP_1A_mbar > 100.0 THEN
-    bPDT_Cell_DP_HealthA := FALSE;
-END_IF;
-IF rPDT_Cell_DP_1B_mbar < -50.0 OR rPDT_Cell_DP_1B_mbar > 100.0 THEN
-    bPDT_Cell_DP_HealthB := FALSE;
-END_IF;
-IF rPDT_Cell_DP_1C_mbar < -50.0 OR rPDT_Cell_DP_1C_mbar > 100.0 THEN
-    bPDT_Cell_DP_HealthC := FALSE;
-END_IF;
+    return "\n".join(lines)
 
-(* Pairwise Discrepancy Timers (Threshold: 1.50 mbar deviation for > 300 ms) *)
-IF ABS(rPDT_Cell_DP_1A_mbar - rPDT_Cell_DP_1B_mbar) > 1.50 THEN
-    rPDT_Cell_DP_Disc_AB_ms := rPDT_Cell_DP_Disc_AB_ms + (tScanCycleTime_s * 1000.0);
-ELSE
-    rPDT_Cell_DP_Disc_AB_ms := MAX(0.0, rPDT_Cell_DP_Disc_AB_ms - (tScanCycleTime_s * 500.0));
-END_IF;
-
-IF ABS(rPDT_Cell_DP_1B_mbar - rPDT_Cell_DP_1C_mbar) > 1.50 THEN
-    rPDT_Cell_DP_Disc_BC_ms := rPDT_Cell_DP_Disc_BC_ms + (tScanCycleTime_s * 1000.0);
-ELSE
-    rPDT_Cell_DP_Disc_BC_ms := MAX(0.0, rPDT_Cell_DP_Disc_BC_ms - (tScanCycleTime_s * 500.0));
-END_IF;
-
-IF ABS(rPDT_Cell_DP_1C_mbar - rPDT_Cell_DP_1A_mbar) > 1.50 THEN
-    rPDT_Cell_DP_Disc_CA_ms := rPDT_Cell_DP_Disc_CA_ms + (tScanCycleTime_s * 1000.0);
-ELSE
-    rPDT_Cell_DP_Disc_CA_ms := MAX(0.0, rPDT_Cell_DP_Disc_CA_ms - (tScanCycleTime_s * 500.0));
-END_IF;
-
-(* Identify Discordant Channel Beyond 300 ms Integration Limit *)
-IF rPDT_Cell_DP_Disc_AB_ms > 300.0 AND rPDT_Cell_DP_Disc_CA_ms > 300.0 THEN
-    bPDT_Cell_DP_HealthA := FALSE;
-END_IF;
-IF rPDT_Cell_DP_Disc_AB_ms > 300.0 AND rPDT_Cell_DP_Disc_BC_ms > 300.0 THEN
-    bPDT_Cell_DP_HealthB := FALSE;
-END_IF;
-IF rPDT_Cell_DP_Disc_BC_ms > 300.0 AND rPDT_Cell_DP_Disc_CA_ms > 300.0 THEN
-    bPDT_Cell_DP_HealthC := FALSE;
-END_IF;
-
-(* Recovery of Channel Health on Fault Reset Pushbutton *)
-IF bFaultReset THEN
-    IF rPDT_Cell_DP_1A_mbar >= -50.0 AND rPDT_Cell_DP_1A_mbar <= 100.0 AND rPDT_Cell_DP_Disc_AB_ms < 50.0 AND rPDT_Cell_DP_Disc_CA_ms < 50.0 THEN
-        bPDT_Cell_DP_HealthA := TRUE;
-    END_IF;
-    IF rPDT_Cell_DP_1B_mbar >= -50.0 AND rPDT_Cell_DP_1B_mbar <= 100.0 AND rPDT_Cell_DP_Disc_AB_ms < 50.0 AND rPDT_Cell_DP_Disc_BC_ms < 50.0 THEN
-        bPDT_Cell_DP_HealthB := TRUE;
-    END_IF;
-    IF rPDT_Cell_DP_1C_mbar >= -50.0 AND rPDT_Cell_DP_1C_mbar <= 100.0 AND rPDT_Cell_DP_Disc_BC_ms < 50.0 AND rPDT_Cell_DP_Disc_CA_ms < 50.0 THEN
-        bPDT_Cell_DP_HealthC := TRUE;
-    END_IF;
-END_IF;
-
-(* 2oo3 TMR Voting & Bumpless Degradation Logic for Cell Differential Pressure *)
-IF bPDT_Cell_DP_HealthA AND bPDT_Cell_DP_HealthB AND bPDT_Cell_DP_HealthC THEN
-    (* All 3 Channels Healthy: Median Selection *)
-    IF (rPDT_Cell_DP_1A_mbar >= rPDT_Cell_DP_1B_mbar AND rPDT_Cell_DP_1A_mbar <= rPDT_Cell_DP_1C_mbar) OR
-       (rPDT_Cell_DP_1A_mbar >= rPDT_Cell_DP_1C_mbar AND rPDT_Cell_DP_1A_mbar <= rPDT_Cell_DP_1B_mbar) THEN
-        rPDT_Cell_DP_Voted := rPDT_Cell_DP_1A_mbar;
-    ELSIF (rPDT_Cell_DP_1B_mbar >= rPDT_Cell_DP_1A_mbar AND rPDT_Cell_DP_1B_mbar <= rPDT_Cell_DP_1C_mbar) OR
-          (rPDT_Cell_DP_1B_mbar >= rPDT_Cell_DP_1C_mbar AND rPDT_Cell_DP_1B_mbar <= rPDT_Cell_DP_1A_mbar) THEN
-        rPDT_Cell_DP_Voted := rPDT_Cell_DP_1B_mbar;
-    ELSE
-        rPDT_Cell_DP_Voted := rPDT_Cell_DP_1C_mbar;
-    END_IF;
-    bPDT_Cell_DP_Degraded := FALSE;
-    bPDT_Cell_DP_SingleFallback := FALSE;
-    bPDT_Cell_DP_Trip := FALSE;
-ELSIF (bPDT_Cell_DP_HealthA AND bPDT_Cell_DP_HealthB) OR
-      (bPDT_Cell_DP_HealthB AND bPDT_Cell_DP_HealthC) OR
-      (bPDT_Cell_DP_HealthC AND bPDT_Cell_DP_HealthA) THEN
-    (* 2 Channels Healthy: Degraded 2oo2 Averaging *)
-    IF bPDT_Cell_DP_HealthA AND bPDT_Cell_DP_HealthB THEN
-        rPDT_Cell_DP_Voted := (rPDT_Cell_DP_1A_mbar + rPDT_Cell_DP_1B_mbar) * 0.50;
-    ELSIF bPDT_Cell_DP_HealthB AND bPDT_Cell_DP_HealthC THEN
-        rPDT_Cell_DP_Voted := (rPDT_Cell_DP_1B_mbar + rPDT_Cell_DP_1C_mbar) * 0.50;
-    ELSE
-        rPDT_Cell_DP_Voted := (rPDT_Cell_DP_1C_mbar + rPDT_Cell_DP_1A_mbar) * 0.50;
-    END_IF;
-    bPDT_Cell_DP_Degraded := TRUE;
-    bPDT_Cell_DP_SingleFallback := FALSE;
-    bPDT_Cell_DP_Trip := FALSE;
-ELSIF bPDT_Cell_DP_HealthA OR bPDT_Cell_DP_HealthB OR bPDT_Cell_DP_HealthC THEN
-    (* 1 Channel Healthy: Single Fallback 1oo1 Operation *)
-    IF bPDT_Cell_DP_HealthA THEN
-        rPDT_Cell_DP_Voted := rPDT_Cell_DP_1A_mbar;
-    ELSIF bPDT_Cell_DP_HealthB THEN
-        rPDT_Cell_DP_Voted := rPDT_Cell_DP_1B_mbar;
-    ELSE
-        rPDT_Cell_DP_Voted := rPDT_Cell_DP_1C_mbar;
-    END_IF;
-    bPDT_Cell_DP_Degraded := TRUE;
-    bPDT_Cell_DP_SingleFallback := TRUE;
-    bPDT_Cell_DP_Trip := FALSE;
-ELSE
-    (* All 3 Channels Failed: Critical Hardware Interlock Trip Latch *)
-    bPDT_Cell_DP_Degraded := TRUE;
-    bPDT_Cell_DP_SingleFallback := TRUE;
-    bPDT_Cell_DP_Trip := TRUE;
-    (* Hold previous safe voted value *)
-END_IF;
-
-(* ---------------------------------------------------------------------------------------------------- *)
-(* Channel Group 2: Chlorine Header Pressure Transmitters [bar]                                         *)
-(* Operational Range: 0.150 to 0.450 bar; Transmitter Span: -0.100 to 1.500 bar                         *)
-(* ---------------------------------------------------------------------------------------------------- *)
-IF rPT_Cl2_Header_2A_bar < -0.10 OR rPT_Cl2_Header_2A_bar > 1.50 THEN
-    bPT_Cl2_Header_HealthA := FALSE;
-END_IF;
-IF rPT_Cl2_Header_2B_bar < -0.10 OR rPT_Cl2_Header_2B_bar > 1.50 THEN
-    bPT_Cl2_Header_HealthB := FALSE;
-END_IF;
-IF rPT_Cl2_Header_2C_bar < -0.10 OR rPT_Cl2_Header_2C_bar > 1.50 THEN
-    bPT_Cl2_Header_HealthC := FALSE;
-END_IF;
-
-IF ABS(rPT_Cl2_Header_2A_bar - rPT_Cl2_Header_2B_bar) > 0.035 THEN
-    rPT_Cl2_Header_Disc_AB_ms := rPT_Cl2_Header_Disc_AB_ms + (tScanCycleTime_s * 1000.0);
-ELSE
-    rPT_Cl2_Header_Disc_AB_ms := MAX(0.0, rPT_Cl2_Header_Disc_AB_ms - (tScanCycleTime_s * 500.0));
-END_IF;
-
-IF ABS(rPT_Cl2_Header_2B_bar - rPT_Cl2_Header_2C_bar) > 0.035 THEN
-    rPT_Cl2_Header_Disc_BC_ms := rPT_Cl2_Header_Disc_BC_ms + (tScanCycleTime_s * 1000.0);
-ELSE
-    rPT_Cl2_Header_Disc_BC_ms := MAX(0.0, rPT_Cl2_Header_Disc_BC_ms - (tScanCycleTime_s * 500.0));
-END_IF;
-
-IF ABS(rPT_Cl2_Header_2C_bar - rPT_Cl2_Header_2A_bar) > 0.035 THEN
-    rPT_Cl2_Header_Disc_CA_ms := rPT_Cl2_Header_Disc_CA_ms + (tScanCycleTime_s * 1000.0);
-ELSE
-    rPT_Cl2_Header_Disc_CA_ms := MAX(0.0, rPT_Cl2_Header_Disc_CA_ms - (tScanCycleTime_s * 500.0));
-END_IF;
-
-IF rPT_Cl2_Header_Disc_AB_ms > 300.0 AND rPT_Cl2_Header_Disc_CA_ms > 300.0 THEN
-    bPT_Cl2_Header_HealthA := FALSE;
-END_IF;
-IF rPT_Cl2_Header_Disc_AB_ms > 300.0 AND rPT_Cl2_Header_Disc_BC_ms > 300.0 THEN
-    bPT_Cl2_Header_HealthB := FALSE;
-END_IF;
-IF rPT_Cl2_Header_Disc_BC_ms > 300.0 AND rPT_Cl2_Header_Disc_CA_ms > 300.0 THEN
-    bPT_Cl2_Header_HealthC := FALSE;
-END_IF;
-
-IF bFaultReset THEN
-    IF rPT_Cl2_Header_2A_bar >= -0.10 AND rPT_Cl2_Header_2A_bar <= 1.50 AND rPT_Cl2_Header_Disc_AB_ms < 50.0 AND rPT_Cl2_Header_Disc_CA_ms < 50.0 THEN
-        bPT_Cl2_Header_HealthA := TRUE;
-    END_IF;
-    IF rPT_Cl2_Header_2B_bar >= -0.10 AND rPT_Cl2_Header_2B_bar <= 1.50 AND rPT_Cl2_Header_Disc_AB_ms < 50.0 AND rPT_Cl2_Header_Disc_BC_ms < 50.0 THEN
-        bPT_Cl2_Header_HealthB := TRUE;
-    END_IF;
-    IF rPT_Cl2_Header_2C_bar >= -0.10 AND rPT_Cl2_Header_2C_bar <= 1.50 AND rPT_Cl2_Header_Disc_BC_ms < 50.0 AND rPT_Cl2_Header_Disc_CA_ms < 50.0 THEN
-        bPT_Cl2_Header_HealthC := TRUE;
-    END_IF;
-END_IF;
-
-IF bPT_Cl2_Header_HealthA AND bPT_Cl2_Header_HealthB AND bPT_Cl2_Header_HealthC THEN
-    IF (rPT_Cl2_Header_2A_bar >= rPT_Cl2_Header_2B_bar AND rPT_Cl2_Header_2A_bar <= rPT_Cl2_Header_2C_bar) OR
-       (rPT_Cl2_Header_2A_bar >= rPT_Cl2_Header_2C_bar AND rPT_Cl2_Header_2A_bar <= rPT_Cl2_Header_2B_bar) THEN
-        rPT_Cl2_Header_Voted := rPT_Cl2_Header_2A_bar;
-    ELSIF (rPT_Cl2_Header_2B_bar >= rPT_Cl2_Header_2A_bar AND rPT_Cl2_Header_2B_bar <= rPT_Cl2_Header_2C_bar) OR
-          (rPT_Cl2_Header_2B_bar >= rPT_Cl2_Header_2C_bar AND rPT_Cl2_Header_2B_bar <= rPT_Cl2_Header_2A_bar) THEN
-        rPT_Cl2_Header_Voted := rPT_Cl2_Header_2B_bar;
-    ELSE
-        rPT_Cl2_Header_Voted := rPT_Cl2_Header_2C_bar;
-    END_IF;
-    bPT_Cl2_Header_Degraded := FALSE;
-    bPT_Cl2_Header_SingleFallback := FALSE;
-    bPT_Cl2_Header_Trip := FALSE;
-ELSIF (bPT_Cl2_Header_HealthA AND bPT_Cl2_Header_HealthB) OR
-      (bPT_Cl2_Header_HealthB AND bPT_Cl2_Header_HealthC) OR
-      (bPT_Cl2_Header_HealthC AND bPT_Cl2_Header_HealthA) THEN
-    IF bPT_Cl2_Header_HealthA AND bPT_Cl2_Header_HealthB THEN
-        rPT_Cl2_Header_Voted := (rPT_Cl2_Header_2A_bar + rPT_Cl2_Header_2B_bar) * 0.50;
-    ELSIF bPT_Cl2_Header_HealthB AND bPT_Cl2_Header_HealthC THEN
-        rPT_Cl2_Header_Voted := (rPT_Cl2_Header_2B_bar + rPT_Cl2_Header_2C_bar) * 0.50;
-    ELSE
-        rPT_Cl2_Header_Voted := (rPT_Cl2_Header_2C_bar + rPT_Cl2_Header_2A_bar) * 0.50;
-    END_IF;
-    bPT_Cl2_Header_Degraded := TRUE;
-    bPT_Cl2_Header_SingleFallback := FALSE;
-    bPT_Cl2_Header_Trip := FALSE;
-ELSIF bPT_Cl2_Header_HealthA OR bPT_Cl2_Header_HealthB OR bPT_Cl2_Header_HealthC THEN
-    IF bPT_Cl2_Header_HealthA THEN
-        rPT_Cl2_Header_Voted := rPT_Cl2_Header_2A_bar;
-    ELSIF bPT_Cl2_Header_HealthB THEN
-        rPT_Cl2_Header_Voted := rPT_Cl2_Header_2B_bar;
-    ELSE
-        rPT_Cl2_Header_Voted := rPT_Cl2_Header_2C_bar;
-    END_IF;
-    bPT_Cl2_Header_Degraded := TRUE;
-    bPT_Cl2_Header_SingleFallback := TRUE;
-    bPT_Cl2_Header_Trip := FALSE;
-ELSE
-    bPT_Cl2_Header_Degraded := TRUE;
-    bPT_Cl2_Header_SingleFallback := TRUE;
-    bPT_Cl2_Header_Trip := TRUE;
-END_IF;
-
-(* ---------------------------------------------------------------------------------------------------- *)
-(* Channel Group 3: Hydrogen Header Pressure Transmitters [bar]                                         *)
-(* Operational Range: 0.180 to 0.480 bar; Transmitter Span: -0.100 to 1.500 bar                         *)
-(* ---------------------------------------------------------------------------------------------------- *)
-IF rPT_H2_Header_3A_bar < -0.10 OR rPT_H2_Header_3A_bar > 1.50 THEN
-    bPT_H2_Header_HealthA := FALSE;
-END_IF;
-IF rPT_H2_Header_3B_bar < -0.10 OR rPT_H2_Header_3B_bar > 1.50 THEN
-    bPT_H2_Header_HealthB := FALSE;
-END_IF;
-IF rPT_H2_Header_3C_bar < -0.10 OR rPT_H2_Header_3C_bar > 1.50 THEN
-    bPT_H2_Header_HealthC := FALSE;
-END_IF;
-
-IF ABS(rPT_H2_Header_3A_bar - rPT_H2_Header_3B_bar) > 0.035 THEN
-    rPT_H2_Header_Disc_AB_ms := rPT_H2_Header_Disc_AB_ms + (tScanCycleTime_s * 1000.0);
-ELSE
-    rPT_H2_Header_Disc_AB_ms := MAX(0.0, rPT_H2_Header_Disc_AB_ms - (tScanCycleTime_s * 500.0));
-END_IF;
-
-IF ABS(rPT_H2_Header_3B_bar - rPT_H2_Header_3C_bar) > 0.035 THEN
-    rPT_H2_Header_Disc_BC_ms := rPT_H2_Header_Disc_BC_ms + (tScanCycleTime_s * 1000.0);
-ELSE
-    rPT_H2_Header_Disc_BC_ms := MAX(0.0, rPT_H2_Header_Disc_BC_ms - (tScanCycleTime_s * 500.0));
-END_IF;
-
-IF ABS(rPT_H2_Header_3C_bar - rPT_H2_Header_3A_bar) > 0.035 THEN
-    rPT_H2_Header_Disc_CA_ms := rPT_H2_Header_Disc_CA_ms + (tScanCycleTime_s * 1000.0);
-ELSE
-    rPT_H2_Header_Disc_CA_ms := MAX(0.0, rPT_H2_Header_Disc_CA_ms - (tScanCycleTime_s * 500.0));
-END_IF;
-
-IF rPT_H2_Header_Disc_AB_ms > 300.0 AND rPT_H2_Header_Disc_CA_ms > 300.0 THEN
-    bPT_H2_Header_HealthA := FALSE;
-END_IF;
-IF rPT_H2_Header_Disc_AB_ms > 300.0 AND rPT_H2_Header_Disc_BC_ms > 300.0 THEN
-    bPT_H2_Header_HealthB := FALSE;
-END_IF;
-IF rPT_H2_Header_Disc_BC_ms > 300.0 AND rPT_H2_Header_Disc_CA_ms > 300.0 THEN
-    bPT_H2_Header_HealthC := FALSE;
-END_IF;
-
-IF bFaultReset THEN
-    IF rPT_H2_Header_3A_bar >= -0.10 AND rPT_H2_Header_3A_bar <= 1.50 AND rPT_H2_Header_Disc_AB_ms < 50.0 AND rPT_H2_Header_Disc_CA_ms < 50.0 THEN
-        bPT_H2_Header_HealthA := TRUE;
-    END_IF;
-    IF rPT_H2_Header_3B_bar >= -0.10 AND rPT_H2_Header_3B_bar <= 1.50 AND rPT_H2_Header_Disc_AB_ms < 50.0 AND rPT_H2_Header_Disc_BC_ms < 50.0 THEN
-        bPT_H2_Header_HealthB := TRUE;
-    END_IF;
-    IF rPT_H2_Header_3C_bar >= -0.10 AND rPT_H2_Header_3C_bar <= 1.50 AND rPT_H2_Header_Disc_BC_ms < 50.0 AND rPT_H2_Header_Disc_CA_ms < 50.0 THEN
-        bPT_H2_Header_HealthC := TRUE;
-    END_IF;
-END_IF;
-
-IF bPT_H2_Header_HealthA AND bPT_H2_Header_HealthB AND bPT_H2_Header_HealthC THEN
-    IF (rPT_H2_Header_3A_bar >= rPT_H2_Header_3B_bar AND rPT_H2_Header_3A_bar <= rPT_H2_Header_3C_bar) OR
-       (rPT_H2_Header_3A_bar >= rPT_H2_Header_3C_bar AND rPT_H2_Header_3A_bar <= rPT_H2_Header_3B_bar) THEN
-        rPT_H2_Header_Voted := rPT_H2_Header_3A_bar;
-    ELSIF (rPT_H2_Header_3B_bar >= rPT_H2_Header_3A_bar AND rPT_H2_Header_3B_bar <= rPT_H2_Header_3C_bar) OR
-          (rPT_H2_Header_3B_bar >= rPT_H2_Header_3C_bar AND rPT_H2_Header_3B_bar <= rPT_H2_Header_3A_bar) THEN
-        rPT_H2_Header_Voted := rPT_H2_Header_3B_bar;
-    ELSE
-        rPT_H2_Header_Voted := rPT_H2_Header_3C_bar;
-    END_IF;
-    bPT_H2_Header_Degraded := FALSE;
-    bPT_H2_Header_SingleFallback := FALSE;
-    bPT_H2_Header_Trip := FALSE;
-ELSIF (bPT_H2_Header_HealthA AND bPT_H2_Header_HealthB) OR
-      (bPT_H2_Header_HealthB AND bPT_H2_Header_HealthC) OR
-      (bPT_H2_Header_HealthC AND bPT_H2_Header_HealthA) THEN
-    IF bPT_H2_Header_HealthA AND bPT_H2_Header_HealthB THEN
-        rPT_H2_Header_Voted := (rPT_H2_Header_3A_bar + rPT_H2_Header_3B_bar) * 0.50;
-    ELSIF bPT_H2_Header_HealthB AND bPT_H2_Header_HealthC THEN
-        rPT_H2_Header_Voted := (rPT_H2_Header_3B_bar + rPT_H2_Header_3C_bar) * 0.50;
-    ELSE
-        rPT_H2_Header_Voted := (rPT_H2_Header_3C_bar + rPT_H2_Header_3A_bar) * 0.50;
-    END_IF;
-    bPT_H2_Header_Degraded := TRUE;
-    bPT_H2_Header_SingleFallback := FALSE;
-    bPT_H2_Header_Trip := FALSE;
-ELSIF bPT_H2_Header_HealthA OR bPT_H2_Header_HealthB OR bPT_H2_Header_HealthC THEN
-    IF bPT_H2_Header_HealthA THEN
-        rPT_H2_Header_Voted := rPT_H2_Header_3A_bar;
-    ELSIF bPT_H2_Header_HealthB THEN
-        rPT_H2_Header_Voted := rPT_H2_Header_3B_bar;
-    ELSE
-        rPT_H2_Header_Voted := rPT_H2_Header_3C_bar;
-    END_IF;
-    bPT_H2_Header_Degraded := TRUE;
-    bPT_H2_Header_SingleFallback := TRUE;
-    bPT_H2_Header_Trip := FALSE;
-ELSE
-    bPT_H2_Header_Degraded := TRUE;
-    bPT_H2_Header_SingleFallback := TRUE;
-    bPT_H2_Header_Trip := TRUE;
-END_IF;
-
-(* ---------------------------------------------------------------------------------------------------- *)
-(* Channel Group 4: Inline Hydrogen-in-Chlorine Gas Photometer Analyzers [% vol]                        *)
-(* Safety Critical Detonation Threshold: 1.20 % vol; Nominal Baseline: < 0.20 % vol                     *)
-(* ---------------------------------------------------------------------------------------------------- *)
-IF rAT_H2_in_Cl2_4A_pct < 0.0 OR rAT_H2_in_Cl2_4A_pct > 5.00 THEN
-    bAT_H2_in_Cl2_HealthA := FALSE;
-END_IF;
-IF rAT_H2_in_Cl2_4B_pct < 0.0 OR rAT_H2_in_Cl2_4B_pct > 5.00 THEN
-    bAT_H2_in_Cl2_HealthB := FALSE;
-END_IF;
-IF rAT_H2_in_Cl2_4C_pct < 0.0 OR rAT_H2_in_Cl2_4C_pct > 5.00 THEN
-    bAT_H2_in_Cl2_HealthC := FALSE;
-END_IF;
-
-IF ABS(rAT_H2_in_Cl2_4A_pct - rAT_H2_in_Cl2_4B_pct) > 0.15 THEN
-    rAT_H2_in_Cl2_Disc_AB_ms := rAT_H2_in_Cl2_Disc_AB_ms + (tScanCycleTime_s * 1000.0);
-ELSE
-    rAT_H2_in_Cl2_Disc_AB_ms := MAX(0.0, rAT_H2_in_Cl2_Disc_AB_ms - (tScanCycleTime_s * 500.0));
-END_IF;
-
-IF ABS(rAT_H2_in_Cl2_4B_pct - rAT_H2_in_Cl2_4C_pct) > 0.15 THEN
-    rAT_H2_in_Cl2_Disc_BC_ms := rAT_H2_in_Cl2_Disc_BC_ms + (tScanCycleTime_s * 1000.0);
-ELSE
-    rAT_H2_in_Cl2_Disc_BC_ms := MAX(0.0, rAT_H2_in_Cl2_Disc_BC_ms - (tScanCycleTime_s * 500.0));
-END_IF;
-
-IF ABS(rAT_H2_in_Cl2_4C_pct - rAT_H2_in_Cl2_4A_pct) > 0.15 THEN
-    rAT_H2_in_Cl2_Disc_CA_ms := rAT_H2_in_Cl2_Disc_CA_ms + (tScanCycleTime_s * 1000.0);
-ELSE
-    rAT_H2_in_Cl2_Disc_CA_ms := MAX(0.0, rAT_H2_in_Cl2_Disc_CA_ms - (tScanCycleTime_s * 500.0));
-END_IF;
-
-IF rAT_H2_in_Cl2_Disc_AB_ms > 250.0 AND rAT_H2_in_Cl2_Disc_CA_ms > 250.0 THEN
-    bAT_H2_in_Cl2_HealthA := FALSE;
-END_IF;
-IF rAT_H2_in_Cl2_Disc_AB_ms > 250.0 AND rAT_H2_in_Cl2_Disc_BC_ms > 250.0 THEN
-    bAT_H2_in_Cl2_HealthB := FALSE;
-END_IF;
-IF rAT_H2_in_Cl2_Disc_BC_ms > 250.0 AND rAT_H2_in_Cl2_Disc_CA_ms > 250.0 THEN
-    bAT_H2_in_Cl2_HealthC := FALSE;
-END_IF;
-
-IF bFaultReset THEN
-    IF rAT_H2_in_Cl2_4A_pct >= 0.0 AND rAT_H2_in_Cl2_4A_pct <= 5.00 AND rAT_H2_in_Cl2_Disc_AB_ms < 50.0 AND rAT_H2_in_Cl2_Disc_CA_ms < 50.0 THEN
-        bAT_H2_in_Cl2_HealthA := TRUE;
-    END_IF;
-    IF rAT_H2_in_Cl2_4B_pct >= 0.0 AND rAT_H2_in_Cl2_4B_pct <= 5.00 AND rAT_H2_in_Cl2_Disc_AB_ms < 50.0 AND rAT_H2_in_Cl2_Disc_BC_ms < 50.0 THEN
-        bAT_H2_in_Cl2_HealthB := TRUE;
-    END_IF;
-    IF rAT_H2_in_Cl2_4C_pct >= 0.0 AND rAT_H2_in_Cl2_4C_pct <= 5.00 AND rAT_H2_in_Cl2_Disc_BC_ms < 50.0 AND rAT_H2_in_Cl2_Disc_CA_ms < 50.0 THEN
-        bAT_H2_in_Cl2_HealthC := TRUE;
-    END_IF;
-END_IF;
-
-IF bAT_H2_in_Cl2_HealthA AND bAT_H2_in_Cl2_HealthB AND bAT_H2_in_Cl2_HealthC THEN
-    (* 3 Healthy: High-Purity Median Selection *)
-    IF (rAT_H2_in_Cl2_4A_pct >= rAT_H2_in_Cl2_4B_pct AND rAT_H2_in_Cl2_4A_pct <= rAT_H2_in_Cl2_4C_pct) OR
-       (rAT_H2_in_Cl2_4A_pct >= rAT_H2_in_Cl2_4C_pct AND rAT_H2_in_Cl2_4A_pct <= rAT_H2_in_Cl2_4B_pct) THEN
-        rAT_H2_in_Cl2_Voted := rAT_H2_in_Cl2_4A_pct;
-    ELSIF (rAT_H2_in_Cl2_4B_pct >= rAT_H2_in_Cl2_4A_pct AND rAT_H2_in_Cl2_4B_pct <= rAT_H2_in_Cl2_4C_pct) OR
-          (rAT_H2_in_Cl2_4B_pct >= rAT_H2_in_Cl2_4C_pct AND rAT_H2_in_Cl2_4B_pct <= rAT_H2_in_Cl2_4A_pct) THEN
-        rAT_H2_in_Cl2_Voted := rAT_H2_in_Cl2_4B_pct;
-    ELSE
-        rAT_H2_in_Cl2_Voted := rAT_H2_in_Cl2_4C_pct;
-    END_IF;
-    bAT_H2_in_Cl2_Degraded := FALSE;
-    bAT_H2_in_Cl2_SingleFallback := FALSE;
-    bAT_H2_in_Cl2_Trip := FALSE;
-ELSIF (bAT_H2_in_Cl2_HealthA AND bAT_H2_in_Cl2_HealthB) OR
-      (bAT_H2_in_Cl2_HealthB AND bAT_H2_in_Cl2_HealthC) OR
-      (bAT_H2_in_Cl2_HealthC AND bAT_H2_in_Cl2_HealthA) THEN
-    (* 2 Healthy: Conservative High-Select Voting for Safety *)
-    IF bAT_H2_in_Cl2_HealthA AND bAT_H2_in_Cl2_HealthB THEN
-        rAT_H2_in_Cl2_Voted := MAX(rAT_H2_in_Cl2_4A_pct, rAT_H2_in_Cl2_4B_pct);
-    ELSIF bAT_H2_in_Cl2_HealthB AND bAT_H2_in_Cl2_HealthC THEN
-        rAT_H2_in_Cl2_Voted := MAX(rAT_H2_in_Cl2_4B_pct, rAT_H2_in_Cl2_4C_pct);
-    ELSE
-        rAT_H2_in_Cl2_Voted := MAX(rAT_H2_in_Cl2_4C_pct, rAT_H2_in_Cl2_4A_pct);
-    END_IF;
-    bAT_H2_in_Cl2_Degraded := TRUE;
-    bAT_H2_in_Cl2_SingleFallback := FALSE;
-    bAT_H2_in_Cl2_Trip := FALSE;
-ELSIF bAT_H2_in_Cl2_HealthA OR bAT_H2_in_Cl2_HealthB OR bAT_H2_in_Cl2_HealthC THEN
-    IF bAT_H2_in_Cl2_HealthA THEN
-        rAT_H2_in_Cl2_Voted := rAT_H2_in_Cl2_4A_pct;
-    ELSIF bAT_H2_in_Cl2_HealthB THEN
-        rAT_H2_in_Cl2_Voted := rAT_H2_in_Cl2_4B_pct;
-    ELSE
-        rAT_H2_in_Cl2_Voted := rAT_H2_in_Cl2_4C_pct;
-    END_IF;
-    bAT_H2_in_Cl2_Degraded := TRUE;
-    bAT_H2_in_Cl2_SingleFallback := TRUE;
-    bAT_H2_in_Cl2_Trip := FALSE;
-ELSE
-    bAT_H2_in_Cl2_Degraded := TRUE;
-    bAT_H2_in_Cl2_SingleFallback := TRUE;
-    bAT_H2_in_Cl2_Trip := TRUE;
-END_IF;
-
-(* ---------------------------------------------------------------------------------------------------- *)
-(* Channel Group 5: Anolyte Depleted Brine Concentration Analyzers [g/L]                                *)
-(* Nominal Operational Range: 195.0 to 225.0 g/L; Feed Brine: ~305.0 g/L                                 *)
-(* ---------------------------------------------------------------------------------------------------- *)
-IF rAT_Anolyte_NaCl_5A_gL < 140.0 OR rAT_Anolyte_NaCl_5A_gL > 340.0 THEN
-    bAT_Anolyte_NaCl_HealthA := FALSE;
-END_IF;
-IF rAT_Anolyte_NaCl_5B_gL < 140.0 OR rAT_Anolyte_NaCl_5B_gL > 340.0 THEN
-    bAT_Anolyte_NaCl_HealthB := FALSE;
-END_IF;
-IF rAT_Anolyte_NaCl_5C_gL < 140.0 OR rAT_Anolyte_NaCl_5C_gL > 340.0 THEN
-    bAT_Anolyte_NaCl_HealthC := FALSE;
-END_IF;
-
-IF ABS(rAT_Anolyte_NaCl_5A_gL - rAT_Anolyte_NaCl_5B_gL) > 8.00 THEN
-    rAT_Anolyte_NaCl_Disc_AB_ms := rAT_Anolyte_NaCl_Disc_AB_ms + (tScanCycleTime_s * 1000.0);
-ELSE
-    rAT_Anolyte_NaCl_Disc_AB_ms := MAX(0.0, rAT_Anolyte_NaCl_Disc_AB_ms - (tScanCycleTime_s * 500.0));
-END_IF;
-
-IF ABS(rAT_Anolyte_NaCl_5B_gL - rAT_Anolyte_NaCl_5C_gL) > 8.00 THEN
-    rAT_Anolyte_NaCl_Disc_BC_ms := rAT_Anolyte_NaCl_Disc_BC_ms + (tScanCycleTime_s * 1000.0);
-ELSE
-    rAT_Anolyte_NaCl_Disc_BC_ms := MAX(0.0, rAT_Anolyte_NaCl_Disc_BC_ms - (tScanCycleTime_s * 500.0));
-END_IF;
-
-IF ABS(rAT_Anolyte_NaCl_5C_gL - rAT_Anolyte_NaCl_5A_gL) > 8.00 THEN
-    rAT_Anolyte_NaCl_Disc_CA_ms := rAT_Anolyte_NaCl_Disc_CA_ms + (tScanCycleTime_s * 1000.0);
-ELSE
-    rAT_Anolyte_NaCl_Disc_CA_ms := MAX(0.0, rAT_Anolyte_NaCl_Disc_CA_ms - (tScanCycleTime_s * 500.0));
-END_IF;
-
-IF rAT_Anolyte_NaCl_Disc_AB_ms > 400.0 AND rAT_Anolyte_NaCl_Disc_CA_ms > 400.0 THEN
-    bAT_Anolyte_NaCl_HealthA := FALSE;
-END_IF;
-IF rAT_Anolyte_NaCl_Disc_AB_ms > 400.0 AND rAT_Anolyte_NaCl_Disc_BC_ms > 400.0 THEN
-    bAT_Anolyte_NaCl_HealthB := FALSE;
-END_IF;
-IF rAT_Anolyte_NaCl_Disc_BC_ms > 400.0 AND rAT_Anolyte_NaCl_Disc_CA_ms > 400.0 THEN
-    bAT_Anolyte_NaCl_HealthC := FALSE;
-END_IF;
-
-IF bFaultReset THEN
-    IF rAT_Anolyte_NaCl_5A_gL >= 140.0 AND rAT_Anolyte_NaCl_5A_gL <= 340.0 AND rAT_Anolyte_NaCl_Disc_AB_ms < 50.0 AND rAT_Anolyte_NaCl_Disc_CA_ms < 50.0 THEN
-        bAT_Anolyte_NaCl_HealthA := TRUE;
-    END_IF;
-    IF rAT_Anolyte_NaCl_5B_gL >= 140.0 AND rAT_Anolyte_NaCl_5B_gL <= 340.0 AND rAT_Anolyte_NaCl_Disc_AB_ms < 50.0 AND rAT_Anolyte_NaCl_Disc_BC_ms < 50.0 THEN
-        bAT_Anolyte_NaCl_HealthB := TRUE;
-    END_IF;
-    IF rAT_Anolyte_NaCl_5C_gL >= 140.0 AND rAT_Anolyte_NaCl_5C_gL <= 340.0 AND rAT_Anolyte_NaCl_Disc_BC_ms < 50.0 AND rAT_Anolyte_NaCl_Disc_CA_ms < 50.0 THEN
-        bAT_Anolyte_NaCl_HealthC := TRUE;
-    END_IF;
-END_IF;
-
-IF bAT_Anolyte_NaCl_HealthA AND bAT_Anolyte_NaCl_HealthB AND bAT_Anolyte_NaCl_HealthC THEN
-    IF (rAT_Anolyte_NaCl_5A_gL >= rAT_Anolyte_NaCl_5B_gL AND rAT_Anolyte_NaCl_5A_gL <= rAT_Anolyte_NaCl_5C_gL) OR
-       (rAT_Anolyte_NaCl_5A_gL >= rAT_Anolyte_NaCl_5C_gL AND rAT_Anolyte_NaCl_5A_gL <= rAT_Anolyte_NaCl_5B_gL) THEN
-        rAT_Anolyte_NaCl_Voted := rAT_Anolyte_NaCl_5A_gL;
-    ELSIF (rAT_Anolyte_NaCl_5B_gL >= rAT_Anolyte_NaCl_5A_gL AND rAT_Anolyte_NaCl_5B_gL <= rAT_Anolyte_NaCl_5C_gL) OR
-          (rAT_Anolyte_NaCl_5B_gL >= rAT_Anolyte_NaCl_5C_gL AND rAT_Anolyte_NaCl_5B_gL <= rAT_Anolyte_NaCl_5A_gL) THEN
-        rAT_Anolyte_NaCl_Voted := rAT_Anolyte_NaCl_5B_gL;
-    ELSE
-        rAT_Anolyte_NaCl_Voted := rAT_Anolyte_NaCl_5C_gL;
-    END_IF;
-    bAT_Anolyte_NaCl_Degraded := FALSE;
-    bAT_Anolyte_NaCl_SingleFallback := FALSE;
-    bAT_Anolyte_NaCl_Trip := FALSE;
-ELSIF (bAT_Anolyte_NaCl_HealthA AND bAT_Anolyte_NaCl_HealthB) OR
-      (bAT_Anolyte_NaCl_HealthB AND bAT_Anolyte_NaCl_HealthC) OR
-      (bAT_Anolyte_NaCl_HealthC AND bAT_Anolyte_NaCl_HealthA) THEN
-    IF bAT_Anolyte_NaCl_HealthA AND bAT_Anolyte_NaCl_HealthB THEN
-        rAT_Anolyte_NaCl_Voted := (rAT_Anolyte_NaCl_5A_gL + rAT_Anolyte_NaCl_5B_gL) * 0.50;
-    ELSIF bAT_Anolyte_NaCl_HealthB AND bAT_Anolyte_NaCl_HealthC THEN
-        rAT_Anolyte_NaCl_Voted := (rAT_Anolyte_NaCl_5B_gL + rAT_Anolyte_NaCl_5C_gL) * 0.50;
-    ELSE
-        rAT_Anolyte_NaCl_Voted := (rAT_Anolyte_NaCl_5C_gL + rAT_Anolyte_NaCl_5A_gL) * 0.50;
-    END_IF;
-    bAT_Anolyte_NaCl_Degraded := TRUE;
-    bAT_Anolyte_NaCl_SingleFallback := FALSE;
-    bAT_Anolyte_NaCl_Trip := FALSE;
-ELSIF bAT_Anolyte_NaCl_HealthA OR bAT_Anolyte_NaCl_HealthB OR bAT_Anolyte_NaCl_HealthC THEN
-    IF bAT_Anolyte_NaCl_HealthA THEN
-        rAT_Anolyte_NaCl_Voted := rAT_Anolyte_NaCl_5A_gL;
-    ELSIF bAT_Anolyte_NaCl_HealthB THEN
-        rAT_Anolyte_NaCl_Voted := rAT_Anolyte_NaCl_5B_gL;
-    ELSE
-        rAT_Anolyte_NaCl_Voted := rAT_Anolyte_NaCl_5C_gL;
-    END_IF;
-    bAT_Anolyte_NaCl_Degraded := TRUE;
-    bAT_Anolyte_NaCl_SingleFallback := TRUE;
-    bAT_Anolyte_NaCl_Trip := FALSE;
-ELSE
-    bAT_Anolyte_NaCl_Degraded := TRUE;
-    bAT_Anolyte_NaCl_SingleFallback := TRUE;
-    bAT_Anolyte_NaCl_Trip := TRUE;
-END_IF;
-
-(* ---------------------------------------------------------------------------------------------------- *)
-(* Channel Group 6: Catholyte Caustic Soda Concentration Analyzers [wt%]                                *)
-(* Nominal Commercial Target: 32.0 to 35.0 wt% NaOH; High-Viscosity Crystallization Hazard: > 36.0 wt%    *)
-(* ---------------------------------------------------------------------------------------------------- *)
-IF rAT_Catholyte_NaOH_6A_pct < 20.0 OR rAT_Catholyte_NaOH_6A_pct > 50.0 THEN
-    bAT_Catholyte_NaOH_HealthA := FALSE;
-END_IF;
-IF rAT_Catholyte_NaOH_6B_pct < 20.0 OR rAT_Catholyte_NaOH_6B_pct > 50.0 THEN
-    bAT_Catholyte_NaOH_HealthB := FALSE;
-END_IF;
-IF rAT_Catholyte_NaOH_6C_pct < 20.0 OR rAT_Catholyte_NaOH_6C_pct > 50.0 THEN
-    bAT_Catholyte_NaOH_HealthC := FALSE;
-END_IF;
-
-IF ABS(rAT_Catholyte_NaOH_6A_pct - rAT_Catholyte_NaOH_6B_pct) > 0.75 THEN
-    rAT_Catholyte_NaOH_Disc_AB_ms := rAT_Catholyte_NaOH_Disc_AB_ms + (tScanCycleTime_s * 1000.0);
-ELSE
-    rAT_Catholyte_NaOH_Disc_AB_ms := MAX(0.0, rAT_Catholyte_NaOH_Disc_AB_ms - (tScanCycleTime_s * 500.0));
-END_IF;
-
-IF ABS(rAT_Catholyte_NaOH_6B_pct - rAT_Catholyte_NaOH_6C_pct) > 0.75 THEN
-    rAT_Catholyte_NaOH_Disc_BC_ms := rAT_Catholyte_NaOH_Disc_BC_ms + (tScanCycleTime_s * 1000.0);
-ELSE
-    rAT_Catholyte_NaOH_Disc_BC_ms := MAX(0.0, rAT_Catholyte_NaOH_Disc_BC_ms - (tScanCycleTime_s * 500.0));
-END_IF;
-
-IF ABS(rAT_Catholyte_NaOH_6C_pct - rAT_Catholyte_NaOH_6A_pct) > 0.75 THEN
-    rAT_Catholyte_NaOH_Disc_CA_ms := rAT_Catholyte_NaOH_Disc_CA_ms + (tScanCycleTime_s * 1000.0);
-ELSE
-    rAT_Catholyte_NaOH_Disc_CA_ms := MAX(0.0, rAT_Catholyte_NaOH_Disc_CA_ms - (tScanCycleTime_s * 500.0));
-END_IF;
-
-IF rAT_Catholyte_NaOH_Disc_AB_ms > 400.0 AND rAT_Catholyte_NaOH_Disc_CA_ms > 400.0 THEN
-    bAT_Catholyte_NaOH_HealthA := FALSE;
-END_IF;
-IF rAT_Catholyte_NaOH_Disc_AB_ms > 400.0 AND rAT_Catholyte_NaOH_Disc_BC_ms > 400.0 THEN
-    bAT_Catholyte_NaOH_HealthB := FALSE;
-END_IF;
-IF rAT_Catholyte_NaOH_Disc_BC_ms > 400.0 AND rAT_Catholyte_NaOH_Disc_CA_ms > 400.0 THEN
-    bAT_Catholyte_NaOH_HealthC := FALSE;
-END_IF;
-
-IF bFaultReset THEN
-    IF rAT_Catholyte_NaOH_6A_pct >= 20.0 AND rAT_Catholyte_NaOH_6A_pct <= 50.0 AND rAT_Catholyte_NaOH_Disc_AB_ms < 50.0 AND rAT_Catholyte_NaOH_Disc_CA_ms < 50.0 THEN
-        bAT_Catholyte_NaOH_HealthA := TRUE;
-    END_IF;
-    IF rAT_Catholyte_NaOH_6B_pct >= 20.0 AND rAT_Catholyte_NaOH_6B_pct <= 50.0 AND rAT_Catholyte_NaOH_Disc_AB_ms < 50.0 AND rAT_Catholyte_NaOH_Disc_BC_ms < 50.0 THEN
-        bAT_Catholyte_NaOH_HealthB := TRUE;
-    END_IF;
-    IF rAT_Catholyte_NaOH_6C_pct >= 20.0 AND rAT_Catholyte_NaOH_6C_pct <= 50.0 AND rAT_Catholyte_NaOH_Disc_BC_ms < 50.0 AND rAT_Catholyte_NaOH_Disc_CA_ms < 50.0 THEN
-        bAT_Catholyte_NaOH_HealthC := TRUE;
-    END_IF;
-END_IF;
-
-IF bAT_Catholyte_NaOH_HealthA AND bAT_Catholyte_NaOH_HealthB AND bAT_Catholyte_NaOH_HealthC THEN
-    IF (rAT_Catholyte_NaOH_6A_pct >= rAT_Catholyte_NaOH_6B_pct AND rAT_Catholyte_NaOH_6A_pct <= rAT_Catholyte_NaOH_6C_pct) OR
-       (rAT_Catholyte_NaOH_6A_pct >= rAT_Catholyte_NaOH_6C_pct AND rAT_Catholyte_NaOH_6A_pct <= rAT_Catholyte_NaOH_6B_pct) THEN
-        rAT_Catholyte_NaOH_Voted := rAT_Catholyte_NaOH_6A_pct;
-    ELSIF (rAT_Catholyte_NaOH_6B_pct >= rAT_Catholyte_NaOH_6A_pct AND rAT_Catholyte_NaOH_6B_pct <= rAT_Catholyte_NaOH_6C_pct) OR
-          (rAT_Catholyte_NaOH_6B_pct >= rAT_Catholyte_NaOH_6C_pct AND rAT_Catholyte_NaOH_6B_pct <= rAT_Catholyte_NaOH_6A_pct) THEN
-        rAT_Catholyte_NaOH_Voted := rAT_Catholyte_NaOH_6B_pct;
-    ELSE
-        rAT_Catholyte_NaOH_Voted := rAT_Catholyte_NaOH_6C_pct;
-    END_IF;
-    bAT_Catholyte_NaOH_Degraded := FALSE;
-    bAT_Catholyte_NaOH_SingleFallback := FALSE;
-    bAT_Catholyte_NaOH_Trip := FALSE;
-ELSIF (bAT_Catholyte_NaOH_HealthA AND bAT_Catholyte_NaOH_HealthB) OR
-      (bAT_Catholyte_NaOH_HealthB AND bAT_Catholyte_NaOH_HealthC) OR
-      (bAT_Catholyte_NaOH_HealthC AND bAT_Catholyte_NaOH_HealthA) THEN
-    IF bAT_Catholyte_NaOH_HealthA AND bAT_Catholyte_NaOH_HealthB THEN
-        rAT_Catholyte_NaOH_Voted := (rAT_Catholyte_NaOH_6A_pct + rAT_Catholyte_NaOH_6B_pct) * 0.50;
-    ELSIF bAT_Catholyte_NaOH_HealthB AND bAT_Catholyte_NaOH_HealthC THEN
-        rAT_Catholyte_NaOH_Voted := (rAT_Catholyte_NaOH_6B_pct + rAT_Catholyte_NaOH_6C_pct) * 0.50;
-    ELSE
-        rAT_Catholyte_NaOH_Voted := (rAT_Catholyte_NaOH_6C_pct + rAT_Catholyte_NaOH_6A_pct) * 0.50;
-    END_IF;
-    bAT_Catholyte_NaOH_Degraded := TRUE;
-    bAT_Catholyte_NaOH_SingleFallback := FALSE;
-    bAT_Catholyte_NaOH_Trip := FALSE;
-ELSIF bAT_Catholyte_NaOH_HealthA OR bAT_Catholyte_NaOH_HealthB OR bAT_Catholyte_NaOH_HealthC THEN
-    IF bAT_Catholyte_NaOH_HealthA THEN
-        rAT_Catholyte_NaOH_Voted := rAT_Catholyte_NaOH_6A_pct;
-    ELSIF bAT_Catholyte_NaOH_HealthB THEN
-        rAT_Catholyte_NaOH_Voted := rAT_Catholyte_NaOH_6B_pct;
-    ELSE
-        rAT_Catholyte_NaOH_Voted := rAT_Catholyte_NaOH_6C_pct;
-    END_IF;
-    bAT_Catholyte_NaOH_Degraded := TRUE;
-    bAT_Catholyte_NaOH_SingleFallback := TRUE;
-    bAT_Catholyte_NaOH_Trip := FALSE;
-ELSE
-    bAT_Catholyte_NaOH_Degraded := TRUE;
-    bAT_Catholyte_NaOH_SingleFallback := TRUE;
-    bAT_Catholyte_NaOH_Trip := TRUE;
-END_IF;
-
-(* ---------------------------------------------------------------------------------------------------- *)
-(* Assemble Voted Measurements into Observer Cyber-Physical Input Vector Y_meas                         *)
-(* ---------------------------------------------------------------------------------------------------- *)
-vecY_meas[0] := rPDT_Cell_DP_Voted;
-vecY_meas[1] := rPT_Cl2_Header_Voted;
-vecY_meas[2] := rPT_H2_Header_Voted;
-vecY_meas[3] := rAT_Anolyte_NaCl_Voted;
-vecY_meas[4] := rAT_Catholyte_NaOH_Voted;
-vecY_meas[5] := rCell_Temperature_degC;
-"""
-
-with open("dataset_parts/part3_tmr.txt", "w", encoding="utf-8") as f:
-    f.write(part3)
-
-print("Part 3 written successfully.")
+if __name__ == "__main__":
+    p3 = get_part3()
+    print("Part 3 length:", len(p3))

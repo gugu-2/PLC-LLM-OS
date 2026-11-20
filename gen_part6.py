@@ -1,409 +1,388 @@
-# gen_part6.py
+# gen_part6.py - Deeply Engineered 14-Stage Deterministic Production FSM
+def get_part6():
+    lines = []
+    def w(s=""):
+        lines.append(s)
 
-part6 = """(* ==================================================================================================== *)
-(* PHASE 4: DETERMINISTIC 14-STAGE PRODUCTION FINITE STATE MACHINE (FSM) ENGINE                          *)
-(* States: 0: STATE_IDLE                                                                                 *)
-(*         1: STATE_NITROGEN_PURGE_AND_LEAK_CHECK                                                        *)
-(*         2: STATE_BRINE_WARMUP_CIRCULATION                                                             *)
-(*         3: STATE_RECTIFIER_POLARIZATION_CURRENT_INIT                                                  *)
-(*         4: STATE_RAMP_CURRENT_LOW_LOAD_25PCT                                                          *)
-(*         5: STATE_PRESSURE_EQUILIBRATION_TRANSITION                                                    *)
-(*         6: STATE_NOMINAL_BASELOAD_PRODUCTION                                                          *)
-(*         7: STATE_CAUSTIC_CONCENTRATION_CONTROL_LOOP                                                   *)
-(*         8: STATE_BRINE_DEPLETION_FEED_CONTROL                                                         *)
-(*         9: STATE_MEMBRANE_HEALTH_VOLTAGE_MONITORING                                                   *)
-(*         10: STATE_CONTROLLED_RAMP_DOWN_TURNDOWN                                                       *)
-(*         11: STATE_AUTOMATED_SHUTDOWN_POLARIZATION_HOLD                                                *)
-(*         12: STATE_EMERGENCY_DEPRESSURIZATION_SCRUBBER_TRIP                                            *)
-(*         13: STATE_POST_TRIP_NITROGEN_INERT_BLANKET                                                    *)
-(* ==================================================================================================== *)
+    w("(* ==================================================================================================== *)")
+    w("(* === PHASE 4: 14-STAGE DETERMINISTIC PRODUCTION FINITE STATE MACHINE (FSM) === *)")
+    w("(* ==================================================================================================== *)")
+    w("")
+    w("(* Watchdog & Step Elapsed Timer *)")
+    w("r_FSM_Timer := r_FSM_Timer + r_dt_s;")
+    w("r_FSM_StateElapsed_s := r_FSM_Timer;")
+    w("n_ActiveFSMState := i_FSM_State;")
+    w("")
+    w("CASE i_FSM_State OF")
+    w("    (* ------------------------------------------------------------------------------------------------ *)")
+    w("    (* STAGE 0: INFEED STARWHEEL TRANSFER & PITCH SYNCHRONIZATION                                       *)")
+    w("    (* ------------------------------------------------------------------------------------------------ *)")
+    w("    0:")
+    w("        b_SeamingCycleBusy        := FALSE;")
+    w("        b_SeamingCycleComplete    := FALSE;")
+    w("        b_Cmd_KnockoutRod_Fire    := FALSE;")
+    w("        b_Cmd_RejectDiverter_Fire := FALSE;")
+    w("        b_Cmd_InfeedPocketLock    := FALSE;")
+    w("        r_Cmd_Roll1_RadialPosition_mm   := 0.0;")
+    w("        r_Cmd_Roll1_RadialVelocity_mm_s := 0.0;")
+    w("        r_Cmd_Roll1_RadialAccel_mm_s2   := 0.0;")
+    w("        r_Cmd_Roll2_RadialPosition_mm   := 0.0;")
+    w("        r_Cmd_Roll2_RadialVelocity_mm_s := 0.0;")
+    w("        r_Cmd_Roll2_RadialAccel_mm_s2   := 0.0;")
+    w("        r_Cmd_LifterServoPosition_mm    := 0.0;")
+    w("        r_Cmd_LifterServoVelocity_mm_s  := 0.0;")
+    w("        r_Cmd_LifterAxialThrust_N       := 0.0;")
+    w("        r_Cmd_SpindleSpeed_rpm          := 0.0;")
+    w("        r_Cmd_SpindleTorqueLimit_Pct    := 25.0; (* Standby low torque *)")
+    w("        r_Cmd_CO2_PurgeValve_Pct        := 15.0; (* Standby pilot purge flow *)")
+    w("        r_TotalCanAngleTraveled_deg     := 0.0;")
+    w("")
+    w("        IF b_Enable AND b_SafetyFenceInterlockOk AND b_EmergencyStopOk THEN")
+    w("            b_SeamerReady := TRUE;")
+    w("            IF b_AutoCycleStart AND b_InfeedCanPresent AND b_CanInfeedGateClear THEN")
+    w("                b_CanPassedQuality        := FALSE;")
+    w("                b_CanDefectiveReject      := FALSE;")
+    w("                b_Cmd_InfeedPocketLock    := TRUE; (* Engage infeed pocket centering lock *)")
+    w("                b_SeamingCycleBusy        := TRUE;")
+    w("                b_FSM_Transition          := TRUE;")
+    w("                r_FSM_Timer               := 0.0;")
+    w("                n_FSM_SubStep             := 0;")
+    w("                i_FSM_State               := 1;")
+    w("            END_IF;")
+    w("        ELSE")
+    w("            b_SeamerReady := FALSE;")
+    w("        END_IF;")
+    w("")
+    w("    (* ------------------------------------------------------------------------------------------------ *)")
+    w("    (* STAGE 1: END LID ROTARY FEEDER POCKET DROP & VACUUM PRESENCE CHECK                               *)")
+    w("    (* ------------------------------------------------------------------------------------------------ *)")
+    w("    1:")
+    w("        b_SeamingCycleBusy := TRUE;")
+    w("        b_Cmd_InfeedPocketLock := TRUE;")
+    w("        CASE n_FSM_SubStep OF")
+    w("            0: (* Chute Release & Vacuum Capture *)")
+    w("                IF b_EndLidPresent THEN")
+    w("                    n_FSM_SubStep := 1;")
+    w("                ELSIF r_FSM_Timer > 0.200 THEN")
+    w("                    b_CanDefectiveReject := TRUE;")
+    w("                    i_FSM_State := 12; (* Abort to Lifter Lower & Discharge *)")
+    w("                    r_FSM_Timer := 0.0;")
+    w("                END_IF;")
+    w("            1: (* Vacuum Level Stabilization *)")
+    w("                IF r_LidFeederVacuum_bar < -0.45 THEN")
+    w("                    b_FSM_Transition := TRUE;")
+    w("                    r_FSM_Timer      := 0.0;")
+    w("                    n_FSM_SubStep    := 0;")
+    w("                    i_FSM_State      := 2;")
+    w("                ELSIF r_FSM_Timer > 0.450 THEN")
+    w("                    b_CanDefectiveReject := TRUE;")
+    w("                    i_FSM_State := 12;")
+    w("                    r_FSM_Timer := 0.0;")
+    w("                END_IF;")
+    w("        END_CASE;")
+    w("")
+    w("    (* ------------------------------------------------------------------------------------------------ *)")
+    w("    (* STAGE 2: CO2 / UNDER-COVER GASSING (UCG) JET PURGE & HEADSPACE INERTING                           *)")
+    w("    (* ------------------------------------------------------------------------------------------------ *)")
+    w("    2:")
+    w("        r_Cmd_CO2_PurgeValve_Pct := 85.0; (* High-Velocity Sonic Jet Flush *)")
+    w("        CASE n_FSM_SubStep OF")
+    w("            0: (* Flow Acceleration & Sonic Jet Stabilization *)")
+    w("                IF r_CO2_GassingPressure_bar > 2.80 AND r_CO2_MassFlow_m3_h > 12.0 THEN")
+    w("                    n_FSM_SubStep := 1;")
+    w("                ELSIF r_FSM_Timer > 0.120 THEN")
+    w("                    n_FSM_SubStep := 1; (* Continue with advisory *)")
+    w("                END_IF;")
+    w("            1: (* Headspace Inerting Dwell *)")
+    w("                IF r_FSM_Timer > 0.065 THEN")
+    w("                    b_FSM_Transition := TRUE;")
+    w("                    r_FSM_Timer      := 0.0;")
+    w("                    n_FSM_SubStep    := 0;")
+    w("                    i_FSM_State      := 3;")
+    w("                END_IF;")
+    w("        END_CASE;")
+    w("")
+    w("    (* ------------------------------------------------------------------------------------------------ *)")
+    w("    (* STAGE 3: LIFTER TABLE RAPID UPWARD ELEVATION STROKE                                              *)")
+    w("    (* ------------------------------------------------------------------------------------------------ *)")
+    w("    3:")
+    w("        r_Cmd_LifterServoPosition_mm   := 125.0; (* Rapid lift to chuck interface datum *)")
+    w("        r_Cmd_LifterServoVelocity_mm_s := 450.0; (* Rapid approach velocity *)")
+    w("        r_Cmd_LifterAxialThrust_N      := 1200.0;")
+    w("        CASE n_FSM_SubStep OF")
+    w("            0: (* High-Speed Upward Acceleration *)")
+    w("                IF r_Cmd_LifterServoPosition_mm >= 110.0 OR r_Voted_LifterAxialForce > 450.0 THEN")
+    w("                    n_FSM_SubStep := 1;")
+    w("                ELSIF r_FSM_Timer > 0.075 THEN")
+    w("                    n_FSM_SubStep := 1;")
+    w("                END_IF;")
+    w("            1: (* Pre-Docking Contact Verification *)")
+    w("                IF r_Voted_LifterAxialForce > 650.0 OR r_FSM_Timer > 0.090 THEN")
+    w("                    b_FSM_Transition := TRUE;")
+    w("                    r_FSM_Timer      := 0.0;")
+    w("                    n_FSM_SubStep    := 0;")
+    w("                    i_FSM_State      := 4;")
+    w("                END_IF;")
+    w("        END_CASE;")
+    w("")
+    w("    (* ------------------------------------------------------------------------------------------------ *)")
+    w("    (* STAGE 4: CHUCK CLAMP SEATING & AXIAL PRELOAD COMPRESSION (1,800 N)                              *)")
+    w("    (* ------------------------------------------------------------------------------------------------ *)")
+    w("    4:")
+    w("        r_Cmd_LifterServoPosition_mm   := 128.5; (* Full compression clamp *)")
+    w("        r_Cmd_LifterServoVelocity_mm_s := 35.0;  (* Controlled docking velocity *)")
+    w("        r_Cmd_LifterAxialThrust_N      := 1850.0;")
+    w("        r_Cmd_SpindleTorqueLimit_Pct   := 100.0; (* Full torque capability *)")
+    w("        CASE n_FSM_SubStep OF")
+    w("            0: (* Progressive Spring Pack Compression *)")
+    w("                IF r_Voted_LifterAxialForce >= 1450.0 THEN")
+    w("                    n_FSM_SubStep := 1;")
+    w("                ELSIF r_FSM_Timer > 0.080 THEN")
+    w("                    b_CanDefectiveReject := TRUE;")
+    w("                    i_FSM_State := 11;")
+    w("                    r_FSM_Timer := 0.0;")
+    w("                END_IF;")
+    w("            1: (* Preload Clamping Force Stabilization Window (1,650 N - 2,250 N) *)")
+    w("                IF r_Voted_LifterAxialForce >= 1650.0 AND r_Voted_LifterAxialForce <= 2250.0 THEN")
+    w("                    b_FSM_Transition := TRUE;")
+    w("                    r_FSM_Timer      := 0.0;")
+    w("                    n_FSM_SubStep    := 0;")
+    w("                    i_FSM_State      := 5;")
+    w("                ELSIF r_FSM_Timer > 0.120 THEN")
+    w("                    b_CanDefectiveReject := TRUE;")
+    w("                    i_FSM_State := 11;")
+    w("                    r_FSM_Timer := 0.0;")
+    w("                END_IF;")
+    w("        END_CASE;")
+    w("")
+    w("    (* ------------------------------------------------------------------------------------------------ *)")
+    w("    (* STAGE 5: SPINDLE SYNCHRONOUS ELECTRONIC LINE SHAFT ACCEL TO 1,200 RPM                            *)")
+    w("    (* ------------------------------------------------------------------------------------------------ *)")
+    w("    5:")
+    w("        r_Cmd_SpindleSpeed_rpm := 1200.0;")
+    w("        b_Cmd_LubeMistSolenoid := TRUE; (* Lubrication mist active *)")
+    w("        CASE n_FSM_SubStep OF")
+    w("            0: (* Spindle Rotor Dynamic Acceleration *)")
+    w("                IF r_Voted_SpindleSpeed >= 800.0 THEN")
+    w("                    n_FSM_SubStep := 1;")
+    w("                ELSIF r_FSM_Timer > 0.100 THEN")
+    w("                    b_CanDefectiveReject := TRUE;")
+    w("                    i_FSM_State := 11;")
+    w("                    r_FSM_Timer := 0.0;")
+    w("                END_IF;")
+    w("            1: (* Synchronous Speed Lock Window Verification (1,150 - 1,250 rpm) *)")
+    w("                IF r_Voted_SpindleSpeed >= 1150.0 THEN")
+    w("                    b_FSM_Transition            := TRUE;")
+    w("                    r_FSM_Timer                 := 0.0;")
+    w("                    n_FSM_SubStep               := 0;")
+    w("                    r_TotalCanAngleTraveled_deg := 0.0;")
+    w("                    i_FSM_State                 := 6;")
+    w("                ELSIF r_FSM_Timer > 0.150 THEN")
+    w("                    b_CanDefectiveReject := TRUE;")
+    w("                    i_FSM_State := 11;")
+    w("                    r_FSM_Timer := 0.0;")
+    w("                END_IF;")
+    w("        END_CASE;")
+    w("")
+    w("    (* ------------------------------------------------------------------------------------------------ *)")
+    w("    (* STAGE 6: 1ST OPERATION ROLL SERVO CAM CURL ADVANCE (CURLING LID & BODY HOOKS)                   *)")
+    w("    (* ------------------------------------------------------------------------------------------------ *)")
+    w("    6:")
+    w("        r_TotalCanAngleTraveled_deg := r_TotalCanAngleTraveled_deg + r_Voted_SpindleSpeed * 6.0 * r_dt_s;")
+    w("        CASE n_FSM_SubStep OF")
+    w("            0: (* Radial Feed Engagement *)")
+    w("                IF r_Cmd_Roll1_RadialPosition_mm > 2.50 OR r_Voted_Roll1_RadialForce > 450.0 THEN")
+    w("                    n_FSM_SubStep := 1;")
+    w("                END_IF;")
+    w("            1: (* Full Curl Formation Travel (0..720 deg) *)")
+    w("                IF r_TotalCanAngleTraveled_deg >= r_ECam_Roll1_Angle_Curl_deg THEN")
+    w("                    b_FSM_Transition := TRUE;")
+    w("                    r_FSM_Timer      := 0.0;")
+    w("                    n_FSM_SubStep    := 0;")
+    w("                    i_FSM_State      := 7;")
+    w("                END_IF;")
+    w("        END_CASE;")
+    w("")
+    w("    (* ------------------------------------------------------------------------------------------------ *)")
+    w("    (* STAGE 7: 1ST OPERATION ROLL DWELL & FORMING FORCE VERIFICATION                                   *)")
+    w("    (* ------------------------------------------------------------------------------------------------ *)")
+    w("    7:")
+    w("        r_TotalCanAngleTraveled_deg := r_TotalCanAngleTraveled_deg + r_Voted_SpindleSpeed * 6.0 * r_dt_s;")
+    w("        CASE n_FSM_SubStep OF")
+    w("            0: (* Hook Formation Stability Check *)")
+    w("                IF r_Voted_Roll1_RadialForce >= 1400.0 AND r_Voted_Roll1_RadialForce <= 3200.0 THEN")
+    w("                    n_FSM_SubStep := 1;")
+    w("                ELSIF r_FSM_Timer > 0.050 THEN")
+    w("                    n_FSM_SubStep := 1;")
+    w("                END_IF;")
+    w("            1: (* 1st Op Dwell Completion *)")
+    w("                IF r_FSM_Timer > 0.035 THEN")
+    w("                    b_FSM_Transition := TRUE;")
+    w("                    r_FSM_Timer      := 0.0;")
+    w("                    n_FSM_SubStep    := 0;")
+    w("                    i_FSM_State      := 8;")
+    w("                ELSIF r_FSM_Timer > 0.090 THEN")
+    w("                    i_FSM_State := 8;")
+    w("                    r_FSM_Timer := 0.0;")
+    w("                END_IF;")
+    w("        END_CASE;")
+    w("")
+    w("    (* ------------------------------------------------------------------------------------------------ *)")
+    w("    (* STAGE 8: 1ST OPERATION ROLL RAPID RETRACT & INTERMEDIATE CLEARANCE                              *)")
+    w("    (* ------------------------------------------------------------------------------------------------ *)")
+    w("    8:")
+    w("        r_TotalCanAngleTraveled_deg := r_TotalCanAngleTraveled_deg + r_Voted_SpindleSpeed * 6.0 * r_dt_s;")
+    w("        CASE n_FSM_SubStep OF")
+    w("            0: (* High-Speed Retract Stroke *)")
+    w("                IF r_Cmd_Roll1_RadialPosition_mm <= 1.00 THEN")
+    w("                    n_FSM_SubStep := 1;")
+    w("                END_IF;")
+    w("            1: (* Intermediate Physical Clearance Confirmation *)")
+    w("                IF r_Cmd_Roll1_RadialPosition_mm <= 0.15 AND r_TotalCanAngleTraveled_deg >= r_ECam_Roll2_Angle_Engage_deg THEN")
+    w("                    b_FSM_Transition := TRUE;")
+    w("                    r_FSM_Timer      := 0.0;")
+    w("                    n_FSM_SubStep    := 0;")
+    w("                    i_FSM_State      := 9;")
+    w("                END_IF;")
+    w("        END_CASE;")
+    w("")
+    w("    (* ------------------------------------------------------------------------------------------------ *)")
+    w("    (* STAGE 9: 2ND OPERATION ROLL SERVO CAM IRONING ADVANCE (FLATTENING 5 METAL FOLDS)                *)")
+    w("    (* ------------------------------------------------------------------------------------------------ *)")
+    w("    9:")
+    w("        r_TotalCanAngleTraveled_deg := r_TotalCanAngleTraveled_deg + r_Voted_SpindleSpeed * 6.0 * r_dt_s;")
+    w("        CASE n_FSM_SubStep OF")
+    w("            0: (* Ironing Groove Engagement *)")
+    w("                IF r_Cmd_Roll2_RadialPosition_mm > 2.00 OR r_Voted_Roll2_RadialForce > 650.0 THEN")
+    w("                    n_FSM_SubStep := 1;")
+    w("                END_IF;")
+    w("            1: (* Full Ironing Clamping Sweep (1,200..1,800 deg) *)")
+    w("                IF r_TotalCanAngleTraveled_deg >= r_ECam_Roll2_Angle_Iron_deg THEN")
+    w("                    b_FSM_Transition := TRUE;")
+    w("                    r_FSM_Timer      := 0.0;")
+    w("                    n_FSM_SubStep    := 0;")
+    w("                    i_FSM_State      := 10;")
+    w("                END_IF;")
+    w("        END_CASE;")
+    w("")
+    w("    (* ------------------------------------------------------------------------------------------------ *)")
+    w("    (* STAGE 10: 2ND OPERATION ROLL FINAL COMPRESSION DWELL & THICKNESS MICRO-TRIM                     *)")
+    w("    (* ------------------------------------------------------------------------------------------------ *)")
+    w("    10:")
+    w("        r_TotalCanAngleTraveled_deg := r_TotalCanAngleTraveled_deg + r_Voted_SpindleSpeed * 6.0 * r_dt_s;")
+    w("        CASE n_FSM_SubStep OF")
+    w("            0: (* Ironing Force Distribution Verification (3,200 - 5,800 N) *)")
+    w("                IF r_Voted_Roll2_RadialForce >= 3200.0 AND r_Voted_Roll2_RadialForce <= 5800.0 THEN")
+    w("                    n_FSM_SubStep := 1;")
+    w("                ELSIF r_FSM_Timer > 0.050 THEN")
+    w("                    n_FSM_SubStep := 1;")
+    w("                END_IF;")
+    w("            1: (* Final Smoothing Dwell *)")
+    w("                IF r_FSM_Timer > 0.040 THEN")
+    w("                    b_FSM_Transition := TRUE;")
+    w("                    r_FSM_Timer      := 0.0;")
+    w("                    n_FSM_SubStep    := 0;")
+    w("                    i_FSM_State      := 11;")
+    w("                ELSIF r_FSM_Timer > 0.095 THEN")
+    w("                    i_FSM_State := 11;")
+    w("                    r_FSM_Timer := 0.0;")
+    w("                END_IF;")
+    w("        END_CASE;")
+    w("")
+    w("    (* ------------------------------------------------------------------------------------------------ *)")
+    w("    (* STAGE 11: 2ND OPERATION ROLL RETRACT & SPINDLE REGENERATIVE BRAKING TO 0 RPM                    *)")
+    w("    (* ------------------------------------------------------------------------------------------------ *)")
+    w("    11:")
+    w("        r_Cmd_SpindleSpeed_rpm        := 0.0; (* Active dynamic regenerative deceleration *)")
+    w("        b_Cmd_LubeMistSolenoid        := FALSE;")
+    w("        r_Cmd_CO2_PurgeValve_Pct      := 15.0; (* Return to standby purge *)")
+    w("        CASE n_FSM_SubStep OF")
+    w("            0: (* High-Speed Roll Retraction *)")
+    w("                IF r_Cmd_Roll2_RadialPosition_mm <= 0.20 THEN")
+    w("                    n_FSM_SubStep := 1;")
+    w("                END_IF;")
+    w("            1: (* Spindle Deceleration Window (< 85 rpm) *)")
+    w("                IF r_Voted_SpindleSpeed <= 85.0 AND r_Cmd_Roll2_RadialPosition_mm <= 0.15 THEN")
+    w("                    b_FSM_Transition := TRUE;")
+    w("                    r_FSM_Timer      := 0.0;")
+    w("                    n_FSM_SubStep    := 0;")
+    w("                    i_FSM_State      := 12;")
+    w("                ELSIF r_FSM_Timer > 0.150 THEN")
+    w("                    i_FSM_State := 12;")
+    w("                    r_FSM_Timer := 0.0;")
+    w("                END_IF;")
+    w("        END_CASE;")
+    w("")
+    w("    (* ------------------------------------------------------------------------------------------------ *)")
+    w("    (* STAGE 12: LIFTER TABLE LOWER & SPRING KNOCKOUT (KO) ROD CAN EJECTION                            *)")
+    w("    (* ------------------------------------------------------------------------------------------------ *)")
+    w("    12:")
+    w("        r_Cmd_LifterServoPosition_mm   := 0.0; (* Retract lifter table downward *)")
+    w("        r_Cmd_LifterServoVelocity_mm_s := -450.0;")
+    w("        r_Cmd_LifterAxialThrust_N      := 0.0;")
+    w("        CASE n_FSM_SubStep OF")
+    w("            0: (* Lifter Table Descent & KO Pulse Trigger *)")
+    w("                IF r_FSM_Timer > 0.035 THEN")
+    w("                    b_Cmd_KnockoutRod_Fire := TRUE; (* Positive knock-out from chuck lip *)")
+    w("                    n_FSM_SubStep := 1;")
+    w("                END_IF;")
+    w("            1: (* Can Release & Full Downstroke Confirmation *)")
+    w("                IF r_Voted_LifterAxialForce < 80.0 AND r_FSM_Timer > 0.090 THEN")
+    w("                    b_Cmd_KnockoutRod_Fire := FALSE;")
+    w("                    b_FSM_Transition       := TRUE;")
+    w("                    r_FSM_Timer            := 0.0;")
+    w("                    n_FSM_SubStep          := 0;")
+    w("                    i_FSM_State            := 13;")
+    w("                END_IF;")
+    w("        END_CASE;")
+    w("")
+    w("    (* ------------------------------------------------------------------------------------------------ *)")
+    w("    (* STAGE 13: DISCHARGE TRANSFER, 360-DEG LASER METROLOGY CHECK, & QUALITY DIVERTER                 *)")
+    w("    (* ------------------------------------------------------------------------------------------------ *)")
+    w("    13:")
+    w("        b_SeamingCycleComplete := TRUE;")
+    w("        r_TotalCycleTime_ms := r_FSM_Timer * 1000.0 + 45.0; (* Full cycle elapsed *)")
+    w("        CASE n_FSM_SubStep OF")
+    w("            0: (* Quality Evaluation Gate *)")
+    w("                IF (r_Est_SeamThickness_mm >= (r_SeamThicknessNominal_mm - 0.080)) AND")
+    w("                   (r_Est_SeamThickness_mm <= (r_SeamThicknessNominal_mm + 0.080)) AND")
+    w("                   (r_Est_OverlapRatio_Pct >= 72.0) AND")
+    w("                   (r_SeamThickness_RoundnessError_mm <= 0.065) AND")
+    w("                   NOT b_CanDefectiveReject THEN")
+    w("                    b_CanPassedQuality        := TRUE;")
+    w("                    b_Cmd_RejectDiverter_Fire := FALSE;")
+    w("                    IF n_TurretSpindleID >= 1 AND n_TurretSpindleID <= 12 THEN")
+    w("                        a_Spindle_CanProcessedCount[n_TurretSpindleID] := a_Spindle_CanProcessedCount[n_TurretSpindleID] + 1;")
+    w("                    END_IF;")
+    w("                ELSE")
+    w("                    b_CanPassedQuality        := FALSE;")
+    w("                    b_CanDefectiveReject      := TRUE;")
+    w("                    b_Cmd_RejectDiverter_Fire := TRUE; (* Fire High-Speed Reject Air Blow-Off *)")
+    w("                    IF n_TurretSpindleID >= 1 AND n_TurretSpindleID <= 12 THEN")
+    w("                        a_Spindle_RejectCount[n_TurretSpindleID] := a_Spindle_RejectCount[n_TurretSpindleID] + 1;")
+    w("                    END_IF;")
+    w("                END_IF;")
+    w("                n_FSM_SubStep := 1;")
+    w("            1: (* Conveyor Discharge Handshake & Station Recycle *)")
+    w("                IF r_FSM_Timer > 0.050 THEN")
+    w("                    b_Cmd_RejectDiverter_Fire := FALSE;")
+    w("                    b_SeamingCycleBusy        := FALSE;")
+    w("                    b_FSM_Transition          := TRUE;")
+    w("                    r_FSM_Timer               := 0.0;")
+    w("                    n_FSM_SubStep             := 0;")
+    w("                    i_FSM_State               := 0; (* Ready for next pocket can *)")
+    w("                END_IF;")
+    w("        END_CASE;")
+    w("ELSE")
+    w("    (* Safe Fallback Reset *)")
+    w("    i_FSM_State   := 0;")
+    w("    n_FSM_SubStep := 0;")
+    w("    r_FSM_Timer   := 0.0;")
+    w("END_CASE;")
+    w("")
 
-(* Universal State Dwell Timer Accumulation *)
-rStateTimer_s := rStateTimer_s + tScanCycleTime_s;
+    return "\n".join(lines)
 
-(* Universal Safety Critical Emergency Trip Interlock *)
-IF (bEmergencyStop OR bAlarm_DP_HH OR bAlarm_DP_LL OR bAlarm_H2_in_Cl2_HH OR bPDT_Cell_DP_Trip OR
-    bAlarm_P_Cl2_HH OR bAlarm_P_Cl2_LL OR bAlarm_P_H2_HH OR bAlarm_P_H2_LL OR
-    (NOT bRectifierOnlineFeedback AND eState >= 3 AND eState <= 11)) AND eState <> 12 AND eState <> 13 THEN
-    ePrevState := eState;
-    eState := 12; (* Fast Divert to Emergency Depressurization Scrubber Trip *)
-    rStateTimer_s := 0.0;
-    rEmergencyTripTimer_s := 0.0;
-END_IF;
-
-CASE eState OF
-    (* ------------------------------------------------------------------------------------------------ *)
-    (* STATE 0: IDLE / STANDBY                                                                          *)
-    (* Plant De-Energized, Cold Standby, Awaiting Process Permissives & Operator Start Command          *)
-    (* ------------------------------------------------------------------------------------------------ *)
-    0:
-        (* De-energize Actuator Commands *)
-        rValve_H2_BackPress_Cmd_pct  := 0.0;
-        rValve_Cl2_Vent_Cmd_pct      := 0.0;
-        rValve_WaterDilution_Cmd_pct := 0.0;
-        rValve_BrineTrim_Cmd_pct     := 0.0;
-        rRectifier_Current_Cmd_kA    := 0.0;
-
-        (* Discrete Solenoids in Safe Parked State *)
-        bValve_EmergencyScrubberVent := FALSE;
-        bValve_EmergencyH2VentStack  := FALSE;
-        bValve_N2_AnolytePurge       := FALSE;
-        bValve_N2_CatholytePurge     := FALSE;
-        bRectifier_TripInterlock     := FALSE;
-        bElectrolyzerIsolateValves   := FALSE;
-        bBrinePreheaterSteamValve    := FALSE;
-        bCausticCoolerWaterValve     := FALSE;
-
-        (* Transition Condition: All Permissives Active & Start Command Rising Edge *)
-        IF bEnable AND bAutoCycleStart AND NOT bEmergencyStop AND
-           bNitrogenPurgePermissive AND bChlorineAbsorptionReady AND
-           bHydrogenVentStackReady AND bDeminWaterSupplyPermissive THEN
-            ePrevState := 0;
-            eState := 1; (* Advance to Nitrogen Purge & Leak Check *)
-            rStateTimer_s := 0.0;
-            rPurgeTimer_s := 0.0;
-            rLeakCheckTimer_s := 0.0;
-            iFsmStepIndex := 0;
-        END_IF;
-
-    (* ------------------------------------------------------------------------------------------------ *)
-    (* STATE 1: NITROGEN PURGE AND LEAK CHECK                                                           *)
-    (* Displace Atmospheric Air / Oxygen from Cell Boxes & Conduct 60-Second Pressure Decay Leak Check  *)
-    (* ------------------------------------------------------------------------------------------------ *)
-    1:
-        IF iFsmStepIndex = 0 THEN
-            (* Step 0: Open N2 Purge Solenoids & Open Gas Vent Valves to Sweep Residual Gases *)
-            bValve_N2_AnolytePurge      := TRUE;
-            bValve_N2_CatholytePurge    := TRUE;
-            rValve_Cl2_Vent_Cmd_pct     := 20.0;
-            rValve_H2_BackPress_Cmd_pct := 20.0;
-            rPurgeTimer_s := rPurgeTimer_s + tScanCycleTime_s;
-
-            (* Dwell 45 Seconds for Complete Header Sweeping *)
-            IF rPurgeTimer_s >= 45.0 THEN
-                iFsmStepIndex := 1;
-                rLeakCheckTimer_s := 0.0;
-            END_IF;
-        ELSIF iFsmStepIndex = 1 THEN
-            (* Step 1: Pressure Hold Leak Decay Check at 0.10 bar (100 mbar) *)
-            bValve_N2_AnolytePurge      := FALSE;
-            bValve_N2_CatholytePurge    := FALSE;
-            rValve_Cl2_Vent_Cmd_pct     := 0.0;
-            rValve_H2_BackPress_Cmd_pct := 0.0;
-            rLeakCheckTimer_s := rLeakCheckTimer_s + tScanCycleTime_s;
-
-            (* Verify Leak Decay Rate < 0.005 bar (5 mbar) over 60 seconds *)
-            IF rLeakCheckTimer_s >= 60.0 THEN
-                IF rPT_Cl2_Header_Voted >= 0.080 AND rPT_H2_Header_Voted >= 0.080 AND
-                   ABS(rPDT_Cell_DP_Voted) <= 2.50 THEN
-                    (* Leak Check Passed Successfully *)
-                    ePrevState := 1;
-                    eState := 2; (* Advance to Brine Warmup Circulation *)
-                    rStateTimer_s := 0.0;
-                    rBrineWarmupTimer_s := 0.0;
-                    iFsmStepIndex := 0;
-                ELSE
-                    (* Leak Check Failed: Abort to IDLE *)
-                    ePrevState := 1;
-                    eState := 0;
-                    rStateTimer_s := 0.0;
-                END_IF;
-            END_IF;
-        END_IF;
-
-    (* ------------------------------------------------------------------------------------------------ *)
-    (* STATE 2: BRINE WARMUP CIRCULATION                                                                *)
-    (* Circulate Saturated Brine & Weak Caustic; Pre-Heat Electrolyzer to >= 80 deg C Before Powering   *)
-    (* ------------------------------------------------------------------------------------------------ *)
-    2:
-        (* Modulate Brine Trim Valve to 35% & Activate Warmup Steam Exchanger *)
-        rValve_BrineTrim_Cmd_pct  := 35.0;
-        bBrinePreheaterSteamValve := TRUE;
-        rBrineWarmupTimer_s       := rBrineWarmupTimer_s + tScanCycleTime_s;
-
-        (* Check Circulation Pumps are Running *)
-        IF bAnolyteRecircPumpRunning AND bCausticRecircPumpRunning THEN
-            (* Confirm Cell Stack Bulk Temperature Reached Safe 80.0 deg C Activation Point *)
-            IF rCell_Temperature_degC >= 80.0 AND rBrineWarmupTimer_s >= 30.0 THEN
-                bBrinePreheaterSteamValve := FALSE;
-                ePrevState := 2;
-                eState := 3; (* Advance to Rectifier Polarization Current Init *)
-                rStateTimer_s := 0.0;
-                rPolarizationInitTimer_s := 0.0;
-                iFsmStepIndex := 0;
-            END_IF;
-        END_IF;
-
-    (* ------------------------------------------------------------------------------------------------ *)
-    (* STATE 3: RECTIFIER POLARIZATION CURRENT INITIALIZATION                                           *)
-    (* Energize DC Rectifier to Minimum Polarization Current (5% Load, 3.50 kA) to Protect DSA Coating  *)
-    (* ------------------------------------------------------------------------------------------------ *)
-    3:
-        bRectifier_TripInterlock  := FALSE;
-        rRectifier_Current_Cmd_kA := 3.50; (* 5% of 70 kA *)
-        rPolarizationInitTimer_s  := rPolarizationInitTimer_s + tScanCycleTime_s;
-
-        (* Verify Rectifier Interlock Closed & Polarization Current Flowing *)
-        IF rPolarizationInitTimer_s >= 30.0 AND rRectifier_CurrentFb_kA >= 3.0 AND
-           rCell_AverageVoltage_V >= 2.10 AND rCell_AverageVoltage_V <= 2.45 THEN
-            (* Polarization Established Safely *)
-            ePrevState := 3;
-            eState := 4; (* Advance to Ramp Current Low Load 25% *)
-            rStateTimer_s := 0.0;
-            rLowLoadRampTimer_s := 0.0;
-            iFsmStepIndex := 0;
-        END_IF;
-
-    (* ------------------------------------------------------------------------------------------------ *)
-    (* STATE 4: RAMP CURRENT TO LOW LOAD (25% BASELOAD, ~17.5 kA)                                       *)
-    (* Smoothly Ramp Rectifier Current at 1.0 kA/10s; Initiate Gas Header Pressure Regulation           *)
-    (* ------------------------------------------------------------------------------------------------ *)
-    4:
-        rLowLoadRampTimer_s := rLowLoadRampTimer_s + tScanCycleTime_s;
-
-        (* Controlled Rectifier Current Ramp from 3.50 kA to 17.50 kA *)
-        IF rRectifier_Current_Cmd_kA < 17.50 THEN
-            rRectifier_Current_Cmd_kA := MIN(17.50, rRectifier_Current_Cmd_kA + (0.10 * tScanCycleTime_s));
-        END_IF;
-
-        (* Check Transition Conditions: Current Reached 17.5 kA and DP within +/- 2.5 mbar *)
-        IF rRectifier_CurrentFb_kA >= 17.0 AND ABS(rEst_Cell_DP_mbar - 18.0) <= 2.50 AND
-           rLowLoadRampTimer_s >= 60.0 THEN
-            ePrevState := 4;
-            eState := 5; (* Advance to Pressure Equilibration Transition *)
-            rStateTimer_s := 0.0;
-            rPressureEquilibrationTimer_s := 0.0;
-            iFsmStepIndex := 0;
-        END_IF;
-
-    (* ------------------------------------------------------------------------------------------------ *)
-    (* STATE 5: PRESSURE EQUILIBRATION TRANSITION                                                       *)
-    (* Lock Differential Pressure Within +/- 1.5 mbar at +30.0 mbar Setpoint; Gas Purity Verification   *)
-    (* ------------------------------------------------------------------------------------------------ *)
-    5:
-        rPressureEquilibrationTimer_s := rPressureEquilibrationTimer_s + tScanCycleTime_s;
-
-        (* Hold at 25% Load While MPC Locks In Header Pressures and Differential Pressure *)
-        IF rPressureEquilibrationTimer_s >= 60.0 AND ABS(rEst_Cell_DP_mbar - 30.0) <= 1.50 AND
-           rAT_H2_in_Cl2_Voted <= 0.25 AND rPT_Cl2_Header_Voted >= 0.180 AND rPT_H2_Header_Voted >= 0.200 THEN
-            ePrevState := 5;
-            eState := 6; (* Advance to Nominal Baseload Production *)
-            rStateTimer_s := 0.0;
-            iFsmStepIndex := 0;
-        END_IF;
-
-    (* ------------------------------------------------------------------------------------------------ *)
-    (* STATE 6: NOMINAL BASELOAD PRODUCTION                                                             *)
-    (* Full Current Density (2.5 kA/m2, 67.5 kA); Multi-Variable Receding Horizon MPC Balancing         *)
-    (* ------------------------------------------------------------------------------------------------ *)
-    6:
-        (* Rectifier Allowed to Ramp Up to Baseload Current (up to 67.5 kA) *)
-        IF rRectifier_Current_Cmd_kA < 67.50 THEN
-            rRectifier_Current_Cmd_kA := MIN(67.50, rRectifier_Current_Cmd_kA + (0.25 * tScanCycleTime_s));
-        END_IF;
-
-        (* Thermal Cooling Regulation to Maintain 88 deg C *)
-        IF rEst_Cell_Temperature_degC > 88.5 THEN
-            bCausticCoolerWaterValve := TRUE;
-        ELSIF rEst_Cell_Temperature_degC < 87.0 THEN
-            bCausticCoolerWaterValve := FALSE;
-        END_IF;
-
-        (* Dynamic Transitions to Specialized Sub-Loops Based on Process Deviations *)
-        IF ABS(rEst_Catholyte_NaOH_pct - 32.5) > 0.80 AND rStateTimer_s >= 30.0 THEN
-            ePrevState := 6;
-            eState := 7; (* Caustic Concentration Control Loop Tuning *)
-            rStateTimer_s := 0.0;
-        ELSIF rEst_Anolyte_NaCl_gL < 195.0 AND rStateTimer_s >= 30.0 THEN
-            ePrevState := 6;
-            eState := 8; (* Brine Depletion Feed Control Loop Tuning *)
-            rStateTimer_s := 0.0;
-        ELSIF rCellVoltageDeviation_V > 0.150 AND rStateTimer_s >= 60.0 THEN
-            ePrevState := 6;
-            eState := 9; (* Membrane Health & Specific Resistance Monitoring *)
-            rStateTimer_s := 0.0;
-        ELSIF bPlantStop THEN
-            ePrevState := 6;
-            eState := 10; (* Orderly Ramp-Down Turndown Sequence *)
-            rStateTimer_s := 0.0;
-            rTurndownRampTimer_s := 0.0;
-        END_IF;
-
-    (* ------------------------------------------------------------------------------------------------ *)
-    (* STATE 7: CAUSTIC CONCENTRATION CONTROL LOOP                                                      *)
-    (* High-Precision Feedforward & Feedback Regulation of Demin Water Catholyte Dilution               *)
-    (* ------------------------------------------------------------------------------------------------ *)
-    7:
-        (* Priority Trim on Soft Water Dilution Valve *)
-        IF rEst_Catholyte_NaOH_pct > 32.7 THEN
-            rValve_WaterDilution_Cmd_pct := MIN(100.0, rValve_WaterDilution_Cmd_pct + (0.15 * tScanCycleTime_s));
-        ELSIF rEst_Catholyte_NaOH_pct < 32.3 THEN
-            rValve_WaterDilution_Cmd_pct := MAX(0.0, rValve_WaterDilution_Cmd_pct - (0.15 * tScanCycleTime_s));
-        END_IF;
-
-        (* Return to Nominal Baseload when Caustic Concentration Returns to +/- 0.15 wt% Band *)
-        IF ABS(rEst_Catholyte_NaOH_pct - 32.5) <= 0.15 AND rStateTimer_s >= 30.0 THEN
-            ePrevState := 7;
-            eState := 6; (* Return to Baseload Production *)
-            rStateTimer_s := 0.0;
-        ELSIF bPlantStop THEN
-            ePrevState := 7;
-            eState := 10;
-            rStateTimer_s := 0.0;
-            rTurndownRampTimer_s := 0.0;
-        END_IF;
-
-    (* ------------------------------------------------------------------------------------------------ *)
-    (* STATE 8: BRINE DEPLETION FEED CONTROL                                                            *)
-    (* Adjust Saturated Brine Feed Trim to Rebalance Anolyte Salt Concentration to 205.0 g/L            *)
-    (* ------------------------------------------------------------------------------------------------ *)
-    8:
-        (* Boost Fresh Saturated Brine Inflow Feed *)
-        IF rEst_Anolyte_NaCl_gL < 205.0 THEN
-            rValve_BrineTrim_Cmd_pct := MIN(100.0, rValve_BrineTrim_Cmd_pct + (0.20 * tScanCycleTime_s));
-        ELSIF rEst_Anolyte_NaCl_gL > 215.0 THEN
-            rValve_BrineTrim_Cmd_pct := MAX(10.0, rValve_BrineTrim_Cmd_pct - (0.20 * tScanCycleTime_s));
-        END_IF;
-
-        (* Return to Nominal Baseload when Anolyte Salt Restored *)
-        IF rEst_Anolyte_NaCl_gL >= 203.0 AND rStateTimer_s >= 30.0 THEN
-            ePrevState := 8;
-            eState := 6; (* Return to Baseload Production *)
-            rStateTimer_s := 0.0;
-        ELSIF bPlantStop THEN
-            ePrevState := 8;
-            eState := 10;
-            rStateTimer_s := 0.0;
-            rTurndownRampTimer_s := 0.0;
-        END_IF;
-
-    (* ------------------------------------------------------------------------------------------------ *)
-    (* STATE 9: MEMBRANE HEALTH VOLTAGE MONITORING                                                      *)
-    (* Evaluate Membrane Specific Ohmic Resistance, Gas Bubble Stagnation & Micro-Deformation           *)
-    (* ------------------------------------------------------------------------------------------------ *)
-    9:
-        (* Boost Circulation to Sweep Stagnant Bubbles from Membrane Surface *)
-        IF rCalc_MembraneAreaResist_mOhm > 300.0 THEN
-            rValve_BrineTrim_Cmd_pct := MIN(100.0, rValve_BrineTrim_Cmd_pct + 5.0);
-        END_IF;
-
-        (* Dwell 60 Seconds to Gather Frequency Response & Resistance Data *)
-        IF rStateTimer_s >= 60.0 THEN
-            ePrevState := 9;
-            eState := 6; (* Return to Baseload Production *)
-            rStateTimer_s := 0.0;
-        ELSIF bPlantStop THEN
-            ePrevState := 9;
-            eState := 10;
-            rStateTimer_s := 0.0;
-            rTurndownRampTimer_s := 0.0;
-        END_IF;
-
-    (* ------------------------------------------------------------------------------------------------ *)
-    (* STATE 10: CONTROLLED RAMP-DOWN TURNDOWN                                                          *)
-    (* Orderly Rectifier Turndown at -1.5 kA/5s Down to Polarization Current (3.50 kA)                  *)
-    (* ------------------------------------------------------------------------------------------------ *)
-    10:
-        rTurndownRampTimer_s := rTurndownRampTimer_s + tScanCycleTime_s;
-
-        (* Smoothly Turndown Current *)
-        IF rRectifier_Current_Cmd_kA > 3.50 THEN
-            rRectifier_Current_Cmd_kA := MAX(3.50, rRectifier_Current_Cmd_kA - (0.30 * tScanCycleTime_s));
-        END_IF;
-
-        (* Throttle Gas Valves Concurrently to Avoid DP Divergence *)
-        IF rRectifier_CurrentFb_kA <= 4.0 AND rTurndownRampTimer_s >= 60.0 THEN
-            ePrevState := 10;
-            eState := 11; (* Advance to Automated Shutdown Polarization Hold *)
-            rStateTimer_s := 0.0;
-            rShutdownPolarizationTimer_s := 0.0;
-        END_IF;
-
-    (* ------------------------------------------------------------------------------------------------ *)
-    (* STATE 11: AUTOMATED SHUTDOWN POLARIZATION HOLD                                                   *)
-    (* Hold at 5% Current (3.50 kA) to Prevent Reverse Galvanic Current While Preparing Depressurization *)
-    (* ------------------------------------------------------------------------------------------------ *)
-    11:
-        rRectifier_Current_Cmd_kA    := 3.50;
-        rShutdownPolarizationTimer_s := rShutdownPolarizationTimer_s + tScanCycleTime_s;
-
-        (* Confirm Complete Shutdown Command *)
-        IF rShutdownPolarizationTimer_s >= 60.0 AND NOT bAutoCycleStart THEN
-            (* De-energize Rectifier and Transition to Nitrogen Purge / Standby *)
-            rRectifier_Current_Cmd_kA := 0.0;
-            bRectifier_TripInterlock  := TRUE;
-            ePrevState := 11;
-            eState := 0; (* Return to Standby IDLE *)
-            rStateTimer_s := 0.0;
-        END_IF;
-
-    (* ------------------------------------------------------------------------------------------------ *)
-    (* STATE 12: EMERGENCY DEPRESSURIZATION SCRUBBER TRIP                                               *)
-    (* Immediate Interlock: Rectifier Trip, Open Chlorine Scrubber Solenoid, Open H2 Flare Vent, Purge  *)
-    (* ------------------------------------------------------------------------------------------------ *)
-    12:
-        rEmergencyTripTimer_s := rEmergencyTripTimer_s + tScanCycleTime_s;
-
-        (* 1. Fast Rectifier Hardware Interlock Trip *)
-        bRectifier_TripInterlock  := TRUE;
-        rRectifier_Current_Cmd_kA := 0.0;
-
-        (* 2. Fast Emergency Vent Solenoids Actuation *)
-        bValve_EmergencyScrubberVent := TRUE; (* Dump Cl2 to Caustic Neutralization Scrubber *)
-        bValve_EmergencyH2VentStack  := TRUE; (* Dump H2 to Atmosphere Flare Stack *)
-
-        (* 3. High-Pressure Inert Nitrogen Purge Ingress *)
-        bValve_N2_AnolytePurge       := TRUE;
-        bValve_N2_CatholytePurge     := TRUE;
-
-        (* 4. Double Block & Bleed Skid Isolation *)
-        bElectrolyzerIsolateValves   := TRUE;
-        bBrinePreheaterSteamValve    := FALSE;
-        bCausticCoolerWaterValve     := FALSE;
-
-        (* 5. Modulating Valves Forced Safe *)
-        rValve_H2_BackPress_Cmd_pct  := 100.0;
-        rValve_Cl2_Vent_Cmd_pct      := 100.0;
-        rValve_WaterDilution_Cmd_pct := 0.0;
-        rValve_BrineTrim_Cmd_pct     := 0.0;
-
-        (* Dwell 60 Seconds to Evacuate All Hazardous Gases *)
-        IF rEmergencyTripTimer_s >= 60.0 THEN
-            ePrevState := 12;
-            eState := 13; (* Transition to Post-Trip Nitrogen Inert Blanket *)
-            rStateTimer_s := 0.0;
-            rPostTripBlanketTimer_s := 0.0;
-        END_IF;
-
-    (* ------------------------------------------------------------------------------------------------ *)
-    (* STATE 13: POST-TRIP NITROGEN INERT BLANKET                                                       *)
-    (* Maintain Positive Inert Blanket (0.02 bar) to Inhibit Atmospheric Oxygen or Hydrogen Cross-Leak  *)
-    (* ------------------------------------------------------------------------------------------------ *)
-    13:
-        rPostTripBlanketTimer_s := rPostTripBlanketTimer_s + tScanCycleTime_s;
-
-        (* Maintain Low Continuous Inert Blanket *)
-        bValve_EmergencyScrubberVent := FALSE;
-        bValve_EmergencyH2VentStack  := FALSE;
-        bValve_N2_AnolytePurge       := TRUE;
-        bValve_N2_CatholytePurge     := TRUE;
-        rValve_H2_BackPress_Cmd_pct  := 5.0;
-        rValve_Cl2_Vent_Cmd_pct      := 5.0;
-
-        (* Operator Reset & Acknowledge Sequence to Clear Trip *)
-        IF bFaultReset AND bAlarmAck AND NOT bEmergencyStop AND
-           NOT bAlarm_DP_HH AND NOT bAlarm_DP_LL AND NOT bAlarm_H2_in_Cl2_HH AND
-           rPostTripBlanketTimer_s >= 30.0 THEN
-            ePrevState := 13;
-            eState := 0; (* Return to IDLE *)
-            rStateTimer_s := 0.0;
-        END_IF;
-END_CASE;
-
-iActiveFsmState := eState;
-"""
-
-with open("dataset_parts/part6_fsm.txt", "w", encoding="utf-8") as f:
-    f.write(part6)
-
-print("Part 6 written successfully.")
+if __name__ == "__main__":
+    p6 = get_part6()
+    print("Part 6 length:", len(p6))

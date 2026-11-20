@@ -1,60 +1,75 @@
-# build_dataset.py
-import sys
-import os
-import json
-import uuid
-import subprocess
+# Script to generate the comprehensive IEC 61131-3 dataset for FB_Semiconductor_WireBonding_ThermoSonic_Sync
+import json, uuid, sys, os
 
-from seat_foam_rim_builder.assemble import assemble_code
+def generate_code():
+    parts = []
+    
+    # ------------------------------------------------------------------------------------------------
+    # HEADER & SYSTEM ARCHITECTURE
+    # ------------------------------------------------------------------------------------------------
+    header = """FUNCTION_BLOCK FB_Semiconductor_WireBonding_ThermoSonic_Sync
+(* ==================================================================================================== *)
+(* LUMINA CYBER-PHYSICAL AUTOMATION ARCHITECTURE - V7 MAX-PERSONA (75+ YRS INDUSTRIAL FELLOW EXPERIENCE)   *)
+(* DOMAIN: HEAVY COMMERCIAL MANUFACTURING - SEMICONDUCTOR ASSEMBLY & ADVANCED IC PACKAGING             *)
+(* SYSTEM: HIGH-SPEED AUTOMATIC THERMO-SONIC BALL & WEDGE WIRE BONDER                                   *)
+(*         35 UM ULTRA-FINE PITCH, 18-22 WIRES/SEC, HIGH-VOLTAGE EFO SPARK GENERATOR, PIEZOELECTRIC    *)
+(*         ULTRASONIC TRANSDUCER RESONANCE TRACKING, DIRECT-DRIVE VOICE-COIL BOND HEAD FORCE CONTROL    *)
+(* STANDARDS COMPLIANCE: SEMI E10 (RAM), SEMI G44 (WIRE BOND PULL/SHEAR), ANSI/ISA-18.2 (ALARMS),        *)
+(*                       IEC 61508 SIL-3 (2oo3 TMR SENSOR VOTING), IEEE 1451 SENSOR INTERFACES          *)
+(* EXECUTION PROFILE: REAL-TIME SERVO CYCLE TIME Ts = 0.0002 s (5.0 kHz / 200 MICROSECONDS SERVO LOOP)    *)
+(* ==================================================================================================== *)
+(*
+ * CYBER-PHYSICAL FIRST-PRINCIPLES MATHEMATICAL MODELING:
+ * 1. HIGH-BANDWIDTH DIRECT-DRIVE VOICE COIL MOTOR (VCM) ELECTROMECHANICS:
+ *    Bond head vertical translation (Z-axis) dynamics are governed by Newton-Lorentz second-order balance:
+ *      m_head * d2(z)/dt2 + c_viscous * d(z)/dt + k_flexure * z = K_force * i_vc - F_contact(z, z_surface)
+ *    where:
+ *      m_head    = Bond head moving mass (capillary, horn, transducer, coil) [kg] (~0.125 kg)
+ *      c_viscous = Viscous damping coefficient of air-bearing / linear guide [N*s/m] (~2.40 N*s/m)
+ *      k_flexure = Flexure suspension parasitic stiffness [N/m] (~45.0 N/m)
+ *      K_force   = Voice coil motor force sensitivity constant [N/A] (~14.80 N/A)
+ *      i_vc      = Voice coil armature current [A]
+ *      F_contact = Dynamic normal contact force between capillary tip and bond pad [N]
+ *                  Modeled via nonlinear Hunt-Crossley elastoplastic contact mechanics:
+ *                  F_contact = K_contact * delta^p + C_contact * delta^p * d(delta)/dt  (for delta > 0)
+ *
+ * 2. PIEZOELECTRIC ULTRASONIC TRANSDUCER ELECTRO-ACOUSTIC RESONANCE TRACKING:
+ *    The 60 kHz to 138 kHz longitudinal vibration horn is parameterized via Butterworth-Van Dyke (BVD):
+ *      Z_us(j*omega) = 1 / ( j*omega*C0 + 1 / ( R_m + j*(omega*L_m - 1/(omega*C_m)) + Z_load ) )
+ *    where:
+ *      C0     = Transducer static clamped capacitance [nF] (~3.85 nF)
+ *      R_m    = Motional resistance reflecting mechanical acoustic loss [Ohm] (~12.5 Ohm)
+ *      L_m    = Motional inductance reflecting acoustic horn equivalent mass [mH] (~28.4 mH)
+ *      C_m    = Motional capacitance reflecting acoustic horn equivalent compliance [pF] (~98.2 pF)
+ *      Z_load = Mechanical acoustic impedance at the bond interface [Ohm]
+ *               Z_load = gamma_friction * F_bond + beta_softening * IMC_depth
+ *    Resonance tracking PLL phase detector:
+ *      Delta_phi = Phase(V_us) - Phase(I_us);  d(omega_us)/dt = - K_pll * sin(Delta_phi)
+ *
+ * 3. ELECTRONIC FLAME OFF (EFO) TOWNSEND AVALANCHE & FREE AIR BALL (FAB) MELTING:
+ *    Negative DC pulsed spark discharge (-1000V to -4200V) between EFO spark rod and wire tail:
+ *      E_efo = integral( V_spark(t) * I_spark(t) * dt )  from t_start to t_extinguish
+ *    Thermal conservation of molten sphere formation under 95% N2 / 5% H2 shielding gas:
+ *      rho_wire * ( Delta_H_fusion + c_p_liquid * (T_melt - T_ambient) ) * V_fab = eta_efo * E_efo
+ *      D_fab = [ (6.0 * eta_efo * E_efo) / ( pi * rho_wire * (Delta_H_fusion + c_p * Delta_T) ) ]^(1/3)
+ *
+ * 4. INTERMETALLIC COMPOUND (IMC) KINETICS & THERMOSONIC DIFFUSION:
+ *    Au-Al or Cu-Al solid-state intermetallic growth rate at the scrub interface:
+ *      dX_imc / dt = ( k_0 * exp( - Q_activation / (R_gas * T_interface) ) ) / ( 2.0 * X_imc )
+ *                    * ( 1.0 + alpha_us * P_ultrasonic * (1.0 - exp(-t / tau_acoustic)) )
+ *    Interface temperature under simultaneous heated anvil (T_sub) and friction heating:
+ *      T_interface = T_sub + ( T_cap - T_sub ) * eta_cond + ( mu_fric * F_bond * omega_us * A_horn ) / ( 4.0 * J_th * k_th_die )
+ *
+ * 5. TRIPLE MODULAR REDUNDANCY (2oo3 TMR) SENSOR VOTING WITH 10 MS DISCREPANCY TIMERS:
+ *    4 Safety-critical instrumented loops:
+ *      Channel 1: Optical Linear Glass Scale Z-Encoder (ChA, ChB, ChC) [um]
+ *      Channel 2: Piezoelectric Dynamic Impact Force Transducer (ChA, ChB, ChC) [mN]
+ *      Channel 3: Heated Leadframe Vacuum Anvil IR Pyrometers (ChA, ChB, ChC) [deg C]
+ *      Channel 4: Ultrasonic Generator RF Phase/Current Pickoff (ChA, ChB, ChC) [deg]
+ *    Degradation hierarchy: 2oo3 Median -> 1oo2 Mean -> 1oo1 Direct Advisory -> Fail-Safe Z-Retract.
+ *)
+"""
+    parts.append(header)
+    return parts
 
-prompt_text = """You are a 75+ years veteran Principal Automation Fellow & Cyber-Physical Systems Chair operating under the V7 Max-Persona Protocol.
-
-YOUR SOLE MISSION:
-Synthesize an ultra-dense, mathematically complete, production-grade IEC 61131-3 Function Block dataset for Automotive Seat Foam Reaction Injection Molding (RIM):
-`FB_Automotive_Interiors_SeatFoam_HighPressureRIM`
-
-MANDATORY SPECIFICATIONS:
-1. TARGET CODE DENSITY: 110,000 to 150,000+ characters of pristine, un-truncated IEC 61131-3 Structured Text. Zero summaries, zero placeholders, zero ellipsis comments (`// ... rest of code`).
-2. ARCHITECTURAL REQUIREMENTS:
-   - Discrete State-Space Matrices (6x6 A, B, C, D) for dual-component high-pressure hydraulic mixing & exothermic polyurethane polymerization kinetics: x_{k+1} = A*x_k + B*u_k, y_k = C*x_k + D*u_k.
-   - Receding-Horizon Model Predictive Control (MPC) with 10 unrolled Projected Gradient Descent (PGD) iterations optimizing impingement mixing pressure [bar] and stoichiometric ratio R [1.05 +/- 0.01].
-   - 2oo3 Triple Modular Redundancy (TMR) voting logic across 4 sensor channels: Polyol Coriolis mass flowmeter, Isocyanate Coriolis mass flowmeter, High-pressure hydraulic mix-head sensor, and Mold cavity infrared temperature sensor.
-   - 14-Stage Production Finite State Machine (FSM):
-     0: UNINITIALIZED, 1: CARROUSEL_HOMING_CALIBRATION, 2: MOLD_CARRIER_INDEXING, 3: RELEASE_AGENT_ROBOTIC_SPRAY, 4: WIRE_FRAME_INSERT_INSPECTION, 5: MOLD_HEATING_VACUUM_SEAL, 6: HIGH_PRESSURE_RECIRCULATION, 7: ROBOTIC_POURING_TILT_TRAJECTORY, 8: HIGH_PRESSURE_IMPINGEMENT_SHOT, 9: EXOTHERMIC_CURING_SUPERVISION, 10: MOLD_DEPRESSURIZATION_VENT, 11: MOLD_OPENING_DEMOLDING_ROBOT, 12: PART_WEIGHT_DENSITY_VERIFICATION, 13: E-STOP_VENT_PURGE.
-   - ISA-18.2 Multi-Tier Alarms (HH, H, L, LL with deadband hysteresis) and 32-bit bit-packed telemetry registers.
-3. PARITY GUARANTEE:
-   - 100% exact parity: Every IF has END_IF;, every CASE has END_CASE;, every FOR has END_FOR;, every WHILE has END_WHILE;. First line `FUNCTION_BLOCK FB_Automotive_Interiors_SeatFoam_HighPressureRIM`, last line `END_FUNCTION_BLOCK`.
-   - SI engineering units on all I/O variables."""
-
-code = assemble_code()
-assistant_content = f"```iec-st\n{code}\n```"
-
-record = {
-    "instruction": prompt_text,
-    "input": "",
-    "output": assistant_content,
-    "messages": [
-        {"role": "user", "content": prompt_text},
-        {"role": "assistant", "content": assistant_content}
-    ]
-}
-
-agent_id = uuid.uuid4().hex[:8]
-target_file = f"data/swarm_raw/agent_{agent_id}.json"
-os.makedirs("data/swarm_raw", exist_ok=True)
-
-with open(target_file, "w", encoding="utf-8") as f:
-    json.dump(record, f, ensure_ascii=False, indent=2)
-
-print(f"Generated and saved dataset to {target_file}")
-print(f"Assistant content character count: {len(assistant_content)}")
-print(f"Raw Structured Text character count: {len(code)}")
-
-# Validate with validate_iec.py
-res = subprocess.run([sys.executable, "validate_iec.py", target_file], capture_output=True, text=True)
-print(res.stdout)
-if res.returncode != 0:
-    print("VALIDATION ERROR:", res.stderr)
-    sys.exit(1)
-else:
-    print(f"FILE {target_file} VALIDATION SUCCEEDED!")
+print("generate_bonder module ready")

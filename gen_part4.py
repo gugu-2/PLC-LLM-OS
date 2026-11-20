@@ -1,154 +1,205 @@
-# gen_part4.py
+# gen_part4.py - Comprehensive Phase 2 State-Space, Ludwik-Hollomon Mechanics & Thermal FEM
+def get_part4():
+    lines = []
+    def w(s=""):
+        lines.append(s)
 
-part4 = """(* ==================================================================================================== *)
-(* PHASE 2: FIRST-PRINCIPLES CYBER-PHYSICAL STATE-SPACE ESTIMATION & ELECTROCHEMICAL KINETICS           *)
-(* Architecture: Luenberger Observer (Prediction -> Measurement -> Innovation -> Filtered Estimate)     *)
-(* Electrochemical Kinetics: Faraday Production, Nernst Reversible Potential, Butler-Volmer/Tafel,     *)
-(*                           Membrane Area Resistance, Specific Energy & Thermal Balance                *)
-(* ==================================================================================================== *)
+    w("(* ==================================================================================================== *)")
+    w("(* === PHASE 2: DISCRETE 12TH-ORDER CYBER-PHYSICAL STATE-SPACE DOUBLE-SEAM OBSERVER === *)")
+    w("(* ==================================================================================================== *)")
+    w("")
+    w("(* Map Actuator Inputs to Discrete State-Space Input Vector u[1..6] *)")
+    w("a_u_vec[1] := r_Cmd_Roll1_RadialPosition_mm;  (* u1: 1st Op Roll Radial Feed Command [mm] *)")
+    w("a_u_vec[2] := r_Cmd_Roll2_RadialPosition_mm;  (* u2: 2nd Op Roll Radial Feed Command [mm] *)")
+    w("a_u_vec[3] := r_Cmd_LifterAxialThrust_N;      (* u3: Lifter Dynamic Thrust Command [N] *)")
+    w("a_u_vec[4] := r_Cmd_SpindleSpeed_rpm;         (* u4: Chuck Spindle Rotational Speed Command [rpm] *)")
+    w("a_u_vec[5] := r_Cmd_CO2_PurgeValve_Pct;       (* u5: Under-Cover Inerting Purge Valve [%] *)")
+    w("a_u_vec[6] := r_LubeMistFlow_l_min;           (* u6: Tooling Lubricant Cooling Mist Flow [l/min] *)")
+    w("")
+    w("(* Map Process Sensors to Measurement Vector y_meas[1..8] *)")
+    w("a_y_meas[1] := r_Voted_LifterAxialForce;        (* y1: Voted Lifter Axial Clamping Force [N] *)")
+    w("a_y_meas[2] := r_Voted_Roll1_RadialForce;       (* y2: Voted 1st Op Forming Radial Force [N] *)")
+    w("a_y_meas[3] := r_Voted_Roll2_RadialForce;       (* y3: Voted 2nd Op Ironing Radial Force [N] *)")
+    w("a_y_meas[4] := r_Voted_SpindleSpeed;            (* y4: Voted Spindle Velocity [rpm] *)")
+    w("a_y_meas[5] := r_LaserMeasuredSeamThickness_mm; (* y5: Laser Measured Double Seam Thickness [mm] *)")
+    w("a_y_meas[6] := r_LaserMeasuredSeamHeight_mm;    (* y6: Laser Measured Double Seam Height [mm] *)")
+    w("a_y_meas[7] := r_ChuckBodyTemp_degC;            (* y7: Seaming Chuck Nose RTD Temp [deg C] *)")
+    w("a_y_meas[8] := r_TurretAngularPos_deg;          (* y8: Rotary Carousel Angular Coordinate [deg] *)")
+    w("")
+    w("(* 1. A Priori State Prediction: x_pred = A * x_hat + B * u *)")
+    w("FOR i := 1 TO 12 DO")
+    w("    r_temp_val := 0.0;")
+    w("    FOR j := 1 TO 12 DO")
+    w("        r_temp_val := r_temp_val + a_SS_A[i, j] * a_x_hat[j];")
+    w("    END_FOR;")
+    w("    FOR m := 1 TO 6 DO")
+    w("        r_temp_val := r_temp_val + a_SS_B[i, m] * a_u_vec[m];")
+    w("    END_FOR;")
+    w("    a_x_pred[i] := r_temp_val;")
+    w("END_FOR;")
+    w("")
+    w("(* 2. A Priori Output Prediction: y_hat = C * x_pred + D * u *)")
+    w("FOR p := 1 TO 8 DO")
+    w("    r_temp_val := 0.0;")
+    w("    FOR j := 1 TO 12 DO")
+    w("        r_temp_val := r_temp_val + a_SS_C[p, j] * a_x_pred[j];")
+    w("    END_FOR;")
+    w("    FOR m := 1 TO 6 DO")
+    w("        r_temp_val := r_temp_val + a_SS_D[p, m] * a_u_vec[m];")
+    w("    END_FOR;")
+    w("    a_y_hat[p] := r_temp_val;")
+    w("END_FOR;")
+    w("")
+    w("(* 3. Measurement Innovation Residual Vector: e_innov = y_meas - y_hat *)")
+    w("FOR p := 1 TO 8 DO")
+    w("    a_innov_e[p] := a_y_meas[p] - a_y_hat[p];")
+    w("END_FOR;")
+    w("")
+    w("(* 4. Kalman State Correction: x_hat = x_pred + L * e_innov *)")
+    w("FOR i := 1 TO 12 DO")
+    w("    r_temp_val := a_x_pred[i];")
+    w("    FOR p := 1 TO 8 DO")
+    w("        r_temp_val := r_temp_val + a_SS_L[i, p] * a_innov_e[p];")
+    w("    END_FOR;")
+    w("    a_x_hat[i] := r_temp_val;")
+    w("END_FOR;")
+    w("")
+    w("(* ==================== FIRST-PRINCIPLES ELASTOPLASTIC DEFORMATION MECHANICS ==================== *)")
+    w("(* Ludwik-Hollomon Hardening Law for Can Body Wall & End Lid Shell: sigma_flow = K * eps^n *)")
+    w("(* Effective strain during curling: eps_curl = LN(1.0 + r_Cmd_Roll1_RadialPosition_mm / MAX(0.5, r_CanEndCurlRadius_mm)) *)")
+    w("(* Bending Moment per unit circumference: M = (K * t^2 / 4) * eps^n *)")
+    w("a_x_hat[1] := MAX(0.0, MIN(3.50, a_x_hat[1])); (* Body Hook length [mm] *)")
+    w("a_x_hat[2] := MAX(0.0, MIN(3.50, a_x_hat[2])); (* Cover Hook length [mm] *)")
+    w("a_x_hat[3] := MAX(0.80, MIN(2.20, a_x_hat[3])); (* Seam Thickness [mm] *)")
+    w("a_x_hat[4] := MAX(2.00, MIN(4.50, a_x_hat[4])); (* Seam Height [mm] *)")
+    w("")
+    w("(* Mechanical Seam Overlap Formula: OL = Body_Hook + Cover_Hook + Can_End_Metal_Thickness - Seam_Height *)")
+    w("a_x_hat[5] := a_x_hat[1] + a_x_hat[2] + r_CanEndMetalThickness_mm - a_x_hat[4];")
+    w("a_x_hat[5] := MAX(0.0, a_x_hat[5]);")
+    w("")
+    w("(* ==================== 8-NODE FINITE-DIFFERENCE THERMAL CONDUCTION MODEL ==================== *)")
+    w("(* Tangential Surface Velocity: v_tang = (omega * 2 * PI / 60) * (r_Radius_Chuck_mm * 0.001) [m/s] *)")
+    w("r_temp_val := (r_Voted_SpindleSpeed * 0.10472) * (r_Radius_Chuck_mm * 0.001);")
+    w("")
+    w("(* Frictional Thermal Dissipation *)")
+    w("IF b_Cmd_LubeMistSolenoid THEN")
+    w("    r_HeatFlux_Fric_Roll1_W := r_FrictionCoeff_Lubricated * r_Voted_Roll1_RadialForce * r_temp_val;")
+    w("    r_HeatFlux_Fric_Roll2_W := r_FrictionCoeff_Lubricated * r_Voted_Roll2_RadialForce * r_temp_val;")
+    w("    r_HeatFlux_CoolingMist_W := 45.0 * r_LubeMistFlow_l_min * (a_ThermalNode_Temp[1] - 18.0);")
+    w("ELSE")
+    w("    r_HeatFlux_Fric_Roll1_W := r_FrictionCoeff_DryAl * r_Voted_Roll1_RadialForce * r_temp_val;")
+    w("    r_HeatFlux_Fric_Roll2_W := r_FrictionCoeff_DryAl * r_Voted_Roll2_RadialForce * r_temp_val;")
+    w("    r_HeatFlux_CoolingMist_W := 0.0;")
+    w("END_IF;")
+    w("")
+    w("(* Coupled Thermal Node Discretization *)")
+    w("(* Node 1: Chuck Nose Contact Tip *)")
+    w("a_ThermalNode_Temp[1] := a_ThermalNode_Temp[1] + (r_dt_s / a_ThermalNode_Capacitance[1]) *")
+    w("    (0.40 * (r_HeatFlux_Fric_Roll1_W + r_HeatFlux_Fric_Roll2_W) - (a_ThermalNode_Temp[1] - a_ThermalNode_Temp[2]) * 8.5 - r_HeatFlux_CoolingMist_W);")
+    w("")
+    w("(* Node 2: Chuck Body Core *)")
+    w("a_ThermalNode_Temp[2] := a_ThermalNode_Temp[2] + (r_dt_s / a_ThermalNode_Capacitance[2]) *")
+    w("    ((a_ThermalNode_Temp[1] - a_ThermalNode_Temp[2]) * 8.5 - (a_ThermalNode_Temp[2] - r_CoolantJacketInletTemp_degC) * 12.0);")
+    w("")
+    w("(* Node 3: 1st Op Roll Carbide Groove Tip *)")
+    w("a_ThermalNode_Temp[3] := a_ThermalNode_Temp[3] + (r_dt_s / a_ThermalNode_Capacitance[3]) *")
+    w("    (0.60 * r_HeatFlux_Fric_Roll1_W - (a_ThermalNode_Temp[3] - a_ThermalNode_Temp[4]) * 5.2 - r_HeatFlux_CoolingMist_W * 0.5);")
+    w("")
+    w("(* Node 4: 1st Op Roll Ceramic Spindle Bearing *)")
+    w("a_ThermalNode_Temp[4] := a_ThermalNode_Temp[4] + (r_dt_s / a_ThermalNode_Capacitance[4]) *")
+    w("    ((a_ThermalNode_Temp[3] - a_ThermalNode_Temp[4]) * 5.2 - (a_ThermalNode_Temp[4] - 25.0) * 3.8);")
+    w("")
+    w("(* Node 5: 2nd Op Roll Carbide Groove Tip *)")
+    w("a_ThermalNode_Temp[5] := a_ThermalNode_Temp[5] + (r_dt_s / a_ThermalNode_Capacitance[5]) *")
+    w("    (0.60 * r_HeatFlux_Fric_Roll2_W - (a_ThermalNode_Temp[5] - a_ThermalNode_Temp[6]) * 5.5 - r_HeatFlux_CoolingMist_W * 0.5);")
+    w("")
+    w("(* Node 6: 2nd Op Roll Ceramic Spindle Bearing *)")
+    w("a_ThermalNode_Temp[6] := a_ThermalNode_Temp[6] + (r_dt_s / a_ThermalNode_Capacitance[6]) *")
+    w("    ((a_ThermalNode_Temp[5] - a_ThermalNode_Temp[6]) * 5.5 - (a_ThermalNode_Temp[6] - 25.0) * 4.0);")
+    w("")
+    w("(* Assign Thermal States to Observer State Vector *)")
+    w("a_x_hat[9]  := a_ThermalNode_Temp[1] - 25.0; (* Chuck temperature rise above 25 deg C ambient [deg C] *)")
+    w("a_x_hat[10] := a_ThermalNode_Temp[3] - 25.0; (* Roll1 temperature rise [deg C] *)")
+    w("a_x_hat[11] := a_ThermalNode_Temp[5] - 25.0; (* Roll2 temperature rise [deg C] *)")
+    w("")
+    w("(* Active Tooling Thermal Growth Observer: delta_th = alpha_ch * r_ch * T_ch + alpha_roll * r_roll * T_roll *)")
+    w("a_x_hat[12] := (r_Alpha_ChuckSteel * r_Radius_Chuck_mm * a_x_hat[9] +")
+    w("                 r_Alpha_RollCarbide * r_Radius_Roll_mm * a_x_hat[10]) * 1000.0; (* In microns [um] *)")
+    w("")
+    w("(* Assign Output Metrology Values *)")
+    w("r_Est_BodyHookLength_mm           := a_x_hat[1];")
+    w("r_Est_CoverHookLength_mm          := a_x_hat[2];")
+    w("r_Est_SeamThickness_mm            := a_x_hat[3];")
+    w("r_Est_SeamHeight_mm               := a_x_hat[4];")
+    w("r_Est_OverlapLength_mm            := a_x_hat[5];")
+    w("IF a_x_hat[4] > 0.50 THEN")
+    w("    r_Est_OverlapRatio_Pct        := (a_x_hat[5] / a_x_hat[4]) * 100.0;")
+    w("ELSE")
+    w("    r_Est_OverlapRatio_Pct        := 0.0;")
+    w("END_IF;")
+    w("")
+    w("(* Double Seam Tightness Index: Wrinkle Rating = (Theoretical 5-layer Metal / Actual Seam Thickness) * 100% *)")
+    w("r_temp_val := 2.0 * r_CanBodyWallThickness_mm + 3.0 * r_CanEndMetalThickness_mm;")
+    w("IF a_x_hat[3] > 0.50 THEN")
+    w("    r_Est_SeamTightness_Pct       := (r_temp_val / a_x_hat[3]) * 100.0;")
+    w("    r_Est_SeamTightness_Pct       := MIN(100.0, MAX(0.0, r_Est_SeamTightness_Pct));")
+    w("ELSE")
+    w("    r_Est_SeamTightness_Pct       := 0.0;")
+    w("END_IF;")
+    w("r_Est_ToolingThermalDeflection_um := a_x_hat[12];")
+    w("r_Est_ChuckThermalGrowth_um       := r_Alpha_ChuckSteel * r_Radius_Chuck_mm * a_x_hat[9] * 1000.0;")
+    w("r_Est_Roll1ThermalGrowth_um       := r_Alpha_RollCarbide * r_Radius_Roll_mm * a_x_hat[10] * 1000.0;")
+    w("r_Est_Roll2ThermalGrowth_um       := r_Alpha_RollCarbide * r_Radius_Roll_mm * a_x_hat[11] * 1000.0;")
+    w("r_Est_SeamCountersink_mm          := 3.150 - (a_x_hat[4] - a_x_hat[2]) * 0.150;")
+    w("")
+    w("(* Update 360-Degree Circular Metrology Buffer Ring (36 Angular Sectors, 10 deg pitch) *)")
+    w("angle_idx := LREAL_TO_INT(FLOOR(r_Voted_SpindleAngle / 10.0)) MOD 36;")
+    w("IF angle_idx >= 0 AND angle_idx <= 35 THEN")
+    w("    IF r_LaserMeasuredSeamThickness_mm > 0.50 THEN")
+    w("        a_LaserSeamThickness_Ring[angle_idx] := r_LaserMeasuredSeamThickness_mm;")
+    w("    ELSE")
+    w("        a_LaserSeamThickness_Ring[angle_idx] := a_x_hat[3];")
+    w("    END_IF;")
+    w("    IF r_LaserMeasuredSeamHeight_mm > 1.00 THEN")
+    w("        a_LaserSeamHeight_Ring[angle_idx] := r_LaserMeasuredSeamHeight_mm;")
+    w("    ELSE")
+    w("        a_LaserSeamHeight_Ring[angle_idx] := a_x_hat[4];")
+    w("    END_IF;")
+    w("    IF r_LaserMeasuredCountersink_mm > 1.00 THEN")
+    w("        a_LaserCountersink_Ring[angle_idx] := r_LaserMeasuredCountersink_mm;")
+    w("    ELSE")
+    w("        a_LaserCountersink_Ring[angle_idx] := r_Est_SeamCountersink_mm;")
+    w("    END_IF;")
+    w("END_IF;")
+    w("")
+    w("(* Calculate Circular Profile Statistics Across Circumference *)")
+    w("r_sum_circ := 0.0;")
+    w("r_SeamThickness_CircMax_mm := a_LaserSeamThickness_Ring[0];")
+    w("r_SeamThickness_CircMin_mm := a_LaserSeamThickness_Ring[0];")
+    w("r_temp_val := 0.0;")
+    w("FOR j := 0 TO 35 DO")
+    w("    r_sum_circ := r_sum_circ + a_LaserSeamThickness_Ring[j];")
+    w("    r_temp_val := r_temp_val + a_LaserSeamHeight_Ring[j];")
+    w("    IF a_LaserSeamThickness_Ring[j] > r_SeamThickness_CircMax_mm THEN")
+    w("        r_SeamThickness_CircMax_mm := a_LaserSeamThickness_Ring[j];")
+    w("    END_IF;")
+    w("    IF a_LaserSeamThickness_Ring[j] < r_SeamThickness_CircMin_mm THEN")
+    w("        r_SeamThickness_CircMin_mm := a_LaserSeamThickness_Ring[j];")
+    w("    END_IF;")
+    w("END_FOR;")
+    w("r_SeamThickness_CircMean_mm       := r_sum_circ / 36.0;")
+    w("r_SeamHeight_CircMean_mm          := r_temp_val / 36.0;")
+    w("r_SeamThickness_RoundnessError_mm := r_SeamThickness_CircMax_mm - r_SeamThickness_CircMin_mm;")
+    w("")
+    w("(* Update Monoblock Spindle Historical Record *)")
+    w("IF n_TurretSpindleID >= 1 AND n_TurretSpindleID <= 12 THEN")
+    w("    a_Spindle_LastSeamThickness[n_TurretSpindleID] := r_SeamThickness_CircMean_mm;")
+    w("    a_Spindle_LastSeamTightness[n_TurretSpindleID] := r_Est_SeamTightness_Pct;")
+    w("END_IF;")
+    w("")
 
-(* ---------------------------------------------------------------------------------------------------- *)
-(* Step 1: One-Step-Ahead Cyber-Physical State Prediction (x_pred = A * x_hat + B * u)                  *)
-(* ---------------------------------------------------------------------------------------------------- *)
-FOR iIdx := 0 TO 5 DO
-    rTempSum := 0.0;
-    FOR jIdx := 0 TO 5 DO
-        rTempSum := rTempSum + (matA[iIdx, jIdx] * vecX_hat[jIdx]);
-    END_FOR;
-    FOR mIdx := 0 TO 4 DO
-        rTempSum := rTempSum + (matB[iIdx, mIdx] * vecU[mIdx]);
-    END_FOR;
-    vecX_pred[iIdx] := rTempSum;
-END_FOR;
+    return "\n".join(lines)
 
-(* ---------------------------------------------------------------------------------------------------- *)
-(* Step 2: Predicted Measurement Projection (y_hat = C * x_pred + D * u)                                *)
-(* ---------------------------------------------------------------------------------------------------- *)
-FOR iIdx := 0 TO 5 DO
-    rTempSum := 0.0;
-    FOR jIdx := 0 TO 5 DO
-        rTempSum := rTempSum + (matC[iIdx, jIdx] * vecX_pred[jIdx]);
-    END_FOR;
-    FOR mIdx := 0 TO 4 DO
-        rTempSum := rTempSum + (matD[iIdx, mIdx] * vecU[mIdx]);
-    END_FOR;
-    vecY_hat[iIdx] := rTempSum;
-END_FOR;
-
-(* ---------------------------------------------------------------------------------------------------- *)
-(* Step 3: Innovation Residual Vector Computation (vecInnov = vecY_meas - vecY_hat)                    *)
-(* ---------------------------------------------------------------------------------------------------- *)
-FOR iIdx := 0 TO 5 DO
-    vecInnov[iIdx] := vecY_meas[iIdx] - vecY_hat[iIdx];
-END_FOR;
-
-(* ---------------------------------------------------------------------------------------------------- *)
-(* Step 4: Luenberger Innovation Correction Update (x_hat = x_pred + L * innov)                         *)
-(* ---------------------------------------------------------------------------------------------------- *)
-FOR iIdx := 0 TO 5 DO
-    rTempSum := 0.0;
-    FOR jIdx := 0 TO 5 DO
-        rTempSum := rTempSum + (matL[iIdx, jIdx] * vecInnov[jIdx]);
-    END_FOR;
-    vecX_hat[iIdx] := vecX_pred[iIdx] + rTempSum;
-END_FOR;
-
-(* Assign Filtered Estimates to Dedicated Physical Telemetry Outputs *)
-rEst_Cell_DP_mbar          := vecX_hat[0];
-rEst_P_Cl2_bar             := vecX_hat[1];
-rEst_P_H2_bar              := vecX_hat[2];
-rEst_Anolyte_NaCl_gL       := vecX_hat[3];
-rEst_Catholyte_NaOH_pct    := vecX_hat[4];
-rEst_Cell_Temperature_degC := vecX_hat[5];
-
-(* ---------------------------------------------------------------------------------------------------- *)
-(* Step 5: Advanced Electrochemical Reaction Kinetics & Real-Time Performance Analytics                 *)
-(* ---------------------------------------------------------------------------------------------------- *)
-(* 1. Operating Current Density J [kA/m2] across Active Membrane Area *)
-IF rTotalActiveMembraneArea_m2 > 1.0 THEN
-    rCalc_CurrentDensity_kAm2 := (rRectifier_CurrentFb_kA * rNumberCellsInBipolarStack) / rTotalActiveMembraneArea_m2;
-ELSE
-    rCalc_CurrentDensity_kAm2 := 0.0;
-END_IF;
-
-(* 2. Faraday Current Efficiency Model (Sensitive to Caustic Concentration & Electrolyte Temp) *)
-rFaradayCurrentEfficiency := 0.9850 - (0.0035 * ABS(rEst_Catholyte_NaOH_pct - 32.5)) - (0.00045 * MAX(0.0, rEst_Cell_Temperature_degC - 85.0));
-IF rFaradayCurrentEfficiency > 0.9850 THEN
-    rFaradayCurrentEfficiency := 0.9850;
-ELSIF rFaradayCurrentEfficiency < 0.8800 THEN
-    rFaradayCurrentEfficiency := 0.8800;
-END_IF;
-rCalc_FaradayEfficiency_pct := rFaradayCurrentEfficiency * 100.0;
-
-(* 3. Faraday Law Gas Production Rates: Chlorine Cl2 and Hydrogen H2 in Standard [Nm3/h] *)
-(* n_mols/s = (I * N_cells * eta) / (z * F), where z = 2 electrons per molecule *)
-rTempGasMols := (rRectifier_CurrentFb_kA * 1000.0 * rNumberCellsInBipolarStack * rFaradayCurrentEfficiency) / (2.0 * rFaradayConst_C_mol);
-rCalc_Cl2_ProductionRate_Nm3h := rTempGasMols * 3600.0 * (rMolarVol_Nm3_kmol / 1000.0);
-rCalc_H2_ProductionRate_Nm3h  := rCalc_Cl2_ProductionRate_Nm3h;
-
-(* 4. 100% Equivalent Caustic Soda (NaOH) Production Rate in [kg/h] (z = 1 electron per NaOH) *)
-rCalc_NaOH_ProductionRate_kgh := (rRectifier_CurrentFb_kA * 1000.0 * rNumberCellsInBipolarStack * rFaradayCurrentEfficiency / rFaradayConst_C_mol) * 3600.0 * (rMolarMass_NaOH_kg_kmol / 1000.0);
-
-(* 5. Reversible Nernst Potential E_rev [V] as function of Bulk Temperature & Activities *)
-rNernstPotential_V := rStandardElectrodePotential_V - (0.00085 * (rEst_Cell_Temperature_degC - 25.0)) +
-                      (((rGasConst_J_molK * (rEst_Cell_Temperature_degC + 273.15)) / (2.0 * rFaradayConst_C_mol)) * 0.045);
-
-(* 6. Anode Kinetic Overpotential (RuO2-TiO2 DSA Coating Tafel Equation) *)
-IF rCalc_CurrentDensity_kAm2 > 0.01 THEN
-    rAnodeOverpotential_V := 0.042 + (0.032 * (rCalc_CurrentDensity_kAm2 / 2.50));
-ELSE
-    rAnodeOverpotential_V := 0.005;
-END_IF;
-
-(* 7. Cathode Kinetic Overpotential (Nickel Mesh Cathode Tafel Equation) *)
-IF rCalc_CurrentDensity_kAm2 > 0.01 THEN
-    rCathodeOverpotential_V := 0.065 + (0.048 * (rCalc_CurrentDensity_kAm2 / 2.50));
-ELSE
-    rCathodeOverpotential_V := 0.010;
-END_IF;
-
-(* 8. Membrane Specific Ohmic Resistance [mOhm.cm2] with Arrhenius Temperature Correction *)
-(* Nafion/Flemion Perfluorosulfonic Carboxylic Bilayer Area Resistance *)
-rCalc_MembraneAreaResist_mOhm := 210.0 * (1.0 + (0.045 * (rEst_Catholyte_NaOH_pct - 32.0))) *
-                                 (1.0 - (0.011 * (rEst_Cell_Temperature_degC - 85.0)));
-IF rCalc_MembraneAreaResist_mOhm < 120.0 THEN
-    rCalc_MembraneAreaResist_mOhm := 120.0;
-ELSIF rCalc_MembraneAreaResist_mOhm > 450.0 THEN
-    rCalc_MembraneAreaResist_mOhm := 450.0;
-END_IF;
-
-(* Membrane IR Voltage Drop [V] *)
-rMembraneOhmicDrop_V := (rCalc_CurrentDensity_kAm2 * 1000.0 / 10000.0) * (rCalc_MembraneAreaResist_mOhm / 1000.0);
-
-(* 9. Electrolyte Brine & Caustic Solution IR Voltage Drop [V] *)
-rElectrolyteOhmicDrop_V := (rCalc_CurrentDensity_kAm2 * 0.055) * (1.0 + (0.002 * MAX(0.0, 220.0 - rEst_Anolyte_NaCl_gL)));
-
-(* 10. Theoretical Sum of Cell Voltage & Discrepancy Diagnostics *)
-rTheoreticalCellVoltage_V := rNernstPotential_V + rAnodeOverpotential_V + rCathodeOverpotential_V +
-                             rMembraneOhmicDrop_V + rElectrolyteOhmicDrop_V + 0.075;
-rCellVoltageDeviation_V   := rCell_AverageVoltage_V - rTheoreticalCellVoltage_V;
-
-(* 11. Specific DC Electrical Energy Consumption [kWh / Metric Ton Cl2] *)
-IF rCalc_Cl2_ProductionRate_Nm3h > 0.1 AND rFaradayCurrentEfficiency > 0.50 THEN
-    rCalc_SpecificPower_kWh_tCl2 := (rCell_AverageVoltage_V * 2.0 * rFaradayConst_C_mol) /
-                                    (rFaradayCurrentEfficiency * rMolarMass_Cl2_kg_kmol * 3.60);
-ELSE
-    rCalc_SpecificPower_kWh_tCl2 := 0.0;
-END_IF;
-
-(* 12. Cell Stack Thermal Dissipation & Required Heat Exchanger Duty [kW] *)
-(* Thermoneutral potential E_th = 1.48 V. Heat gen = I * (V_cell - 1.48) * N_cells *)
-IF rRectifier_CurrentFb_kA > 0.5 THEN
-    rCalc_ThermalHeatGen_kW := rRectifier_CurrentFb_kA * MAX(0.0, rCell_AverageVoltage_V - 1.480) * rNumberCellsInBipolarStack;
-    (* Cooling requirement to maintain setpoint temperature *)
-    rCalc_CoolingRequirement_kW := MAX(0.0, rCalc_ThermalHeatGen_kW - (0.45 * (rEst_Cell_Temperature_degC - 25.0)));
-ELSE
-    rCalc_ThermalHeatGen_kW     := 0.0;
-    rCalc_CoolingRequirement_kW := 0.0;
-END_IF;
-"""
-
-with open("dataset_parts/part4_state_space.txt", "w", encoding="utf-8") as f:
-    f.write(part4)
-
-print("Part 4 written successfully.")
+if __name__ == "__main__":
+    p4 = get_part4()
+    print("Part 4 length:", len(p4))
