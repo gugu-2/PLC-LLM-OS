@@ -1,252 +1,297 @@
-# DOC-03: Fine-Tuning Strategy & Best Practices
+# DOC-03: Master Fine-Tuning Strategy & Industrial ML Engineering Manual
 
-> **Classification**: ML Engineering Design Document  
-> **Scope**: End-to-end fine-tuning strategy for the Lumina IEC-ST PLC domain model  
-> **Date**: 2026-11-21  
-> **Target Model Family**: Gemma-3 27B / Llama-3.1 70B / Qwen2.5-Coder-32B
-
----
-
-## 1. What We Are Actually Building
-
-This is not a general-purpose coding assistant. The target system is a **domain-specific industrial automation engineering assistant** that:
-
-1. Generates syntactically valid, semantically correct IEC 61131-3 Structured Text Function Blocks for heavy manufacturing factory systems
-2. Explains control logic, state transitions, and mathematical formulations in engineering context
-3. Debugs existing PLC code and suggests improvements aligned with ISA-18.2, IEC 61511, and functional safety principles
-4. Answers engineering questions about process control, MPC tuning, TMR architecture, and alarm management
-
-This distinction fundamentally shapes every fine-tuning decision.
+**Classification**: Machine Learning Engineering Design Manual & Training Blueprint  
+**System**: Lumina Cyber-Physical IEC 61131-3 Specialized Domain LLM  
+**Target Model Family**: Qwen2.5-Coder-32B-Instruct / Llama-3.1-70B-Instruct / Gemma-3-27B-IT  
+**Author**: Lumina Engineering Review Board & Principal Automation Fellow  
+**Date**: November 23, 2026  
+**Status**: AUTHORITATIVE ML ENGINEERING SPECIFICATION  
+**Companion Docs**: DOC-01 (Pathology), DOC-02 (Architecture), DOC-04 (Supplementary Datasets), DOC-06 (Benchmarking)
 
 ---
 
-## 2. Pre-Fine-Tuning Corpus Remediation (Mandatory First Step)
+## 1. Defining the Target Model: Specialization vs. Generalization
 
-**Fine-tuning on the current raw corpus will produce a mediocre model.** The following remediation must be completed before any training run.
+### 1.1 The Objective Function
+The goal of this project is **not** to create a generic coding model that writes Python, JavaScript, and HTML. The objective is to produce a **world-class, domain-specialized Industrial Automation & Cyber-Physical Systems AI Assistant** capable of:
 
-### Step 1: Domain Triage
-```bash
-python validate_domain.py --input data/swarm_raw/ --reject-to data/rejected/ --keep-to data/verified/
-# Expected: ~176 datasets rejected (20%), ~694 retained
-```
-
-### Step 2: Size Filtering
-```bash
-python validate_iec.py --min-chars 100000 --max-chars 700000 \
-  --input data/verified/ --quarantine-to data/quarantine/
-# Expected: ~115 micro-datasets quarantined
-# Ultra-dense >700K: segment into logical parts or weight-down
-```
-
-### Step 3: Semantic Validation Sweep
-```bash
-python validate_semantic.py --input data/verified/ --report semantic_audit.json
-```
-
-**Post-remediation target corpus: ~570–620 high-quality datasets (< 300K chars median)**
+1. **Deterministic Structured Text Synthesis**: Generating mathematically complete, syntactically flawless IEC 61131-3 Function Blocks that compile and execute on industrial runtimes (Beckhoff TwinCAT 3, CODESYS 3.5, Siemens TIA Portal, Rockwell Studio 5000).
+2. **Multi-Turn Interactive Engineering**: Answering deep controls questions, explaining mathematical state-space formulations, tuning Model Predictive Control (MPC) matrices, and evaluating functional safety tradeoffs (2oo3 vs. 1oo2).
+3. **Interactive Fault Diagnosis & Code Repair**: Ingesting malfunctioning or oscillating PLC code, diagnosing root causes (integral windup, derivative kick, valve spool cavitation, state deadlocks), and producing production-grade corrections.
+4. **Functional Safety & Regulatory Adherence**: Designing Safety Instrumented Functions (SIFs) compliant with IEC 61511 and IEC 62061 SIL-2/SIL-3, with PFDavg calculations, proof test intervals, and diagnostic coverage.
 
 ---
 
-## 3. Fine-Tuning Recipe: Stage-by-Stage
+## 2. Base Model Selection & Comparative Architecture Analysis
 
-### Stage A — Continual Pre-Training (Optional but Recommended)
+Selecting the optimal foundation model requires balancing code pre-training density, context window mechanics, parameter efficiency, and mathematical reasoning:
 
-**Goal**: Saturate the base model with IEC 61131-3 vocabulary, syntax patterns, and industrial engineering terminology *before* teaching it to follow instructions.
+| Architectural Attribute | Qwen2.5-Coder-32B-Instruct | Llama-3.1-70B-Instruct | Gemma-3-27B-IT | DeepSeek-Coder-V2-Lite (16B) |
+|---|:---:|:---:|:---:|:---:|
+| **Parameter Count** | 32.5 Billion | 70.6 Billion | 27.0 Billion | 15.7 Billion (MoE, 2.4B active) |
+| **Code Token Exposure** | 5.5 Trillion Code Tokens | ~2.5 Trillion Mixed Tokens | ~3.0 Trillion Mixed Tokens | 6.0 Trillion Code Tokens |
+| **Native Context Length** | 131,072 tokens (128k) | 131,072 tokens (128k) | 32,768 tokens (32k) | 131,072 tokens (128k) |
+| **Attention Architecture** | Grouped-Query Attention (GQA, 8 KV heads) | GQA (8 KV heads) | Multi-Head Attention (MHA) | Multi-Head Latent Attention (MLA) |
+| **RoPE Base Frequency ($\theta$)** | $1,000,000$ | $500,000$ | $10,000$ | Native Multi-Scale |
+| **Fine-Tuning VRAM (QLoRA r=64)** | 28 GB (1× A100 40GB or 1× A6000) | 54 GB (1× A100 80GB or 2× A6000) | 26 GB (1× A100 40GB) | 22 GB (1× A100 40GB) |
+| **Structured Text Base Literacy** | High (saw CODESYS/TwinCAT in pretrain) | Moderate | Moderate | Moderate-High |
+| **Overall Recommendation** | 🥇 **PRIMARY CHOICE (OPTIMAL)** | 🥈 **SECONDARY (HIGH COMPUTE)** | 🥉 **RESTRICTED CONTEXT** | 🏅 **EDGE / ON-PREM SERVING** |
 
-**Data**: All 620 remediated datasets, **no chat template**. Present raw `FUNCTION_BLOCK ... END_FUNCTION_BLOCK` text as a plain text corpus.
+### Why Qwen2.5-Coder-32B Is the Recommended Foundation
+1. **Unmatched Code Density**: Pre-trained on 5.5T code tokens, exhibiting baseline comprehension of Pascal-like and Structured Text syntaxes.
+2. **Native 128k Context Window**: Supports extended cyber-physical Function Blocks without RoPE interpolation degradation.
+3. **Parameter Efficiency**: 32B parameters deliver reasoning parity with 70B models while running comfortable QLoRA fine-tuning on a single A100 80GB GPU.
 
-**Configuration**:
+---
+
+## 3. The 4-Stage Progressive Fine-Tuning Recipe
+
+Training must follow a progressive curriculum: moving from raw language saturation to instruction following, multi-format generalization, and preference optimization.
+
+```
+┌─────────────────────────────────────────────────────────────────────────────────────────┐
+│                       4-STAGE PROGRESSIVE TRAINING PIPELINE                             │
+│                                                                                         │
+│  Stage A: Continual Pre-Training (Raw Text Saturation)                                 │
+│   ├── Target: Saturate weights with IEC 61131-3 syntax & ISA-18.2 vocabulary            │
+│   └── Data: Domain Text Corpora (Type 5) + Raw Verified Function Blocks (No chat template)│
+│                                      │                                                  │
+│                                      ▼                                                  │
+│  Stage B: Supervised Fine-Tuning (Base Cyber-Physical SFT)                              │
+│   ├── Target: Teach model to emit complete, fault-tolerant Function Blocks              │
+│   └── Data: ~503 Remediated Clean Manufacturing Datasets (loss_on_completions_only)     │
+│                                      │                                                  │
+│                                      ▼                                                  │
+│  Stage C: Multi-Format SFT on Supplementary Data                                        │
+│   ├── Target: Break single-turn code emission; unlock debugging & conversational QA     │
+│   └── Data: 40% Code + 20% Type 1 Dialogue + 25% Type 2 Debug + 15% Type 3/4 Tasks     │
+│                                      │                                                  │
+│                                      ▼                                                  │
+│  Stage D: Direct Preference Optimization (DPO Alignment)                                │
+│   ├── Target: Align model to strictly prefer physically stable, certified safe logic    │
+│   └── Data: 2,000 Chosen vs. Rejected Pairs (Evaluated by Hallucination Detector)       │
+└─────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### Stage A: Continual Domain Pre-Training (CPT)
+
+* **Objective**: Overcome base model tokenization inefficiencies and saturate attention heads with industrial automation grammar, engineering terminology, and standards syntax prior to instruction alignment.
+* **Format**: Pure raw text continuation (no `<|im_start|>` or `<|user|>` chat tokens).
+* **Data Ingestion**:
+  - Remediated raw Structured Text from `data/verified/` (~120M characters).
+  - Industrial standards prose (public IEC 61131-3 summaries, ISA-18.2 alarm management guides, IEC 61511 functional safety docs) from Supplementary Type 5 (~8M tokens).
+* **Hyperparameters**:
+  ```yaml
+  learning_rate: 2.0e-5
+  lr_scheduler_type: cosine
+  warmup_steps: 250
+  max_seq_length: 32768
+  per_device_train_batch_size: 2
+  gradient_accumulation_steps: 8
+  weight_decay: 0.01
+  sample_packing: true   # Packs multiple short documents into 32k sequences
+  epochs: 1
+  ```
+
+---
+
+### Stage B: Supervised Fine-Tuning (SFT) on Remediated Clean Core
+
+* **Objective**: Train the model to generate complete, production-grade Function Blocks in response to diverse engineering instructions.
+* **Data Ingestion**: ~503 clean commercial manufacturing datasets triaged from `data/swarm_raw/` through the Multi-Tier Validation Engine (`validate_domain.py`, `validate_iec.py`, `validate_semantic.py`).
+* **Stratified Splitting**:
+  - **Train Set (85%)**: ~427 datasets, balanced across all 7 sectors.
+  - **Validation Set (10%)**: ~50 datasets, sector-balanced.
+  - **Test Set (5%)**: ~26 datasets, held out for checkpoint validation.
+* **Critical Rule — Loss on Completions Only**:
+  $$\mathcal{L} = -\sum_{t \in \text{Assistant Tokens}} \log P(x_t \mid x_{<t})$$
+  Loss is masked (`-100`) on all user prompt tokens and system persona tokens. The model is penalized solely for assistant Structured Text generation errors, preventing prompt template memorization.
+* **Hyperparameters**:
+  ```yaml
+  learning_rate: 1.0e-4
+  lr_scheduler_type: cosine
+  warmup_ratio: 0.03
+  max_seq_length: 65536  # Supports extended controllers
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 16  # Effective batch size = 16
+  peft:
+    method: lora
+    r: 64
+    alpha: 128
+    dropout: 0.05
+    target_modules: [q_proj, k_proj, v_proj, o_proj, gate_proj, up_proj, down_proj]
+  loss_on_completions_only: true
+  epochs: 3
+  ```
+
+---
+
+### Stage C: Multi-Format SFT on Supplementary Data
+
+* **Objective**: Transform the model from a code emission engine into a complete industrial engineering assistant capable of conversational troubleshooting, code review, and incremental modification.
+* **Data Mixing Distribution**:
+  
+  ```
+  Stage C Training Data Mix:
+  ┌────────────────────────────────────────────────────────┐
+  │ [################] 40% Core Verified Code Blocks      │
+  │ [##########] 25% Type 2: 3-Turn Fault Diagnosis Chains │
+  │ [########] 20% Type 1: Technical Dialogue Q&A          │
+  │ [######] 15% Type 3 & 4: Incremental / Concept Tasks   │
+  └────────────────────────────────────────────────────────┘
+  ```
+
+* **Hyperparameters**:
+  - Lower learning rate ($5.0 \times 10^{-5}$) to prevent catastrophic forgetting of Stage B code generation mastery.
+  - Epochs: 2.
+  - Multi-turn conversation packing enabled.
+
+---
+
+### Stage D: Direct Preference Optimization (DPO)
+
+* **Objective**: Steer the model away from subtly flawed or dangerous control logic that passes syntax checks but violates real-world engineering principles.
+* **DPO Objective Formulation**:
+  $$\max_\theta \mathbb{E}_{(x, y_w, y_l)} \left[ \log \sigma \left( \beta \log \frac{\pi_\theta(y_w \mid x)}{\pi_\text{ref}(y_w \mid x)} - \beta \log \frac{\pi_\theta(y_l \mid x)}{\pi_\text{ref}(y_l \mid x)} \right) \right]$$
+  where $\beta = 0.1$, $y_w$ is the winning (chosen) response, and $y_l$ is the losing (rejected) response.
+* **Preference Pair Construction Methodology**:
+  
+  | Category | Chosen Response ($y_w$) | Rejected Response ($y_l$) |
+  |---|---|---|
+  | **Integral Windup** | Uses anti-windup clamping (`LIMIT(-clamp, int + err*Ki*dt, clamp)`) | Unclamped integral accumulation (`int := int + err*Ki*dt`) |
+  | **Matrix Geometry** | Strictly square state matrix ($A_{4 \times 4}$, $B_{4 \times 2}$) | Non-square state matrix ($A_{4 \times 6}$) |
+  | **Sensor Discrepancy**| 2oo3 voter with discrepancy timer and bumpless failover | 2oo3 voter with instant hard trip on single transient noise spike |
+  | **ISA-18.2 Alarms** | Correct hierarchy ($HH > H > L > LL$) with deadband hysteresis | Inverted hierarchy ($HH \le H$) or omitted deadband (alarm chattering) |
+  | **FSM Transitions** | Every state has deterministic exit guard and timeout watchdog | State without outgoing transition (deadlock) |
+
+* **Hyperparameters**:
+  ```yaml
+  learning_rate: 5.0e-6
+  beta: 0.1
+  per_device_train_batch_size: 1
+  gradient_accumulation_steps: 16
+  num_preference_pairs: 2000
+  epochs: 1
+  ```
+
+---
+
+## 4. Hardware Sizing, Compute Clusters & Cost Analysis
+
+### 4.1 GPU Memory Footprint Formulation
+For a 32-billion parameter model using QLoRA ($r=64$, BF16 compute) at 65,536 sequence length:
+
+$$M_\text{total} = M_\text{weights (4-bit)} + M_\text{adapters (BF16)} + M_\text{gradients} + M_\text{optimizer (8-bit)} + M_\text{activations (FlashAttn-2)}$$
+
+- **Base Weights (4-bit AWQ / NF4)**: $32.5 \times 0.5 \text{ GB} = 16.25 \text{ GB}$
+- **LoRA Adapters ($r=64$)**: ~1.2 GB
+- **Optimizer States (AdamW 8-bit)**: ~2.4 GB
+- **Gradients**: ~1.2 GB
+- **Activation Memory (FlashAttention-2, seq=65,536)**: ~12–16 GB
+- **Total Peak VRAM**: **~34–38 GB** (Fits comfortably on a single 80GB A100/H100, leaving headroom for sequence packing).
+
+### 4.2 Compute Sizing Matrix
+
+| Cluster Option | Hardware Configuration | Training Type | Est. Time (Stage B) | Est. Cost (Cloud) |
+|---|---|:---:|:---:|:---:|
+| **Option 1 (Budget)** | 1× NVIDIA A100 SXM4 80GB (Lambda Labs / RunPod) | QLoRA ($r=64$) | ~14 hours | ~\$28 (\$1.99/hr) |
+| **Option 2 (Production)**| 4× NVIDIA A100 80GB NVLink (Lambda / RunPod) | QLoRA ($r=64$, DDP) | ~3.8 hours | ~\$32 (\$8.00/hr) |
+| **Option 3 (Enterprise)**| 8× NVIDIA H100 80GB SXM5 (Lambda / CoreWeave) | Full Fine-Tuning (ZeRO-3) | ~1.5 hours | ~\$36 (\$24.00/hr) |
+
+---
+
+## 5. Production Configuration Files
+
+### 5.1 Axolotl Production YAML Configuration (`axolotl_lumina_sft.yaml`)
+
 ```yaml
-training_type: continual_pretraining
-format: raw_text_continuation
-learning_rate: 2e-5
-warmup_steps: 200
-max_seq_length: 32768
-batch_size: 2
-gradient_accumulation: 8
-epochs: 1
-packing: true  # Pack multiple short examples into one sequence
-```
+base_model: Qwen/Qwen2.5-Coder-32B-Instruct
+model_type: AutoModelForCausalLM
+tokenizer_type: AutoTokenizer
 
-**Why**: The base model (Llama-3.1, Gemma-3) has seen minimal IEC 61131-3 code during pretraining. This stage teaches it the grammar of FUNCTION_BLOCK declarations, VAR sections, CASE state machines, and the mathematical notation of state-space models without the complexity of instruction-following.
+load_in_8bit: false
+load_in_4bit: true
+strict: false
 
----
+datasets:
+  - path: data/catalog/sft_stage_b_train.jsonl
+    type: chat_template
+    chat_template: chatml
+    roles:
+      user: ["user"]
+      assistant: ["assistant"]
 
-### Stage B — Supervised Fine-Tuning (SFT) on Instruction Dataset
+dataset_prepared_path: last_run_prepared
+val_set_size: 0.05
+output_dir: ./adapters/lumina-qwen32b-sft-v1
 
-**Goal**: Teach the model to respond to engineering queries with correct IEC-ST code.
+sequence_len: 65536
+sample_packing: true
+pad_to_sequence_len: true
 
-**Data**: 620 remediated chat-format datasets (the `{"messages": [...]}` structure already built).
+adapter: lora
+lora_r: 64
+lora_alpha: 128
+lora_dropout: 0.05
+lora_target_modules:
+  - q_proj
+  - k_proj
+  - v_proj
+  - o_proj
+  - gate_proj
+  - up_proj
+  - down_proj
 
-**But first — split correctly**:
-```python
-# DO NOT random split. Use sector-stratified split:
-train_set = 85%  # 527 datasets, balanced across all 7 sectors
-val_set   = 10%  # 62 datasets, sector-balanced
-test_set  = 5%   # 31 datasets, held out, never seen during training
-```
-
-**Configuration**:
-```yaml
-training_type: sft
-chat_template: chatml  # or llama3 / gemma
-learning_rate: 1e-4
+gradient_accumulation_steps: 16
+micro_batch_size: 1
+num_epochs: 3
+optimizer: paged_adamw_8bit
+lr_scheduler: cosine
+learning_rate: 0.0001
 warmup_ratio: 0.03
-max_seq_length: 32768
-batch_size: 1
-gradient_accumulation: 16
-epochs: 3
-peft:
-  method: lora
-  r: 64
-  alpha: 128
-  target_modules: [q_proj, k_proj, v_proj, o_proj, gate_proj, up_proj, down_proj]
-  dropout: 0.05
-loss_on_completions_only: true  # Only compute loss on ASSISTANT turns, not on USER prompt
-```
+weight_decay: 0.01
 
-**Key Decision — `loss_on_completions_only: true`**: This is critical. The user prompt is a system instruction, not something we want the model to predict. Computing loss only on the generated IEC-ST code prevents the model from "gaming" the loss by memorizing instruction text.
+train_on_inputs: false   # loss_on_completions_only: true
+group_by_length: false
+bf16: true
+fp16: false
+tf32: true
 
----
+gradient_checkpointing: true
+gradient_checkpointing_kwargs:
+  use_reentrant: false
+early_stopping_patience: 3
+flash_attention: true
 
-### Stage C — Multi-Format SFT on Supplementary Data
-
-**Goal**: Break the single-turn code-emission pattern. After Stage B, add multi-format data.
-
-The supplementary data types (documented in DOC-04) are added in Stage C:
-- Explanation Q&A pairs (20% of Stage C data)
-- Debugging conversation chains (30% of Stage C data)
-- Incremental modification pairs (25% of Stage C data)
-- Concept-to-code translation examples (25% of Stage C data)
-
-```yaml
-training_type: sft
-learning_rate: 5e-5  # Lower LR than Stage B to prevent catastrophic forgetting
-epochs: 2
-data_mixing:
-  - source: data/verified/          # Original code datasets
-    weight: 0.4
-  - source: data/supplementary/qa/  # Q&A pairs
-    weight: 0.2
-  - source: data/supplementary/debug/  # Debug conversations
-    weight: 0.25
-  - source: data/supplementary/modify/  # Modification tasks
-    weight: 0.15
+logging_steps: 5
+eval_steps: 50
+save_steps: 100
+save_total_limit: 3
 ```
 
 ---
 
-### Stage D — Direct Preference Optimization (DPO)
+## 6. Critical Fine-Tuning Pitfalls & Defensive Rules
 
-**Goal**: Teach the model to prefer correct, safe, well-structured code over syntactically valid but semantically wrong alternatives.
+### 6.1 Pitfall 1: Silent Truncation of `END_FUNCTION_BLOCK`
+* **Defect**: Unsegmented datasets exceeding context limits lose closing syntax.
+* **Rule**: Execute `size_gate.py` on the corpus. Every file $> 700,000$ characters **must** be segmented into logical chunks prior to dataset preparation. Never allow the tokenizer to truncate an assistant turn.
 
-**Data**: Preference pairs generated by:
-1. Taking the model's own SFT outputs
-2. Having a "judge" model (GPT-4o or Claude-3.5-Sonnet) rank them on:
-   - Syntactic correctness
-   - Semantic engineering validity
-   - Completeness (all 14 FSM stages present, full TMR logic, etc.)
-   - Physical plausibility (units, ranges, magnitudes)
+### 6.2 Pitfall 2: Computing Loss on User Instruction Tokens
+* **Defect**: Computing cross-entropy loss across the full sequence causes the model to memorize the prompt template opening, severely harming instruction generalization.
+* **Rule**: Set `train_on_inputs: false` in Axolotl, or mask user turn labels to `-100` in custom PyTorch training loops. Loss must be computed exclusively on assistant tokens.
 
-```yaml
-training_type: dpo
-beta: 0.1
-learning_rate: 5e-6
-batch_size: 2
-gradient_accumulation: 8
-num_preference_pairs: 2000  # Target to generate
-```
+### 6.3 Pitfall 3: Sector Imbalance Overfitting
+* **Defect**: The raw corpus contains 341 automotive datasets vs. only 27 steelmaking and 30 food/bev datasets. Without balancing, the model will bias all control strategies toward automotive robotics.
+* **Rule**: Implement weighted sampling during batch generation to equalize sector representation:
+  $$P(\text{sample} \in \text{sector } s) \propto \frac{\text{Target Quota}(s)}{\text{Actual Count}(s)}$$
 
----
+### 6.4 Pitfall 4: Evaluating Only on In-Domain Systems
+* **Defect**: Evaluating the model on the same systems it saw during training tests memorization, not generalization.
+* **Rule**: Freeze the **31 Held-Out Benchmark Systems** (`evaluate/benchmark_31_items.json`). Evaluate candidate models strictly on these unseen subsectors using `evaluate/run_benchmark.py`.
 
-## 4. LoRA vs. Full Fine-Tuning Decision
-
-| Factor | LoRA | Full Fine-Tuning |
-|---|---|---|
-| **GPU Memory** | 1× A100 80GB (32B model) | 8× A100 80GB (32B model) |
-| **Training Time** | 4–8 hours per stage | 24–48 hours per stage |
-| **Generalization Preservation** | Preserves base model reasoning | Risks catastrophic forgetting |
-| **Merge & Serve** | Requires adapter loading at inference | Single merged model file |
-| **Recommended For This Project** | ✅ **Yes** | Only if compute budget allows |
-
-**Recommendation**: Use QLoRA (quantized LoRA) for all stages. 4-bit quantization of base model + 64-rank LoRA adapters = fits on a single A100 80GB or 2× A6000 48GB.
-
----
-
-## 5. Evaluation Framework
-
-### Metric 1: IEC Parity Pass Rate (IEC-PR)
-```
-IEC-PR = (Datasets with 100% parity) / (Total generated datasets)
-Target: > 98%  (current corpus: ~95%)
-```
-
-### Metric 2: Domain Classification Accuracy (DCA)
-```
-DCA = (Generated code classified to correct manufacturing sector) / (Total queries)
-Target: > 92%
-Measured by: sector keyword extraction + manual spot-check
-```
-
-### Metric 3: Engineering Semantic Correctness Score (ESCS)
-```
-ESCS = Expert human rating (1-5 scale) on 50 randomly sampled outputs
-Rubric:
-  5 = Mathematically correct, industrially deployable with minimal review
-  4 = Minor mathematical approximations, correct structure
-  3 = Structural issues but correct control intent
-  2 = Control logic errors (wrong FSM transitions, unstable MPC)
-  1 = Incorrect or dangerous control logic
-Target ESCS: > 3.8 average
-```
-
-### Metric 4: Instruction Diversity Response (IDR)
-```
-IDR = % of 8 instruction styles (see DOC-02) that produce correct output
-Measured on held-out test set containing all 8 instruction styles
-Target: > 85% across all styles
-```
-
-### Metric 5: Hallucination Rate (HR)
-```
-HR = % of generated code containing physically impossible constructs:
-  - Non-physical matrix elements (NaN, Inf)
-  - Temperature setpoints outside physical range (> 2000°C for steel)
-  - Forces exceeding machine rated capacity by > 10%
-Target: < 3%
-```
-
----
-
-## 6. Training Infrastructure Recommendations
-
-| Component | Minimum | Recommended |
-|---|---|---|
-| **GPU** | 1× A100 80GB | 4× H100 80GB NVLink |
-| **RAM** | 128 GB | 256 GB |
-| **Storage** | 2 TB NVMe SSD | 8 TB NVMe RAID |
-| **Framework** | Axolotl / Unsloth | Axolotl + DeepSpeed ZeRO-3 |
-| **Base Model** | Qwen2.5-Coder-7B | Qwen2.5-Coder-32B |
-| **Training Time (LoRA)** | ~6 hrs (7B) | ~18 hrs (32B) |
-| **Cost Estimate (Cloud)** | ~\$80 (Lambda Labs A100) | ~\$600 (4× H100 on RunPod) |
-
----
-
-## 7. Critical Pitfalls to Avoid
-
-### Pitfall 1: Training on Ultra-Dense Datasets Without Segmentation
-Datasets > 700K chars cannot fit in a 32K context window. If the training framework silently truncates at 32K tokens, the model learns from an incomplete FUNCTION_BLOCK — the `END_FUNCTION_BLOCK` is missing, the last FSM stages are absent, and the model learns to generate truncated output.
-
-**Fix**: Segment ultra-dense datasets into logical parts (Phase 1–Phase 3, Phase 4–Phase 6) before training.
-
-### Pitfall 2: Not Using `loss_on_completions_only`
-If loss is computed on both user and assistant turns, the model learns to predict the user instruction text, which wastes capacity and distorts gradients.
-
-### Pitfall 3: Overfitting on Sector Distribution
-Automotive represents 18.5% of the corpus. If not balanced, the model will be biased toward automotive code. Use weighted sampling to equalize sector contribution during training.
-
-### Pitfall 4: Evaluating Only on Seen Domains
-Your test set must include manufacturing subsectors **not present** in the training set (e.g., continuous galvanizing line, tire vulcanization press). This tests true generalization, not memorization.
-
-### Pitfall 5: Ignoring Catastrophic Forgetting
-After domain fine-tuning, the model will degrade on general coding benchmarks. If the target is a **dedicated PLC assistant**, this is acceptable. If the target is a **general-purpose coding assistant with PLC specialization**, use LoRA adapters that can be enabled/disabled.
+### 6.5 Pitfall 5: Catastrophic Forgetting of Reasoning
+* **Defect**: Aggressive full fine-tuning on Structured Text can erode the model's fundamental logical reasoning and multi-turn conversational faculties.
+* **Rule**: Retain low rank ($r=64$, $\alpha=128$) LoRA adapters. Keep base model weights frozen. This confines weight updates to low-rank manifolds while preserving the foundational reasoning capabilities of the base model.

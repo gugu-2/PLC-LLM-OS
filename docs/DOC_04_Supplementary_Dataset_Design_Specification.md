@@ -1,231 +1,216 @@
-# DOC-04: Supplementary Dataset Design Specification
+# DOC-04: Structural & Task-Specific Dataset Engineering Specification
 
-> **Classification**: Dataset Engineering Design Document  
-> **Scope**: 6 new dataset types to complement the existing IEC-ST code corpus  
-> **Date**: 2026-11-21  
-> **Target**: Complete training data ecosystem for a world-class industrial automation LLM
-
----
-
-## Context
-
-The 870 existing datasets are **code emission pairs** — a prompt requests a Function Block, the assistant generates raw IEC-ST code. This covers exactly one of the many things an industrial automation LLM needs to do.
-
-This document specifies **6 complementary dataset types** that together form a comprehensive training ecosystem. Each type targets a specific capability gap identified in DOC-01.
+**Classification**: Training Data Architecture Specification & Dataset Design Document  
+**System**: Lumina Cyber-Physical Multi-Modal Training Ecosystem  
+**Target Scope**: 6 Supplementary Dataset Archetypes Complementing the IEC-ST Code Corpus  
+**Author**: Lumina Engineering Review Board & Principal Automation Fellow  
+**Date**: November 23, 2026  
+**Status**: APPROVED & OPERATIONAL SPECIFICATION  
+**Companion Docs**: DOC-01 (Pathology), DOC-02 (Architecture), DOC-03 (Fine-Tuning), DOC-05 (Pipeline Guide)
 
 ---
 
-## Dataset Type 1: Dialogue-Format Explanation & Q&A Pairs
+## 1. Executive Summary: The Need for Multi-Modal Data Diversity
 
-### Capability It Unlocks
-The model can answer *engineering questions about PLC code* — not just emit it. Users will ask: "Why did you use a 12th-order state-space model?", "What does state 7 do?", "How do I tune the Q matrix?"
+The 870 original datasets in `data/swarm_raw/` represent a single data format: **single-turn code emission pairs** (a system specification prompt followed by a monolithic Function Block). As demonstrated in DOC-01, training an LLM exclusively on code emission pairs produces a "code-spewing automaton" that cannot engage in conversational engineering, cannot troubleshoot broken code, cannot explain its architectural choices, and has no grounding in real-world automation standards.
 
-### Format
-Multi-turn conversational exchange with engineering depth.
+To build an enterprise-ready **Industrial Automation Co-Pilot & Engineering Assistant**, the training distribution must be diversified across six complementary dataset archetypes:
 
+```
+┌────────────────────────────────────────────────────────────────────────────────────────┐
+│                      LUMINA MULTI-MODAL DATASET ECOSYSTEM                              │
+│                                                                                        │
+│  [Code Generation]          [Conversational AI]         [Diagnostic & Troubleshooting] │
+│  Verified IEC-ST Blocks     Type 1: Technical Dialogue  Type 2: 3-Turn Debug Chains    │
+│  (~503 Clean Datasets)      (1,500 - 2,000 Pairs)       (800 - 1,000 Chains)           │
+│                                                                                        │
+│  [Brownfield Engineering]   [Theory-to-Execution]       [Foundation Pre-Training]      │
+│  Type 3: Code Modification  Type 4: Concept-to-Code     Type 5: Domain Text Corpora    │
+│  (500 - 800 Tasks)          (600 - 800 Bridges)         (5 - 10 Million Tokens)        │
+│                                                                                        │
+│  [Functional Safety]                                                                   │
+│  Type 6: Safety SIF Logic                                                              │
+│  (200 - 300 Certified SIFs)                                                            │
+└────────────────────────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## 2. Dataset Type 1: Technical Dialogues & Support Bot Q&A Pairs
+
+### 2.1 Capability It Unlocks
+Transforms the model into an interactive technical support agent and consultative automation peer. The model learns to answer *why* specific engineering decisions are made, analyze architectural trade-offs, and guide engineers through complex control loop commissioning without simply dumping unrequested code.
+
+### 2.2 Target Volume & Specifications
+- **Target Volume**: 1,500 – 2,000 multi-turn exchanges.
+- **Turn Count**: 2 to 4 turns per conversation.
+- **Response Depth**: $\ge 400$ words per assistant turn. Must include mathematical equations, standards citations, and structured Markdown tables/diagrams.
+- **Target Topics**:
+  - 2oo3 TMR vs. 1oo2/1oo3 safety and availability trade-offs under IEC 61511 SIL-2.
+  - Tuning Model Predictive Control (MPC) $Q$ state penalty vs. $R$ actuator effort matrices.
+  - Mitigating derivative kick and integral windup in high-inertia hydraulic and thermal loops.
+  - Designing bumpless manual-to-automatic PID transfer functions.
+  - Dynamic adaptation of discrepancy timers during mechanical machine transients.
+
+### 2.3 Concrete Industrial Example: 2oo3 TMR Architecture in Hot Strip Mill AGC
 ```json
 {
+  "id": "dialogue_qa_steelmaking_tmr_agc_80ca812b",
+  "dataset_type": "type_1_dialogue_qa",
+  "topic": "TMR_HotStripMill_AGC",
+  "sector": "steelmaking",
+  "system": "6-High Cold Mill AGC Roll Force Control",
+  "schema_version": "2.0",
   "messages": [
     {
       "role": "user",
-      "content": "What is the purpose of the 2oo3 Triple Modular Redundancy (TMR) architecture in a hot strip mill AGC system?"
+      "content": "What is the engineering rationale for implementing a 2oo3 Triple Modular Redundancy (TMR) architecture on roll force load cells in a hot strip mill Automatic Gauge Control (AGC) system?"
     },
     {
       "role": "assistant",
-      "content": "In a hot-strip mill Automatic Gauge Control (AGC) system, the 2-out-of-3 (2oo3) TMR architecture serves as the primary safety and reliability mechanism for safety-critical sensor channels. Here is the engineering rationale:\n\n## Safety Context\nThe roll gap hydraulic servo valve receives a position command that directly controls strip thickness. A single-point sensor failure — if undetected — will drive the valve to either maximum extension (strip fracture) or full retract (over-roll, die breakage, potential catastrophic fire). In a 1,800 m/min hot-rolling environment, the response window is under 200 milliseconds.\n\n## How 2oo3 Works in This Context\nThree independent load cell channels (ChA, ChB, ChC) measure the same roll force simultaneously. The voting logic:\n1. Computes pairwise deviations: |A−B|, |B−C|, |C−A|\n2. If all three agree within ±0.5 MN: use median vote (most robust estimate)\n3. If one channel diverges beyond threshold AND disagreement persists > 25 ms (discrepancy timer): flag that channel as suspect, degrade to 1oo2 mean voting of the two agreeing channels, raise ISA-18.2 H alarm\n4. If two channels disagree: trip to fail-safe (hydraulic quick-open, roll separation) — this is the 2oo3 safety trip condition\n\n## Why Not 1oo2 or 1oo3?\n- 1oo2: One failure = immediate trip. Unacceptably low availability in a continuous production line running 20+ hours/day\n- 1oo3 (all must agree): One rogue sensor = false trip. Also unacceptable\n- 2oo3: Tolerates one sensor failure without production loss; requires two disagreeing sensors before tripping — this is the IEC 61511 SIL-2 compliant sweet spot\n\n## Practical Tuning\nThe 25 ms discrepancy timer is chosen to be:\n- Longer than normal transient noise (< 5 ms vibration spikes from the mill stand)\n- Shorter than the hydraulic servo response time (> 80 ms) so the system can react before the valve moves significantly"
+      "content": "In a continuous hot strip mill Automatic Gauge Control (AGC) system, the 2-out-of-3 (2oo3) TMR architecture serves as the primary cyber-physical barrier against catastrophic roll bite failure.\n\n### 1. The Physical Hazard & Safety Context\nIn a 6-high finishing stand, the hydraulic roll gap cylinders exert between 35 to 55 Meganewtons (MN) of roll force on a steel strip moving at up to 1,800 m/min. The process response window is under 30 milliseconds. If a single load cell suffers an open-circuit failure or bridge drift while under load, a naive single-channel controller would interpret the sudden loss of force as a massive strip thickness drop. The controller would drive the hydraulic servo cylinders to maximum stroke in under 100 ms, causing severe roll bite freeze, work roll spalling, strip necking/fracture, and catastrophic mill stall.\n\n### 2. Comparative Reliability Architecture Analysis\n\n| Architecture | Trip Condition | Production Availability | Safety Integrity (IEC 61511) | Real-World Feasibility in Hot Rolling |\n|---|---|:---:|:---:|---|\n| **1oo1 (Single)** | Any failure blinds loop | Poor (Single point of failure) | Non-compliant (SIL-0) | Unacceptable risk of equipment destruction. |\n| **1oo2 (Dual)** | Either sensor trips system | Unacceptably low (Nuisance trips) | High (SIL-2 / SIL-3) | A transient noise spike trips a 24/7 continuous line. |\n| **1oo3 (Triplicate)**| All 3 must agree to trip | High availability | Dangerous (Blind to 1 rogue sensor) | Single frozen load cell prevents emergency trip. |\n| **2oo3 (TMR)** | 2 agreeing sensors govern | **Optimal (Continuous uptime)** | **SIL-2 Compliant (Low PFDavg)** | **Industrial Standard**: Discards 1 failed sensor seamlessly. |\n\n### 3. Voting Mechanics & Discrepancy Filtering\nThree independent load cell channels (ChA, ChB, ChC) measure simultaneous force. The voting algorithm executes in scan time (typically $T_s = 5\\text{ ms}$):\n1. Computes pairwise differences: $\\Delta_{AB} = |A - B|$, $\\Delta_{BC} = |B - C|$, $\\Delta_{CA} = |C - A|$.\n2. Selects the median channel value as the feedback signal.\n3. If any single channel deviates by more than the deviation threshold (typically $\\delta = \\pm 0.5\\text{ MN}$) for longer than the discrepancy persistence timer ($t_d = 25\\text{ ms}$), that channel is flagged as SUSPECT, latches an ISA-18.2 Warning alarm, and the voting degrades to a 1oo2 average of the remaining two healthy channels without disturbing the hydraulic valve position."
     },
     {
       "role": "user",
-      "content": "What happens to the 2oo3 logic when the mill is decelerating at the tail-out phase? Is there a risk of false trips from the speed-dependent vibration?"
+      "content": "During mill tail-out deceleration, the strip tail whips as it leaves the roll bite. Won't the mechanical vibration cause false discrepancy trips if the timer is fixed at 25 ms?"
     },
     {
       "role": "assistant",
-      "content": "Excellent engineering question. Yes — tail-out deceleration is one of the most challenging conditions for TMR stability, and it must be specifically addressed in the FSM design.\n\n## The Problem\nDuring tail-out (FSM Stage 8: PASS_END_DECELERATION_STRIP_TAIL_TRACK), three physical effects combine to increase load cell noise:\n\n1. **Strip tail whip**: As the strip tail leaves the upstream coiler, tension drops asymmetrically causing a 2–5 Hz oscillatory force signature of ±1.5–3 MN amplitude\n2. **Rolling speed-dependent chatter**: At deceleration rates > 50 m/min/s, the work roll develops periodic chatter marks, exciting the mill housing at 15–45 Hz\n3. **Hydraulic decompression transients**: As roll force drops with the tail, the relief valve cycles, injecting hydraulic pressure oscillations at 8–12 Hz\n\nAll three are real physical signals, not sensor faults. If the TMR discrepancy timer (25 ms) is active during this phase, the 15–45 Hz chatter alone will trigger inter-channel divergence every few milliseconds.\n\n## The Solution: State-Dependent TMR Adaptation\n\nThe correct architecture uses the FSM state to modify TMR behavior:\n\n```iec-st\n(* TMR discrepancy timer adjustment based on FSM state *)\nIF State = STATE_DECELERATION_TAIL_OUT THEN\n    r_TMR_DiscrepancyThreshold := 5.0;    (* MN, relaxed from 0.5 MN *)\n    t_TMR_DiscrepancyTimer := T#100ms;    (* Extended from 25ms *)\n    b_TMR_AlarmSuppressed := TRUE;        (* Suppress H alarm during transient *)\nELSE\n    r_TMR_DiscrepancyThreshold := 0.5;    (* MN, normal *)\n    t_TMR_DiscrepancyTimer := T#25ms;     (* Normal *)\n    b_TMR_AlarmSuppressed := FALSE;\nEND_IF;\n```\n\nThis pattern — **FSM-state-conditional TMR tuning** — is a fundamental architectural requirement that many PLC implementations miss. The discrepancy threshold and timer must be a function of the operating mode, not a fixed value."
+      "content": "Yes, tail-out deceleration is the single greatest cause of nuisance trips in hot strip mills. When the strip tail leaves the roll bite, tension collapses instantaneously, generating an asymmetric 2–5 Hz mechanical whip with force oscillations of $\\pm 2.0\\text{ to } \\pm 3.5\\text{ MN}$. A static $25\\text{ ms}$ discrepancy filter calibrated for steady-state rolling ($\\\\pm 0.5\\text{ MN}$) will trip the mill on every coil.\n\n### The Architectural Fix: State-Dependent TMR Adaptation\nThe correct engineering solution is **FSM-State-Conditional TMR Adaptation**, where the Finite State Machine modifies the discrepancy threshold and filter time based on the active rolling stage:\n\n```iec-st\n(* State-Dependent TMR Adaptation during Tail-Out Deceleration *)\nIF State = STATE_TAILOUT_DECEL THEN\n    r_TMR_DiscrepancyThreshold := 3.5;    (* Widened from 0.5 MN to absorb tail whip *)\n    t_TMR_DiscrepancyTimer := T#120ms;    (* Extended from 25ms to bridge transient *)\n    b_TMR_AlarmSuppressed := TRUE;       (* Suppress nuisance alarms per ISA-18.2 *)\nELSE\n    r_TMR_DiscrepancyThreshold := 0.5;    (* Normal steady-state tolerance [MN] *)\n    t_TMR_DiscrepancyTimer := T#25ms;     (* Tight response for steady-state safety *)\n    b_TMR_AlarmSuppressed := FALSE;\nEND_IF;\n```\n\nThis architecture guarantees both zero false trips during mechanical tail whip and full SIL-2 safety integrity during steady-state production."
     }
   ]
 }
 ```
 
-### Generation Strategy
-- Source: Extract specific technical sections from existing code datasets (TMR logic, MPC, FSM transitions)
-- Use a "question generation agent" to auto-generate 3–5 questions per code section
-- Use a "senior engineer answering agent" to generate expert answers without producing new code
-- **Target volume**: 1,500–2,000 Q&A pairs
-- **Minimum answer length**: 400 words (enforces depth, not glib responses)
-
 ---
 
-## Dataset Type 2: Code Debugging & Fault Diagnosis Chains
+## 3. Dataset Type 2: Code Debugging & Fault Diagnosis Chains
 
-### Capability It Unlocks
-The model can receive **broken or incomplete PLC code** and identify what is wrong, explain the fault, and produce a corrected version. This is the most common real-world use case for an AI coding assistant.
+### 3.1 Capability It Unlocks
+Empowers the model to serve as a **real-time diagnostic co-pilot**. In production, controls engineers spend $>60\%$ of their time troubleshooting existing malfunctioning code rather than writing greenfield programs. This dataset trains the model to identify subtle runtime failure modes (integral windup, derivative kick, valve spool cavitation, FSM deadlocks) and synthesize verified corrections.
 
-### Format
-3-turn debug chain: broken code presented → diagnosis → corrected code
+### 3.2 Target Volume & Specifications
+- **Target Volume**: 800 – 1,000 3-turn debug chains.
+- **Structure**:
+  - `Turn 1 (User)`: Operational symptom report + excerpt of broken Structured Text code.
+  - `Turn 2 (Assistant)`: Detailed root-cause diagnosis identifying the compounding physical and algorithmic flaws.
+  - `Turn 3 (User)`: Request for complete, corrected code.
+  - `Turn 4 (Assistant)`: Fully verified Structured Text code with defensive clamps, rate limiters, and FSM transition guards.
+- **Common Fault Archetypes**:
+  1. *Integral Windup*: Unclamped accumulators during actuator saturation or workpiece approach phases.
+  2. *Derivative Kick*: Unfiltered differentiation on setpoint steps causing output spikes.
+  3. *Valve Slew Saturation*: Demanding step changes exceeding hydraulic spool bandwidth.
+  4. *State Deadlocks*: `CASE` branches missing outgoing transitions when unexpected error conditions occur.
+  5. *Matrix Inversion Singularities*: Ill-conditioned online matrix updates causing divide-by-zero traps.
 
+### 3.3 Concrete Industrial Example: Press Force Overshoot & Die Cracking
 ```json
 {
+  "id": "debug_chain_heavy_machinery_press_overshoot_ff7381c3",
+  "dataset_type": "type_2_debug_chain",
+  "fault_type": "Integral_Windup_Press_Overshoot",
+  "sector": "heavy_machinery",
+  "system": "2,500-Ton Servo Stamping Press Coining Stage",
+  "schema_version": "2.0",
   "messages": [
     {
       "role": "user",
-      "content": "Here is a PLC Function Block for a 3,500-ton servo transfer press. The press is experiencing an intermittent force overshoot during the final coining stroke (FSM Stage 6). The overshoot reaches 15% above set point before the loop corrects. Can you identify the problem?\n\n```iec-st\n(* Simplified excerpt *)\nCASE State OF\n  6: (* COINING_FORCE_HOLD *)\n    r_ForceRef := r_CoinForce_SP;\n    r_ForceError := r_ForceRef - r_ForceMeasured_TMR;\n    r_ForceIntegral := r_ForceIntegral + (r_ForceError * r_Ki * r_ScanTime);\n    r_ForcePID_Out := (r_ForceError * r_Kp) + r_ForceIntegral;\n    r_HydroValveCmd := r_ForcePID_Out;\n```"
+      "content": "We are commissioning a 2,500-ton servo stamping press. During the coining stroke (FSM Stage 6), the press experiences a 14% force overshoot above the 22 MN setpoint before settling. This is causing micro-cracking in our automotive stamping dies. Here is our current Structured Text logic:\n\n```iec-st\n(* Stage 6: Coining Force Hold *)\n6: \n    r_ForceError := r_TargetCoinForce - r_MeasuredForce_TMR;\n    r_ForceIntegral := r_ForceIntegral + (r_ForceError * r_Ki * r_CycleTime);\n    r_ServoCmd := (r_ForceError * r_Kp) + r_ForceIntegral;\n    r_HydraulicValveOutput := r_ServoCmd;\n```\n\nWhat is causing this overshoot and how do we fix it?"
     },
     {
       "role": "assistant",
-      "content": "I can identify **three compounding faults** in this code that together explain the 15% force overshoot.\n\n## Fault 1: No Anti-Windup on the Integral Term (Root Cause of Overshoot)\n\nThe integral `r_ForceIntegral` accumulates unclamped. During the rapid approach phase (Stage 4), the force is far below set point, so `r_ForceError` is large and positive. By the time the press contacts the workpiece at Stage 6, the integral has accumulated a large value — this is classic **integral windup**.\n\nWhen force suddenly rises at contact, the PID output includes this wound-up integral, driving the valve to maximum extension and causing the overshoot before the integrator can drain.\n\n**Fix**: Anti-windup clamp on the integral:\n```iec-st\nr_ForceIntegral := LIMIT(-r_IntegralClamp, r_ForceIntegral + (r_ForceError * r_Ki * r_ScanTime), r_IntegralClamp);\n```\n\n## Fault 2: No Force Rate-of-Change (dF/dt) Derivative Feed-Forward\n\nAt workpiece contact, force rises from 0 to coining force in < 50 ms. A pure P+I controller cannot respond fast enough — by the time the error is measured, the hydraulic column has already overshot.\n\n**Fix**: Add a force derivative term that anticipates the contact transient:\n```iec-st\nr_ForceDerivative := (r_ForceMeasured_TMR - r_ForcePrev) / r_ScanTime;\nr_ForcePID_Out := (r_ForceError * r_Kp) + r_ForceIntegral - (r_ForceDerivative * r_Kd);\nr_ForcePrev := r_ForceMeasured_TMR;\n```\n\n## Fault 3: No Valve Command Rate Limiter (Slew Rate)\n\nThe hydraulic servo valve has a physical slew rate limit (typically 150–300 bar/s). If `r_HydroValveCmd` changes by 100% in one scan cycle, the valve physically cannot follow — the internal valve PID goes into saturation, introducing its own oscillation.\n\n**Fix**: Rate-limit the valve command:\n```iec-st\nr_ValveCmdDelta := LIMIT(-r_ValveMaxSlew_PerScan, r_ForcePID_Out - r_HydroValveCmd, r_ValveMaxSlew_PerScan);\nr_HydroValveCmd := r_HydroValveCmd + r_ValveCmdDelta;\n```"
+      "content": "I can identify **three compounding flaws** in this control loop that together explain the 14% force overshoot:\n\n### 1. Unbounded Integral Windup (Primary Root Cause)\nDuring the rapid ram approach (Stages 4 and 5), the workpiece has not yet been contacted. The force error ($r\\_TargetCoinForce - r\\_MeasuredForce$) remains massive (~22 MN) for over 400 milliseconds. Because `r_ForceIntegral` is unclamped, it accumulates an enormous value. When the tooling contacts the sheet metal, the force rises sharply, but the wound-up integral prevents the servo output from decreasing, driving the hydraulic cylinder to maximum force and causing the 14% die overshoot.\n\n### 2. Lack of Derivative Contact Anticipation\nContact between die and sheet metal is a discontinuous stiffness jump (from air to steel die stiffness in $<30\\text{ ms}$). A pure PI loop only reacts *after* error accumulates. A derivative term on force ($dF/dt$) is required to act as an immediate hydraulic brake the instant the rate-of-force rises.\n\n### 3. Missing Valve Slew Rate Limiter\nYour hydraulic proportional valve has a physical spool slew bandwidth limit (~150 bar/s). Driving `r_HydraulicValveOutput` directly from the raw PID step change forces the valve into saturation, inducing cavitation and secondary pressure resonance."
     },
     {
       "role": "user",
-      "content": "Please provide the corrected Stage 6 control logic with all three fixes applied."
+      "content": "Please rewrite the Stage 6 logic in IEC 61131-3 with all three issues corrected."
     },
     {
       "role": "assistant",
-      "content": "```iec-st\n(* Stage 6: COINING_FORCE_HOLD - Corrected with anti-windup, derivative, and slew limiting *)\n6: \n    r_ForceRef := r_CoinForce_SP;\n    r_ForceError := r_ForceRef - r_ForceMeasured_TMR;\n    \n    (* FIX 1: Anti-windup clamped integral *)\n    r_ForceIntegral := LIMIT(\n        -r_IntegralClamp_MN,\n        r_ForceIntegral + (r_ForceError * r_Ki_Force * r_ScanTime_s),\n        r_IntegralClamp_MN\n    );\n    \n    (* FIX 2: Force derivative term for contact transient anticipation *)\n    r_ForceDerivative_MNs := (r_ForceMeasured_TMR - r_ForceMeasured_Prev) / r_ScanTime_s;\n    r_ForceMeasured_Prev := r_ForceMeasured_TMR;\n    \n    (* PID output with all three terms *)\n    r_ForcePID_Raw := (r_ForceError * r_Kp_Force)\n                    + r_ForceIntegral\n                    - (r_ForceDerivative_MNs * r_Kd_Force);\n    \n    (* FIX 3: Valve command slew rate limiter *)\n    r_ValveCmdDelta := LIMIT(\n        -r_ValveMaxSlew_PerScan,\n        r_ForcePID_Raw - r_HydroValveCmd,\n        r_ValveMaxSlew_PerScan\n    );\n    r_HydroValveCmd := r_HydroValveCmd + r_ValveCmdDelta;\n    \n    (* Force hold duration check *)\n    IF r_ForceMeasured_TMR >= (r_CoinForce_SP * 0.98) THEN\n        tCoinHoldTimer(IN := TRUE, PT := t_CoinHoldDuration);\n        IF tCoinHoldTimer.Q THEN\n            State := 7; (* Advance to decompression *)\n            tCoinHoldTimer(IN := FALSE);\n        END_IF;\n    END_IF;\n```"
+      "content": "```iec-st\n(* Stage 6: Coining Force Hold with Anti-Windup, Derivative Lead, and Slew-Limiter *)\n6: \n    r_ForceError := r_TargetCoinForce - r_MeasuredForce_TMR;\n    \n    (* FIX 1: Clamped Anti-Windup Integration *)\n    r_ForceIntegral := LIMIT(\n        -r_MaxIntegralClamp_MN,\n        r_ForceIntegral + (r_ForceError * r_Ki_Force * r_ScanTime_s),\n        r_MaxIntegralClamp_MN\n    );\n    \n    (* FIX 2: Contact Derivative Lead (dF/dt with 1st-order low-pass filter) *)\n    r_dF_dt_raw := (r_MeasuredForce_TMR - r_MeasuredForce_Prev) / r_ScanTime_s;\n    r_dF_dt_filtered := r_dF_dt_filtered + (r_ScanTime_s / (r_FilterTimeConst_s + r_ScanTime_s)) * (r_dF_dt_raw - r_dF_dt_filtered);\n    r_MeasuredForce_Prev := r_MeasuredForce_TMR;\n    \n    (* PID Output Synthesis with Derivative Subtraction *)\n    r_ServoCmd_Raw := (r_ForceError * r_Kp_Force) \n                    + r_ForceIntegral \n                    - (r_dF_dt_filtered * r_Kd_Force);\n    \n    (* FIX 3: Slew Rate Limiter to Protect Hydraulic Spool *)\n    r_ValveDelta := LIMIT(-r_MaxValveSlew_PerScan, r_ServoCmd_Raw - r_HydraulicValveOutput, r_MaxValveSlew_PerScan);\n    r_HydraulicValveOutput := r_HydraulicValveOutput + r_ValveDelta;\n    \n    (* Deterministic Coining Dwell Timer *)\n    IF r_MeasuredForce_TMR >= (r_TargetCoinForce * 0.985) THEN\n        ton_CoiningDwell(IN := TRUE, PT := t_CoiningDwellTime);\n        IF ton_CoiningDwell.Q THEN\n            ton_CoiningDwell(IN := FALSE);\n            State := 7; (* Advance to controlled hydraulic decompression *)\n        END_IF;\n    ELSE\n        ton_CoiningDwell(IN := FALSE);\n    END_IF;\n```"
     }
   ]
 }
 ```
 
-### Generation Strategy
-- Take existing complete Function Blocks, deliberately introduce the 5 most common PLC bugs:
-  1. Missing anti-windup → integral windup
-  2. Missing derivative clamping → derivative kick
-  3. No slew rate limiter → valve saturation
-  4. Missing state entry guard → state re-entry on every scan
-  5. No timeout guard on FSM state → deadlock on sensor failure
-- Generate diagnosis turn using a "senior controls engineer" agent
-- **Target volume**: 800–1,000 debug chains
+---
+
+## 4. Dataset Type 3: Brownfield Incremental Code Modification
+
+### 4.1 Capability It Unlocks
+Enables the model to ingest an **existing Function Block stub** or legacy controller and modularly inject advanced capabilities (e.g., adding multi-cavity pressure balancing to injection molding, integrating thermal spindle compensation into a CNC mill) without rewriting or breaking the surrounding I/O structure.
+
+### 4.2 Target Volume & Specifications
+- **Target Volume**: 500 – 800 tasks.
+- **Format**: User supplies existing baseline block + requested functional enhancement $\rightarrow$ Assistant provides modular insertion code with explicit integration comments and variable additions.
+- **Target Volume**: 500 – 800 datasets.
 
 ---
 
-## Dataset Type 3: Incremental Modification Tasks
+## 5. Dataset Type 4: Theory-to-Code Concept Bridges
 
-### Capability It Unlocks
-The model receives an **existing Function Block** and a modification request, and produces the updated code. This mirrors the most common real-world usage of an AI code assistant.
+### 5.1 Capability It Unlocks
+Teaches the model to bridge the gap between academic control theory (Laplace/Z-domain transfer functions, orthogonal polynomials, state observers) and real-time execution in deterministic scan cycles.
 
-### Format
-
-```json
-{
-  "messages": [
-    {
-      "role": "user",
-      "content": "Here is an existing IEC-ST Function Block for a 128-cavity PET preform injection molding machine:\n\n[EXISTING CODE HERE — 50,000 chars]\n\nTask: Extend this Function Block to add a 5-tier cavity pressure imbalance detection system using the existing 128-channel piezoelectric cavity pressure sensors. When pressure imbalance exceeds ±12% of mean cavity pressure, trigger a graduated response: (1) log to alarm buffer, (2) adjust melt temperature setpoint by ±0.5°C/cycle, (3) adjust injection velocity profile by ±2%, (4) if imbalance persists > 50 cycles: initiate hot runner gate balancing sequence, (5) if still unresolved after 100 cycles: schedule planned maintenance flag and reduce shot count to 96 cavities."
-    },
-    {
-      "role": "assistant",
-      "content": "I'll extend the Function Block with a 5-tier cavity pressure imbalance detection and correction system. Here are the new additions:\n\n[MODIFIED/EXTENDED CODE — adds only new logic without repeating unchanged sections]\n```iec-st\n(* === SECTION ADDITION: 5-TIER CAVITY PRESSURE IMBALANCE DETECTION === *)\n(* Insert after existing cavity pressure measurement block, before hot-runner PID *)\n\n(* Step 1: Compute mean and imbalance across all 128 cavities *)\nr_CavityPressure_Mean := 0.0;\nFOR i := 1 TO 128 DO\n    r_CavityPressure_Mean := r_CavityPressure_Mean + r_CavityPressure_arr[i];\nEND_FOR;\nr_CavityPressure_Mean := r_CavityPressure_Mean / 128.0;\n...\n```"
-    }
-  ]
-}
-```
-
-### Generation Strategy
-- Use pairs from existing corpus: take FB_A as the "base" and FB_B from the same sector as the "target"
-- Extract the difference in features between the two (e.g., B has 128-cavity monitoring, A does not)
-- Construct a modification request that describes the delta
-- The answer shows only the new code additions (not the full repeated block)
-- **Target volume**: 500–800 modification pairs
+### 5.2 Target Volume & Specifications
+- **Target Volume**: 600 – 800 tasks.
+- **Structure**: Detailed mathematical derivation ($\ge 300$ words) $\rightarrow$ Numerical discretization (Tustin / Euler) $\rightarrow$ Full production-grade Structured Text implementation.
+- **Target Systems**: Automatic Flatness Control (Legendre decomposition), Smith Predictor dead-time compensation, Kalman state observers, bumpless auto-tune algorithms.
 
 ---
 
-## Dataset Type 4: Concept-to-Code Translation (Knowledge Bridging)
+## 6. Dataset Type 5: Domain Text Corpora for Language Modeling
 
-### Capability It Unlocks
-The model can translate **engineering theory into code**. A user provides a mathematical control concept ("I want a deadbeat observer for my casting machine"), and the model explains it and implements it.
+### 6.1 Capability It Unlocks
+Improves the model's fundamental comprehension of industrial engineering terminology, safety standards, and operating principles during **Stage A Continual Pre-Training (CPT)** before code fine-tuning.
 
-### Format
+### 6.2 Corpus Source Sizing & Availability
 
-```json
-{
-  "messages": [
-    {
-      "role": "user",
-      "content": "What is Automatic Flatness Control (AFC) in cold strip rolling, and how is it typically implemented in PLC code using a segmented coolant spray bar?"
-    },
-    {
-      "role": "assistant",
-      "content": "## Automatic Flatness Control (AFC) in Cold Strip Rolling\n\n### Physical Principle\n[Engineering explanation — 300 words minimum]\n\n### PLC Implementation Strategy\n[Architecture decision rationale — 200 words]\n\n### Core IEC-ST Implementation\n```iec-st\n(* Complete AFC implementation for 40-zone spray bar *)\n...\n```"
-    }
-  ]
-}
-```
+| Corpus Source | Content Type | Target Volume (Tokens) | Availability & Licensing |
+|---|---|:---:|---|
+| **IEC 61131-3 & IEC 61508 Summaries** | Language specifications & safety guidelines | ~250,000 | Public summaries / Open Standards |
+| **ISA-18.2 Alarm Management Guides** | Alarm rationalization & deadband standards | ~350,000 | ISA membership / Public guidance |
+| **Machine Builder OEM Manuals** | Commissioning & operational procedures (Siemens, Beckhoff) | ~2,000,000 | Public technical documentation |
+| **Academic Industrial Automation Papers** | State-space, MPC, and factory automation papers (arXiv) | ~3,500,000 | Open Access (arXiv e-prints) |
+| **Open-Source Industrial Code Prose** | Technical markdown & documentation (`tc-open`, `OSCAT`) | ~500,000 | MIT / LGPL open licenses |
+| **Industrial Control Encyclopedic Data** | SCADA, DCS, PLC, sensor hardware wiki entries | ~1,000,000 | Creative Commons (CC-BY-SA) |
+| **Total Pre-Training Domain Text** | **High-Density Industrial Engineering Text** | **~7,600,000 Tokens** | **Fully Obtainable & Public** |
 
-### Source Generation
-- Extract technical concepts from existing code comments and variable names
-- Generate "what is X and how do you implement it" questions for each concept
-- Write comprehensive answers that explain theory first, then implement code
-- **Target volume**: 600–800 concept-code pairs
+### 6.3 Pre-Processing Pipeline
+1. **Boilerplate Stripping**: Regex elimination of HTML headers, navigational sidebars, and copyright footers.
+2. **Quality Filtering**: Minimum 150 words per document, English language classification, removal of duplicate pages.
+3. **MinHash LSH Deduplication**: Clustering at $\theta = 0.85$ Jaccard similarity.
+4. **Context Chunking**: Partitioning into 2,048-token to 4,096-token segments for Stage A packing.
 
 ---
 
-## Dataset Type 5: Text Corpora for Language Modeling (Domain Pre-Training)
+## 7. Dataset Type 6: Safety Instrumented Function (SIF) Scenarios
 
-### Capability It Unlocks
-Improves the model's understanding of industrial automation engineering language, terminology, standards, and reasoning patterns — independent of code generation.
+### 7.1 Capability It Unlocks
+Guarantees that the model understands functional safety engineering under **IEC 61511** (Process Industry Safety Systems) and **IEC 62061** (Machinery Safety). The model learns to generate certified de-energize-to-trip logic, NAMUR NE43 analog current diagnostic monitoring, PFDavg verification, and proof test sequencing.
 
-### Corpus Sources (Actual Obtainable Data)
-
-| Source | Data Type | Volume | Availability |
-|---|---|---|---|
-| IEC 61131-3 standard public summaries | Technical prose | ~100K tokens | Public |
-| ISA-18.2 alarm management guidelines | Technical prose | ~150K tokens | ISA membership |
-| IEC 61511 functional safety SIL methodology | Technical prose | ~200K tokens | Public summary |
-| Wikipedia: Industrial control systems, PLC, SCADA | Encyclopedic | ~500K tokens | CC-BY-SA |
-| OpenAutomation wiki pages | Technical reference | ~200K tokens | Public |
-| Machine builder manuals (Siemens SINUMERIK, Beckhoff TwinCAT) | Technical/operational | ~1M tokens | Public |
-| Academic papers: industrial control, MPC, process control (arXiv) | Research | ~2M tokens | Open Access |
-| tc-open GitHub repository code comments | Code prose | ~100K tokens | MIT License |
-| Automation Forums (PLCopen, Automation.com) | Discussion | ~300K tokens | Public |
-
-### Processing Pipeline
-```python
-# For each source:
-# 1. Extract plain text
-# 2. Remove boilerplate (headers, footers, navigation)
-# 3. Filter for minimum quality (> 100 words, English, technical content)
-# 4. Deduplicate using MinHash LSH (threshold = 0.85 Jaccard)
-# 5. Format as plain text chunks (512–2048 tokens per chunk)
-```
-
-**Target volume**: 5–10 million tokens of domain text
+### 7.2 Target Volume & Specifications
+- **Target Volume**: 200 – 300 SIF scenarios.
+- **Key Safety Mandates**:
+  - Dual-channel 1oo2D or 2oo3 sensor architectures.
+  - NAMUR NE43 loop supervision ($I < 3.6\text{ mA}$ wire break, $I > 21.0\text{ mA}$ short circuit).
+  - De-energize-to-trip output design (`b_SafeOutput_DO := FALSE;`).
+  - Supervised physical manual reset requiring process return to safe operating envelope.
 
 ---
 
-## Dataset Type 6: Safety & Functional Safety Scenario Dataset
+## 8. Summary: Complete Dataset Production Matrix
 
-### Capability It Unlocks
-The model understands **industrial safety requirements** and can generate code that explicitly addresses SIL levels, safety function definitions, proof test intervals, and emergency shutdown logic.
-
-### Format: Scenario-Based Safety Engineering
-
-```json
-{
-  "messages": [
-    {
-      "role": "user",
-      "content": "Design a Safety Instrumented Function (SIF) for high-high pressure protection on a hydraulic forging press main cylinder. The SIF must achieve SIL-2 per IEC 61511. The process demand rate is 0.1 per year, the allowed PFDavg is < 0.001 (10^-3). Include proof test interval recommendations and partial stroke testing for the hydraulic dump valve."
-    },
-    {
-      "role": "assistant",
-      "content": "## SIF Design: High-High Hydraulic Pressure Protection (SIL-2)\n\n### Safety Requirement Specification (SRS)\n- **Safety Function**: De-energize hydraulic dump valve (SDV-001) on cylinder pressure ≥ P_HH\n- **Safe State**: SDV-001 open, cylinder pressure returns to atmospheric via accumulator vent\n- **SIL Target**: SIL-2 (PFDavg < 1×10⁻³)\n- **Process Demand Rate (λD)**: 0.1 per year (1 demand per 10 years)\n\n### Architecture Selection (IEC 61511 Table D.3)\n[Full SIL verification, 1oo2D architecture justification]\n\n### IEC-ST Safety Function Implementation\n```iec-st\n(* SIF: High-High Hydraulic Pressure — SIL-2 Certified Logic *)\nFUNCTION_BLOCK SIF_HH_HydraulicPressure_SIL2\n...\n```"
-    }
-  ]
-}
-```
-
-**Target volume**: 200–300 SIF design scenarios across the 7 manufacturing sectors
+| Type | Dataset Archetype | Primary Role in Fine-Tuning | Target Volume | Generation Pipeline Tool | Schema Tag |
+|:---:|---|---|:---:|---|---|
+| **Core** | Verified Code Blocks | Base Structured Text Code Emission (Stage B) | ~503 datasets | Swarm Core (`triage_corpus.py`) | `verified_code` |
+| **Type 1**| Technical Dialogue Q&A | Conversational Engineering & Support Bot (Stage C) | 1,500–2,000 | `scripts/generate_type1_dialogue.py` | `type_1_dialogue_qa` |
+| **Type 2**| 3-Turn Debug Chains | Interactive Code Troubleshooting & Repair (Stage C) | 800–1,000 | `scripts/generate_type2_debug.py` | `type_2_debug_chain` |
+| **Type 3**| Incremental Modification | Brownfield Subsystem Extension (Stage C) | 500–800 | `scripts/generate_type3_incremental.py` | `type_3_incremental_modification` |
+| **Type 4**| Concept-to-Code Bridges | Mathematical Theory to Scan-Time Code (Stage C) | 600–800 | `scripts/generate_type4_concept_code.py` | `type_4_concept_to_code` |
+| **Type 5**| Domain Text Corpora | Continual Domain Pre-Training Saturation (Stage A) | 5–10M tokens | Standards & OEM Manual Scraper | `raw_domain_text` |
+| **Type 6**| SIF Safety Scenarios | Certified SIL-2/SIL-3 Functional Safety (Stage C) | 200–300 | `scripts/generate_type6_safety.py` | `type_6_safety_sif` |
 
 ---
 
-## Summary: Complete Dataset Ecosystem
-
-| Dataset Type | Format | Capability Unlocked | Target Volume | Priority |
-|---|---|---|---|---|
-| Existing code corpus (remediated) | Single-turn code emission | Generate IEC-ST Function Blocks | ~620 | Done |
-| Type 1: Q&A Explanation Pairs | Multi-turn dialogue | Answer engineering questions | 1,500–2,000 | P0 |
-| Type 2: Debug Chains | 3-turn diagnosis + fix | Debug and fix broken code | 800–1,000 | P0 |
-| Type 3: Incremental Modification | 2-turn extension | Extend existing code | 500–800 | P1 |
-| Type 4: Concept-to-Code | 2-turn theory+code | Bridge theory to implementation | 600–800 | P1 |
-| Type 5: Domain Text Corpora | Raw text pre-training | Domain language & reasoning | 5–10M tokens | P1 |
-| Type 6: Safety Scenarios | Multi-turn SIF design | Functional safety engineering | 200–300 | P2 |
+*This specification provides the foundational dataset blueprint to transform the Lumina fine-tuning corpus into a world-class, multi-modal industrial automation training asset.*

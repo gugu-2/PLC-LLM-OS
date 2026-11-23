@@ -12,6 +12,10 @@
 
 This document is the operational blueprint for transforming the raw corpus of 870+ JSON datasets into a training-ready, semantically validated, deduplicated, and structurally indexed artifact set. It specifies every script, every validation stage, every routing decision, and every data format required. Any engineer who reads this document alone should be able to rebuild the entire data pipeline from scratch.
 
+> [!IMPORTANT]
+> **Strict Non-Destructive Data Policy**:
+> Original raw datasets in `data/swarm_raw/` are NEVER modified or deleted. The pipeline operates strictly read-only on raw inputs and creates verified training-ready copies in `data/verified/{sector}/`. The entire 870-dataset archive is preserved at 100% bit-level integrity for reference, ablation studies, and pre-training.
+
 The pipeline has **five sequential stages**:
 
 ```
