@@ -1,0 +1,122 @@
+{
+  "audit_timestamp": "2026-11-23T15:06:00Z",
+  "modules_audited": [
+    "lumina/domain_scheduler.py",
+    "lumina/diversity_injector.py",
+    "lumina/prompt_templates.py"
+  ],
+  "verification_checklist": {
+    "eight_instruction_styles_verified": true,
+    "prompt_diversity_guaranteed": true,
+    "seven_sectors_balanced": true,
+    "target_quotas_convergence": true,
+    "automated_test_suite_passed": true,
+    "all_combinations_clean": true
+  },
+  "diversity_metrics": {
+    "total_styles": 8,
+    "mean_jaccard_similarity": 0.1915,
+    "min_jaccard_similarity": 0.1453,
+    "max_jaccard_similarity": 0.2627,
+    "opening_line_diversity_pct": 100.0,
+    "styles_summary": {
+      "DIRECT_COMMAND": {
+        "char_length": 977,
+        "word_count": 130,
+        "opening": "You are a Principal Automation Fellow and Chair of Cyber-Physical Systems. Develop a complete, production-ready IEC 61131-3 Function Block named `FB_Automotive_BIW_LaserWeld` for: Robotic Body-in-White Seam & Spot Laser Welding Station (AUTOMOTIVE sector)."
+      },
+      "ENGINEERING_BRIEF": {
+        "char_length": 800,
+        "word_count": 101,
+        "opening": "### Engineering Plant Specification: Robotic Body-in-White Seam & Spot Laser Welding Station"
+      },
+      "PROBLEM_STATEMENT": {
+        "char_length": 712,
+        "word_count": 93,
+        "opening": "Our manufacturing plant operates a Robotic Body-in-White Seam & Spot Laser Welding Station in the automotive division. During recent production runs, the existing legacy control loops caused process oscillation, sensor disagreement trips, and product quality variances. To resolve these failures permanently, architect and deliver a brand-new, robust Function Block `FB_Automotive_BIW_LaserWeld` that incorporates:"
+      },
+      "INCREMENTAL_EXTENSION": {
+        "char_length": 694,
+        "word_count": 98,
+        "opening": "In our automotive facility, we need to upgrade the automation logic for Robotic Body-in-White Seam & Spot Laser Welding Station. The basic I/O definitions are in place, but we need the complete advanced cyber-physical control logic implemented in Function Block `FB_Automotive_BIW_LaserWeld`."
+      },
+      "CODE_REVIEW": {
+        "char_length": 706,
+        "word_count": 87,
+        "opening": "Act as a Principal Automation Fellow reviewing control architectures for: Robotic Body-in-White Seam & Spot Laser Welding Station (automotive). Previous attempts at this Function Block lacked mathematical depth, had no state-space representation, and omitted redundancy. Write the definitive, industry-standard implementation of `FB_Automotive_BIW_LaserWeld` that sets the benchmark for cyber-physical reliability:"
+      },
+      "COMPARISON_TASK": {
+        "char_length": 683,
+        "word_count": 90,
+        "opening": "For controlling Robotic Body-in-White Seam & Spot Laser Welding Station in high-throughput automotive manufacturing, traditional single-loop PID controllers suffer from phase lag and lack anticipatory feed-forward. We are implementing a discrete State-Space Model Predictive Control (MPC) approach with 2oo3 TMR voting."
+      },
+      "FAULT_RECOVERY": {
+        "char_length": 685,
+        "word_count": 89,
+        "opening": "Functional safety and uninterrupted operation are critical for our Robotic Body-in-White Seam & Spot Laser Welding Station (automotive). We require a resilient controller Function Block `FB_Automotive_BIW_LaserWeld` that guarantees safety and bumpless fault recovery:"
+      },
+      "COMMISSIONING_QUERY": {
+        "char_length": 610,
+        "word_count": 73,
+        "opening": "We are commissioning a greenfield Robotic Body-in-White Seam & Spot Laser Welding Station installation in our automotive plant. To support cold-commissioning through full-rate production, generate the master Function Block `FB_Automotive_BIW_LaserWeld`."
+      }
+    }
+  },
+  "scheduler_metrics": {
+    "simulation_steps": 1000,
+    "target_ratios_sum": 1.0,
+    "quantum_size": 20,
+    "sector_distribution": {
+      "automotive": {
+        "target_ratio": 0.25,
+        "actual_ratio": 0.25,
+        "actual_count": 250,
+        "absolute_deviation": 0.0,
+        "status": "PASS"
+      },
+      "heavy_machinery": {
+        "target_ratio": 0.2,
+        "actual_ratio": 0.2,
+        "actual_count": 200,
+        "absolute_deviation": 0.0,
+        "status": "PASS"
+      },
+      "electronics": {
+        "target_ratio": 0.15,
+        "actual_ratio": 0.15,
+        "actual_count": 150,
+        "absolute_deviation": 0.0,
+        "status": "PASS"
+      },
+      "semiconductor": {
+        "target_ratio": 0.15,
+        "actual_ratio": 0.15,
+        "actual_count": 150,
+        "absolute_deviation": 0.0,
+        "status": "PASS"
+      },
+      "plastics": {
+        "target_ratio": 0.1,
+        "actual_ratio": 0.1,
+        "actual_count": 100,
+        "absolute_deviation": 0.0,
+        "status": "PASS"
+      },
+      "foodbev": {
+        "target_ratio": 0.1,
+        "actual_ratio": 0.1,
+        "actual_count": 100,
+        "absolute_deviation": 0.0,
+        "status": "PASS"
+      },
+      "steelmaking": {
+        "target_ratio": 0.05,
+        "actual_ratio": 0.05,
+        "actual_count": 50,
+        "absolute_deviation": 0.0,
+        "status": "PASS"
+      }
+    }
+  },
+  "certification_status": "CERTIFIED_PRODUCTION_READY"
+}

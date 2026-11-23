@@ -1,0 +1,250 @@
+[
+  {
+    "benchmark_id": "BENCH-001",
+    "sector": "automotive",
+    "subsector": "continuous_galvanizing",
+    "fb_name_target": "FB_Galvanizing_ZincBath_TempControl",
+    "prompt": "You are a Principal Automation Fellow with 75+ years of IEC 61131-3 experience. Generate a complete, production-grade FUNCTION_BLOCK named FB_Galvanizing_ZincBath_TempControl for a continuous automotive strip steel galvanizing line's zinc bath temperature control system. The system must include: (1) 2oo3 TMR voting for zinc bath temperature measurement, (2) discrete state-space model for thermal dynamics, (3) MPC-based temperature regulation with N=15 prediction horizon, (4) ISA-18.2 alarm management with HH/H/L/LL tiers, (5) 12-state FSM for line startup, steady-state, strip break recovery, and zinc replenishment modes.",
+    "expected_elements": { "has_tmr": true, "has_mpc": true, "has_fsm": true, "has_isa18": true }
+  },
+  {
+    "benchmark_id": "BENCH-002",
+    "sector": "automotive",
+    "subsector": "ceramic_frit_print",
+    "fb_name_target": "FB_FritPrint_InkPressure_Control",
+    "prompt": "Generate a complete IEC 61131-3 Function Block named FB_FritPrint_InkPressure_Control for automotive windshield ceramic black frit screen printing. Must include 2oo3 TMR pressure voting, discrete state-space formulation, MPC viscosity compensation, and ISA-18.2 alarm management.",
+    "expected_elements": { "has_tmr": true, "has_mpc": true, "has_fsm": true, "has_isa18": true }
+  },
+  {
+    "benchmark_id": "BENCH-003",
+    "sector": "automotive",
+    "subsector": "seat_foam_dispense",
+    "fb_name_target": "FB_SeatFoam_PolyolDispense_MPC",
+    "prompt": "Design a complete IEC 61131-3 Function Block FB_SeatFoam_PolyolDispense_MPC for robotic polyurethane automotive seat foam dispensing. Incorporate 2oo3 ratio voting for isocyanate and polyol, state-space flow modeling, and MPC temperature-compensated mixing head regulation.",
+    "expected_elements": { "has_tmr": true, "has_mpc": true, "has_fsm": true, "has_isa18": true }
+  },
+  {
+    "benchmark_id": "BENCH-004",
+    "sector": "automotive",
+    "subsector": "tire_vulcanization",
+    "fb_name_target": "FB_TireVulcanize_CurePress_TMR",
+    "prompt": "Develop an IEC 61131-3 Function Block FB_TireVulcanize_CurePress_TMR for automotive tire curing presses with dual-cavity steam dome and bladder temperature/pressure 2oo3 TMR voting, state-space thermal curing kinetics, and ISA-18.2 safety alarms.",
+    "expected_elements": { "has_tmr": true, "has_mpc": true, "has_fsm": true, "has_isa18": true }
+  },
+  {
+    "benchmark_id": "BENCH-005",
+    "sector": "automotive",
+    "subsector": "crankshaft_grinding",
+    "fb_name_target": "FB_CrankGrind_CBN_ForceControl",
+    "prompt": "Implement FB_CrankGrind_CBN_ForceControl in IEC 61131-3 for automotive crankshaft pin journal high-speed CBN grinding. Implement 2oo3 acoustic emission & load voting, state-space workpiece compliance dynamics, and MPC normal grinding force regulation.",
+    "expected_elements": { "has_tmr": true, "has_mpc": true, "has_fsm": true, "has_isa18": true }
+  },
+  {
+    "benchmark_id": "BENCH-006",
+    "sector": "electronics",
+    "subsector": "wafer_dicing_laser",
+    "fb_name_target": "FB_WaferDice_LaserScribe_Align",
+    "prompt": "Generate FB_WaferDice_LaserScribe_Align in IEC 61131-3 for semiconductor wafer dicing and stealth laser scribing. Include multi-sensor kerf width 2oo3 voting, discrete state-space galvanometer mirror dynamics, and MPC position tracking.",
+    "expected_elements": { "has_tmr": true, "has_mpc": true, "has_fsm": true, "has_isa18": true }
+  },
+  {
+    "benchmark_id": "BENCH-007",
+    "sector": "electronics",
+    "subsector": "plasma_desmear",
+    "fb_name_target": "FB_PlasmaDesmear_RF_PowerControl",
+    "prompt": "Develop an IEC 61131-3 Function Block FB_PlasmaDesmear_RF_PowerControl for high-density multilayer PCB via hole plasma desmear. Incorporate 2oo3 RF reflected power voting, vacuum plasma impedance state-space modeling, and MPC impedance matching.",
+    "expected_elements": { "has_tmr": true, "has_mpc": true, "has_fsm": true, "has_isa18": true }
+  },
+  {
+    "benchmark_id": "BENCH-008",
+    "sector": "electronics",
+    "subsector": "inkjet_solder_mask",
+    "fb_name_target": "FB_InkjetSolderMask_JetControl",
+    "prompt": "Architect FB_InkjetSolderMask_JetControl in Structured Text for industrial PCB solder mask additive inkjet printing. Include piezo jet pressure 2oo3 voting, meniscus pressure state-space representation, and MPC droplet velocity synchronization.",
+    "expected_elements": { "has_tmr": true, "has_mpc": true, "has_fsm": true, "has_isa18": true }
+  },
+  {
+    "benchmark_id": "BENCH-009",
+    "sector": "electronics",
+    "subsector": "cu_pillar_plating",
+    "fb_name_target": "FB_CuPillar_Plating_CurrentDensity",
+    "prompt": "Implement FB_CuPillar_Plating_CurrentDensity in IEC 61131-3 for advanced wafer level packaging copper pillar electroplating. Include 2oo3 bath flow velocity voting, electro-diffusion state-space dynamics, and MPC pulsed current regulation.",
+    "expected_elements": { "has_tmr": true, "has_mpc": true, "has_fsm": true, "has_isa18": true }
+  },
+  {
+    "benchmark_id": "BENCH-010",
+    "sector": "electronics",
+    "subsector": "underfill_dispense",
+    "fb_name_target": "FB_UnderfillDispense_NeedleControl",
+    "prompt": "Write FB_UnderfillDispense_NeedleControl in IEC 61131-3 for flip-chip capillary underfill dispensing. Include 2oo3 pre-heat stage temperature voting, fluid rheology state-space representation, and MPC mass dispense flow rate control.",
+    "expected_elements": { "has_tmr": true, "has_mpc": true, "has_fsm": true, "has_isa18": true }
+  },
+  {
+    "benchmark_id": "BENCH-011",
+    "sector": "heavy_machinery",
+    "subsector": "gun_drilling",
+    "fb_name_target": "FB_GunDrill_CoolantPressure_MPC",
+    "prompt": "Create FB_GunDrill_CoolantPressure_MPC in IEC 61131-3 for deep hole gun drilling of turbine shafts. Implement 2oo3 coolant pressure voting (up to 150 bar), state-space chip clearance fluid dynamics, and MPC spindle thrust/coolant coordination.",
+    "expected_elements": { "has_tmr": true, "has_mpc": true, "has_fsm": true, "has_isa18": true }
+  },
+  {
+    "benchmark_id": "BENCH-012",
+    "sector": "heavy_machinery",
+    "subsector": "gear_shaping",
+    "fb_name_target": "FB_GearShape_StrokeRate_Control",
+    "prompt": "Generate FB_GearShape_StrokeRate_Control for a high-speed CNC gear shaping machine (Fellows principle). Include stroke frequency and relief cam 2oo3 position voting, state-space cutter-workpiece kinematics, and MPC cutting force damping.",
+    "expected_elements": { "has_tmr": true, "has_mpc": true, "has_fsm": true, "has_isa18": true }
+  },
+  {
+    "benchmark_id": "BENCH-013",
+    "sector": "heavy_machinery",
+    "subsector": "jig_bore_thermal",
+    "fb_name_target": "FB_JigBore_ThermalComp_StateSpace",
+    "prompt": "Implement FB_JigBore_ThermalComp_StateSpace in IEC 61131-3 for ultra-precision coordinate jig boring machine spindle thermal growth compensation. Include multi-RTD 2oo3 voting, 8th-order thermal state-space model, and real-time sub-micron position offset.",
+    "expected_elements": { "has_tmr": true, "has_mpc": true, "has_fsm": true, "has_isa18": true }
+  },
+  {
+    "benchmark_id": "BENCH-014",
+    "sector": "heavy_machinery",
+    "subsector": "pipe_bending",
+    "fb_name_target": "FB_PipeBend_Springback_Comp",
+    "prompt": "Design FB_PipeBend_Springback_Comp for a CNC multi-axis hydraulic tube/pipe bending machine. Implement 2oo3 bend angle laser triangulation voting, state-space elastoplastic springback model, and MPC pressure die booster regulation.",
+    "expected_elements": { "has_tmr": true, "has_mpc": true, "has_fsm": true, "has_isa18": true }
+  },
+  {
+    "benchmark_id": "BENCH-015",
+    "sector": "heavy_machinery",
+    "subsector": "thread_rolling",
+    "fb_name_target": "FB_ThreadRoll_FeedForce_TMR",
+    "prompt": "Generate FB_ThreadRoll_FeedForce_TMR in IEC 61131-3 for high-tensile bolt cold thread rolling. Implement 2oo3 roll hydraulic force voting, discrete state-space deformation dynamics, and ISA-18.2 over-tonnage safety interlocks.",
+    "expected_elements": { "has_tmr": true, "has_mpc": true, "has_fsm": true, "has_isa18": true }
+  },
+  {
+    "benchmark_id": "BENCH-016",
+    "sector": "plastics",
+    "subsector": "coextrusion_die",
+    "fb_name_target": "FB_Coextrude_LayerThick_MPC",
+    "prompt": "Develop FB_Coextrude_LayerThick_MPC for a 7-layer barrier film coextrusion feedblock. Include 2oo3 infrared radiometric layer thickness voting, state-space thermal die bolt expansion model, and multivariable MPC layer ratio regulation.",
+    "expected_elements": { "has_tmr": true, "has_mpc": true, "has_fsm": true, "has_isa18": true }
+  },
+  {
+    "benchmark_id": "BENCH-017",
+    "sector": "plastics",
+    "subsector": "rotary_blow_mold",
+    "fb_name_target": "FB_RotaryBlowMold_CycleSync",
+    "prompt": "Implement FB_RotaryBlowMold_CycleSync for high-speed continuous wheel extrusion blow molding (PET/HDPE). Include mold clamp lock pressure 2oo3 voting, state-space rotary inertia kinematics, and MPC parison transfer synchronization.",
+    "expected_elements": { "has_tmr": true, "has_mpc": true, "has_fsm": true, "has_isa18": true }
+  },
+  {
+    "benchmark_id": "BENCH-018",
+    "sector": "plastics",
+    "subsector": "rim_molding",
+    "fb_name_target": "FB_RIM_MixHead_FlowControl",
+    "prompt": "Architect FB_RIM_MixHead_FlowControl in IEC 61131-3 for Reaction Injection Molding (RIM). Include dual-component impingement pressure 2oo3 voting (up to 200 bar), state-space chemical stoichiometric mixing ratio model, and MPC servo injector control.",
+    "expected_elements": { "has_tmr": true, "has_mpc": true, "has_fsm": true, "has_isa18": true }
+  },
+  {
+    "benchmark_id": "BENCH-019",
+    "sector": "plastics",
+    "subsector": "thermoform_plug",
+    "fb_name_target": "FB_Thermoform_PlugAssist_Force",
+    "prompt": "Create FB_Thermoform_PlugAssist_Force in IEC 61131-3 for high-speed servo plug-assist thermoforming of polypropylene trays. Include 2oo3 cavity vacuum and plug force voting, state-space viscoelastic sheet deformation model, and MPC position/velocity profile.",
+    "expected_elements": { "has_tmr": true, "has_mpc": true, "has_fsm": true, "has_isa18": true }
+  },
+  {
+    "benchmark_id": "BENCH-020",
+    "sector": "plastics",
+    "subsector": "foam_sheet_extrude",
+    "fb_name_target": "FB_FoamSheet_GasInject_Pressure",
+    "prompt": "Generate FB_FoamSheet_GasInject_Pressure for supercritical CO2/Nitrogen microcellular foam sheet extrusion. Include 2oo3 gas mass flow voting, state-space polymer dissolution saturation kinetics, and MPC melt pressure stabilization.",
+    "expected_elements": { "has_tmr": true, "has_mpc": true, "has_fsm": true, "has_isa18": true }
+  },
+  {
+    "benchmark_id": "BENCH-021",
+    "sector": "foodbev",
+    "subsector": "htst_pasteurizer",
+    "fb_name_target": "FB_HTST_HoldingTube_TempTMR",
+    "prompt": "Design FB_HTST_HoldingTube_TempTMR for high-temperature short-time (HTST) milk pasteurization. Incorporate 2oo3 legal holding tube temperature voting with fail-safe flow diversion valve (FDV), state-space plate heat exchanger dynamics, and ISA-18.2 compliance.",
+    "expected_elements": { "has_tmr": true, "has_mpc": true, "has_fsm": true, "has_isa18": true }
+  },
+  {
+    "benchmark_id": "BENCH-022",
+    "sector": "foodbev",
+    "subsector": "falling_film_evaporator",
+    "fb_name_target": "FB_FallingFilm_Evap_BrixControl",
+    "prompt": "Implement FB_FallingFilm_Evap_BrixControl in IEC 61131-3 for multi-effect falling film fruit juice concentration. Include 2oo3 refractometer Brix voting, state-space calandria thermal vacuum evaporation model, and MPC discharge Brix regulation.",
+    "expected_elements": { "has_tmr": true, "has_mpc": true, "has_fsm": true, "has_isa18": true }
+  },
+  {
+    "benchmark_id": "BENCH-023",
+    "sector": "foodbev",
+    "subsector": "tunnel_bottle_washer",
+    "fb_name_target": "FB_TunnelWash_ZoneTemp_ISA",
+    "prompt": "Generate FB_TunnelWash_ZoneTemp_ISA for a multi-zone returnable glass bottle washer. Include 2oo3 caustic soaking bath temperature voting, state-space heat loss thermal balancing, and ISA-18.2 alarm escalation.",
+    "expected_elements": { "has_tmr": true, "has_mpc": true, "has_fsm": true, "has_isa18": true }
+  },
+  {
+    "benchmark_id": "BENCH-024",
+    "sector": "foodbev",
+    "subsector": "sugar_crystallizer",
+    "fb_name_target": "FB_CrystalPan_Massecuite_Brix",
+    "prompt": "Create FB_CrystalPan_Massecuite_Brix in IEC 61131-3 for vacuum batch sugar crystallization pan. Include 2oo3 microwave dry substance measurement voting, state-space crystal growth supersaturation kinetics, and MPC feed valve dosing.",
+    "expected_elements": { "has_tmr": true, "has_mpc": true, "has_fsm": true, "has_isa18": true }
+  },
+  {
+    "benchmark_id": "BENCH-025",
+    "sector": "foodbev",
+    "subsector": "food_freeze_dry",
+    "fb_name_target": "FB_FoodFreeze_SublimTemp_MPC",
+    "prompt": "Write FB_FoodFreeze_SublimTemp_MPC in IEC 61131-3 for continuous vacuum freeze drying of soluble coffee extract. Include 2oo3 sublimation shelf temperature and vacuum Pirani gauge voting, state-space ice sublimation heat-mass balance, and MPC heating plate control.",
+    "expected_elements": { "has_tmr": true, "has_mpc": true, "has_fsm": true, "has_isa18": true }
+  },
+  {
+    "benchmark_id": "BENCH-026",
+    "sector": "steelmaking",
+    "subsector": "continuous_annealing",
+    "fb_name_target": "FB_AnnealFurnace_ZoneTemp_MPC",
+    "prompt": "Develop FB_AnnealFurnace_ZoneTemp_MPC for a continuous strip steel annealing furnace radiant tube heating zone. Include 2oo3 optical pyrometer strip temperature voting, state-space radiation heat transfer model, and multivariable MPC burner air-fuel firing regulation.",
+    "expected_elements": { "has_tmr": true, "has_mpc": true, "has_fsm": true, "has_isa18": true }
+  },
+  {
+    "benchmark_id": "BENCH-027",
+    "sector": "steelmaking",
+    "subsector": "electrolytic_tinning",
+    "fb_name_target": "FB_ElectroTin_CurrentDensity_TMR",
+    "prompt": "Implement FB_ElectroTin_CurrentDensity_TMR for high-speed continuous strip steel electrolytic tinning (ETL). Include 2oo3 rectifier current and strip speed voting, state-space Faraday plating dissolution kinetics, and MPC coating weight regulation.",
+    "expected_elements": { "has_tmr": true, "has_mpc": true, "has_fsm": true, "has_isa18": true }
+  },
+  {
+    "benchmark_id": "BENCH-028",
+    "sector": "steelmaking",
+    "subsector": "tension_leveler",
+    "fb_name_target": "FB_TensionLevel_Flatness_MPC",
+    "prompt": "Create FB_TensionLevel_Flatness_MPC in IEC 61131-3 for a strip tension leveling line with entry/exit bridle rolls. Include 2oo3 tension load cell voting, state-space strip elastic-plastic intermesh elongation dynamics, and MPC bridle torque coordination.",
+    "expected_elements": { "has_tmr": true, "has_mpc": true, "has_fsm": true, "has_isa18": true }
+  },
+  {
+    "benchmark_id": "BENCH-029",
+    "sector": "steelmaking",
+    "subsector": "coil_upender",
+    "fb_name_target": "FB_CoilUpend_LoadCell_TMR",
+    "prompt": "Design FB_CoilUpend_LoadCell_TMR for heavy hot-rolled steel coil hydraulic tilting/upending saddle (35 tons). Include 2oo3 hydraulic lift pressure and saddle load cell voting, state-space hydraulic deceleration cushioning, and ISA-18.2 tilt angle interlocks.",
+    "expected_elements": { "has_tmr": true, "has_mpc": true, "has_fsm": true, "has_isa18": true }
+  },
+  {
+    "benchmark_id": "BENCH-030",
+    "sector": "steelmaking",
+    "subsector": "skin_pass_mill",
+    "fb_name_target": "FB_SkinPass_ElongationAFC",
+    "prompt": "Generate FB_SkinPass_ElongationAFC for a 4-high skin pass temper mill. Include entry/exit laser Doppler velocimeter elongation 2oo3 voting (0.5%–2.0% extension target), state-space roll force deformation model, and MPC hydraulic screwdown regulation.",
+    "expected_elements": { "has_tmr": true, "has_mpc": true, "has_fsm": true, "has_isa18": true }
+  },
+  {
+    "benchmark_id": "BENCH-031",
+    "sector": "steelmaking",
+    "subsector": "pickle_line_acid",
+    "fb_name_target": "FB_PickleLine_AcidConc_pH_TMR",
+    "prompt": "Architect FB_PickleLine_AcidConc_pH_TMR in IEC 61131-3 for continuous steel strip hydrochloric acid pickling tanks. Include 2oo3 conductivity and Fe2+ ion concentration sensor voting, state-space pickling reaction kinetics, and MPC fresh acid cascade dosing.",
+    "expected_elements": { "has_tmr": true, "has_mpc": true, "has_fsm": true, "has_isa18": true }
+  }
+]

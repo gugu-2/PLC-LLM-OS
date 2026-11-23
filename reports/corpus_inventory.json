@@ -1,0 +1,24 @@
+{
+  "indexed_count": 20,
+  "source_directory": "data\\swarm_raw",
+  "catalog_file": "catalog\\corpus_index.jsonl",
+  "syntax_pass_count": 20,
+  "domain_pass_count": 16,
+  "semantic_pass_count": 12,
+  "semantic_warn_count": 8,
+  "semantic_fail_count": 0,
+  "sector_distribution": {
+    "plastics": 2,
+    "electronics": 2,
+    "automotive": 10,
+    "semiconductor": 3,
+    "foodbev": 1,
+    "steelmaking": 1,
+    "heavy_machinery": 1
+  },
+  "size_distribution": {
+    "stub": 5,
+    "standard": 14,
+    "extended": 1
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "message": "Benchmark harness configured and ready for model inference evaluation.",
+  "benchmark_items_count": 31,
+  "thresholds": {
+    "IEC_PR": 0.98,
+    "DCA": 0.92,
+    "HR": 0.03,
+    "IDR": 0.85,
+    "ESCS": 3.8
+  }
+}

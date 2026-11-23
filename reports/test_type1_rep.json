@@ -1,0 +1,15 @@
+{
+  "indexed_count": 3,
+  "source_directory": "data\\supplementary\\type_1_dialogue",
+  "catalog_file": "reports\\test_type1.jsonl",
+  "syntax_pass_count": 0,
+  "domain_pass_count": 1,
+  "semantic_pass_count": 0,
+  "sector_distribution": {
+    "electronics": 1,
+    "unclassified": 2
+  },
+  "size_distribution": {
+    "stub": 3
+  }
+}

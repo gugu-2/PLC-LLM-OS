@@ -1,0 +1,71 @@
+{
+  "total_corpus_records": 20,
+  "approved_manufacturing_records": 16,
+  "sector_audit": [
+    {
+      "sector": "automotive",
+      "actual_count": 7,
+      "actual_percentage": 43.75,
+      "target_percentage": 25.0,
+      "deficit_count": -3,
+      "status": "SURPLUS"
+    },
+    {
+      "sector": "heavy_machinery",
+      "actual_count": 0,
+      "actual_percentage": 0.0,
+      "target_percentage": 20.0,
+      "deficit_count": 3,
+      "status": "DEFICIT"
+    },
+    {
+      "sector": "electronics",
+      "actual_count": 2,
+      "actual_percentage": 12.5,
+      "target_percentage": 15.0,
+      "deficit_count": 0,
+      "status": "BALANCED"
+    },
+    {
+      "sector": "semiconductor",
+      "actual_count": 3,
+      "actual_percentage": 18.75,
+      "target_percentage": 15.0,
+      "deficit_count": -1,
+      "status": "SURPLUS"
+    },
+    {
+      "sector": "plastics",
+      "actual_count": 2,
+      "actual_percentage": 12.5,
+      "target_percentage": 10.0,
+      "deficit_count": 0,
+      "status": "BALANCED"
+    },
+    {
+      "sector": "foodbev",
+      "actual_count": 1,
+      "actual_percentage": 6.25,
+      "target_percentage": 10.0,
+      "deficit_count": 1,
+      "status": "DEFICIT"
+    },
+    {
+      "sector": "steelmaking",
+      "actual_count": 1,
+      "actual_percentage": 6.25,
+      "target_percentage": 5.0,
+      "deficit_count": 0,
+      "status": "BALANCED"
+    }
+  ],
+  "recommended_next_wave_allocations": {
+    "automotive": 9,
+    "heavy_machinery": 18,
+    "electronics": 7,
+    "semiconductor": 5,
+    "plastics": 3,
+    "foodbev": 6,
+    "steelmaking": 2
+  }
+}

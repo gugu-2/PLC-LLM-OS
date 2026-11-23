@@ -1,0 +1,461 @@
+{
+  "summary": {
+    "timestamp": "2026-11-23T09:32:17.390351+00:00",
+    "total_scanned": 50,
+    "verified_pass_count": 27,
+    "quarantined_semantic_count": 1,
+    "quarantined_stub_count": 10,
+    "rejected_off_target_domain_count": 12,
+    "rejected_syntax_fail_count": 0,
+    "verified_pass_pct": 54.0,
+    "verified_sector_distribution": {
+      "electronics": 3,
+      "automotive": 19,
+      "steelmaking": 1,
+      "heavy_machinery": 2,
+      "semiconductor": 1,
+      "plastics": 1
+    }
+  },
+  "results": {
+    "verified_pass": [
+      {
+        "file": "agent_003f6e49.json",
+        "fb_name": "FB_Electronics_SMT_HighSpeed_PickAndPlace_VisionFeeder",
+        "sector": "electronics",
+        "char_count": 153137,
+        "semantic_verdict": "PASS",
+        "has_tmr": true,
+        "mpc_n": null
+      },
+      {
+        "file": "agent_00d13b57.json",
+        "fb_name": "FB_Semiconductor_LithoTrack_CoaterDeveloper_ThermalBake",
+        "sector": "automotive",
+        "char_count": 242108,
+        "semantic_verdict": "PASS",
+        "has_tmr": true,
+        "mpc_n": null
+      },
+      {
+        "file": "agent_011dafac.json",
+        "fb_name": "FB_FoodBev_AsepticCanning_DoubleSeamer_LeakInspect",
+        "sector": "automotive",
+        "char_count": 114456,
+        "semantic_verdict": "PASS",
+        "has_tmr": true,
+        "mpc_n": null
+      },
+      {
+        "file": "agent_014b7a08.json",
+        "fb_name": "FB_Aerospace_Spacecraft_TVAC_ThermalVacuumTesting",
+        "sector": "automotive",
+        "char_count": 105179,
+        "semantic_verdict": "WARN",
+        "has_tmr": true,
+        "mpc_n": null
+      },
+      {
+        "file": "agent_015420c4.json",
+        "fb_name": "FB_Automotive_Paint_Clearcoat_BellAtomizer_Electrostatic",
+        "sector": "automotive",
+        "char_count": 147353,
+        "semantic_verdict": "WARN",
+        "has_tmr": true,
+        "mpc_n": null
+      },
+      {
+        "file": "agent_015d1f5d.json",
+        "fb_name": "FB_HeavyMetal_HotRolling_4HighReversibleMill_HAGC_RollBending",
+        "sector": "automotive",
+        "char_count": 216465,
+        "semantic_verdict": "PASS",
+        "has_tmr": true,
+        "mpc_n": null
+      },
+      {
+        "file": "agent_01a775e0.json",
+        "fb_name": "FB_Automotive_Assembly_Engine_RoboticPistonConnectingRod_Insertion",
+        "sector": "automotive",
+        "char_count": 231922,
+        "semantic_verdict": "PASS",
+        "has_tmr": true,
+        "mpc_n": null
+      },
+      {
+        "file": "agent_023eef75.json",
+        "fb_name": "FB_DataCenter_LiquidCooling_CDU_DirectToChip",
+        "sector": "automotive",
+        "char_count": 108382,
+        "semantic_verdict": "PASS",
+        "has_tmr": true,
+        "mpc_n": null
+      },
+      {
+        "file": "agent_02b4d411.json",
+        "fb_name": "FB_Electronics_SMT_SPI_3DMoireInterferometry_Sync",
+        "sector": "electronics",
+        "char_count": 228846,
+        "semantic_verdict": "PASS",
+        "has_tmr": true,
+        "mpc_n": null
+      },
+      {
+        "file": "agent_02dcccbd.json",
+        "fb_name": "FB_Machining_5AxisCNC_ThermalExpansionToolWearObserver",
+        "sector": "automotive",
+        "char_count": 399138,
+        "semantic_verdict": "PASS",
+        "has_tmr": true,
+        "mpc_n": null
+      },
+      {
+        "file": "agent_03074f03.json",
+        "fb_name": "FB_Glass_FloatLine_TinBath_AnnealingLehr",
+        "sector": "steelmaking",
+        "char_count": 111741,
+        "semantic_verdict": "PASS",
+        "has_tmr": true,
+        "mpc_n": null
+      },
+      {
+        "file": "agent_03438cdf.json",
+        "fb_name": "FB_Semiconductor_Facility_UltraHighPurity_ToxicGas_BurnWetScrubber",
+        "sector": "automotive",
+        "char_count": 137704,
+        "semantic_verdict": "PASS",
+        "has_tmr": true,
+        "mpc_n": null
+      },
+      {
+        "file": "agent_0371bb5e.json",
+        "fb_name": "FB_TireManufacturing_HydraulicCuringPress_BladderNitrogenSync",
+        "sector": "heavy_machinery",
+        "char_count": 245038,
+        "semantic_verdict": "PASS",
+        "has_tmr": true,
+        "mpc_n": null
+      },
+      {
+        "file": "agent_03764eec.json",
+        "fb_name": "FB_Semiconductor_WaferFab_CMP_SlurryViscosityPolish_Sync",
+        "sector": "semiconductor",
+        "char_count": 204436,
+        "semantic_verdict": "PASS",
+        "has_tmr": true,
+        "mpc_n": null
+      },
+      {
+        "file": "agent_038a8686.json",
+        "fb_name": "FB_Logistics_ASRS_HighSpeedShuttle_CrossBeltSorter",
+        "sector": "automotive",
+        "char_count": 136126,
+        "semantic_verdict": "PASS",
+        "has_tmr": true,
+        "mpc_n": null
+      },
+      {
+        "file": "agent_055d085e.json",
+        "fb_name": "FB_Electronics_SMT_SolderPaste_PiezoJet_WarpageTracker",
+        "sector": "electronics",
+        "char_count": 200499,
+        "semantic_verdict": "WARN",
+        "has_tmr": true,
+        "mpc_n": null
+      },
+      {
+        "file": "agent_05bc92ba.json",
+        "fb_name": "FB_Electronics_PowerModule_VacuumReflow_PorositySync",
+        "sector": "automotive",
+        "char_count": 220818,
+        "semantic_verdict": "PASS",
+        "has_tmr": true,
+        "mpc_n": null
+      },
+      {
+        "file": "agent_087c35aa.json",
+        "fb_name": "FB_HeavyMetal_Steelmaking_BOF_300Ton_Sublance_EndpointDynamic",
+        "sector": "automotive",
+        "char_count": 354063,
+        "semantic_verdict": "PASS",
+        "has_tmr": true,
+        "mpc_n": null
+      },
+      {
+        "file": "agent_089f43e1.json",
+        "fb_name": "FB_Automotive_Chassis_MultiLink_Subframe_AutomatedRoboticBushPress",
+        "sector": "automotive",
+        "char_count": 149147,
+        "semantic_verdict": "PASS",
+        "has_tmr": true,
+        "mpc_n": null
+      },
+      {
+        "file": "agent_097ca971.json",
+        "fb_name": "FB_Electronics_FlyingProbe_ICT_8Axis_KelvinMetrology",
+        "sector": "automotive",
+        "char_count": 211214,
+        "semantic_verdict": "WARN",
+        "has_tmr": true,
+        "mpc_n": null
+      },
+      {
+        "file": "agent_09e9525f.json",
+        "fb_name": "FB_Plastics_LSR_LiquidSiliconeRubber_MultiCavitySync",
+        "sector": "automotive",
+        "char_count": 204359,
+        "semantic_verdict": "PASS",
+        "has_tmr": true,
+        "mpc_n": null
+      },
+      {
+        "file": "agent_0a834e23.json",
+        "fb_name": "FB_Automotive_EV_BatteryPack_TIM_DualComponentDispense_LaserScan",
+        "sector": "automotive",
+        "char_count": 366117,
+        "semantic_verdict": "PASS",
+        "has_tmr": true,
+        "mpc_n": null
+      },
+      {
+        "file": "agent_0e792d10.json",
+        "fb_name": "FB_Rail_HighSpeed_EMU_TractionBraking_WSSP",
+        "sector": "automotive",
+        "char_count": 136423,
+        "semantic_verdict": "PASS",
+        "has_tmr": true,
+        "mpc_n": null
+      },
+      {
+        "file": "agent_0ecd3d68.json",
+        "fb_name": "FB_Automotive_Powertrain_EngineDyno_ColdHotTest_Sync",
+        "sector": "automotive",
+        "char_count": 194549,
+        "semantic_verdict": "PASS",
+        "has_tmr": true,
+        "mpc_n": null
+      },
+      {
+        "file": "agent_10438b1b.json",
+        "fb_name": "FB_Plastics_TwinScrew_ReactiveExtrusion_SlitDie",
+        "sector": "automotive",
+        "char_count": 107162,
+        "semantic_verdict": "PASS",
+        "has_tmr": true,
+        "mpc_n": null
+      },
+      {
+        "file": "agent_1129ef79.json",
+        "fb_name": "FB_Steelmaking_SlabCaster_EMS_SoftReduction_Sync",
+        "sector": "heavy_machinery",
+        "char_count": 203005,
+        "semantic_verdict": "WARN",
+        "has_tmr": true,
+        "mpc_n": null
+      },
+      {
+        "file": "agent_1168c7f1.json",
+        "fb_name": "FB_Plastics_AllElectric_IMM_VPTransfer_CavityPressure",
+        "sector": "plastics",
+        "char_count": 144029,
+        "semantic_verdict": "PASS",
+        "has_tmr": true,
+        "mpc_n": null
+      }
+    ],
+    "quarantined_semantic_warn": [
+      {
+        "file": "agent_0cd95d01.json",
+        "fb_name": "FB_Electronics_SMT_ChipShooter_DualGantryVision_Sync",
+        "errors": [
+          "Dimension mismatch between state matrix 'A_INNOV_COVARIANCE_S' (4 rows) and input matrix 'A_MAT_B' (6 rows).",
+          "Dimension mismatch between state matrix 'A_INNOV_COVARIANCE_S' (4 rows) and input matrix 'A_PCB_WARPAGE_GRID' (16 rows).",
+          "Dimension mismatch between state matrix 'A_MAT_A' (6 rows) and input matrix 'A_PCB_WARPAGE_GRID' (16 rows).",
+          "State matrix 'A_MAT_B' is non-square: 6x5 (must be nxn).",
+          "Dimension mismatch between state matrix 'A_MAT_B' (6 rows) and input matrix 'A_PCB_WARPAGE_GRID' (16 rows).",
+          "State matrix 'A_MAT_C' is non-square: 4x6 (must be nxn).",
+          "Dimension mismatch between state matrix 'A_MAT_C' (4 rows) and input matrix 'A_MAT_B' (6 rows).",
+          "Dimension mismatch between state matrix 'A_MAT_C' (4 rows) and input matrix 'A_PCB_WARPAGE_GRID' (16 rows).",
+          "State matrix 'A_MAT_D' is non-square: 4x5 (must be nxn).",
+          "Dimension mismatch between state matrix 'A_MAT_D' (4 rows) and input matrix 'A_MAT_B' (6 rows).",
+          "Dimension mismatch between state matrix 'A_MAT_D' (4 rows) and input matrix 'A_PCB_WARPAGE_GRID' (16 rows).",
+          "State matrix 'A_MAT_L' is non-square: 6x4 (must be nxn).",
+          "Dimension mismatch between state matrix 'A_MAT_L' (6 rows) and input matrix 'A_PCB_WARPAGE_GRID' (16 rows).",
+          "Dimension mismatch between state matrix 'A_MAT_Q' (6 rows) and input matrix 'A_PCB_WARPAGE_GRID' (16 rows).",
+          "Dimension mismatch between state matrix 'A_MAT_R' (5 rows) and input matrix 'A_MAT_B' (6 rows).",
+          "Dimension mismatch between state matrix 'A_MAT_R' (5 rows) and input matrix 'A_PCB_WARPAGE_GRID' (16 rows).",
+          "Dimension mismatch between state matrix 'A_MAT_P' (6 rows) and input matrix 'A_PCB_WARPAGE_GRID' (16 rows).",
+          "Dimension mismatch between state matrix 'A_MAT_S' (5 rows) and input matrix 'A_MAT_B' (6 rows).",
+          "Dimension mismatch between state matrix 'A_MAT_S' (5 rows) and input matrix 'A_PCB_WARPAGE_GRID' (16 rows).",
+          "Dimension mismatch between state matrix 'A_PCB_WARPAGE_GRID' (16 rows) and input matrix 'A_MAT_B' (6 rows)."
+        ],
+        "sector": "automotive"
+      }
+    ],
+    "quarantined_stub_size": [
+      {
+        "file": "agent_001ec71d.json",
+        "fb_name": "FB_Plastics_9LayerBlownFilm_IBC_HaulOffSync",
+        "char_count": 61124,
+        "sector": "automotive"
+      },
+      {
+        "file": "agent_0347ecee.json",
+        "fb_name": "FB_Plastics_InjectionMolding_CavityPressureVPOvershoot",
+        "char_count": 77307,
+        "sector": "plastics"
+      },
+      {
+        "file": "agent_054641de.json",
+        "fb_name": "FB_NanoEncapsulation_SprayFreeze_MicrospherePSD",
+        "char_count": 68487,
+        "sector": "automotive"
+      },
+      {
+        "file": "agent_07f6f5e9.json",
+        "fb_name": "FB_Automotive_BIW_RoboticRollerHemming_Sealer",
+        "char_count": 75240,
+        "sector": "automotive"
+      },
+      {
+        "file": "agent_0a54b185.json",
+        "fb_name": "FB_Logistics_ASRS_HighBayCrane_AntiSway",
+        "char_count": 60145,
+        "sector": "automotive"
+      },
+      {
+        "file": "agent_0dbb65df.json",
+        "fb_name": "FB_OpticalGlass_VacuumHotPressSinter",
+        "char_count": 35946,
+        "sector": "automotive"
+      },
+      {
+        "file": "agent_0e8b4270.json",
+        "fb_name": "FB_FoodBev_AsepticBottling_RotaryCarouselSterilization",
+        "char_count": 81861,
+        "sector": "automotive"
+      },
+      {
+        "file": "agent_0fef1f10.json",
+        "fb_name": "FB_Glass_FloatGlass_TinBath_AnnealingLehr",
+        "char_count": 90801,
+        "sector": "automotive"
+      },
+      {
+        "file": "agent_106de657.json",
+        "fb_name": "FB_LAES_CryoExpanderColdRecovery",
+        "char_count": 61116,
+        "sector": "automotive"
+      },
+      {
+        "file": "agent_108312b4.json",
+        "fb_name": "FB_Biogas_DigesterBufferScrubber",
+        "char_count": 27023,
+        "sector": "automotive"
+      }
+    ],
+    "rejected_off_target_domain": [
+      {
+        "file": "agent_00510d8b.json",
+        "fb_name": "FB_SubseaTwinScrew_MultiPhasePump_GVFControl",
+        "forbidden_domain": "marine",
+        "hits": [
+          "marine::SeaWater",
+          "marine::Subsea"
+        ]
+      },
+      {
+        "file": "agent_034c2a6f.json",
+        "fb_name": "FB_Aerospace_RocketTestStand_Deluge_Umbilical",
+        "forbidden_domain": "marine",
+        "hits": [
+          "marine::Propulsion"
+        ]
+      },
+      {
+        "file": "agent_03702e00.json",
+        "fb_name": "FB_SubseaMining_AbyssalLiftPipeSlurryPump",
+        "forbidden_domain": "marine",
+        "hits": [
+          "marine::SeaWater",
+          "marine::Subsea"
+        ]
+      },
+      {
+        "file": "agent_05ca6ec8.json",
+        "fb_name": "FB_Aerospace_5AxisCNC_BliskMachining_ThermalComp",
+        "forbidden_domain": "marine",
+        "hits": [
+          "marine::Propulsion"
+        ]
+      },
+      {
+        "file": "agent_07f9ecc6.json",
+        "fb_name": "FB_VehicleWash_MultiAxisGantry_OscillatingArch",
+        "forbidden_domain": "marine",
+        "hits": [
+          "marine::Vessel"
+        ]
+      },
+      {
+        "file": "agent_0990fe55.json",
+        "fb_name": "FB_Marine_LNG_Carrier_BOG_Reliquefaction_FGSS",
+        "forbidden_domain": "marine",
+        "hits": [
+          "marine::Ship",
+          "marine::SeaWater",
+          "marine::Maritime"
+        ]
+      },
+      {
+        "file": "agent_0993685f.json",
+        "fb_name": "FB_PowerGen_HRSG_TriplePressureDrum_AttemperatorCtrl",
+        "forbidden_domain": "marine",
+        "hits": [
+          "marine::Vessel"
+        ]
+      },
+      {
+        "file": "agent_0af1f161.json",
+        "fb_name": "FB_Automotive_Glass_WindshieldLamination_DeairingAutoclave",
+        "forbidden_domain": "marine",
+        "hits": [
+          "marine::Vessel"
+        ]
+      },
+      {
+        "file": "agent_0af2efe7.json",
+        "fb_name": "FB_Chemicals_Hydrocracker_TrickleBed_HydrogenQuench",
+        "forbidden_domain": "marine",
+        "hits": [
+          "marine::Vessel"
+        ]
+      },
+      {
+        "file": "agent_0bffdbc4.json",
+        "fb_name": "FB_Automotive_Transmission_TorqueConverter_ImpellerCover_LaserWeld",
+        "forbidden_domain": "marine",
+        "hits": [
+          "marine::Vessel"
+        ]
+      },
+      {
+        "file": "agent_0e3b6aa4.json",
+        "fb_name": "FB_GeothermalDLE_IonExchange_ElutionCycle",
+        "forbidden_domain": "oil_gas",
+        "hits": [
+          "oil_gas::Wellhead"
+        ]
+      },
+      {
+        "file": "agent_0eb58b8b.json",
+        "fb_name": "FB_Automotive_Plastics_FuelTank_6LayerBlowMolding_WDS",
+        "forbidden_domain": "marine",
+        "hits": [
+          "marine::ROV"
+        ]
+      }
+    ],
+    "rejected_syntax_fail": []
+  }
+}

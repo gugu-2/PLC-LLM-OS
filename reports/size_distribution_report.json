@@ -1,0 +1,4367 @@
+{
+  "total": 870,
+  "stub_count": 388,
+  "standard_count": 433,
+  "extended_count": 44,
+  "ultra_dense_count": 5,
+  "details": {
+    "stub": [
+      {
+        "file": "agent_001ec71d.json",
+        "char_count": 61124,
+        "token_estimate": 19717
+      },
+      {
+        "file": "agent_00510d8b.json",
+        "char_count": 91294,
+        "token_estimate": 29449
+      },
+      {
+        "file": "agent_0347ecee.json",
+        "char_count": 77307,
+        "token_estimate": 24937
+      },
+      {
+        "file": "agent_034c2a6f.json",
+        "char_count": 51975,
+        "token_estimate": 16766
+      },
+      {
+        "file": "agent_03702e00.json",
+        "char_count": 64007,
+        "token_estimate": 20647
+      },
+      {
+        "file": "agent_054641de.json",
+        "char_count": 68487,
+        "token_estimate": 22092
+      },
+      {
+        "file": "agent_05ca6ec8.json",
+        "char_count": 71899,
+        "token_estimate": 23193
+      },
+      {
+        "file": "agent_07f6f5e9.json",
+        "char_count": 75240,
+        "token_estimate": 24270
+      },
+      {
+        "file": "agent_0993685f.json",
+        "char_count": 92457,
+        "token_estimate": 29824
+      },
+      {
+        "file": "agent_0a54b185.json",
+        "char_count": 60145,
+        "token_estimate": 19401
+      },
+      {
+        "file": "agent_0dbb65df.json",
+        "char_count": 35946,
+        "token_estimate": 11595
+      },
+      {
+        "file": "agent_0e3b6aa4.json",
+        "char_count": 82104,
+        "token_estimate": 26485
+      },
+      {
+        "file": "agent_0e8b4270.json",
+        "char_count": 81861,
+        "token_estimate": 26406
+      },
+      {
+        "file": "agent_0fef1f10.json",
+        "char_count": 90801,
+        "token_estimate": 29290
+      },
+      {
+        "file": "agent_106de657.json",
+        "char_count": 61116,
+        "token_estimate": 19714
+      },
+      {
+        "file": "agent_108312b4.json",
+        "char_count": 27023,
+        "token_estimate": 8717
+      },
+      {
+        "file": "agent_123e22a7.json",
+        "char_count": 49854,
+        "token_estimate": 16081
+      },
+      {
+        "file": "agent_128d66ce.json",
+        "char_count": 51017,
+        "token_estimate": 16457
+      },
+      {
+        "file": "agent_12c7d05e.json",
+        "char_count": 29536,
+        "token_estimate": 9527
+      },
+      {
+        "file": "agent_12f8c971.json",
+        "char_count": 31252,
+        "token_estimate": 10081
+      },
+      {
+        "file": "agent_136b8fa2.json",
+        "char_count": 27844,
+        "token_estimate": 8981
+      },
+      {
+        "file": "agent_140d83d6.json",
+        "char_count": 74764,
+        "token_estimate": 24117
+      },
+      {
+        "file": "agent_150de0a3.json",
+        "char_count": 95950,
+        "token_estimate": 30951
+      },
+      {
+        "file": "agent_152020c2.json",
+        "char_count": 78930,
+        "token_estimate": 25461
+      },
+      {
+        "file": "agent_153a32b5.json",
+        "char_count": 78807,
+        "token_estimate": 25421
+      },
+      {
+        "file": "agent_15b474fd.json",
+        "char_count": 78080,
+        "token_estimate": 25187
+      },
+      {
+        "file": "agent_15f49e9f.json",
+        "char_count": 61428,
+        "token_estimate": 19815
+      },
+      {
+        "file": "agent_1626ad4e.json",
+        "char_count": 27974,
+        "token_estimate": 9023
+      },
+      {
+        "file": "agent_171326cf.json",
+        "char_count": 29415,
+        "token_estimate": 9488
+      },
+      {
+        "file": "agent_176a5ae4.json",
+        "char_count": 74409,
+        "token_estimate": 24002
+      },
+      {
+        "file": "agent_18165ad9.json",
+        "char_count": 69409,
+        "token_estimate": 22390
+      },
+      {
+        "file": "agent_182c6090.json",
+        "char_count": 38459,
+        "token_estimate": 12406
+      },
+      {
+        "file": "agent_1880b61e.json",
+        "char_count": 44619,
+        "token_estimate": 14393
+      },
+      {
+        "file": "agent_189cf937.json",
+        "char_count": 30067,
+        "token_estimate": 9699
+      },
+      {
+        "file": "agent_18eb967e.json",
+        "char_count": 58747,
+        "token_estimate": 18950
+      },
+      {
+        "file": "agent_192e817a.json",
+        "char_count": 54405,
+        "token_estimate": 17550
+      },
+      {
+        "file": "agent_19ef3e14.json",
+        "char_count": 54405,
+        "token_estimate": 17550
+      },
+      {
+        "file": "agent_1a002937.json",
+        "char_count": 92811,
+        "token_estimate": 29939
+      },
+      {
+        "file": "agent_1be2409d.json",
+        "char_count": 47214,
+        "token_estimate": 15230
+      },
+      {
+        "file": "agent_1bf6e13b.json",
+        "char_count": 70669,
+        "token_estimate": 22796
+      },
+      {
+        "file": "agent_1c74b210.json",
+        "char_count": 83101,
+        "token_estimate": 26806
+      },
+      {
+        "file": "agent_1cee7622.json",
+        "char_count": 79624,
+        "token_estimate": 25685
+      },
+      {
+        "file": "agent_1e2049ba.json",
+        "char_count": 92154,
+        "token_estimate": 29727
+      },
+      {
+        "file": "agent_1e520849.json",
+        "char_count": 66411,
+        "token_estimate": 21422
+      },
+      {
+        "file": "agent_1e6e30c1.json",
+        "char_count": 69823,
+        "token_estimate": 22523
+      },
+      {
+        "file": "agent_1e7d8d77.json",
+        "char_count": 52441,
+        "token_estimate": 16916
+      },
+      {
+        "file": "agent_1fac9035.json",
+        "char_count": 80107,
+        "token_estimate": 25840
+      },
+      {
+        "file": "agent_226d636f.json",
+        "char_count": 91694,
+        "token_estimate": 29578
+      },
+      {
+        "file": "agent_232ba199.json",
+        "char_count": 23350,
+        "token_estimate": 7532
+      },
+      {
+        "file": "agent_252336cb.json",
+        "char_count": 28157,
+        "token_estimate": 9082
+      },
+      {
+        "file": "agent_25dfb6c8.json",
+        "char_count": 51281,
+        "token_estimate": 16542
+      },
+      {
+        "file": "agent_2619c642.json",
+        "char_count": 83558,
+        "token_estimate": 26954
+      },
+      {
+        "file": "agent_26a0eb06.json",
+        "char_count": 87330,
+        "token_estimate": 28170
+      },
+      {
+        "file": "agent_26d21898.json",
+        "char_count": 50852,
+        "token_estimate": 16403
+      },
+      {
+        "file": "agent_26f52dfa.json",
+        "char_count": 75224,
+        "token_estimate": 24265
+      },
+      {
+        "file": "agent_2736b36b.json",
+        "char_count": 76004,
+        "token_estimate": 24517
+      },
+      {
+        "file": "agent_2901bc74.json",
+        "char_count": 83327,
+        "token_estimate": 26879
+      },
+      {
+        "file": "agent_29c947d7.json",
+        "char_count": 43063,
+        "token_estimate": 13891
+      },
+      {
+        "file": "agent_2ac0b5e4.json",
+        "char_count": 29075,
+        "token_estimate": 9379
+      },
+      {
+        "file": "agent_2b3becde.json",
+        "char_count": 5332,
+        "token_estimate": 1720
+      },
+      {
+        "file": "agent_2ba5b473.json",
+        "char_count": 64226,
+        "token_estimate": 20718
+      },
+      {
+        "file": "agent_2c0ac83f.json",
+        "char_count": 30538,
+        "token_estimate": 9850
+      },
+      {
+        "file": "agent_2c2f8f95.json",
+        "char_count": 23921,
+        "token_estimate": 7716
+      },
+      {
+        "file": "agent_2c5efc42.json",
+        "char_count": 88675,
+        "token_estimate": 28604
+      },
+      {
+        "file": "agent_2dc04fab.json",
+        "char_count": 80941,
+        "token_estimate": 26110
+      },
+      {
+        "file": "agent_2e8104cb.json",
+        "char_count": 98473,
+        "token_estimate": 31765
+      },
+      {
+        "file": "agent_30747251.json",
+        "char_count": 90493,
+        "token_estimate": 29191
+      },
+      {
+        "file": "agent_31a980ec.json",
+        "char_count": 74896,
+        "token_estimate": 24160
+      },
+      {
+        "file": "agent_322bf100.json",
+        "char_count": 88545,
+        "token_estimate": 28562
+      },
+      {
+        "file": "agent_3299fe7c.json",
+        "char_count": 94283,
+        "token_estimate": 30413
+      },
+      {
+        "file": "agent_332267ef.json",
+        "char_count": 45539,
+        "token_estimate": 14690
+      },
+      {
+        "file": "agent_33bc891a.json",
+        "char_count": 83308,
+        "token_estimate": 26873
+      },
+      {
+        "file": "agent_33ec9628.json",
+        "char_count": 62210,
+        "token_estimate": 20067
+      },
+      {
+        "file": "agent_33fbd5b4.json",
+        "char_count": 88718,
+        "token_estimate": 28618
+      },
+      {
+        "file": "agent_3552d7e7.json",
+        "char_count": 62796,
+        "token_estimate": 20256
+      },
+      {
+        "file": "agent_36d216b6.json",
+        "char_count": 84221,
+        "token_estimate": 27168
+      },
+      {
+        "file": "agent_36d6001e.json",
+        "char_count": 70003,
+        "token_estimate": 22581
+      },
+      {
+        "file": "agent_37b52323.json",
+        "char_count": 90355,
+        "token_estimate": 29146
+      },
+      {
+        "file": "agent_39c9a71a.json",
+        "char_count": 27231,
+        "token_estimate": 8784
+      },
+      {
+        "file": "agent_3a819c42.json",
+        "char_count": 68770,
+        "token_estimate": 22183
+      },
+      {
+        "file": "agent_3b62b3bc.json",
+        "char_count": 63660,
+        "token_estimate": 20535
+      },
+      {
+        "file": "agent_3b8109ca.json",
+        "char_count": 93709,
+        "token_estimate": 30228
+      },
+      {
+        "file": "agent_3b9033c1.json",
+        "char_count": 76447,
+        "token_estimate": 24660
+      },
+      {
+        "file": "agent_3bfd8e6c.json",
+        "char_count": 94217,
+        "token_estimate": 30392
+      },
+      {
+        "file": "agent_3ce88638.json",
+        "char_count": 62927,
+        "token_estimate": 20299
+      },
+      {
+        "file": "agent_3d50070e.json",
+        "char_count": 51005,
+        "token_estimate": 16453
+      },
+      {
+        "file": "agent_3d8109bf.json",
+        "char_count": 97157,
+        "token_estimate": 31340
+      },
+      {
+        "file": "agent_3d91b07c.json",
+        "char_count": 81739,
+        "token_estimate": 26367
+      },
+      {
+        "file": "agent_3f2019ea.json",
+        "char_count": 91616,
+        "token_estimate": 29553
+      },
+      {
+        "file": "agent_40f2d3b3.json",
+        "char_count": 42322,
+        "token_estimate": 13652
+      },
+      {
+        "file": "agent_4109ba2c.json",
+        "char_count": 84651,
+        "token_estimate": 27306
+      },
+      {
+        "file": "agent_412e89fa.json",
+        "char_count": 80941,
+        "token_estimate": 26110
+      },
+      {
+        "file": "agent_44b777f2.json",
+        "char_count": 55719,
+        "token_estimate": 17973
+      },
+      {
+        "file": "agent_44ec4745.json",
+        "char_count": 90452,
+        "token_estimate": 29178
+      },
+      {
+        "file": "agent_4610d4f1.json",
+        "char_count": 99917,
+        "token_estimate": 32231
+      },
+      {
+        "file": "agent_46ccef37.json",
+        "char_count": 72824,
+        "token_estimate": 23491
+      },
+      {
+        "file": "agent_4831cbdd.json",
+        "char_count": 50991,
+        "token_estimate": 16448
+      },
+      {
+        "file": "agent_497ba196.json",
+        "char_count": 36959,
+        "token_estimate": 11922
+      },
+      {
+        "file": "agent_4998aac5.json",
+        "char_count": 76176,
+        "token_estimate": 24572
+      },
+      {
+        "file": "agent_4a67d42b.json",
+        "char_count": 95583,
+        "token_estimate": 30833
+      },
+      {
+        "file": "agent_4b2019ea.json",
+        "char_count": 79744,
+        "token_estimate": 25723
+      },
+      {
+        "file": "agent_4b6d70e0.json",
+        "char_count": 5311,
+        "token_estimate": 1713
+      },
+      {
+        "file": "agent_4c8109bf.json",
+        "char_count": 77275,
+        "token_estimate": 24927
+      },
+      {
+        "file": "agent_4d6ef034.json",
+        "char_count": 28248,
+        "token_estimate": 9112
+      },
+      {
+        "file": "agent_4e6b2ad0.json",
+        "char_count": 5332,
+        "token_estimate": 1720
+      },
+      {
+        "file": "agent_4e89305a.json",
+        "char_count": 71702,
+        "token_estimate": 23129
+      },
+      {
+        "file": "agent_4ea68b89.json",
+        "char_count": 26245,
+        "token_estimate": 8466
+      },
+      {
+        "file": "agent_4fc1602d.json",
+        "char_count": 99497,
+        "token_estimate": 32095
+      },
+      {
+        "file": "agent_5026330a.json",
+        "char_count": 64711,
+        "token_estimate": 20874
+      },
+      {
+        "file": "agent_513b8bf1.json",
+        "char_count": 95917,
+        "token_estimate": 30940
+      },
+      {
+        "file": "agent_519a712e.json",
+        "char_count": 90338,
+        "token_estimate": 29141
+      },
+      {
+        "file": "agent_522db663.json",
+        "char_count": 38743,
+        "token_estimate": 12497
+      },
+      {
+        "file": "agent_5233389b.json",
+        "char_count": 92956,
+        "token_estimate": 29985
+      },
+      {
+        "file": "agent_527c7b0b.json",
+        "char_count": 43771,
+        "token_estimate": 14119
+      },
+      {
+        "file": "agent_5289cb10.json",
+        "char_count": 73808,
+        "token_estimate": 23809
+      },
+      {
+        "file": "agent_532b6fe1.json",
+        "char_count": 8595,
+        "token_estimate": 2772
+      },
+      {
+        "file": "agent_5439bea3.json",
+        "char_count": 28551,
+        "token_estimate": 9210
+      },
+      {
+        "file": "agent_557030a4.json",
+        "char_count": 66820,
+        "token_estimate": 21554
+      },
+      {
+        "file": "agent_5634780d.json",
+        "char_count": 54867,
+        "token_estimate": 17699
+      },
+      {
+        "file": "agent_56b851e9.json",
+        "char_count": 67058,
+        "token_estimate": 21631
+      },
+      {
+        "file": "agent_56be839b.json",
+        "char_count": 70688,
+        "token_estimate": 22802
+      },
+      {
+        "file": "agent_57478568.json",
+        "char_count": 80941,
+        "token_estimate": 26110
+      },
+      {
+        "file": "agent_57d944cb.json",
+        "char_count": 87742,
+        "token_estimate": 28303
+      },
+      {
+        "file": "agent_58f13bb6.json",
+        "char_count": 62293,
+        "token_estimate": 20094
+      },
+      {
+        "file": "agent_596e8a82.json",
+        "char_count": 54643,
+        "token_estimate": 17626
+      },
+      {
+        "file": "agent_5a7bf89b.json",
+        "char_count": 64576,
+        "token_estimate": 20830
+      },
+      {
+        "file": "agent_5ab5a361.json",
+        "char_count": 82387,
+        "token_estimate": 26576
+      },
+      {
+        "file": "agent_5acc256a.json",
+        "char_count": 54782,
+        "token_estimate": 17671
+      },
+      {
+        "file": "agent_5b20a17f.json",
+        "char_count": 96339,
+        "token_estimate": 31077
+      },
+      {
+        "file": "agent_5b71279c.json",
+        "char_count": 27313,
+        "token_estimate": 8810
+      },
+      {
+        "file": "agent_5d35d696.json",
+        "char_count": 85995,
+        "token_estimate": 27740
+      },
+      {
+        "file": "agent_5d63e883.json",
+        "char_count": 36964,
+        "token_estimate": 11923
+      },
+      {
+        "file": "agent_5dc65a46.json",
+        "char_count": 27496,
+        "token_estimate": 8869
+      },
+      {
+        "file": "agent_5e6fad37.json",
+        "char_count": 5332,
+        "token_estimate": 1720
+      },
+      {
+        "file": "agent_5f8109ea.json",
+        "char_count": 71705,
+        "token_estimate": 23130
+      },
+      {
+        "file": "agent_60a96812.json",
+        "char_count": 65308,
+        "token_estimate": 21067
+      },
+      {
+        "file": "agent_60e0da28.json",
+        "char_count": 30480,
+        "token_estimate": 9832
+      },
+      {
+        "file": "agent_6104bc8a.json",
+        "char_count": 95631,
+        "token_estimate": 30848
+      },
+      {
+        "file": "agent_6196da04.json",
+        "char_count": 27812,
+        "token_estimate": 8971
+      },
+      {
+        "file": "agent_61e5728d.json",
+        "char_count": 30955,
+        "token_estimate": 9985
+      },
+      {
+        "file": "agent_622fc4c9.json",
+        "char_count": 5332,
+        "token_estimate": 1720
+      },
+      {
+        "file": "agent_628a5bc7.json",
+        "char_count": 81637,
+        "token_estimate": 26334
+      },
+      {
+        "file": "agent_62d2fa7a.json",
+        "char_count": 94861,
+        "token_estimate": 30600
+      },
+      {
+        "file": "agent_63a7e776.json",
+        "char_count": 32726,
+        "token_estimate": 10556
+      },
+      {
+        "file": "agent_63ad5a63.json",
+        "char_count": 59944,
+        "token_estimate": 19336
+      },
+      {
+        "file": "agent_64aa4d25.json",
+        "char_count": 5624,
+        "token_estimate": 1814
+      },
+      {
+        "file": "agent_64f8cdfb.json",
+        "char_count": 35977,
+        "token_estimate": 11605
+      },
+      {
+        "file": "agent_65951a77.json",
+        "char_count": 90995,
+        "token_estimate": 29353
+      },
+      {
+        "file": "agent_65d342df.json",
+        "char_count": 31351,
+        "token_estimate": 10113
+      },
+      {
+        "file": "agent_6602b831.json",
+        "char_count": 42562,
+        "token_estimate": 13729
+      },
+      {
+        "file": "agent_684cbfa4.json",
+        "char_count": 96858,
+        "token_estimate": 31244
+      },
+      {
+        "file": "agent_6a63b179.json",
+        "char_count": 69330,
+        "token_estimate": 22364
+      },
+      {
+        "file": "agent_6b6033eb.json",
+        "char_count": 67466,
+        "token_estimate": 21763
+      },
+      {
+        "file": "agent_6c19a04f.json",
+        "char_count": 82343,
+        "token_estimate": 26562
+      },
+      {
+        "file": "agent_6c614a37.json",
+        "char_count": 28209,
+        "token_estimate": 9099
+      },
+      {
+        "file": "agent_6ce6b259.json",
+        "char_count": 99642,
+        "token_estimate": 32142
+      },
+      {
+        "file": "agent_6d121579.json",
+        "char_count": 87569,
+        "token_estimate": 28248
+      },
+      {
+        "file": "agent_6ded3c55.json",
+        "char_count": 86879,
+        "token_estimate": 28025
+      },
+      {
+        "file": "agent_6f5e92fd.json",
+        "char_count": 35360,
+        "token_estimate": 11406
+      },
+      {
+        "file": "agent_6f90123a.json",
+        "char_count": 96510,
+        "token_estimate": 31132
+      },
+      {
+        "file": "agent_7019eb0b.json",
+        "char_count": 56561,
+        "token_estimate": 18245
+      },
+      {
+        "file": "agent_70cd8da9.json",
+        "char_count": 61200,
+        "token_estimate": 19741
+      },
+      {
+        "file": "agent_71125647.json",
+        "char_count": 72541,
+        "token_estimate": 23400
+      },
+      {
+        "file": "agent_7181aedd.json",
+        "char_count": 51630,
+        "token_estimate": 16654
+      },
+      {
+        "file": "agent_72350657.json",
+        "char_count": 95467,
+        "token_estimate": 30795
+      },
+      {
+        "file": "agent_726c72a0.json",
+        "char_count": 92334,
+        "token_estimate": 29785
+      },
+      {
+        "file": "agent_742c21f9.json",
+        "char_count": 70303,
+        "token_estimate": 22678
+      },
+      {
+        "file": "agent_7542bb79.json",
+        "char_count": 5332,
+        "token_estimate": 1720
+      },
+      {
+        "file": "agent_75456e4c.json",
+        "char_count": 66385,
+        "token_estimate": 21414
+      },
+      {
+        "file": "agent_75c86451.json",
+        "char_count": 92659,
+        "token_estimate": 29890
+      },
+      {
+        "file": "agent_75f08c6d.json",
+        "char_count": 72384,
+        "token_estimate": 23349
+      },
+      {
+        "file": "agent_762193b0.json",
+        "char_count": 75974,
+        "token_estimate": 24507
+      },
+      {
+        "file": "agent_774e4fe9.json",
+        "char_count": 75147,
+        "token_estimate": 24240
+      },
+      {
+        "file": "agent_78201fa4.json",
+        "char_count": 92551,
+        "token_estimate": 29855
+      },
+      {
+        "file": "agent_79a96897.json",
+        "char_count": 58984,
+        "token_estimate": 19027
+      },
+      {
+        "file": "agent_7a30bb4a.json",
+        "char_count": 80155,
+        "token_estimate": 25856
+      },
+      {
+        "file": "agent_7a772101.json",
+        "char_count": 63663,
+        "token_estimate": 20536
+      },
+      {
+        "file": "agent_7a812b4e.json",
+        "char_count": 95006,
+        "token_estimate": 30647
+      },
+      {
+        "file": "agent_7c2019eb.json",
+        "char_count": 72423,
+        "token_estimate": 23362
+      },
+      {
+        "file": "agent_7ca58b04.json",
+        "char_count": 36260,
+        "token_estimate": 11696
+      },
+      {
+        "file": "agent_7d63bd9e.json",
+        "char_count": 4908,
+        "token_estimate": 1583
+      },
+      {
+        "file": "agent_7dd68c5b.json",
+        "char_count": 77210,
+        "token_estimate": 24906
+      },
+      {
+        "file": "agent_7e167861.json",
+        "char_count": 90673,
+        "token_estimate": 29249
+      },
+      {
+        "file": "agent_7f4718a9.json",
+        "char_count": 38420,
+        "token_estimate": 12393
+      },
+      {
+        "file": "agent_80d6005d.json",
+        "char_count": 64457,
+        "token_estimate": 20792
+      },
+      {
+        "file": "agent_82066b95.json",
+        "char_count": 95755,
+        "token_estimate": 30888
+      },
+      {
+        "file": "agent_82d1c93e.json",
+        "char_count": 97638,
+        "token_estimate": 31496
+      },
+      {
+        "file": "agent_830b1257.json",
+        "char_count": 28290,
+        "token_estimate": 9125
+      },
+      {
+        "file": "agent_8314c0c8.json",
+        "char_count": 49352,
+        "token_estimate": 15920
+      },
+      {
+        "file": "agent_83f94e4c.json",
+        "char_count": 79925,
+        "token_estimate": 25782
+      },
+      {
+        "file": "agent_8453d6ef.json",
+        "char_count": 79603,
+        "token_estimate": 25678
+      },
+      {
+        "file": "agent_851c3c7b.json",
+        "char_count": 57391,
+        "token_estimate": 18513
+      },
+      {
+        "file": "agent_8520ea55.json",
+        "char_count": 81406,
+        "token_estimate": 26260
+      },
+      {
+        "file": "agent_85ca44a0.json",
+        "char_count": 5360,
+        "token_estimate": 1729
+      },
+      {
+        "file": "agent_882d51d2.json",
+        "char_count": 34275,
+        "token_estimate": 11056
+      },
+      {
+        "file": "agent_884a83d6.json",
+        "char_count": 46225,
+        "token_estimate": 14911
+      },
+      {
+        "file": "agent_8a1290fe.json",
+        "char_count": 80295,
+        "token_estimate": 25901
+      },
+      {
+        "file": "agent_8a201b9f.json",
+        "char_count": 94912,
+        "token_estimate": 30616
+      },
+      {
+        "file": "agent_8a544deb.json",
+        "char_count": 55304,
+        "token_estimate": 17840
+      },
+      {
+        "file": "agent_8b116aa4.json",
+        "char_count": 68238,
+        "token_estimate": 22012
+      },
+      {
+        "file": "agent_8b8f01c8.json",
+        "char_count": 98889,
+        "token_estimate": 31899
+      },
+      {
+        "file": "agent_8c1042b9.json",
+        "char_count": 84673,
+        "token_estimate": 27313
+      },
+      {
+        "file": "agent_8c6c9ff2.json",
+        "char_count": 73299,
+        "token_estimate": 23644
+      },
+      {
+        "file": "agent_8ce43e1a.json",
+        "char_count": 84989,
+        "token_estimate": 27415
+      },
+      {
+        "file": "agent_8d209cb1.json",
+        "char_count": 90892,
+        "token_estimate": 29320
+      },
+      {
+        "file": "agent_8d637d3c.json",
+        "char_count": 84972,
+        "token_estimate": 27410
+      },
+      {
+        "file": "agent_8df71454.json",
+        "char_count": 76930,
+        "token_estimate": 24816
+      },
+      {
+        "file": "agent_8e396fe5.json",
+        "char_count": 42442,
+        "token_estimate": 13690
+      },
+      {
+        "file": "agent_8e4643b8.json",
+        "char_count": 66410,
+        "token_estimate": 21422
+      },
+      {
+        "file": "agent_8e7f08a5.json",
+        "char_count": 69719,
+        "token_estimate": 22490
+      },
+      {
+        "file": "agent_8ebf039e.json",
+        "char_count": 67575,
+        "token_estimate": 21798
+      },
+      {
+        "file": "agent_8f1ca39e.json",
+        "char_count": 94333,
+        "token_estimate": 30430
+      },
+      {
+        "file": "agent_9007723a.json",
+        "char_count": 58092,
+        "token_estimate": 18739
+      },
+      {
+        "file": "agent_900fed4d.json",
+        "char_count": 78387,
+        "token_estimate": 25286
+      },
+      {
+        "file": "agent_901a9e87.json",
+        "char_count": 42357,
+        "token_estimate": 13663
+      },
+      {
+        "file": "agent_90d7e48e.json",
+        "char_count": 30067,
+        "token_estimate": 9699
+      },
+      {
+        "file": "agent_920c8b4c.json",
+        "char_count": 67996,
+        "token_estimate": 21934
+      },
+      {
+        "file": "agent_92fc0796.json",
+        "char_count": 6585,
+        "token_estimate": 2124
+      },
+      {
+        "file": "agent_93db0169.json",
+        "char_count": 31066,
+        "token_estimate": 10021
+      },
+      {
+        "file": "agent_9488c962.json",
+        "char_count": 66204,
+        "token_estimate": 21356
+      },
+      {
+        "file": "agent_9503d47e.json",
+        "char_count": 5332,
+        "token_estimate": 1720
+      },
+      {
+        "file": "agent_95134c90.json",
+        "char_count": 39501,
+        "token_estimate": 12742
+      },
+      {
+        "file": "agent_956184c3.json",
+        "char_count": 62650,
+        "token_estimate": 20209
+      },
+      {
+        "file": "agent_95d534da.json",
+        "char_count": 72932,
+        "token_estimate": 23526
+      },
+      {
+        "file": "agent_96450d12.json",
+        "char_count": 50263,
+        "token_estimate": 16213
+      },
+      {
+        "file": "agent_9666c4ee.json",
+        "char_count": 30167,
+        "token_estimate": 9731
+      },
+      {
+        "file": "agent_97525c80.json",
+        "char_count": 87811,
+        "token_estimate": 28326
+      },
+      {
+        "file": "agent_97856aa7.json",
+        "char_count": 65840,
+        "token_estimate": 21238
+      },
+      {
+        "file": "agent_97bf3849.json",
+        "char_count": 75005,
+        "token_estimate": 24195
+      },
+      {
+        "file": "agent_97f02f12.json",
+        "char_count": 45666,
+        "token_estimate": 14730
+      },
+      {
+        "file": "agent_988a4649.json",
+        "char_count": 71274,
+        "token_estimate": 22991
+      },
+      {
+        "file": "agent_98cf3099.json",
+        "char_count": 42194,
+        "token_estimate": 13610
+      },
+      {
+        "file": "agent_9991d89f.json",
+        "char_count": 29008,
+        "token_estimate": 9357
+      },
+      {
+        "file": "agent_99a97b8c.json",
+        "char_count": 91571,
+        "token_estimate": 29539
+      },
+      {
+        "file": "agent_9a4d8d54.json",
+        "char_count": 55505,
+        "token_estimate": 17904
+      },
+      {
+        "file": "agent_9a61cc1f.json",
+        "char_count": 79888,
+        "token_estimate": 25770
+      },
+      {
+        "file": "agent_9a999495.json",
+        "char_count": 69779,
+        "token_estimate": 22509
+      },
+      {
+        "file": "agent_9acb1bcc.json",
+        "char_count": 5455,
+        "token_estimate": 1759
+      },
+      {
+        "file": "agent_9c0bf078.json",
+        "char_count": 60216,
+        "token_estimate": 19424
+      },
+      {
+        "file": "agent_9c39aad2.json",
+        "char_count": 77495,
+        "token_estimate": 24998
+      },
+      {
+        "file": "agent_9c5ff0d5.json",
+        "char_count": 57838,
+        "token_estimate": 18657
+      },
+      {
+        "file": "agent_9db367aa.json",
+        "char_count": 28823,
+        "token_estimate": 9297
+      },
+      {
+        "file": "agent_9e4d6601.json",
+        "char_count": 95400,
+        "token_estimate": 30774
+      },
+      {
+        "file": "agent_9e58e3a5.json",
+        "char_count": 57798,
+        "token_estimate": 18644
+      },
+      {
+        "file": "agent_9ebafc8e.json",
+        "char_count": 40180,
+        "token_estimate": 12961
+      },
+      {
+        "file": "agent_9f2018ea.json",
+        "char_count": 95278,
+        "token_estimate": 30734
+      },
+      {
+        "file": "agent_9f582528.json",
+        "char_count": 87645,
+        "token_estimate": 28272
+      },
+      {
+        "file": "agent_a11e9a51.json",
+        "char_count": 58777,
+        "token_estimate": 18960
+      },
+      {
+        "file": "agent_a38a4fa8.json",
+        "char_count": 90569,
+        "token_estimate": 29215
+      },
+      {
+        "file": "agent_a451312f.json",
+        "char_count": 66434,
+        "token_estimate": 21430
+      },
+      {
+        "file": "agent_a57bd310.json",
+        "char_count": 49464,
+        "token_estimate": 15956
+      },
+      {
+        "file": "agent_a5b9123f.json",
+        "char_count": 63871,
+        "token_estimate": 20603
+      },
+      {
+        "file": "agent_a5b97f5d.json",
+        "char_count": 43147,
+        "token_estimate": 13918
+      },
+      {
+        "file": "agent_a61ae233.json",
+        "char_count": 54051,
+        "token_estimate": 17435
+      },
+      {
+        "file": "agent_a67b2616.json",
+        "char_count": 30772,
+        "token_estimate": 9926
+      },
+      {
+        "file": "agent_a6f9b89b.json",
+        "char_count": 29362,
+        "token_estimate": 9471
+      },
+      {
+        "file": "agent_a70d4b18.json",
+        "char_count": 36368,
+        "token_estimate": 11731
+      },
+      {
+        "file": "agent_a781a763.json",
+        "char_count": 95799,
+        "token_estimate": 30902
+      },
+      {
+        "file": "agent_a823e08a.json",
+        "char_count": 52920,
+        "token_estimate": 17070
+      },
+      {
+        "file": "agent_a83f39a0.json",
+        "char_count": 53025,
+        "token_estimate": 17104
+      },
+      {
+        "file": "agent_a8c03f23.json",
+        "char_count": 79864,
+        "token_estimate": 25762
+      },
+      {
+        "file": "agent_a9410cb2.json",
+        "char_count": 95497,
+        "token_estimate": 30805
+      },
+      {
+        "file": "agent_a9a21ee3.json",
+        "char_count": 65693,
+        "token_estimate": 21191
+      },
+      {
+        "file": "agent_a9a29416.json",
+        "char_count": 36157,
+        "token_estimate": 11663
+      },
+      {
+        "file": "agent_aa1d9164.json",
+        "char_count": 51897,
+        "token_estimate": 16740
+      },
+      {
+        "file": "agent_ab1d9405.json",
+        "char_count": 80669,
+        "token_estimate": 26022
+      },
+      {
+        "file": "agent_abb632aa.json",
+        "char_count": 37288,
+        "token_estimate": 12028
+      },
+      {
+        "file": "agent_ac0e41e8.json",
+        "char_count": 73559,
+        "token_estimate": 23728
+      },
+      {
+        "file": "agent_ac8fe329.json",
+        "char_count": 29465,
+        "token_estimate": 9504
+      },
+      {
+        "file": "agent_acec9547.json",
+        "char_count": 92494,
+        "token_estimate": 29836
+      },
+      {
+        "file": "agent_ad20d24e.json",
+        "char_count": 87585,
+        "token_estimate": 28253
+      },
+      {
+        "file": "agent_ae6519c3.json",
+        "char_count": 6286,
+        "token_estimate": 2027
+      },
+      {
+        "file": "agent_aebe4d91.json",
+        "char_count": 63858,
+        "token_estimate": 20599
+      },
+      {
+        "file": "agent_b0089a0c.json",
+        "char_count": 69215,
+        "token_estimate": 22327
+      },
+      {
+        "file": "agent_b0959163.json",
+        "char_count": 30603,
+        "token_estimate": 9871
+      },
+      {
+        "file": "agent_b153ab4d.json",
+        "char_count": 72622,
+        "token_estimate": 23426
+      },
+      {
+        "file": "agent_b172a819.json",
+        "char_count": 80760,
+        "token_estimate": 26051
+      },
+      {
+        "file": "agent_b19c8d0a.json",
+        "char_count": 30465,
+        "token_estimate": 9827
+      },
+      {
+        "file": "agent_b2319c3f.json",
+        "char_count": 85819,
+        "token_estimate": 27683
+      },
+      {
+        "file": "agent_b28c0680.json",
+        "char_count": 5332,
+        "token_estimate": 1720
+      },
+      {
+        "file": "agent_b3ed62c4.json",
+        "char_count": 90472,
+        "token_estimate": 29184
+      },
+      {
+        "file": "agent_b46bd182.json",
+        "char_count": 5332,
+        "token_estimate": 1720
+      },
+      {
+        "file": "agent_b5182d5a.json",
+        "char_count": 61466,
+        "token_estimate": 19827
+      },
+      {
+        "file": "agent_b585621b.json",
+        "char_count": 33691,
+        "token_estimate": 10868
+      },
+      {
+        "file": "agent_b59de83d.json",
+        "char_count": 75398,
+        "token_estimate": 24321
+      },
+      {
+        "file": "agent_b5fa3ce1.json",
+        "char_count": 66225,
+        "token_estimate": 21362
+      },
+      {
+        "file": "agent_b6e8f5e1.json",
+        "char_count": 37455,
+        "token_estimate": 12082
+      },
+      {
+        "file": "agent_b75617f8.json",
+        "char_count": 51830,
+        "token_estimate": 16719
+      },
+      {
+        "file": "agent_b815d5a7.json",
+        "char_count": 57397,
+        "token_estimate": 18515
+      },
+      {
+        "file": "agent_b8b2b4c9.json",
+        "char_count": 29661,
+        "token_estimate": 9568
+      },
+      {
+        "file": "agent_b8f7aa73.json",
+        "char_count": 64077,
+        "token_estimate": 20670
+      },
+      {
+        "file": "agent_b91b09d2.json",
+        "char_count": 59390,
+        "token_estimate": 19158
+      },
+      {
+        "file": "agent_ba26269f.json",
+        "char_count": 59499,
+        "token_estimate": 19193
+      },
+      {
+        "file": "agent_bb696d05.json",
+        "char_count": 58692,
+        "token_estimate": 18932
+      },
+      {
+        "file": "agent_bb917707.json",
+        "char_count": 81979,
+        "token_estimate": 26444
+      },
+      {
+        "file": "agent_bc8f7cd2.json",
+        "char_count": 39463,
+        "token_estimate": 12730
+      },
+      {
+        "file": "agent_bd54df62.json",
+        "char_count": 69946,
+        "token_estimate": 22563
+      },
+      {
+        "file": "agent_c1002745.json",
+        "char_count": 97459,
+        "token_estimate": 31438
+      },
+      {
+        "file": "agent_c103ad87.json",
+        "char_count": 5332,
+        "token_estimate": 1720
+      },
+      {
+        "file": "agent_c11aff78.json",
+        "char_count": 81992,
+        "token_estimate": 26449
+      },
+      {
+        "file": "agent_c1840cfb.json",
+        "char_count": 63386,
+        "token_estimate": 20447
+      },
+      {
+        "file": "agent_c2256d61.json",
+        "char_count": 6486,
+        "token_estimate": 2092
+      },
+      {
+        "file": "agent_c284791a.json",
+        "char_count": 84834,
+        "token_estimate": 27365
+      },
+      {
+        "file": "agent_c318e360.json",
+        "char_count": 89180,
+        "token_estimate": 28767
+      },
+      {
+        "file": "agent_c37af0c4.json",
+        "char_count": 69104,
+        "token_estimate": 22291
+      },
+      {
+        "file": "agent_c49c128f.json",
+        "char_count": 97215,
+        "token_estimate": 31359
+      },
+      {
+        "file": "agent_c4adb4fd.json",
+        "char_count": 72099,
+        "token_estimate": 23257
+      },
+      {
+        "file": "agent_c57190eb.json",
+        "char_count": 93294,
+        "token_estimate": 30094
+      },
+      {
+        "file": "agent_c590cade.json",
+        "char_count": 81241,
+        "token_estimate": 26206
+      },
+      {
+        "file": "agent_c6a450da.json",
+        "char_count": 64841,
+        "token_estimate": 20916
+      },
+      {
+        "file": "agent_c6ca26ac.json",
+        "char_count": 52384,
+        "token_estimate": 16898
+      },
+      {
+        "file": "agent_c74af6b6.json",
+        "char_count": 32247,
+        "token_estimate": 10402
+      },
+      {
+        "file": "agent_c7778cf6.json",
+        "char_count": 26534,
+        "token_estimate": 8559
+      },
+      {
+        "file": "agent_c8192a71.json",
+        "char_count": 90331,
+        "token_estimate": 29139
+      },
+      {
+        "file": "agent_c92e3968.json",
+        "char_count": 72965,
+        "token_estimate": 23537
+      },
+      {
+        "file": "agent_c9d007ce.json",
+        "char_count": 68090,
+        "token_estimate": 21964
+      },
+      {
+        "file": "agent_cb582842.json",
+        "char_count": 34519,
+        "token_estimate": 11135
+      },
+      {
+        "file": "agent_cb7588d6.json",
+        "char_count": 53704,
+        "token_estimate": 17323
+      },
+      {
+        "file": "agent_cba4199a.json",
+        "char_count": 76263,
+        "token_estimate": 24600
+      },
+      {
+        "file": "agent_cba58505.json",
+        "char_count": 75577,
+        "token_estimate": 24379
+      },
+      {
+        "file": "agent_cc77fecf.json",
+        "char_count": 83975,
+        "token_estimate": 27088
+      },
+      {
+        "file": "agent_ccf98834.json",
+        "char_count": 63925,
+        "token_estimate": 20620
+      },
+      {
+        "file": "agent_cd21c642.json",
+        "char_count": 6028,
+        "token_estimate": 1944
+      },
+      {
+        "file": "agent_cdbfc653.json",
+        "char_count": 65854,
+        "token_estimate": 21243
+      },
+      {
+        "file": "agent_cdf3fa22.json",
+        "char_count": 83254,
+        "token_estimate": 26856
+      },
+      {
+        "file": "agent_ce1ae4e2.json",
+        "char_count": 51823,
+        "token_estimate": 16717
+      },
+      {
+        "file": "agent_ce539001.json",
+        "char_count": 51843,
+        "token_estimate": 16723
+      },
+      {
+        "file": "agent_cea25b78.json",
+        "char_count": 33389,
+        "token_estimate": 10770
+      },
+      {
+        "file": "agent_ceeb07bf.json",
+        "char_count": 97259,
+        "token_estimate": 31373
+      },
+      {
+        "file": "agent_d1acaa0d.json",
+        "char_count": 64058,
+        "token_estimate": 20663
+      },
+      {
+        "file": "agent_d28107b3.json",
+        "char_count": 63214,
+        "token_estimate": 20391
+      },
+      {
+        "file": "agent_d330b736.json",
+        "char_count": 61240,
+        "token_estimate": 19754
+      },
+      {
+        "file": "agent_d38d42c6.json",
+        "char_count": 84751,
+        "token_estimate": 27339
+      },
+      {
+        "file": "agent_d414893a.json",
+        "char_count": 73041,
+        "token_estimate": 23561
+      },
+      {
+        "file": "agent_d45129ef.json",
+        "char_count": 59709,
+        "token_estimate": 19260
+      },
+      {
+        "file": "agent_d4d9616d.json",
+        "char_count": 32186,
+        "token_estimate": 10382
+      },
+      {
+        "file": "agent_d6461674.json",
+        "char_count": 37239,
+        "token_estimate": 12012
+      },
+      {
+        "file": "agent_d7587893.json",
+        "char_count": 27716,
+        "token_estimate": 8940
+      },
+      {
+        "file": "agent_d77919be.json",
+        "char_count": 5332,
+        "token_estimate": 1720
+      },
+      {
+        "file": "agent_d9124e81.json",
+        "char_count": 86182,
+        "token_estimate": 27800
+      },
+      {
+        "file": "agent_d946e2e1.json",
+        "char_count": 94127,
+        "token_estimate": 30363
+      },
+      {
+        "file": "agent_d973bf6a.json",
+        "char_count": 27038,
+        "token_estimate": 8721
+      },
+      {
+        "file": "agent_d9e12a4d.json",
+        "char_count": 96896,
+        "token_estimate": 31256
+      },
+      {
+        "file": "agent_d9f7c520.json",
+        "char_count": 29536,
+        "token_estimate": 9527
+      },
+      {
+        "file": "agent_daaaecfb.json",
+        "char_count": 73369,
+        "token_estimate": 23667
+      },
+      {
+        "file": "agent_dac31d87.json",
+        "char_count": 63113,
+        "token_estimate": 20359
+      },
+      {
+        "file": "agent_dd0d4768.json",
+        "char_count": 63336,
+        "token_estimate": 20430
+      },
+      {
+        "file": "agent_e0bca067.json",
+        "char_count": 31076,
+        "token_estimate": 10024
+      },
+      {
+        "file": "agent_e145aefd.json",
+        "char_count": 7200,
+        "token_estimate": 2322
+      },
+      {
+        "file": "agent_e1fc9a2f.json",
+        "char_count": 29104,
+        "token_estimate": 9388
+      },
+      {
+        "file": "agent_e217271f.json",
+        "char_count": 71495,
+        "token_estimate": 23062
+      },
+      {
+        "file": "agent_e2fa40b2.json",
+        "char_count": 89106,
+        "token_estimate": 28743
+      },
+      {
+        "file": "agent_e3dd64f5.json",
+        "char_count": 70743,
+        "token_estimate": 22820
+      },
+      {
+        "file": "agent_e4177120.json",
+        "char_count": 48507,
+        "token_estimate": 15647
+      },
+      {
+        "file": "agent_e512aed4.json",
+        "char_count": 35412,
+        "token_estimate": 11423
+      },
+      {
+        "file": "agent_e5663aa8.json",
+        "char_count": 73786,
+        "token_estimate": 23801
+      },
+      {
+        "file": "agent_e5fa9b35.json",
+        "char_count": 58111,
+        "token_estimate": 18745
+      },
+      {
+        "file": "agent_e7264cf4.json",
+        "char_count": 55773,
+        "token_estimate": 17991
+      },
+      {
+        "file": "agent_e82914ca.json",
+        "char_count": 95247,
+        "token_estimate": 30724
+      },
+      {
+        "file": "agent_e9042342.json",
+        "char_count": 51623,
+        "token_estimate": 16652
+      },
+      {
+        "file": "agent_e9095f50.json",
+        "char_count": 97923,
+        "token_estimate": 31588
+      },
+      {
+        "file": "agent_e927f771.json",
+        "char_count": 97272,
+        "token_estimate": 31378
+      },
+      {
+        "file": "agent_e985e993.json",
+        "char_count": 33768,
+        "token_estimate": 10892
+      },
+      {
+        "file": "agent_e9b07ec1.json",
+        "char_count": 5332,
+        "token_estimate": 1720
+      },
+      {
+        "file": "agent_ea986904.json",
+        "char_count": 72723,
+        "token_estimate": 23459
+      },
+      {
+        "file": "agent_eb0ab1f1.json",
+        "char_count": 35239,
+        "token_estimate": 11367
+      },
+      {
+        "file": "agent_ec3d191a.json",
+        "char_count": 8181,
+        "token_estimate": 2639
+      },
+      {
+        "file": "agent_ec3d50cb.json",
+        "char_count": 29680,
+        "token_estimate": 9574
+      },
+      {
+        "file": "agent_ed697500.json",
+        "char_count": 65501,
+        "token_estimate": 21129
+      },
+      {
+        "file": "agent_ed97ba3c.json",
+        "char_count": 48665,
+        "token_estimate": 15698
+      },
+      {
+        "file": "agent_edfb6016.json",
+        "char_count": 67527,
+        "token_estimate": 21782
+      },
+      {
+        "file": "agent_f0729221.json",
+        "char_count": 48979,
+        "token_estimate": 15799
+      },
+      {
+        "file": "agent_f192c4df.json",
+        "char_count": 49044,
+        "token_estimate": 15820
+      },
+      {
+        "file": "agent_f2077216.json",
+        "char_count": 53344,
+        "token_estimate": 17207
+      },
+      {
+        "file": "agent_f27f0160.json",
+        "char_count": 35252,
+        "token_estimate": 11371
+      },
+      {
+        "file": "agent_f31d7f4b.json",
+        "char_count": 66074,
+        "token_estimate": 21314
+      },
+      {
+        "file": "agent_f439aae8.json",
+        "char_count": 79024,
+        "token_estimate": 25491
+      },
+      {
+        "file": "agent_f4705ffb.json",
+        "char_count": 29432,
+        "token_estimate": 9494
+      },
+      {
+        "file": "agent_f58201bc.json",
+        "char_count": 90636,
+        "token_estimate": 29237
+      },
+      {
+        "file": "agent_f5833613.json",
+        "char_count": 79024,
+        "token_estimate": 25491
+      },
+      {
+        "file": "agent_f7f736c5.json",
+        "char_count": 82177,
+        "token_estimate": 26508
+      },
+      {
+        "file": "agent_f96360a3.json",
+        "char_count": 75222,
+        "token_estimate": 24265
+      },
+      {
+        "file": "agent_f9c8e8b9.json",
+        "char_count": 28321,
+        "token_estimate": 9135
+      },
+      {
+        "file": "agent_fa9cce23.json",
+        "char_count": 71164,
+        "token_estimate": 22956
+      },
+      {
+        "file": "agent_fbfcef5d.json",
+        "char_count": 77471,
+        "token_estimate": 24990
+      },
+      {
+        "file": "agent_fcd0b533.json",
+        "char_count": 80466,
+        "token_estimate": 25956
+      },
+      {
+        "file": "agent_fe440f90.json",
+        "char_count": 88367,
+        "token_estimate": 28505
+      },
+      {
+        "file": "agent_ff3ffc7c.json",
+        "char_count": 85832,
+        "token_estimate": 27687
+      }
+    ],
+    "standard": [
+      {
+        "file": "agent_003f6e49.json",
+        "char_count": 153137,
+        "token_estimate": 49399
+      },
+      {
+        "file": "agent_00d13b57.json",
+        "char_count": 242108,
+        "token_estimate": 78099
+      },
+      {
+        "file": "agent_011dafac.json",
+        "char_count": 114456,
+        "token_estimate": 36921
+      },
+      {
+        "file": "agent_014b7a08.json",
+        "char_count": 105179,
+        "token_estimate": 33928
+      },
+      {
+        "file": "agent_015420c4.json",
+        "char_count": 147353,
+        "token_estimate": 47533
+      },
+      {
+        "file": "agent_015d1f5d.json",
+        "char_count": 216465,
+        "token_estimate": 69827
+      },
+      {
+        "file": "agent_01a775e0.json",
+        "char_count": 231922,
+        "token_estimate": 74813
+      },
+      {
+        "file": "agent_023eef75.json",
+        "char_count": 108382,
+        "token_estimate": 34961
+      },
+      {
+        "file": "agent_02b4d411.json",
+        "char_count": 228846,
+        "token_estimate": 73821
+      },
+      {
+        "file": "agent_03074f03.json",
+        "char_count": 111741,
+        "token_estimate": 36045
+      },
+      {
+        "file": "agent_03438cdf.json",
+        "char_count": 137704,
+        "token_estimate": 44420
+      },
+      {
+        "file": "agent_0371bb5e.json",
+        "char_count": 245038,
+        "token_estimate": 79044
+      },
+      {
+        "file": "agent_03764eec.json",
+        "char_count": 204436,
+        "token_estimate": 65947
+      },
+      {
+        "file": "agent_038a8686.json",
+        "char_count": 136126,
+        "token_estimate": 43911
+      },
+      {
+        "file": "agent_055d085e.json",
+        "char_count": 200499,
+        "token_estimate": 64677
+      },
+      {
+        "file": "agent_05bc92ba.json",
+        "char_count": 220818,
+        "token_estimate": 71231
+      },
+      {
+        "file": "agent_07f9ecc6.json",
+        "char_count": 128815,
+        "token_estimate": 41553
+      },
+      {
+        "file": "agent_089f43e1.json",
+        "char_count": 149147,
+        "token_estimate": 48111
+      },
+      {
+        "file": "agent_097ca971.json",
+        "char_count": 211214,
+        "token_estimate": 68133
+      },
+      {
+        "file": "agent_0990fe55.json",
+        "char_count": 169196,
+        "token_estimate": 54579
+      },
+      {
+        "file": "agent_09e9525f.json",
+        "char_count": 204359,
+        "token_estimate": 65922
+      },
+      {
+        "file": "agent_0af1f161.json",
+        "char_count": 159125,
+        "token_estimate": 51330
+      },
+      {
+        "file": "agent_0af2efe7.json",
+        "char_count": 122328,
+        "token_estimate": 39460
+      },
+      {
+        "file": "agent_0bffdbc4.json",
+        "char_count": 254609,
+        "token_estimate": 82131
+      },
+      {
+        "file": "agent_0cd95d01.json",
+        "char_count": 170990,
+        "token_estimate": 55158
+      },
+      {
+        "file": "agent_0e792d10.json",
+        "char_count": 136423,
+        "token_estimate": 44007
+      },
+      {
+        "file": "agent_0eb58b8b.json",
+        "char_count": 150372,
+        "token_estimate": 48507
+      },
+      {
+        "file": "agent_0ecd3d68.json",
+        "char_count": 194549,
+        "token_estimate": 62757
+      },
+      {
+        "file": "agent_10438b1b.json",
+        "char_count": 107162,
+        "token_estimate": 34568
+      },
+      {
+        "file": "agent_1129ef79.json",
+        "char_count": 203005,
+        "token_estimate": 65485
+      },
+      {
+        "file": "agent_1168c7f1.json",
+        "char_count": 144029,
+        "token_estimate": 46460
+      },
+      {
+        "file": "agent_1191de77.json",
+        "char_count": 303369,
+        "token_estimate": 97860
+      },
+      {
+        "file": "agent_11ac27e1.json",
+        "char_count": 112695,
+        "token_estimate": 36353
+      },
+      {
+        "file": "agent_12b5cbe4.json",
+        "char_count": 158439,
+        "token_estimate": 51109
+      },
+      {
+        "file": "agent_12df7a9c.json",
+        "char_count": 142575,
+        "token_estimate": 45991
+      },
+      {
+        "file": "agent_15ae720d.json",
+        "char_count": 328321,
+        "token_estimate": 105910
+      },
+      {
+        "file": "agent_161ee10f.json",
+        "char_count": 228691,
+        "token_estimate": 73771
+      },
+      {
+        "file": "agent_17f0c74e.json",
+        "char_count": 117448,
+        "token_estimate": 37886
+      },
+      {
+        "file": "agent_19c84e1b.json",
+        "char_count": 324659,
+        "token_estimate": 104728
+      },
+      {
+        "file": "agent_1a9204cb.json",
+        "char_count": 112870,
+        "token_estimate": 36409
+      },
+      {
+        "file": "agent_1b820c1b.json",
+        "char_count": 131298,
+        "token_estimate": 42354
+      },
+      {
+        "file": "agent_1bb8e708.json",
+        "char_count": 227891,
+        "token_estimate": 73513
+      },
+      {
+        "file": "agent_1c8209da.json",
+        "char_count": 100463,
+        "token_estimate": 32407
+      },
+      {
+        "file": "agent_1c841b0c.json",
+        "char_count": 219011,
+        "token_estimate": 70648
+      },
+      {
+        "file": "agent_1d114b46.json",
+        "char_count": 102741,
+        "token_estimate": 33142
+      },
+      {
+        "file": "agent_1d699a51.json",
+        "char_count": 147403,
+        "token_estimate": 47549
+      },
+      {
+        "file": "agent_1f8109ea.json",
+        "char_count": 131255,
+        "token_estimate": 42340
+      },
+      {
+        "file": "agent_1fb2b559.json",
+        "char_count": 224120,
+        "token_estimate": 72296
+      },
+      {
+        "file": "agent_20986c69.json",
+        "char_count": 283384,
+        "token_estimate": 91414
+      },
+      {
+        "file": "agent_20d9b75c.json",
+        "char_count": 141768,
+        "token_estimate": 45731
+      },
+      {
+        "file": "agent_212d30ea.json",
+        "char_count": 194203,
+        "token_estimate": 62646
+      },
+      {
+        "file": "agent_2203658e.json",
+        "char_count": 127281,
+        "token_estimate": 41058
+      },
+      {
+        "file": "agent_22314213.json",
+        "char_count": 230767,
+        "token_estimate": 74440
+      },
+      {
+        "file": "agent_22931c71.json",
+        "char_count": 170999,
+        "token_estimate": 55160
+      },
+      {
+        "file": "agent_23053fc4.json",
+        "char_count": 141695,
+        "token_estimate": 45708
+      },
+      {
+        "file": "agent_2355f758.json",
+        "char_count": 285994,
+        "token_estimate": 92256
+      },
+      {
+        "file": "agent_2377329f.json",
+        "char_count": 141087,
+        "token_estimate": 45511
+      },
+      {
+        "file": "agent_23ce6640.json",
+        "char_count": 178618,
+        "token_estimate": 57618
+      },
+      {
+        "file": "agent_24b7930a.json",
+        "char_count": 127793,
+        "token_estimate": 41223
+      },
+      {
+        "file": "agent_2543e2f9.json",
+        "char_count": 156277,
+        "token_estimate": 50411
+      },
+      {
+        "file": "agent_25855329.json",
+        "char_count": 128410,
+        "token_estimate": 41422
+      },
+      {
+        "file": "agent_2605f4f5.json",
+        "char_count": 203820,
+        "token_estimate": 65748
+      },
+      {
+        "file": "agent_261262f0.json",
+        "char_count": 146581,
+        "token_estimate": 47284
+      },
+      {
+        "file": "agent_2715acaf.json",
+        "char_count": 126569,
+        "token_estimate": 40828
+      },
+      {
+        "file": "agent_276e6318.json",
+        "char_count": 264019,
+        "token_estimate": 85167
+      },
+      {
+        "file": "agent_279e7541.json",
+        "char_count": 131717,
+        "token_estimate": 42489
+      },
+      {
+        "file": "agent_286e25a6.json",
+        "char_count": 212236,
+        "token_estimate": 68463
+      },
+      {
+        "file": "agent_2956e238.json",
+        "char_count": 141490,
+        "token_estimate": 45641
+      },
+      {
+        "file": "agent_29e8ca4b.json",
+        "char_count": 257979,
+        "token_estimate": 83219
+      },
+      {
+        "file": "agent_2a36659f.json",
+        "char_count": 148419,
+        "token_estimate": 47877
+      },
+      {
+        "file": "agent_2a7a703e.json",
+        "char_count": 127874,
+        "token_estimate": 41249
+      },
+      {
+        "file": "agent_2b4019ca.json",
+        "char_count": 115907,
+        "token_estimate": 37389
+      },
+      {
+        "file": "agent_2b8109ca.json",
+        "char_count": 100097,
+        "token_estimate": 32289
+      },
+      {
+        "file": "agent_2b984fa1.json",
+        "char_count": 207225,
+        "token_estimate": 66846
+      },
+      {
+        "file": "agent_2c2662f7.json",
+        "char_count": 106649,
+        "token_estimate": 34402
+      },
+      {
+        "file": "agent_2cfb87f4.json",
+        "char_count": 137616,
+        "token_estimate": 44392
+      },
+      {
+        "file": "agent_2dcec609.json",
+        "char_count": 138184,
+        "token_estimate": 44575
+      },
+      {
+        "file": "agent_2e1a68d4.json",
+        "char_count": 218783,
+        "token_estimate": 70575
+      },
+      {
+        "file": "agent_2e9104cb.json",
+        "char_count": 118822,
+        "token_estimate": 38329
+      },
+      {
+        "file": "agent_2f1a9887.json",
+        "char_count": 198940,
+        "token_estimate": 64174
+      },
+      {
+        "file": "agent_2f36945f.json",
+        "char_count": 169406,
+        "token_estimate": 54647
+      },
+      {
+        "file": "agent_2f409da1.json",
+        "char_count": 332660,
+        "token_estimate": 107309
+      },
+      {
+        "file": "agent_2f530fc8.json",
+        "char_count": 112635,
+        "token_estimate": 36333
+      },
+      {
+        "file": "agent_2f8019ac.json",
+        "char_count": 112817,
+        "token_estimate": 36392
+      },
+      {
+        "file": "agent_2f9104cb.json",
+        "char_count": 106350,
+        "token_estimate": 34306
+      },
+      {
+        "file": "agent_3179478f.json",
+        "char_count": 100524,
+        "token_estimate": 32427
+      },
+      {
+        "file": "agent_31d42719.json",
+        "char_count": 131657,
+        "token_estimate": 42470
+      },
+      {
+        "file": "agent_31fa9c04.json",
+        "char_count": 232347,
+        "token_estimate": 74950
+      },
+      {
+        "file": "agent_32a3704c.json",
+        "char_count": 220572,
+        "token_estimate": 71152
+      },
+      {
+        "file": "agent_331d8185.json",
+        "char_count": 305593,
+        "token_estimate": 98578
+      },
+      {
+        "file": "agent_33e19cb4.json",
+        "char_count": 204717,
+        "token_estimate": 66037
+      },
+      {
+        "file": "agent_341184fe.json",
+        "char_count": 148039,
+        "token_estimate": 47754
+      },
+      {
+        "file": "agent_34a90c7b.json",
+        "char_count": 136768,
+        "token_estimate": 44118
+      },
+      {
+        "file": "agent_34bc966a.json",
+        "char_count": 100357,
+        "token_estimate": 32373
+      },
+      {
+        "file": "agent_35968534.json",
+        "char_count": 149722,
+        "token_estimate": 48297
+      },
+      {
+        "file": "agent_36376489.json",
+        "char_count": 143815,
+        "token_estimate": 46391
+      },
+      {
+        "file": "agent_36d11187.json",
+        "char_count": 229898,
+        "token_estimate": 74160
+      },
+      {
+        "file": "agent_372145eb.json",
+        "char_count": 121168,
+        "token_estimate": 39086
+      },
+      {
+        "file": "agent_379ef846.json",
+        "char_count": 233016,
+        "token_estimate": 75166
+      },
+      {
+        "file": "agent_37bcce11.json",
+        "char_count": 202040,
+        "token_estimate": 65174
+      },
+      {
+        "file": "agent_37f959ca.json",
+        "char_count": 146783,
+        "token_estimate": 47349
+      },
+      {
+        "file": "agent_3814ea9d.json",
+        "char_count": 127672,
+        "token_estimate": 41184
+      },
+      {
+        "file": "agent_382df72c.json",
+        "char_count": 142031,
+        "token_estimate": 45816
+      },
+      {
+        "file": "agent_38b470ef.json",
+        "char_count": 149958,
+        "token_estimate": 48373
+      },
+      {
+        "file": "agent_3a719ce2.json",
+        "char_count": 203681,
+        "token_estimate": 65703
+      },
+      {
+        "file": "agent_3a812df0.json",
+        "char_count": 311902,
+        "token_estimate": 100613
+      },
+      {
+        "file": "agent_3a9104cb.json",
+        "char_count": 154561,
+        "token_estimate": 49858
+      },
+      {
+        "file": "agent_3b0ab9c3.json",
+        "char_count": 103806,
+        "token_estimate": 33485
+      },
+      {
+        "file": "agent_3bcc7b2b.json",
+        "char_count": 203598,
+        "token_estimate": 65676
+      },
+      {
+        "file": "agent_3d1042cb.json",
+        "char_count": 123115,
+        "token_estimate": 39714
+      },
+      {
+        "file": "agent_3d9104ca.json",
+        "char_count": 193105,
+        "token_estimate": 62291
+      },
+      {
+        "file": "agent_3e6f807c.json",
+        "char_count": 255136,
+        "token_estimate": 82301
+      },
+      {
+        "file": "agent_3f820b17.json",
+        "char_count": 103677,
+        "token_estimate": 33444
+      },
+      {
+        "file": "agent_3f9c33eb.json",
+        "char_count": 140357,
+        "token_estimate": 45276
+      },
+      {
+        "file": "agent_413be94a.json",
+        "char_count": 136030,
+        "token_estimate": 43880
+      },
+      {
+        "file": "agent_42016ea0.json",
+        "char_count": 122933,
+        "token_estimate": 39655
+      },
+      {
+        "file": "agent_433f79a7.json",
+        "char_count": 163107,
+        "token_estimate": 52615
+      },
+      {
+        "file": "agent_43af1f7c.json",
+        "char_count": 165776,
+        "token_estimate": 53476
+      },
+      {
+        "file": "agent_456f873c.json",
+        "char_count": 135692,
+        "token_estimate": 43771
+      },
+      {
+        "file": "agent_45a19cb2.json",
+        "char_count": 323296,
+        "token_estimate": 104289
+      },
+      {
+        "file": "agent_4639d38c.json",
+        "char_count": 104220,
+        "token_estimate": 33619
+      },
+      {
+        "file": "agent_46621fef.json",
+        "char_count": 132193,
+        "token_estimate": 42642
+      },
+      {
+        "file": "agent_469683e8.json",
+        "char_count": 217130,
+        "token_estimate": 70041
+      },
+      {
+        "file": "agent_469da4aa.json",
+        "char_count": 203152,
+        "token_estimate": 65532
+      },
+      {
+        "file": "agent_469eac76.json",
+        "char_count": 219827,
+        "token_estimate": 70911
+      },
+      {
+        "file": "agent_471abb2f.json",
+        "char_count": 239283,
+        "token_estimate": 77188
+      },
+      {
+        "file": "agent_4737b369.json",
+        "char_count": 168925,
+        "token_estimate": 54491
+      },
+      {
+        "file": "agent_47b726e3.json",
+        "char_count": 170016,
+        "token_estimate": 54843
+      },
+      {
+        "file": "agent_486a2277.json",
+        "char_count": 151453,
+        "token_estimate": 48855
+      },
+      {
+        "file": "agent_49ca5e7b.json",
+        "char_count": 148164,
+        "token_estimate": 47794
+      },
+      {
+        "file": "agent_49f4e9e8.json",
+        "char_count": 208082,
+        "token_estimate": 67123
+      },
+      {
+        "file": "agent_4a5539df.json",
+        "char_count": 195020,
+        "token_estimate": 62909
+      },
+      {
+        "file": "agent_4aa24c16.json",
+        "char_count": 113775,
+        "token_estimate": 36701
+      },
+      {
+        "file": "agent_4ae4d207.json",
+        "char_count": 150352,
+        "token_estimate": 48500
+      },
+      {
+        "file": "agent_4b8109d1.json",
+        "char_count": 126804,
+        "token_estimate": 40904
+      },
+      {
+        "file": "agent_4c070490.json",
+        "char_count": 206546,
+        "token_estimate": 66627
+      },
+      {
+        "file": "agent_4c63e463.json",
+        "char_count": 107376,
+        "token_estimate": 34637
+      },
+      {
+        "file": "agent_4c9104ba.json",
+        "char_count": 112006,
+        "token_estimate": 36130
+      },
+      {
+        "file": "agent_4cabb8f9.json",
+        "char_count": 132753,
+        "token_estimate": 42823
+      },
+      {
+        "file": "agent_4cc93860.json",
+        "char_count": 235584,
+        "token_estimate": 75994
+      },
+      {
+        "file": "agent_4d1092ea.json",
+        "char_count": 141518,
+        "token_estimate": 45650
+      },
+      {
+        "file": "agent_4da82d22.json",
+        "char_count": 208454,
+        "token_estimate": 67243
+      },
+      {
+        "file": "agent_4e6e7012.json",
+        "char_count": 227555,
+        "token_estimate": 73404
+      },
+      {
+        "file": "agent_4ea253f5.json",
+        "char_count": 130489,
+        "token_estimate": 42093
+      },
+      {
+        "file": "agent_4efbe789.json",
+        "char_count": 136931,
+        "token_estimate": 44171
+      },
+      {
+        "file": "agent_4f9104ba.json",
+        "char_count": 103357,
+        "token_estimate": 33340
+      },
+      {
+        "file": "agent_4fd24593.json",
+        "char_count": 194833,
+        "token_estimate": 62849
+      },
+      {
+        "file": "agent_50afa633.json",
+        "char_count": 239016,
+        "token_estimate": 77101
+      },
+      {
+        "file": "agent_50b1b638.json",
+        "char_count": 259537,
+        "token_estimate": 83721
+      },
+      {
+        "file": "agent_511a812d.json",
+        "char_count": 121281,
+        "token_estimate": 39122
+      },
+      {
+        "file": "agent_51c08e7a.json",
+        "char_count": 163046,
+        "token_estimate": 52595
+      },
+      {
+        "file": "agent_51cfb251.json",
+        "char_count": 237064,
+        "token_estimate": 76472
+      },
+      {
+        "file": "agent_52b9b2aa.json",
+        "char_count": 135017,
+        "token_estimate": 43553
+      },
+      {
+        "file": "agent_52d9a10c.json",
+        "char_count": 239109,
+        "token_estimate": 77131
+      },
+      {
+        "file": "agent_532043be.json",
+        "char_count": 200348,
+        "token_estimate": 64628
+      },
+      {
+        "file": "agent_53a91cb4.json",
+        "char_count": 206818,
+        "token_estimate": 66715
+      },
+      {
+        "file": "agent_54fe79c7.json",
+        "char_count": 131223,
+        "token_estimate": 42330
+      },
+      {
+        "file": "agent_57011aca.json",
+        "char_count": 188310,
+        "token_estimate": 60745
+      },
+      {
+        "file": "agent_58a08ee3.json",
+        "char_count": 158605,
+        "token_estimate": 51162
+      },
+      {
+        "file": "agent_5b845e98.json",
+        "char_count": 305730,
+        "token_estimate": 98622
+      },
+      {
+        "file": "agent_5b8dc74d.json",
+        "char_count": 323574,
+        "token_estimate": 104378
+      },
+      {
+        "file": "agent_5c1092ea.json",
+        "char_count": 139477,
+        "token_estimate": 44992
+      },
+      {
+        "file": "agent_5c4019ae.json",
+        "char_count": 126320,
+        "token_estimate": 40748
+      },
+      {
+        "file": "agent_5cd810bc.json",
+        "char_count": 150379,
+        "token_estimate": 48509
+      },
+      {
+        "file": "agent_5d0e828d.json",
+        "char_count": 119405,
+        "token_estimate": 38517
+      },
+      {
+        "file": "agent_5d179727.json",
+        "char_count": 130398,
+        "token_estimate": 42063
+      },
+      {
+        "file": "agent_5e8109ca.json",
+        "char_count": 101185,
+        "token_estimate": 32640
+      },
+      {
+        "file": "agent_5e8201fa.json",
+        "char_count": 138583,
+        "token_estimate": 44704
+      },
+      {
+        "file": "agent_5f1902ab.json",
+        "char_count": 111384,
+        "token_estimate": 35930
+      },
+      {
+        "file": "agent_5f807446.json",
+        "char_count": 116904,
+        "token_estimate": 37710
+      },
+      {
+        "file": "agent_5fa1debf.json",
+        "char_count": 127629,
+        "token_estimate": 41170
+      },
+      {
+        "file": "agent_5fb980d3.json",
+        "char_count": 132299,
+        "token_estimate": 42677
+      },
+      {
+        "file": "agent_5fef4101.json",
+        "char_count": 151371,
+        "token_estimate": 48829
+      },
+      {
+        "file": "agent_600cca4f.json",
+        "char_count": 253882,
+        "token_estimate": 81897
+      },
+      {
+        "file": "agent_61d9a20b.json",
+        "char_count": 203566,
+        "token_estimate": 65666
+      },
+      {
+        "file": "agent_62153f5f.json",
+        "char_count": 233609,
+        "token_estimate": 75357
+      },
+      {
+        "file": "agent_62184d53.json",
+        "char_count": 140357,
+        "token_estimate": 45276
+      },
+      {
+        "file": "agent_6233d529.json",
+        "char_count": 112136,
+        "token_estimate": 36172
+      },
+      {
+        "file": "agent_62b2526d.json",
+        "char_count": 126100,
+        "token_estimate": 40677
+      },
+      {
+        "file": "agent_64ca39b8.json",
+        "char_count": 304918,
+        "token_estimate": 98360
+      },
+      {
+        "file": "agent_6512fade.json",
+        "char_count": 135657,
+        "token_estimate": 43760
+      },
+      {
+        "file": "agent_65e9e90b.json",
+        "char_count": 207775,
+        "token_estimate": 67024
+      },
+      {
+        "file": "agent_676ca12e.json",
+        "char_count": 103129,
+        "token_estimate": 33267
+      },
+      {
+        "file": "agent_681f8081.json",
+        "char_count": 198477,
+        "token_estimate": 64024
+      },
+      {
+        "file": "agent_699a9bc6.json",
+        "char_count": 125133,
+        "token_estimate": 40365
+      },
+      {
+        "file": "agent_69a7ea64.json",
+        "char_count": 108787,
+        "token_estimate": 35092
+      },
+      {
+        "file": "agent_69f50b40.json",
+        "char_count": 159697,
+        "token_estimate": 51515
+      },
+      {
+        "file": "agent_6a201b9e.json",
+        "char_count": 101265,
+        "token_estimate": 32666
+      },
+      {
+        "file": "agent_6c0e474e.json",
+        "char_count": 122670,
+        "token_estimate": 39570
+      },
+      {
+        "file": "agent_6c1092ea.json",
+        "char_count": 144379,
+        "token_estimate": 46573
+      },
+      {
+        "file": "agent_6c2019ea.json",
+        "char_count": 116967,
+        "token_estimate": 37731
+      },
+      {
+        "file": "agent_6ce91190.json",
+        "char_count": 116806,
+        "token_estimate": 37679
+      },
+      {
+        "file": "agent_6d92a10e.json",
+        "char_count": 285370,
+        "token_estimate": 92054
+      },
+      {
+        "file": "agent_6ded8514.json",
+        "char_count": 255136,
+        "token_estimate": 82301
+      },
+      {
+        "file": "agent_6f1940ac.json",
+        "char_count": 109183,
+        "token_estimate": 35220
+      },
+      {
+        "file": "agent_6f9fa70f.json",
+        "char_count": 185429,
+        "token_estimate": 59815
+      },
+      {
+        "file": "agent_70a02419.json",
+        "char_count": 133099,
+        "token_estimate": 42935
+      },
+      {
+        "file": "agent_71a82b3d.json",
+        "char_count": 253528,
+        "token_estimate": 81783
+      },
+      {
+        "file": "agent_71cbd66f.json",
+        "char_count": 212403,
+        "token_estimate": 68517
+      },
+      {
+        "file": "agent_7370f354.json",
+        "char_count": 296792,
+        "token_estimate": 95739
+      },
+      {
+        "file": "agent_74f912ae.json",
+        "char_count": 118113,
+        "token_estimate": 38100
+      },
+      {
+        "file": "agent_7504055a.json",
+        "char_count": 114644,
+        "token_estimate": 36981
+      },
+      {
+        "file": "agent_75599a7a.json",
+        "char_count": 217649,
+        "token_estimate": 70209
+      },
+      {
+        "file": "agent_75b91ca3.json",
+        "char_count": 120060,
+        "token_estimate": 38729
+      },
+      {
+        "file": "agent_75e11059.json",
+        "char_count": 146352,
+        "token_estimate": 47210
+      },
+      {
+        "file": "agent_7607e584.json",
+        "char_count": 230072,
+        "token_estimate": 74216
+      },
+      {
+        "file": "agent_76e6c8c0.json",
+        "char_count": 124557,
+        "token_estimate": 40179
+      },
+      {
+        "file": "agent_76f96f6b.json",
+        "char_count": 149466,
+        "token_estimate": 48214
+      },
+      {
+        "file": "agent_779287eb.json",
+        "char_count": 200130,
+        "token_estimate": 64558
+      },
+      {
+        "file": "agent_77e534b5.json",
+        "char_count": 104171,
+        "token_estimate": 33603
+      },
+      {
+        "file": "agent_78709445.json",
+        "char_count": 128328,
+        "token_estimate": 41396
+      },
+      {
+        "file": "agent_793450e6.json",
+        "char_count": 332019,
+        "token_estimate": 107102
+      },
+      {
+        "file": "agent_79de21a8.json",
+        "char_count": 228363,
+        "token_estimate": 73665
+      },
+      {
+        "file": "agent_79eb260f.json",
+        "char_count": 246434,
+        "token_estimate": 79494
+      },
+      {
+        "file": "agent_7a29c10b.json",
+        "char_count": 105022,
+        "token_estimate": 33878
+      },
+      {
+        "file": "agent_7a391e4d.json",
+        "char_count": 210766,
+        "token_estimate": 67989
+      },
+      {
+        "file": "agent_7a409cb1.json",
+        "char_count": 119134,
+        "token_estimate": 38430
+      },
+      {
+        "file": "agent_7a7356f3.json",
+        "char_count": 142372,
+        "token_estimate": 45926
+      },
+      {
+        "file": "agent_7a8b8b7b.json",
+        "char_count": 189043,
+        "token_estimate": 60981
+      },
+      {
+        "file": "agent_7a9204cb.json",
+        "char_count": 123870,
+        "token_estimate": 39958
+      },
+      {
+        "file": "agent_7ad8edd9.json",
+        "char_count": 133756,
+        "token_estimate": 43147
+      },
+      {
+        "file": "agent_7b1940ca.json",
+        "char_count": 101504,
+        "token_estimate": 32743
+      },
+      {
+        "file": "agent_7ba605d7.json",
+        "char_count": 127362,
+        "token_estimate": 41084
+      },
+      {
+        "file": "agent_7c076f66.json",
+        "char_count": 218734,
+        "token_estimate": 70559
+      },
+      {
+        "file": "agent_7c2018ea.json",
+        "char_count": 111914,
+        "token_estimate": 36101
+      },
+      {
+        "file": "agent_7c81920a.json",
+        "char_count": 108333,
+        "token_estimate": 34946
+      },
+      {
+        "file": "agent_7c81a29d.json",
+        "char_count": 255089,
+        "token_estimate": 82286
+      },
+      {
+        "file": "agent_7c9104ba.json",
+        "char_count": 167153,
+        "token_estimate": 53920
+      },
+      {
+        "file": "agent_7c96b34d.json",
+        "char_count": 235140,
+        "token_estimate": 75851
+      },
+      {
+        "file": "agent_7d6b5ff5.json",
+        "char_count": 150438,
+        "token_estimate": 48528
+      },
+      {
+        "file": "agent_7e8109bf.json",
+        "char_count": 135394,
+        "token_estimate": 43675
+      },
+      {
+        "file": "agent_7ef26175.json",
+        "char_count": 277110,
+        "token_estimate": 89390
+      },
+      {
+        "file": "agent_7f8109db.json",
+        "char_count": 119883,
+        "token_estimate": 38671
+      },
+      {
+        "file": "agent_7fdf0789.json",
+        "char_count": 116818,
+        "token_estimate": 37683
+      },
+      {
+        "file": "agent_81353514.json",
+        "char_count": 112513,
+        "token_estimate": 36294
+      },
+      {
+        "file": "agent_81462799.json",
+        "char_count": 237853,
+        "token_estimate": 76726
+      },
+      {
+        "file": "agent_816583db.json",
+        "char_count": 173747,
+        "token_estimate": 56047
+      },
+      {
+        "file": "agent_823bf635.json",
+        "char_count": 108589,
+        "token_estimate": 35028
+      },
+      {
+        "file": "agent_8264b0f8.json",
+        "char_count": 252875,
+        "token_estimate": 81572
+      },
+      {
+        "file": "agent_82702448.json",
+        "char_count": 144970,
+        "token_estimate": 46764
+      },
+      {
+        "file": "agent_82d19ca5.json",
+        "char_count": 134709,
+        "token_estimate": 43454
+      },
+      {
+        "file": "agent_8340f5d6.json",
+        "char_count": 101833,
+        "token_estimate": 32849
+      },
+      {
+        "file": "agent_83410c99.json",
+        "char_count": 126733,
+        "token_estimate": 40881
+      },
+      {
+        "file": "agent_837b095f.json",
+        "char_count": 104826,
+        "token_estimate": 33814
+      },
+      {
+        "file": "agent_83dc712e.json",
+        "char_count": 138930,
+        "token_estimate": 44816
+      },
+      {
+        "file": "agent_844550e9.json",
+        "char_count": 292971,
+        "token_estimate": 94506
+      },
+      {
+        "file": "agent_84ae3c6e.json",
+        "char_count": 130939,
+        "token_estimate": 42238
+      },
+      {
+        "file": "agent_85213232.json",
+        "char_count": 127235,
+        "token_estimate": 41043
+      },
+      {
+        "file": "agent_85ae4b15.json",
+        "char_count": 212054,
+        "token_estimate": 68404
+      },
+      {
+        "file": "agent_86a0954d.json",
+        "char_count": 103578,
+        "token_estimate": 33412
+      },
+      {
+        "file": "agent_886790d2.json",
+        "char_count": 217026,
+        "token_estimate": 70008
+      },
+      {
+        "file": "agent_88b17ce2.json",
+        "char_count": 207351,
+        "token_estimate": 66887
+      },
+      {
+        "file": "agent_88fcb3a7.json",
+        "char_count": 170538,
+        "token_estimate": 55012
+      },
+      {
+        "file": "agent_896eb5d3.json",
+        "char_count": 114558,
+        "token_estimate": 36954
+      },
+      {
+        "file": "agent_89ce0a00.json",
+        "char_count": 310724,
+        "token_estimate": 100233
+      },
+      {
+        "file": "agent_8a0568ea.json",
+        "char_count": 112619,
+        "token_estimate": 36328
+      },
+      {
+        "file": "agent_8a07649e.json",
+        "char_count": 125052,
+        "token_estimate": 40339
+      },
+      {
+        "file": "agent_8a1092bf.json",
+        "char_count": 260782,
+        "token_estimate": 84123
+      },
+      {
+        "file": "agent_8a4559c9.json",
+        "char_count": 254609,
+        "token_estimate": 82131
+      },
+      {
+        "file": "agent_8a551fbc.json",
+        "char_count": 124848,
+        "token_estimate": 40273
+      },
+      {
+        "file": "agent_8b52de66.json",
+        "char_count": 329304,
+        "token_estimate": 106227
+      },
+      {
+        "file": "agent_8becfad6.json",
+        "char_count": 110715,
+        "token_estimate": 35714
+      },
+      {
+        "file": "agent_8bf43c21.json",
+        "char_count": 102537,
+        "token_estimate": 33076
+      },
+      {
+        "file": "agent_8c2019ea.json",
+        "char_count": 108196,
+        "token_estimate": 34901
+      },
+      {
+        "file": "agent_8d1042ab.json",
+        "char_count": 137907,
+        "token_estimate": 44486
+      },
+      {
+        "file": "agent_8d256a13.json",
+        "char_count": 116962,
+        "token_estimate": 37729
+      },
+      {
+        "file": "agent_8d38ae33.json",
+        "char_count": 194839,
+        "token_estimate": 62851
+      },
+      {
+        "file": "agent_8dab41b4.json",
+        "char_count": 107520,
+        "token_estimate": 34683
+      },
+      {
+        "file": "agent_8dd7f0f2.json",
+        "char_count": 136109,
+        "token_estimate": 43906
+      },
+      {
+        "file": "agent_8e1b12a4.json",
+        "char_count": 299698,
+        "token_estimate": 96676
+      },
+      {
+        "file": "agent_8e22199e.json",
+        "char_count": 149326,
+        "token_estimate": 48169
+      },
+      {
+        "file": "agent_8f1029ba.json",
+        "char_count": 121943,
+        "token_estimate": 39336
+      },
+      {
+        "file": "agent_8f81b9be.json",
+        "char_count": 205779,
+        "token_estimate": 66380
+      },
+      {
+        "file": "agent_8fa781c1.json",
+        "char_count": 146965,
+        "token_estimate": 47408
+      },
+      {
+        "file": "agent_900beab3.json",
+        "char_count": 287715,
+        "token_estimate": 92811
+      },
+      {
+        "file": "agent_906a7734.json",
+        "char_count": 235103,
+        "token_estimate": 75839
+      },
+      {
+        "file": "agent_91d4c70f.json",
+        "char_count": 238301,
+        "token_estimate": 76871
+      },
+      {
+        "file": "agent_91e081bc.json",
+        "char_count": 100265,
+        "token_estimate": 32343
+      },
+      {
+        "file": "agent_91ea9cef.json",
+        "char_count": 106377,
+        "token_estimate": 34315
+      },
+      {
+        "file": "agent_92192045.json",
+        "char_count": 116591,
+        "token_estimate": 37610
+      },
+      {
+        "file": "agent_9221e45b.json",
+        "char_count": 161155,
+        "token_estimate": 51985
+      },
+      {
+        "file": "agent_9370bce7.json",
+        "char_count": 146943,
+        "token_estimate": 47400
+      },
+      {
+        "file": "agent_93930d85.json",
+        "char_count": 146637,
+        "token_estimate": 47302
+      },
+      {
+        "file": "agent_93b71ca2.json",
+        "char_count": 179563,
+        "token_estimate": 57923
+      },
+      {
+        "file": "agent_943c0f62.json",
+        "char_count": 153226,
+        "token_estimate": 49427
+      },
+      {
+        "file": "agent_94e85fee.json",
+        "char_count": 102591,
+        "token_estimate": 33093
+      },
+      {
+        "file": "agent_9753f0d2.json",
+        "char_count": 208009,
+        "token_estimate": 67099
+      },
+      {
+        "file": "agent_98549425.json",
+        "char_count": 165481,
+        "token_estimate": 53380
+      },
+      {
+        "file": "agent_98cbaacb.json",
+        "char_count": 253332,
+        "token_estimate": 81720
+      },
+      {
+        "file": "agent_999ad528.json",
+        "char_count": 126500,
+        "token_estimate": 40806
+      },
+      {
+        "file": "agent_9a204cb1.json",
+        "char_count": 101837,
+        "token_estimate": 32850
+      },
+      {
+        "file": "agent_9a789507.json",
+        "char_count": 127436,
+        "token_estimate": 41108
+      },
+      {
+        "file": "agent_9acff1ea.json",
+        "char_count": 156619,
+        "token_estimate": 50522
+      },
+      {
+        "file": "agent_9b2c66c3.json",
+        "char_count": 156788,
+        "token_estimate": 50576
+      },
+      {
+        "file": "agent_9b7e9bca.json",
+        "char_count": 139018,
+        "token_estimate": 44844
+      },
+      {
+        "file": "agent_9bca1067.json",
+        "char_count": 316218,
+        "token_estimate": 102005
+      },
+      {
+        "file": "agent_9c410b8f.json",
+        "char_count": 104558,
+        "token_estimate": 33728
+      },
+      {
+        "file": "agent_9ce0068b.json",
+        "char_count": 144037,
+        "token_estimate": 46463
+      },
+      {
+        "file": "agent_9d0287cb.json",
+        "char_count": 101864,
+        "token_estimate": 32859
+      },
+      {
+        "file": "agent_9d59f2a6.json",
+        "char_count": 139719,
+        "token_estimate": 45070
+      },
+      {
+        "file": "agent_9e1b0d57.json",
+        "char_count": 216419,
+        "token_estimate": 69812
+      },
+      {
+        "file": "agent_9e201b4c.json",
+        "char_count": 151344,
+        "token_estimate": 48820
+      },
+      {
+        "file": "agent_9f07e4ed.json",
+        "char_count": 106638,
+        "token_estimate": 34399
+      },
+      {
+        "file": "agent_9f18974b.json",
+        "char_count": 121906,
+        "token_estimate": 39324
+      },
+      {
+        "file": "agent_9f6bd108.json",
+        "char_count": 216465,
+        "token_estimate": 69827
+      },
+      {
+        "file": "agent_9fb321b3.json",
+        "char_count": 113698,
+        "token_estimate": 36676
+      },
+      {
+        "file": "agent_9fd5e268.json",
+        "char_count": 134602,
+        "token_estimate": 43420
+      },
+      {
+        "file": "agent_a0680f67.json",
+        "char_count": 100484,
+        "token_estimate": 32414
+      },
+      {
+        "file": "agent_a0b4fa99.json",
+        "char_count": 259027,
+        "token_estimate": 83557
+      },
+      {
+        "file": "agent_a0b8e8c9.json",
+        "char_count": 146454,
+        "token_estimate": 47243
+      },
+      {
+        "file": "agent_a143cace.json",
+        "char_count": 145168,
+        "token_estimate": 46828
+      },
+      {
+        "file": "agent_a1e71a64.json",
+        "char_count": 152435,
+        "token_estimate": 49172
+      },
+      {
+        "file": "agent_a22c65e9.json",
+        "char_count": 186764,
+        "token_estimate": 60246
+      },
+      {
+        "file": "agent_a26f1156.json",
+        "char_count": 109727,
+        "token_estimate": 35395
+      },
+      {
+        "file": "agent_a2d667dd.json",
+        "char_count": 108820,
+        "token_estimate": 35103
+      },
+      {
+        "file": "agent_a3df7732.json",
+        "char_count": 125372,
+        "token_estimate": 40442
+      },
+      {
+        "file": "agent_a3f6ea32.json",
+        "char_count": 121813,
+        "token_estimate": 39294
+      },
+      {
+        "file": "agent_a4394d56.json",
+        "char_count": 142015,
+        "token_estimate": 45811
+      },
+      {
+        "file": "agent_a4750355.json",
+        "char_count": 140880,
+        "token_estimate": 45445
+      },
+      {
+        "file": "agent_a47b72c0.json",
+        "char_count": 284051,
+        "token_estimate": 91629
+      },
+      {
+        "file": "agent_a4de262d.json",
+        "char_count": 123044,
+        "token_estimate": 39691
+      },
+      {
+        "file": "agent_a4ec0ca7.json",
+        "char_count": 136938,
+        "token_estimate": 44173
+      },
+      {
+        "file": "agent_a50c37b1.json",
+        "char_count": 137856,
+        "token_estimate": 44469
+      },
+      {
+        "file": "agent_a5c31d03.json",
+        "char_count": 137048,
+        "token_estimate": 44209
+      },
+      {
+        "file": "agent_a8409317.json",
+        "char_count": 168288,
+        "token_estimate": 54286
+      },
+      {
+        "file": "agent_a8490cc3.json",
+        "char_count": 128018,
+        "token_estimate": 41296
+      },
+      {
+        "file": "agent_a97b2426.json",
+        "char_count": 145537,
+        "token_estimate": 46947
+      },
+      {
+        "file": "agent_a9d650fa.json",
+        "char_count": 143128,
+        "token_estimate": 46170
+      },
+      {
+        "file": "agent_a9ea62f1.json",
+        "char_count": 193192,
+        "token_estimate": 62320
+      },
+      {
+        "file": "agent_aa4b5628.json",
+        "char_count": 124827,
+        "token_estimate": 40266
+      },
+      {
+        "file": "agent_aaa5948a.json",
+        "char_count": 125639,
+        "token_estimate": 40528
+      },
+      {
+        "file": "agent_aaad658e.json",
+        "char_count": 135566,
+        "token_estimate": 43730
+      },
+      {
+        "file": "agent_ab9a163b.json",
+        "char_count": 123150,
+        "token_estimate": 39725
+      },
+      {
+        "file": "agent_abad2605.json",
+        "char_count": 102972,
+        "token_estimate": 33216
+      },
+      {
+        "file": "agent_ac1ece64.json",
+        "char_count": 176913,
+        "token_estimate": 57068
+      },
+      {
+        "file": "agent_acaba404.json",
+        "char_count": 120913,
+        "token_estimate": 39004
+      },
+      {
+        "file": "agent_ace85ecf.json",
+        "char_count": 165566,
+        "token_estimate": 53408
+      },
+      {
+        "file": "agent_ade5a447.json",
+        "char_count": 183962,
+        "token_estimate": 59342
+      },
+      {
+        "file": "agent_aeabef2a.json",
+        "char_count": 269211,
+        "token_estimate": 86842
+      },
+      {
+        "file": "agent_b034b743.json",
+        "char_count": 302640,
+        "token_estimate": 97625
+      },
+      {
+        "file": "agent_b250f18f.json",
+        "char_count": 170085,
+        "token_estimate": 54866
+      },
+      {
+        "file": "agent_b3572b11.json",
+        "char_count": 128253,
+        "token_estimate": 41371
+      },
+      {
+        "file": "agent_b3cf73c0.json",
+        "char_count": 291939,
+        "token_estimate": 94173
+      },
+      {
+        "file": "agent_b3ee2613.json",
+        "char_count": 133259,
+        "token_estimate": 42986
+      },
+      {
+        "file": "agent_b6e9b889.json",
+        "char_count": 119668,
+        "token_estimate": 38602
+      },
+      {
+        "file": "agent_b7291a0c.json",
+        "char_count": 104920,
+        "token_estimate": 33845
+      },
+      {
+        "file": "agent_b89c4f6a.json",
+        "char_count": 149660,
+        "token_estimate": 48277
+      },
+      {
+        "file": "agent_b8b6c4d9.json",
+        "char_count": 121444,
+        "token_estimate": 39175
+      },
+      {
+        "file": "agent_bb03a985.json",
+        "char_count": 251360,
+        "token_estimate": 81083
+      },
+      {
+        "file": "agent_bc9799c3.json",
+        "char_count": 103423,
+        "token_estimate": 33362
+      },
+      {
+        "file": "agent_bcd8c662.json",
+        "char_count": 211001,
+        "token_estimate": 68064
+      },
+      {
+        "file": "agent_bd13d4ba.json",
+        "char_count": 139503,
+        "token_estimate": 45000
+      },
+      {
+        "file": "agent_bfcd52fc.json",
+        "char_count": 120956,
+        "token_estimate": 39018
+      },
+      {
+        "file": "agent_c0038b0e.json",
+        "char_count": 173747,
+        "token_estimate": 56047
+      },
+      {
+        "file": "agent_c0122942.json",
+        "char_count": 244680,
+        "token_estimate": 78929
+      },
+      {
+        "file": "agent_c16e363f.json",
+        "char_count": 109839,
+        "token_estimate": 35431
+      },
+      {
+        "file": "agent_c197dc17.json",
+        "char_count": 249455,
+        "token_estimate": 80469
+      },
+      {
+        "file": "agent_c1bd9a26.json",
+        "char_count": 141199,
+        "token_estimate": 45548
+      },
+      {
+        "file": "agent_c22c5f4d.json",
+        "char_count": 206705,
+        "token_estimate": 66679
+      },
+      {
+        "file": "agent_c23b8460.json",
+        "char_count": 174560,
+        "token_estimate": 56309
+      },
+      {
+        "file": "agent_c3081a9f.json",
+        "char_count": 142105,
+        "token_estimate": 45840
+      },
+      {
+        "file": "agent_c4be5b8d.json",
+        "char_count": 152083,
+        "token_estimate": 49059
+      },
+      {
+        "file": "agent_c4d1d919.json",
+        "char_count": 141516,
+        "token_estimate": 45650
+      },
+      {
+        "file": "agent_c604410a.json",
+        "char_count": 146454,
+        "token_estimate": 47243
+      },
+      {
+        "file": "agent_c6a74f57.json",
+        "char_count": 233331,
+        "token_estimate": 75268
+      },
+      {
+        "file": "agent_c6f2261e.json",
+        "char_count": 142105,
+        "token_estimate": 45840
+      },
+      {
+        "file": "agent_c70cf145.json",
+        "char_count": 233054,
+        "token_estimate": 75178
+      },
+      {
+        "file": "agent_c716fcd0.json",
+        "char_count": 148652,
+        "token_estimate": 47952
+      },
+      {
+        "file": "agent_c79db183.json",
+        "char_count": 192983,
+        "token_estimate": 62252
+      },
+      {
+        "file": "agent_c7abc968.json",
+        "char_count": 106656,
+        "token_estimate": 34405
+      },
+      {
+        "file": "agent_c7de90a1.json",
+        "char_count": 200633,
+        "token_estimate": 64720
+      },
+      {
+        "file": "agent_c836f42a.json",
+        "char_count": 198238,
+        "token_estimate": 63947
+      },
+      {
+        "file": "agent_cb8b431d.json",
+        "char_count": 140733,
+        "token_estimate": 45397
+      },
+      {
+        "file": "agent_cc7e0919.json",
+        "char_count": 206509,
+        "token_estimate": 66615
+      },
+      {
+        "file": "agent_ccba9a38.json",
+        "char_count": 145464,
+        "token_estimate": 46923
+      },
+      {
+        "file": "agent_cdc2db65.json",
+        "char_count": 193355,
+        "token_estimate": 62372
+      },
+      {
+        "file": "agent_cf293ba2.json",
+        "char_count": 128609,
+        "token_estimate": 41486
+      },
+      {
+        "file": "agent_cf3ab153.json",
+        "char_count": 203624,
+        "token_estimate": 65685
+      },
+      {
+        "file": "agent_cf67e29a.json",
+        "char_count": 189765,
+        "token_estimate": 61214
+      },
+      {
+        "file": "agent_cf74e3f1.json",
+        "char_count": 280195,
+        "token_estimate": 90385
+      },
+      {
+        "file": "agent_cfad358d.json",
+        "char_count": 207433,
+        "token_estimate": 66913
+      },
+      {
+        "file": "agent_d1bf529e.json",
+        "char_count": 228168,
+        "token_estimate": 73602
+      },
+      {
+        "file": "agent_d2f11efc.json",
+        "char_count": 150379,
+        "token_estimate": 48509
+      },
+      {
+        "file": "agent_d336d4ae.json",
+        "char_count": 273192,
+        "token_estimate": 88126
+      },
+      {
+        "file": "agent_d3baca39.json",
+        "char_count": 142613,
+        "token_estimate": 46004
+      },
+      {
+        "file": "agent_d5238a36.json",
+        "char_count": 105424,
+        "token_estimate": 34007
+      },
+      {
+        "file": "agent_d54d72a5.json",
+        "char_count": 202623,
+        "token_estimate": 65362
+      },
+      {
+        "file": "agent_d99a5d69.json",
+        "char_count": 202778,
+        "token_estimate": 65412
+      },
+      {
+        "file": "agent_dbfcd869.json",
+        "char_count": 259892,
+        "token_estimate": 83836
+      },
+      {
+        "file": "agent_dc6c56e9.json",
+        "char_count": 211594,
+        "token_estimate": 68256
+      },
+      {
+        "file": "agent_dcefc374.json",
+        "char_count": 122479,
+        "token_estimate": 39509
+      },
+      {
+        "file": "agent_ddc093c2.json",
+        "char_count": 308041,
+        "token_estimate": 99368
+      },
+      {
+        "file": "agent_dde806d0.json",
+        "char_count": 118976,
+        "token_estimate": 38379
+      },
+      {
+        "file": "agent_de40c37e.json",
+        "char_count": 120476,
+        "token_estimate": 38863
+      },
+      {
+        "file": "agent_df7734e9.json",
+        "char_count": 275749,
+        "token_estimate": 88951
+      },
+      {
+        "file": "agent_e05c4b36.json",
+        "char_count": 227555,
+        "token_estimate": 73404
+      },
+      {
+        "file": "agent_e09bf9d2.json",
+        "char_count": 120444,
+        "token_estimate": 38852
+      },
+      {
+        "file": "agent_e17c015f.json",
+        "char_count": 336684,
+        "token_estimate": 108607
+      },
+      {
+        "file": "agent_e419b02a.json",
+        "char_count": 103413,
+        "token_estimate": 33359
+      },
+      {
+        "file": "agent_e4cee9cd.json",
+        "char_count": 197595,
+        "token_estimate": 63740
+      },
+      {
+        "file": "agent_e766b1fb.json",
+        "char_count": 103968,
+        "token_estimate": 33538
+      },
+      {
+        "file": "agent_e819b04a.json",
+        "char_count": 134755,
+        "token_estimate": 43469
+      },
+      {
+        "file": "agent_e99fce8d.json",
+        "char_count": 307433,
+        "token_estimate": 99171
+      },
+      {
+        "file": "agent_ead1907f.json",
+        "char_count": 104996,
+        "token_estimate": 33869
+      },
+      {
+        "file": "agent_eb1f608b.json",
+        "char_count": 118053,
+        "token_estimate": 38081
+      },
+      {
+        "file": "agent_ec0a3a8f.json",
+        "char_count": 236907,
+        "token_estimate": 76421
+      },
+      {
+        "file": "agent_edbcbd6b.json",
+        "char_count": 137281,
+        "token_estimate": 44284
+      },
+      {
+        "file": "agent_eddfbf42.json",
+        "char_count": 206684,
+        "token_estimate": 66672
+      },
+      {
+        "file": "agent_ee3c325b.json",
+        "char_count": 210889,
+        "token_estimate": 68028
+      },
+      {
+        "file": "agent_ee45b837.json",
+        "char_count": 156572,
+        "token_estimate": 50507
+      },
+      {
+        "file": "agent_eea8f3d5.json",
+        "char_count": 130372,
+        "token_estimate": 42055
+      },
+      {
+        "file": "agent_efa5fe7e.json",
+        "char_count": 325458,
+        "token_estimate": 104986
+      },
+      {
+        "file": "agent_f05a9f4f.json",
+        "char_count": 150506,
+        "token_estimate": 48550
+      },
+      {
+        "file": "agent_f0c0ef79.json",
+        "char_count": 192246,
+        "token_estimate": 62014
+      },
+      {
+        "file": "agent_f16a9cdb.json",
+        "char_count": 141376,
+        "token_estimate": 45605
+      },
+      {
+        "file": "agent_f1802b93.json",
+        "char_count": 147737,
+        "token_estimate": 47657
+      },
+      {
+        "file": "agent_f1b02286.json",
+        "char_count": 148419,
+        "token_estimate": 47877
+      },
+      {
+        "file": "agent_f2da203d.json",
+        "char_count": 104233,
+        "token_estimate": 33623
+      },
+      {
+        "file": "agent_f3e5df03.json",
+        "char_count": 128604,
+        "token_estimate": 41485
+      },
+      {
+        "file": "agent_f3fbca80.json",
+        "char_count": 139018,
+        "token_estimate": 44844
+      },
+      {
+        "file": "agent_f4d56fd0.json",
+        "char_count": 113645,
+        "token_estimate": 36659
+      },
+      {
+        "file": "agent_f4edbac7.json",
+        "char_count": 164487,
+        "token_estimate": 53060
+      },
+      {
+        "file": "agent_f54c2f7d.json",
+        "char_count": 220222,
+        "token_estimate": 71039
+      },
+      {
+        "file": "agent_f6a7ec2f.json",
+        "char_count": 241112,
+        "token_estimate": 77778
+      },
+      {
+        "file": "agent_f768b117.json",
+        "char_count": 110962,
+        "token_estimate": 35794
+      },
+      {
+        "file": "agent_f8149d5f.json",
+        "char_count": 120852,
+        "token_estimate": 38984
+      },
+      {
+        "file": "agent_f818219c.json",
+        "char_count": 136689,
+        "token_estimate": 44093
+      },
+      {
+        "file": "agent_f9e0611b.json",
+        "char_count": 142900,
+        "token_estimate": 46096
+      },
+      {
+        "file": "agent_fc54813d.json",
+        "char_count": 135814,
+        "token_estimate": 43810
+      },
+      {
+        "file": "agent_fcb9e0cd.json",
+        "char_count": 232147,
+        "token_estimate": 74886
+      },
+      {
+        "file": "agent_fd91b785.json",
+        "char_count": 282516,
+        "token_estimate": 91134
+      },
+      {
+        "file": "agent_feafa9fd.json",
+        "char_count": 125724,
+        "token_estimate": 40556
+      },
+      {
+        "file": "agent_ff5d9fff.json",
+        "char_count": 149870,
+        "token_estimate": 48345
+      }
+    ],
+    "extended": [
+      {
+        "file": "agent_02dcccbd.json",
+        "char_count": 399138,
+        "token_estimate": 128754
+      },
+      {
+        "file": "agent_087c35aa.json",
+        "char_count": 354063,
+        "token_estimate": 114213
+      },
+      {
+        "file": "agent_0a834e23.json",
+        "char_count": 366117,
+        "token_estimate": 118102
+      },
+      {
+        "file": "agent_16c80f6f.json",
+        "char_count": 393754,
+        "token_estimate": 127017
+      },
+      {
+        "file": "agent_18c9a3b4.json",
+        "char_count": 468842,
+        "token_estimate": 151239
+      },
+      {
+        "file": "agent_27ab42c4.json",
+        "char_count": 493780,
+        "token_estimate": 159283
+      },
+      {
+        "file": "agent_27c8dd75.json",
+        "char_count": 374080,
+        "token_estimate": 120670
+      },
+      {
+        "file": "agent_29f81a4d.json",
+        "char_count": 617563,
+        "token_estimate": 199213
+      },
+      {
+        "file": "agent_2e3667bd.json",
+        "char_count": 439695,
+        "token_estimate": 141837
+      },
+      {
+        "file": "agent_2fa23226.json",
+        "char_count": 572478,
+        "token_estimate": 184670
+      },
+      {
+        "file": "agent_380481cf.json",
+        "char_count": 474816,
+        "token_estimate": 153166
+      },
+      {
+        "file": "agent_3934b312.json",
+        "char_count": 359818,
+        "token_estimate": 116070
+      },
+      {
+        "file": "agent_3a827e46.json",
+        "char_count": 436500,
+        "token_estimate": 140806
+      },
+      {
+        "file": "agent_41d8e20b.json",
+        "char_count": 565958,
+        "token_estimate": 182567
+      },
+      {
+        "file": "agent_4277ae39.json",
+        "char_count": 555590,
+        "token_estimate": 179222
+      },
+      {
+        "file": "agent_42b81ce9.json",
+        "char_count": 685035,
+        "token_estimate": 220979
+      },
+      {
+        "file": "agent_4663993a.json",
+        "char_count": 359818,
+        "token_estimate": 116070
+      },
+      {
+        "file": "agent_4e29ba17.json",
+        "char_count": 451254,
+        "token_estimate": 145565
+      },
+      {
+        "file": "agent_4e891b2c.json",
+        "char_count": 364240,
+        "token_estimate": 117496
+      },
+      {
+        "file": "agent_63386df5.json",
+        "char_count": 355363,
+        "token_estimate": 114633
+      },
+      {
+        "file": "agent_64139a68.json",
+        "char_count": 408230,
+        "token_estimate": 131687
+      },
+      {
+        "file": "agent_6c18f3a2.json",
+        "char_count": 480132,
+        "token_estimate": 154881
+      },
+      {
+        "file": "agent_6ea2bd34.json",
+        "char_count": 359352,
+        "token_estimate": 115920
+      },
+      {
+        "file": "agent_74b12df8.json",
+        "char_count": 383629,
+        "token_estimate": 123751
+      },
+      {
+        "file": "agent_74b62d3a.json",
+        "char_count": 519198,
+        "token_estimate": 167483
+      },
+      {
+        "file": "agent_75c20e7c.json",
+        "char_count": 521227,
+        "token_estimate": 168137
+      },
+      {
+        "file": "agent_79d11a84.json",
+        "char_count": 489811,
+        "token_estimate": 158003
+      },
+      {
+        "file": "agent_81c6bf04.json",
+        "char_count": 406279,
+        "token_estimate": 131057
+      },
+      {
+        "file": "agent_82223f85.json",
+        "char_count": 517873,
+        "token_estimate": 167055
+      },
+      {
+        "file": "agent_8a391cb4.json",
+        "char_count": 571524,
+        "token_estimate": 184362
+      },
+      {
+        "file": "agent_8ef12109.json",
+        "char_count": 513514,
+        "token_estimate": 165649
+      },
+      {
+        "file": "agent_9b5821ea.json",
+        "char_count": 542198,
+        "token_estimate": 174902
+      },
+      {
+        "file": "agent_9b681018.json",
+        "char_count": 385880,
+        "token_estimate": 124477
+      },
+      {
+        "file": "agent_a78febf9.json",
+        "char_count": 531898,
+        "token_estimate": 171580
+      },
+      {
+        "file": "agent_a7eeac64.json",
+        "char_count": 396141,
+        "token_estimate": 127787
+      },
+      {
+        "file": "agent_aa5a072f.json",
+        "char_count": 574278,
+        "token_estimate": 185250
+      },
+      {
+        "file": "agent_b742c610.json",
+        "char_count": 610509,
+        "token_estimate": 196938
+      },
+      {
+        "file": "agent_b9f27c10.json",
+        "char_count": 553597,
+        "token_estimate": 178579
+      },
+      {
+        "file": "agent_c3ac8cad.json",
+        "char_count": 363391,
+        "token_estimate": 117222
+      },
+      {
+        "file": "agent_c5242a3c.json",
+        "char_count": 434271,
+        "token_estimate": 140087
+      },
+      {
+        "file": "agent_d22b9ece.json",
+        "char_count": 399271,
+        "token_estimate": 128797
+      },
+      {
+        "file": "agent_d7730511.json",
+        "char_count": 389094,
+        "token_estimate": 125514
+      },
+      {
+        "file": "agent_df199b25.json",
+        "char_count": 510849,
+        "token_estimate": 164790
+      },
+      {
+        "file": "agent_e351bafc.json",
+        "char_count": 379845,
+        "token_estimate": 122530
+      }
+    ],
+    "ultra_dense": [
+      {
+        "file": "agent_1f489b2c.json",
+        "char_count": 771424,
+        "token_estimate": 248846
+      },
+      {
+        "file": "agent_58b29ca1.json",
+        "char_count": 1118319,
+        "token_estimate": 360748
+      },
+      {
+        "file": "agent_68d19ce2.json",
+        "char_count": 818883,
+        "token_estimate": 264155
+      },
+      {
+        "file": "agent_84f12de9.json",
+        "char_count": 961425,
+        "token_estimate": 310137
+      },
+      {
+        "file": "agent_dca20d83.json",
+        "char_count": 734103,
+        "token_estimate": 236807
+      }
+    ]
+  }
+}
