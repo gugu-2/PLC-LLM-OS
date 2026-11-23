@@ -29,6 +29,10 @@ class StandardDocument:
     content: str
     tags: List[str] = field(default_factory=list)
 
+    @property
+    def standard(self) -> str:
+        return self.standard_name
+
 
 class IndustrialStandardsCorpus:
     """Pre-indexed repository of verified industrial automation standards and specifications."""
@@ -295,3 +299,8 @@ class IndustrialStandardsCorpus:
         ))
 
         return docs
+
+
+KNOWLEDGE_BASE: List[StandardDocument] = IndustrialStandardsCorpus.get_all_documents()
+
+__all__ = ["StandardDocument", "IndustrialStandardsCorpus", "KNOWLEDGE_BASE"]

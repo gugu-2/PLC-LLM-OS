@@ -92,9 +92,10 @@ flowchart TD
      - **Siemens SIMATIC**: SCL source code, Optimized Data Blocks, UDT definitions.
      - **Rockwell Automation**: Studio 5000 `.L5X` XML, Add-On Instructions (AOI), Relay Ladder Logic (RLL).
      - **Beckhoff Automation**: TwinCAT 3 `.TcPOU` XML, ADS tag mapping, PLCopen motion FBs.
-     - **CODESYS / Schneider**: IEC 61131-3 3rd edition Structured Text with memory alignment.
+     - **CODESYS / Schneider**: IEC 61131-3 3rd edition Structured Text with memory alignment, OOP extensions, and persistent `VAR_STAT`.
+     - **Sequential Function Chart (SFC)**: Textual Grafcet state-machine encoding with watchdog dwell timers.
   3. Enforces bracketed physical engineering units (`[bar]`, `[deg C]`, `[kN]`, `[ms]`, `[m/min]`) on all declared analog process variables.
-- **Tools**: `scl_dialect_emitter`, `l5x_xml_synthesizer`, `twincat_pou_generator`, `ladder_rung_builder`.
+- **Tools**: `scl_dialect_emitter`, `l5x_xml_synthesizer`, `twincat_pou_generator`, `ladder_rung_builder`, `codesys_dialect_engine`, `sfc_dialect_engine`.
 
 ### 3.4 Agent 4: Independent Reviewer & Static Auditor (Non-Self-Certifying)
 - **Primary Persona**: Independent Software Quality Assurance Auditor (ISO 9001 / TickIT).

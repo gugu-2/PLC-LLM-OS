@@ -212,3 +212,9 @@ class HybridStandardsRetriever:
             ))
 
         return results
+
+
+# Compatibility alias
+HybridRetriever = HybridStandardsRetriever
+
+__all__ = ["HybridStandardsRetriever", "HybridRetriever", "RetrievedStandardChunk"]

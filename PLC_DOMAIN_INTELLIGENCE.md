@@ -111,10 +111,24 @@ The platform implements vendor-aware compilation engines rather than treating al
 - **POU Extensions**: `.TcPOU` (XML wrapping ST logic), `.TcDUT` (Data Unit Types / structs / enums), `.TcGVL` (Global Variable Lists).
 - **Fieldbus & Protocol**: Native EtherCAT master, ADS (Automation Device Specification) client/server message router.
 
-### 3.4 CODESYS v3.5 & Schneider Electric
-- **Platform**: CODESYS Development System, Schneider EcoStruxure Machine Expert.
-- **Standard**: Complete implementation of IEC 61131-3 3rd Edition.
-- **Variables**: Located memory (`%IX0.0`, `%QX0.0`, `%MW100`) and unlocated symbolic variables.
+### 3.4 CODESYS v3.5 & Schneider Electric EcoStruxure
+- **Platform**: CODESYS Development System v3.5, Schneider Electric EcoStruxure Machine Expert, Bosch Rexroth IndraLogic, WAGO e!COCKPIT, Festo Automation Suite.
+- **Standard**: Complete implementation of IEC 61131-3 3rd Edition with full Object-Oriented Programming (OOP) extensions.
+- **Language Features**:
+  - `FUNCTION_BLOCK FB_Name EXTENDS FB_Base IMPLEMENTS I_ControlInterface`
+  - Encapsulated methods (`METHOD`), properties with getter/setter (`PROPERTY`), and reference validation (`__ISVALIDREF()`).
+  - Pragma attributes: `{attribute 'qualified_only'}`, `{attribute 'monitoring' := 'call'}`, `{attribute 'persistent'}`.
+  - Persistent variables in `VAR_STAT` blocks for cycle tracking across warm/cold restarts without battery backup.
+  - Native integration of 2oo3 TMR voting, discrete state-space dynamics, and ISA-18.2 multi-tiered alarm handling.
+
+### 3.5 Sequential Function Chart (SFC / Grafcet — IEC 61131-3 Part 6)
+- **Standard**: IEC 61131-3 Part 6 Sequential Function Chart (SFC).
+- **Architecture**:
+  - **Steps**: Discrete machine operational phases (e.g. `S01_PRE_RINSE`, `S02_NAOH_WASH`, `S06_SIP_STEAM`, `S09_PRODUCTION`).
+  - **Action Qualifiers**: `N` (Non-stored / while step active), `P` (Pulse / execute once on step entry/exit), `S` (Set latch), `R` (Reset latch), `L` (Time-limited), `D` (Time-delayed).
+  - **Transitions**: Deterministic Boolean gating logic advancing active step indices without race conditions.
+  - **Watchdog Timers**: Step dwell timers (`tonStepTimeout: TON`) enforcing maximum phase durations to trip safety cutoffs upon stall.
+  - **Textual Portable Representation**: Standardized Structured Text state-machine encoding using integer `CASE eState OF` patterns with entry pulse detection (`bStateChanged`) and safe fallback arms.
 
 ---
 

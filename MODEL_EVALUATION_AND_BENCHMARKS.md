@@ -159,14 +159,16 @@ To scientifically validate performance gains, the platform runs matched-pair A/B
 
 ## 5. Automated Evaluation Runner
 
-The evaluation runner (`evaluate/run_benchmark.py` and `platform/evaluate/comparative_benchmark.py`) automates:
-1. Ingestion of the 31 held-out items.
-2. Concurrent querying of the target model configurations via OpenAI-compatible endpoints (vLLM / Ollama).
+The evaluation runner (`plc_platform/evaluate/runner.py`, `plc_platform/finetune/evaluate_finetuned.py`, and `scripts/evaluate_authenticity.py`) automates:
+1. Ingestion of the 31 held-out items across Automotive, SMT, Heavy Machinery, Plastics, Food/Beverage, and Steelmaking sectors.
+2. Concurrent querying of the target model configurations via local GPU inference or deterministic evaluation stubs.
 3. Automated multi-gate verification:
    - `validate_iec.check_parity(content)`
    - `validate_domain.classify_dataset(fb_name, content)`
    - `validate_semantic.validate_semantic_st(content)`
    - `hallucination_detector.detect_hallucinations(content)`
-4. Generation of JSON audit logs and Markdown executive scorecards.
+   - Z3 SMT formal proving of safety invariants (`smt_verifier.py`)
+4. Real-time REST API invocation via `GET /benchmarks?limit=N` in `plc_platform/api/app.py`.
+5. Generation of JSON audit logs and Markdown executive scorecards with composite score weighting ($0.30\times\text{IEC-PR} + 0.20\times\text{DCA} + 0.20\times\text{HR} + 0.15\times\text{VDCS} + 0.15\times\text{ESCS}$).
 
 Any model that does not achieve IEC-PR $\ge 98\%$, DCA $\ge 95\%$, and HR $< 2\%$ is blocked from production deployment.

@@ -60,3 +60,36 @@ class StandardsPromptAugmenter:
 
         context_lines.append("<!-- END INDUSTRIAL STANDARDS CONTEXT -->")
         return "\n".join(context_lines)
+
+    def build_prompt(
+        self,
+        base_prompt: str,
+        docs: Optional[List[RetrievedStandardChunk]] = None
+    ) -> str:
+        """Compatibility wrapper for prompt augmentation with pre-retrieved docs."""
+        if not docs:
+            return self.augment_prompt(base_prompt, query=base_prompt)
+        context_lines = [
+            base_prompt,
+            "",
+            "<!-- INDUSTRIAL STANDARDS & OEM SPECIFICATION CONTEXT (RAG INJECTED) -->",
+            "> [!NOTE] Industrial standards and OEM guidelines retrieved for this engineering task:"
+        ]
+        for i, c in enumerate(docs, 1):
+            context_lines.extend([
+                f"### Standard Reference [{i}]: {c.title} ({c.standard_name})",
+                f"- **Vendor / Sector Scope**: Vendor: {c.vendor} | Sector: {c.sector} | Category: {c.category}",
+                f"- **RRF Relevance Score**: {c.score}",
+                "```text",
+                c.content,
+                "```",
+                ""
+            ])
+        context_lines.append("<!-- END INDUSTRIAL STANDARDS CONTEXT -->")
+        return "\n".join(context_lines)
+
+
+# Compatibility alias
+PromptAugmenter = StandardsPromptAugmenter
+
+__all__ = ["StandardsPromptAugmenter", "PromptAugmenter"]

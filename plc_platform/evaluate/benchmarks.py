@@ -29,6 +29,10 @@ class BenchmarkItem:
     safety_invariants: List[str]
     hardware_config: Dict[str, str] = field(default_factory=dict)
 
+    @property
+    def id(self) -> str:
+        return self.bench_id
+
 
 class BenchmarkSuite:
     """Provides access to the 31 held-out industrial benchmarks."""
@@ -372,3 +376,8 @@ class BenchmarkSuite:
         ))
 
         return benches
+
+
+BENCHMARK_CATALOG: List[BenchmarkItem] = BenchmarkSuite.get_all_benchmarks()
+
+__all__ = ["BenchmarkItem", "BenchmarkSuite", "BENCHMARK_CATALOG"]

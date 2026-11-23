@@ -243,3 +243,32 @@ gradient_checkpointing: true
 1. **`loss_on_completions_only: true`**: In multi-turn dialogues and long system prompts, calculating loss across the user/system tokens causes the model to memorize the prompts rather than learning code synthesis. Masking user tokens guarantees 100% gradient allocation to the generated code.
 2. **FlashAttention-2**: Eliminates quadratic self-attention memory overhead, allowing full 65k token sequence training within a single 80GB VRAM footprint.
 3. **Deterministic Temperature**: Set $T \in [0.02, 0.10]$ during code generation and evaluation to eliminate stochastic hallucination.
+
+---
+
+## 6. Automated Dataset Admission Quality Gate
+
+Implemented in `plc_platform/datasets/quality_gate.py`, every candidate dataset record undergoes automated deterministic evaluation before admission to the training corpus.
+
+### 6.1 Evaluation Dimensions & Weights
+
+| Dimension | Weight | Metric Criteria |
+|:---|:---:|:---|
+| **1. Structural Completeness** | 25% | `FUNCTION_BLOCK` / `END_FUNCTION_BLOCK` headers, strict `VAR`/`END_VAR` parity, exact `IF`/`END_IF`, `CASE`/`END_CASE`, and `FOR`/`END_FOR` balance |
+| **2. Safety Coverage** | 20% | Emergency Stop variable detection, E-Stop $\rightarrow$ `RETURN` immediate cutoff, 2oo3 TMR voting logic, ISA-18.2 HH/LL alarm tiering |
+| **3. Variable Declaration** | 20% | Ratio of variables declared in `VAR` blocks vs called in logic bodies (excludes IEC types and formal params `IN`, `PT`, `Q`, `ET`) |
+| **4. Physical Units** | 10% | Presence of $\ge 5$ physical unit comments (`[bar]`, `[kN]`, `[ms]`, `[rpm]`, `[°C]`, `[%]`) in declarations |
+| **5. Sector Relevance** | 15% | Keyword density matching commercial manufacturing domains (Automotive, SMT, Heavy Machinery, Plastics, Food/Beverage) |
+| **6. Complexity Tier** | 10% | Presence of state machines (`CASE eState`), discrete state-space matrices ($A, B, C, D$), and MPC quadratic cost terms |
+
+- **Admission Threshold**: $\ge 85.0\%$. Records below threshold are rejected with explicit diagnostic reason tickets.
+
+---
+
+## 7. Implemented QLoRA Fine-Tuning Execution Pipeline
+
+The end-to-end fine-tuning pipeline is implemented in `plc_platform/finetune/`:
+- **`prepare_training_data.py`**: Ingests raw `data/swarm_raw/`, applies 128-permutation MinHash deduplication ($J \ge 0.85$ dropped), executes non-destructive project-based 80/10/10 partitioning, and exports to `train_sharegpt.jsonl`, `val_sharegpt.jsonl`, `test_sharegpt.jsonl`, and `train_alpaca.jsonl` with full provenance manifests.
+- **`qlora_config.py`**: Configuration specification for Qwen2.5-Coder-32B-Instruct: NF4 4-bit quantisation via `bitsandbytes`, LoRA rank $r=64$, $\alpha=128$, SwiGLU projection targets (`q_proj`, `k_proj`, `v_proj`, `o_proj`, `gate_proj`, `up_proj`, `down_proj`), paged AdamW 8-bit, and NEFTune noise injection ($\alpha=5.0$).
+- **`train.py`**: Production training script wrapping Hugging Face PEFT + TRL `SFTTrainer` with sequence packing and gradient checkpointing.
+- **`evaluate_finetuned.py`**: Benchmark runner evaluating fine-tuned checkpoints against the 31-benchmark catalog using the 5 core industrial metrics.

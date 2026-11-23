@@ -53,6 +53,9 @@ class AuditReport:
 class StaticAnalysisAuditor:
     """Agent 4: Independent Deterministic Code Quality & Safety Auditor."""
 
+    def __init__(self, vendor: Optional[str] = None):
+        self.vendor = vendor or "GENERIC"
+
     def audit_package(self, pkg: CandidateCodePackage, min_chars: int = 1000) -> AuditReport:
         """Executes full independent multi-layer static analysis on candidate code."""
         st_code = pkg.structured_text_code

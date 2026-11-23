@@ -33,6 +33,10 @@ class ConfigurationScoreSummary:
     mean_composite: float
 
 
+# Alias for backward-compatibility
+RunnerConfig = ConfigurationScoreSummary
+
+
 @dataclass
 class ComparativeScorecard:
     summaries: Dict[str, ConfigurationScoreSummary]
