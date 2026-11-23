@@ -23,20 +23,26 @@ SECTOR_SYSTEM_CATALOG = {
         ("EV_Busbar_LaserWeld", "Electric Vehicle Battery Pack Cell-to-Pack Laser Busbar Welding"),
         ("GigaCast_4500T_HPDC", "4,500-Ton High Pressure Die Casting Aluminum Chassis Subframe Cell"),
         ("Engine_Dyno_ColdTest", "Automotive Powertrain Cold-Test Dynamometer Friction & Compression Profiler"),
-        ("Chassis_RollerHemming", "Multi-Axis Robotic Roller Hemming for Aluminum Door & Hood Panels")
+        ("Chassis_RollerHemming", "Multi-Axis Robotic Roller Hemming for Aluminum Door & Hood Panels"),
+        ("Motorcycle_TubularFrame_Weld", "Robotic Motorcycle Tubular Frame Jig Clamping & Multi-Pass MIG/MAG Welding Station"),
+        ("Bike_WheelRim_Spoking_Truing", "Automated Two-Wheeler Wheel Rim Robotic Spoking, Lacing & Laser Radial/Lateral Truing Cell"),
+        ("Motorcycle_FuelTank_LeakTest", "Motorcycle Fuel Tank Helium Mass-Spectrometer Sniffing & Submersion Pressure Decay Leak Test Rig"),
+        ("Motorcycle_Dyno_Rollover", "End-of-Line Motorcycle Chassis Dynamometer Brake Force, ABS, Emission & Rollover Test Rig")
     ],
     "heavy_machinery": [
         ("ServoPress_2500T", "2,500-Ton Multi-Axis Servo Stamping Press with Electronic Die Cushion"),
         ("CNC_FiveAxis_GantryMill", "5-Axis Gantry CNC Machining Center with Active Thermal Spindle Compensation"),
         ("GearGrinding_ContinuousWorm", "Continuous Generating Gear Grinding Machine with Dynamic In-Process Balancer"),
         ("ForgePress_15000T", "15,000-Ton Closed-Die Hydraulic Forging Press with Pre-Fill Valve Sequence"),
-        ("DeepHole_GunDrill", "Multi-Spindle Deep Hole Gun Drilling Machine with High-Pressure Coolant AFC")
+        ("DeepHole_GunDrill", "Multi-Spindle Deep Hole Gun Drilling Machine with High-Pressure Coolant AFC"),
+        ("Hardware_LaserBlanking_PressBrake", "Automated Sheet Metal Fiber Laser Blanking & Robotic Press Brake Precision Bending Cell")
     ],
     "electronics": [
         ("SMT_DualGantry_PickPlace", "Dual-Gantry High-Speed SMT Placement Machine (100,000 cph) with Feeder AGC"),
         ("ReflowOven_12Zone_Vacuum", "12-Zone Convection Reflow Soldering Oven with Nitrogen Inerting & Vacuum De-Voiding"),
         ("AOI_3D_MoireInspection", "3D Moire Vision Inspection Conveyor Collation & Sorting Cell"),
-        ("SelectiveSolder_MultiNozzle", "Multi-Nozzle Selective Wave Soldering Unit for High-Reliability PCBA")
+        ("SelectiveSolder_MultiNozzle", "Multi-Nozzle Selective Wave Soldering Unit for High-Reliability PCBA"),
+        ("Electronics_FlyingProbe_ICT", "High-Speed 8-Axis Flying Probe In-Circuit Tester with Kelvin Metrology & Guarded Measurement")
     ],
     "semiconductor": [
         ("WireBond_Thermosonic_HighSpeed", "High-Speed Thermosonic Gold/Copper Wire Bonder with Real-Time EFO Spark Gap"),

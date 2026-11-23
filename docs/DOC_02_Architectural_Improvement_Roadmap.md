@@ -146,10 +146,14 @@ flowchart LR
 ```
 
 #### Gate 1: Domain Triage Engine (`validate_domain.py`)
-- Scans `FUNCTION_BLOCK` identifiers and content tokens against **182 sanctioned keywords** across 7 approved sectors.
-- Strictly rejects any block containing keywords from **85 forbidden terms** across 7 contaminating domains (marine, pharma, defense, oil/gas, power generation, mining, datacenter).
+- Scans `FUNCTION_BLOCK` identifiers and content tokens against **220+ sanctioned keywords** across 7 approved commercial manufacturing sectors, with deep specialization in:
+  * **Automobile Manufacturing Plants**: Car/truck BIW spot welding, high-speed rotary bell atomizers, EV cell-to-pack busbar laser welding, powertrain engine dyno cold testing, roller hemming, chassis marrying.
+  * **Bike & Motorcycle Manufacturing Plants**: Motorcycle tubular frame robotic jig welding, automated wheel rim spoking & laser truing, fuel tank helium leak testing, powertrain transmission dyno, electrostatic powder coating lines, chassis dynamometer rollover testing.
+  * **Big Hardware & Stamping Plants**: 2,500-ton servo stamping presses, electronic die cushions, 5-axis CNC gantry mills with active thermal compensation, continuous gear grinding, 15,000-ton hydraulic forging presses, automated sheet metal laser blanking & robotic press brakes.
+  * **Electronics & Semiconductor Hardware Plants**: Dual-gantry high-speed SMT pick-and-place lines (100,000+ cph), 12-zone reflow ovens with vacuum de-voiding, 3D Moiré AOI inspection, high-speed thermosonic wire bonding, flip-chip underfill dispensing.
+- Strictly rejects any block containing contaminating terms across 7 forbidden domains (marine, pharma, defense, oil/gas, power generation, mining, datacenter).
+- Disambiguates plant equipment false positives (e.g., `MarineVessel` prevents industrial autoclave pressure vessels from being rejected; `PharmaCleanSteam` preserves food & beverage clean steam SIP loops; `BallisticMissile` prevents industrial impact testers from being flagged).
 - Employs regex token normalization (`re.sub(r'[_]+', ' ', text)`) to prevent snake_case underscore boundary false-negatives.
-- Features disambiguated keyword matching (e.g., negative lookahead `ABS(?!\\s*\\()` preventing the IEC standard absolute value function from colliding with ABS plastic).
 
 #### Gate 2: Structural Syntax Parity Validator (`validate_iec.py`)
 - Dual-layer markdown code fence unwrapping (handles ````iec-st ... ````, generic ```` ``` ````, and padded whitespace).
@@ -164,12 +168,14 @@ flowchart LR
 - **MPC Prediction Horizon Unroll**: Extracts horizon constant $N$, verifies $N \ge 10$, and audits unrolled loop iterations.
 - **2oo3 TMR Majority Voter**: Verifies Two-out-of-Three sensor voting logic and discrepancy timers (`TON`).
 
-#### Gate 4: Size Gating & Segmentation Engine (`size_gate.py`)
-- Classifies datasets into 4 distinct categories:
-  - `stub`: $< 100,000$ characters (quarantined)
-  - `standard`: $100,000$ – $350,000$ characters (optimal SFT context)
-  - `extended`: $350,001$ – $700,000$ characters (deep multi-subsystem controllers)
-  - `ultra_dense`: $> 700,000$ characters (mandatory segmentation)
+#### Gate 4: Size Gating & High-Context Training Architecture (`size_gate.py`)
+- Classifies datasets into 4 distinct categories while preserving all high-value code:
+  - `stub`: $< 3,500$ characters (quarantined incomplete fragments)
+  - `compact`: $3,500$ – $35,000$ characters (rapid-convergence SFT controllers)
+  - `standard`: $35,001$ – $150,000$ characters (workhorse cyber-physical Function Blocks)
+  - `extended / high_context`: $150,001$ – $700,000$ characters (ultra-deep multi-subsystem controllers)
+  - `ultra_dense`: $> 700,000$ characters (segmented or trained on native 128k context windows)
+- **Customer Alignment**: Fully preserves and validates large high-token/high-context datasets for foundation model fine-tuning with FlashAttention-2 and RoPE context scaling.
 - **Logical Segmentation Algorithm**: Scans ultra-dense text for semantic phase boundaries (`PHASE_BOUNDARY_PATTERNS`), splitting files into $\sim 280,000$-character chunks with bidirectional continuation headers (`(* CONTINUATION FROM SEGMENT X *)`).
 
 ---

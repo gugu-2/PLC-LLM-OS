@@ -82,6 +82,29 @@ Transforms the model into an interactive technical support agent and consultativ
 }
 ```
 
+### 2.4 Concrete Customer Example: Motorcycle Factory Robotic Frame Welding & Jig Clamping Dialogue
+```json
+{
+  "id": "dialogue_qa_bike_frame_welding_91dc38a4",
+  "dataset_type": "type_1_dialogue_qa",
+  "topic": "Motorcycle_Frame_RoboticWeld_Thermal_Compensation",
+  "sector": "automotive",
+  "subsector": "bike_motorcycle_manufacturing",
+  "system": "Robotic Motorcycle Tubular Frame Jig & Multi-Pass MIG Station",
+  "schema_version": "2.0",
+  "messages": [
+    {
+      "role": "user",
+      "content": "In our motorcycle assembly plant, we are experiencing steering head tube distortion and angle variance (>0.35 deg) on our tubular chrome-moly bike frame line after robotic MIG welding. How should our PLC coordinator sequence the hydraulic clamping cylinders and torch progression to prevent frame warping?"
+    },
+    {
+      "role": "assistant",
+      "content": "Steering head angle tolerance on a high-speed motorcycle chassis must remain within $\\pm 0.10^\\circ$ to guarantee directional high-speed stability and prevent dangerous tank-slapper oscillations. Chrome-moly (25CrMo4) tubing experiences intense asymmetric thermal contraction when welded sequentially in a fixed rigid clamp.\n\n### 1. Root Cause of Frame Distortion\nWhen steering head tube seams are welded continuously from top to bottom, the heat-affected zone (HAZ) creates a progressive thermal moment about the chassis centerline. Rigid hydraulic clamping without thermal stress-relief sequencing traps tensile stresses up to $420\\text{ MPa}$. Upon hydraulic clamp de-energization, elastic spring-back pulls the steering head angle out of specification.\n\n### 2. Cyber-Physical Sequence Architecture\nTo eliminate frame distortion, the PLC must execute a **Symmetric Staggered Sequence with Adaptive Force-Controlled Clamping**:\n\n```mermaid\nflowchart TD\n    A[Clamp Engagement: Hydraulic Proportional Pressure 120 bar] --> B[Symmetric Tack Welding: 4-Point Opposed Micro-Tacks]\n    B --> C[Pass 1: Left Gusset Seam 50% Travel]\n    C --> D[Pass 2: Right Gusset Seam 50% Travel - Heat Balancing]\n    D --> E[Hydraulic Clamp Relieve to 35 bar Floating Holding State]\n    E --> F[Pass 3 & 4: Opposed Interrupted Bead Completion]\n    F --> G[Controlled Post-Weld Nitrogen Quench & Clamp Release]\n```\n\n### 3. Structured Text FSM Implementation\n```iec-st\n(* Motorcycle Frame Welding Jig Proportional Clamp State Control *)\nCASE eWeldSequence OF\n    WELD_SEQ_INITIAL_CLAMP:\n        r_HydraulicClamp_PressureSP := 120.0; (* Rigid lock for tacking [bar] *)\n        IF b_AllJigProximitySensors_OK AND (r_HydraulicClamp_ActualPressure >= 115.0) THEN\n            b_RobotWeld_Permissive := TRUE;\n            eWeldSequence := WELD_SEQ_OPPOSED_TACKING;\n        END_IF;\n\n    WELD_SEQ_THERMAL_FLOAT:\n        (* Relieve hydraulic clamping during main root pass to allow axial thermal expansion *)\n        r_HydraulicClamp_PressureSP := 35.0;  (* Floating retention pressure [bar] *)\n        IF (r_HeadTube_PyrometerTemp >= 380.0) THEN\n            (* Compensate weld travel speed dynamically based on heat buildup *)\n            r_RobotTravelSpeed_Setpoint := 8.5; (* Speed up travel [mm/s] to restrict heat input *)\n        END_IF;\nEND_CASE;\n```\nThis sequence reduces angular distortion below $\\pm 0.08^\\circ$ consistently across two-wheeler production shifts."
+    }
+  ]
+}
+```
+
 ---
 
 ## 3. Dataset Type 2: Code Debugging & Fault Diagnosis Chains

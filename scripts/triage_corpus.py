@@ -96,8 +96,8 @@ def run_triage(
             })
             continue
 
-        # Stage 4 check early: Size Gate (Stub)
-        if char_count < size_gate.STUB_THRESHOLD:
+        # Stage 4 check: True Stub Size (< 3500 chars is an incomplete stub)
+        if char_count < size_gate.MIN_VALID_FB_CHARS:
             triage_results["quarantined_stub_size"].append({
                 "file": fp.name,
                 "fb_name": fb_name,

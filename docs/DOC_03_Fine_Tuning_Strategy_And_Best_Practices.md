@@ -202,6 +202,29 @@ $$M_\text{total} = M_\text{weights (4-bit)} + M_\text{adapters (BF16)} + M_\text
 
 ---
 
+### 4.3 High-Context & High-Token Training Architecture (32k – 131k Contexts)
+
+#### Customer Training Mandate
+The user has intentionally retained historical datasets with high token/character footprints (100,000 to 700,000+ characters, equating to 30,000 to 220,000 tokens) to capture massive cyber-physical controllers with exhaustive state matrices, full 2oo3 TMR voting logic, and deep FSM sequences. The fine-tuning pipeline is explicitly configured to ingest these datasets intact.
+
+#### Technical Execution for High-Token Datasets
+1. **Native Context & YaRN RoPE Scaling**:
+   - Qwen2.5-Coder-32B natively supports 32,768 tokens.
+   - For datasets between 32k and 131k tokens, apply **YaRN (Yet another RoPE extensioN)** scaling in the training YAML:
+     ```yaml
+     rope_scaling:
+       type: yarn
+       factor: 4.0
+       original_max_position_embeddings: 32768
+     ```
+2. **FlashAttention-2 & Memory Budgeting**:
+   - Quadratic self-attention memory is eliminated by FlashAttention-2 tiling.
+   - With `gradient_checkpointing: true` and activation offloading, a 65,536 sequence length consumes $\sim 36$ GB VRAM on an 80GB A100/H100, fully accommodating even 200,000-character single-turn controllers without truncation.
+3. **Sequence Parallelism (DeepSpeed ZeRO-3 / Megatron)**:
+   - For extreme datasets ($>500,000$ characters, $\sim 150\text{k}+$ tokens), use sequence parallelism across 2 or 4 GPUs, splitting the sequence dimension across devices while computing exact attention.
+
+---
+
 ## 5. Production Configuration Files
 
 ### 5.1 Axolotl Production YAML Configuration (`axolotl_lumina_sft.yaml`)

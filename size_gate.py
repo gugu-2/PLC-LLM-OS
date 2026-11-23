@@ -20,9 +20,10 @@ import argparse
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
-STUB_THRESHOLD = 100_000
-EXTENDED_THRESHOLD = 350_000
-ULTRA_DENSE_THRESHOLD = 700_000
+MIN_VALID_FB_CHARS = 3500     # Minimum characters for a syntactically valid Function Block
+STUB_THRESHOLD = 100_000       # Compact threshold boundary
+EXTENDED_THRESHOLD = 350_000   # Standard vs Extended boundary
+ULTRA_DENSE_THRESHOLD = 700_000 # Ultra-dense boundary (>225k tokens)
 SEGMENT_SIZE_TARGET = 280_000  # Chars per chunk (~90k tokens)
 
 PHASE_BOUNDARY_PATTERNS = [

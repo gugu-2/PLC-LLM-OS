@@ -717,6 +717,16 @@ def generate_streaming(self, user_prompt: str) -> str:
     return full_response
 ```
 
+### Deployment Architecture for Commercial Manufacturing Factories
+
+For deployment into paying customer plants (Automobile, Bike & Motorcycle Assembly, Heavy Hardware Stamping, Electronics SMT):
+1. **On-Premise Air-Gapped Edge Appliance**:
+   - Industrial plants strictly prohibit cloud transmission of proprietary automation logic. Deploy as an on-premise rackmount appliance (e.g., 2× NVIDIA RTX 6000 Ada or 1× A100 80GB) running containerized vLLM.
+   - Connects directly to the plant OT network via segregated VLAN with read-only OPC UA / TwinCAT ADS / Rockwell CIP gateways.
+2. **Deterministic Response Profiles**:
+   - Provide low-latency code assistance (<2.5s for diagnostic queries; <12s for full Function Block emission) directly into engineering workstations.
+   - Support integration with Rockwell Studio 5000 (L5X export), Siemens TIA Portal (Openness XML), and Beckhoff TwinCAT 3 (PLCopen XML).
+
 ---
 
 ## Part 5: Production Monitoring

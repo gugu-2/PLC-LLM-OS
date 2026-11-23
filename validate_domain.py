@@ -30,13 +30,18 @@ SANCTIONED_SECTORS = {
         "DynoTest", "GigaCast", "HPDC", "EV", "Battery", "Hairpin",
         "TruckFrame", "MIG", "TIG", "SeamWeld", "GlassEncapsulation",
         "DoorHinge", "Powertrain", "Transmission", "Differential", "Axle",
-        "Chassis", "Stator", "Rotor", "CellToPack", "Busbar"
+        "Chassis", "Stator", "Rotor", "CellToPack", "Busbar",
+        "Motorcycle", "Bike", "TwoWheeler", "TubularFrame", "FrameWelding",
+        "ChassisJig", "RimSpoking", "RimTruing", "WheelLacing", "TankLeakTest",
+        "HeliumSniff", "RolloverDyno", "DynoRollover", "PowderCoat", "ElectrostaticCoat",
+        "HandlebarTorque", "Swingarm", "TripleClamp", "MotorcycleDyno", "BrakeTester"
     ],
     "electronics": [
         "Electronics", "SMT", "PickPlace", "Reflow", "ReflowOven", "SolderPaste", "AOI",
         "AXI", "ScreenPrinter", "StagingConveyor", "WaveSolder", "SelectiveSolder",
         "ComponentPlacement", "Feeder", "NozzleChanger", "PCBA", "InspectionVision",
-        "MoireAOI", "TapeAndReel"
+        "MoireAOI", "TapeAndReel", "HardwareAssembly", "SurfaceMount", "SolderJet",
+        "ConformalCoating", "InCircuitTest", "ICT_Tester", "FlyingProbe"
     ],
     "semiconductor": [
         "Semiconductor", "WireBond", "DieBond", "DieAttach", "FOWLP", "Fan_Out", "WaferLevel",
@@ -49,7 +54,8 @@ SANCTIONED_SECTORS = {
         "ForgePress", "Forging", "GearGrinding", "HobMachine", "Hobbing", "Broach",
         "Broaching", "CNC", "MachiningCenter", "FiveAxis", "5Axis", "GantryMill",
         "DeepHole", "GunDrill", "Honing", "Lapping", "JigBore", "CoordinateMeasure",
-        "DieCasting", "ColdForging", "HotForging"
+        "DieCasting", "ColdForging", "HotForging", "HardwarePlant", "SheetMetal",
+        "LaserBlanking", "PressBrake", "BendingCell", "TurretPunch", "MultiAxisPress", "DieCushion"
     ],
     "plastics": [
         "Plastics", "Polymer", "InjectionMolding", "IMMC", "CavityPressure", "VtoP", "HotRunner",
@@ -75,18 +81,18 @@ SANCTIONED_SECTORS = {
 
 FORBIDDEN_DOMAINS = {
     "marine": [
-        "Sonar", "Submarine", "Vessel", "Ship", "Hull", "Propulsion",
+        "Sonar", "Submarine", "MarineVessel", "NavalVessel", "CargoShip", "Ship", "Hull", "MarinePropulsion",
         "BallastWater", "Bilge", "SeaWater", "Offshore", "Marine",
         "Subsea", "ROV", "AUV", "FPSO", "Mooring", "Anchor", "Maritime"
     ],
     "pharmaceutical": [
         "Pharma", "Pharmaceutical", "Lyophilizer", "Lyophilization", "Bioreactor", "Fermenter",
         "ChromatographyColumn", "VialFiller_Pharma", "SyringeFiller",
-        "PharmaCleanroom", "ActivePharmaceutical", "WFI_Loop", "CleanSteam"
+        "PharmaCleanroom", "ActivePharmaceutical", "WFI_Loop", "PharmaCleanSteam"
     ],
     "defense": [
         "Defense", "Military", "Weapon", "Missile", "Torpedo", "RadarSystem", "Sonar_Defense",
-        "Munition", "Artillery", "Warhead", "Ballistic", "DefenseSystem",
+        "Munition", "Artillery", "Warhead", "BallisticMissile", "BallisticArmor", "DefenseSystem",
         "MilitarySpec", "ITAR"
     ],
     "oil_gas": [
